@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 预设主题变量定义 */
+:root[data-theme="obsidian"] {
+  --bg-primary: #0a0a0c;
+  --bg-secondary: #121318;
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.5);
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --accent-color: #8b5cf6;
+  --accent-light: rgba(139, 92, 246, 0.15);
+  --accent-border: rgba(139, 92, 246, 0.3);
+}
+
+:root[data-theme="latte"] {
+  --bg-primary: #f7f4ef;
+  --bg-secondary: #efece6;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(220, 215, 205, 0.6);
+  --glass-shadow: rgba(180, 170, 155, 0.15);
+  --text-main: #2d2a26;
+  --text-muted: #78716c;
+  --accent-color: #c2410c;
+  --accent-light: rgba(194, 65, 12, 0.1);
+  --accent-border: rgba(194, 65, 12, 0.25);
+}
+
+:root[data-theme="cyber-velvet"] {
+  --bg-primary: #0f0b18;
+  --bg-secondary: #191228;
+  --glass-bg: rgba(147, 51, 234, 0.06);
+  --glass-border: rgba(192, 132, 252, 0.15);
+  --glass-shadow: rgba(0, 0, 0, 0.6);
+  --text-main: #fae8ff;
+  --text-muted: #c084fc;
+  --accent-color: #ec4899;
+  --accent-light: rgba(236, 72, 153, 0.18);
+  --accent-border: rgba(236, 72, 153, 0.35);
+}
+
+:root[data-theme="nordic-frost"] {
+  --bg-primary: #f0f4f8;
+  --bg-secondary: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(203, 213, 225, 0.7);
+  --glass-shadow: rgba(148, 163, 184, 0.12);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --accent-color: #0284c7;
+  --accent-light: rgba(2, 132, 199, 0.1);
+  --accent-border: rgba(2, 132, 199, 0.25);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  transition: background-color 0.4s ease, color 0.4s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* 玻璃拟态基础样式类 */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px 0 var(--glass-shadow);
+}
