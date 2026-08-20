@@ -1,175 +1,229 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Luggage, User, Sparkles, X, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Luggage, User, ChevronRight, ArrowLeft, X } from 'lucide-react';
 
 export const PassportModal = ({ isOpen, onClose, character, onNext }) => {
+  const [step, setStep] = useState(1); // Step 1: Companion | Step 2: User
+
+  // 伴侣护照自定项
+  const [companionIssuing, setCompanionIssuing] = useState('伴侣专属角色库签发处');
+  const [companionPersonality, setCompanionPersonality] = useState('');
+
+  // User 护照自定项
+  const [userPassportName, setUserPassportName] = useState('User');
   const [userPersona, setUserPersona] = useState('');
   const [luggageNotes, setLuggageNotes] = useState('');
   const [durationHours, setDurationHours] = useState(12);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleCompletePassport = (e) => {
     e.preventDefault();
     onNext({
-      userPersona: userPersona.trim() || '喜欢慢节奏漫步与随性摄影的旅人。',
-      luggageNotes: luggageNotes.trim() || '随身胶片相机、复古手帳本、舒服的走鞋。',
+      companionIssuing,
+      companionPersonality: companionPersonality.trim() || '随性浪漫且专注倾听的同游伴侣',
+      userPassportName: userPassportName.trim() || 'User',
+      userPersona: userPersona.trim() || '喜爱慢节奏踩水、街角咖啡馆与胶片摄影的旅人。',
+      luggageNotes: luggageNotes.trim() || '随身胶片相机、手帳本、舒服的走鞋。',
       durationHours: Number(durationHours)
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-black/40">
       <div 
-        className="w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
-        style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-main)' }}
+        className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+        style={{ backgroundColor: 'var(--modal-bg)', border: '1px solid var(--modal-border)', color: 'var(--text-main)' }}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--card-border)' }}>
+        <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--divider)' }}>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-amber-500" />
-            <h2 className="text-lg font-bold">旅行护照与漫游行囊签发</h2>
+            <ShieldCheck className="w-5 h-5" style={{ color: 'var(--text-main)' }} />
+            <h2 className="text-base font-bold font-serif">
+              {step === 1 ? '步骤 1/2：伴侣旅行护照' : '步骤 2/2：User 旅行护照'}
+            </h2>
           </div>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-neutral-500/10">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-1.5 rounded-full hover:opacity-70">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* 双护照卡片展示 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 伴侣拟真护照 (只读) */}
+        {/* 步骤 1：伴侣护照 */}
+        {step === 1 && (
+          <div className="p-6 overflow-y-auto space-y-5 flex-1">
             <div 
-              className="p-5 rounded-2xl border relative overflow-hidden flex flex-col justify-between"
-              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
+              className="p-4 rounded-2xl border text-xs space-y-1"
+              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-sub)' }}
             >
-              <div className="absolute -right-6 -bottom-6 opacity-10 pointer-events-none">
-                <ShieldCheck className="w-32 h-32" />
+              <div className="font-bold" style={{ color: 'var(--text-main)' }}>数据来源说明</div>
+              <div>本护照已调取【角色库】中的全量背景、性格与设定信息，不涉及任何聊天记录。</div>
+            </div>
+
+            {/* 伴侣 ID 页面 */}
+            <div 
+              className="p-5 rounded-2xl border space-y-4 shadow-inner"
+              style={{ background: 'var(--card-bg-gradient)', borderColor: 'var(--card-border)' }}
+            >
+              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--divider)' }}>
+                <span className="text-[10px] font-mono tracking-widest font-bold uppercase" style={{ color: 'var(--text-muted)' }}>
+                  COMPANION DUAL-TRAVEL PASSPORT
+                </span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                  PASSPORT NO: P-{character?.id || '01'}
+                </span>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-mono tracking-widest uppercase text-amber-600 dark:text-amber-400 font-bold">
-                    PILOT PASSPORT
-                  </span>
-                  <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                    PASSPORT NO: P-{character?.id || 0}992
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 mb-3">
-                  <img 
-                    src={character?.avatar} 
-                    alt={character?.name} 
-                    className="w-14 h-14 rounded-xl object-cover border-2 border-amber-500/30"
-                  />
-                  <div>
-                    <h4 className="font-bold text-base">{character?.name || '伴侣'}</h4>
-                    <p className="text-xs line-clamp-1" style={{ color: 'var(--text-muted)' }}>
-                      {character?.bio || '专管浪漫与偏爱'}
-                    </p>
+
+              <div className="flex items-center gap-4">
+                {character?.avatar ? (
+                  <img src={character.avatar} alt={character.name} className="w-16 h-16 rounded-2xl object-cover border" style={{ borderColor: 'var(--card-border)' }} />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-xl border" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+                    {character?.name?.[0]}
                   </div>
+                )}
+                <div className="space-y-1 text-xs">
+                  <div className="text-base font-bold font-serif">{character?.name || '伴侣'}</div>
+                  <div className="opacity-70" style={{ color: 'var(--text-sub)' }}>{character?.bio || '伴侣人设简介'}</div>
+                  {character?.handle && <div className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>@{character.handle}</div>}
                 </div>
               </div>
-              <div className="pt-3 border-t text-[11px] space-y-1" style={{ borderColor: 'var(--card-border)', color: 'var(--text-muted)' }}>
-                <div>签发地：伴侣专属角色库</div>
-                <div>旅途性格：{character?.extraNotes ? character.extraNotes.slice(0, 20) + '...' : '自由浪漫的旅伴'}</div>
+
+              <div className="pt-2 text-xs space-y-1" style={{ color: 'var(--text-sub)' }}>
+                {character?.extraNotes && <div>人设细节：{character.extraNotes}</div>}
               </div>
             </div>
 
-            {/* User 拟真护照 (自定) */}
-            <div 
-              className="p-5 rounded-2xl border relative overflow-hidden flex flex-col justify-between"
-              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
-            >
+            {/* 自定项 */}
+            <div className="space-y-3 text-xs">
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-mono tracking-widest uppercase text-emerald-600 dark:text-emerald-400 font-bold">
-                    TRAVELER PASSPORT
-                  </span>
-                  <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                    USER IDENT
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-emerald-500" />
-                  <span className="font-bold text-sm">我的专属旅途人设</span>
-                </div>
-                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                  本次旅行专属行囊设定 (不依赖历史旧人设)
-                </p>
+                <label className="block font-semibold mb-1">伴侣护照签发地文案</label>
+                <input
+                  type="text"
+                  value={companionIssuing}
+                  onChange={(e) => setCompanionIssuing(e.target.value)}
+                  className="w-full p-3 rounded-xl border focus:outline-none"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
               </div>
-              <div className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
-                READY FOR TAKE-OFF
+              <div>
+                <label className="block font-semibold mb-1">本次同游伴侣性格微调</label>
+                <input
+                  type="text"
+                  value={companionPersonality}
+                  onChange={(e) => setCompanionPersonality(e.target.value)}
+                  placeholder="例如：专为你拍照的温柔摄影师 / 随性自由的漫步者"
+                  className="w-full p-3 rounded-xl border focus:outline-none"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
               </div>
             </div>
-          </div>
 
-          {/* 表单输入：人设与行囊 */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5">
-                独立旅途人设 / 心情偏好
-              </label>
-              <textarea
-                value={userPersona}
-                onChange={(e) => setUserPersona(e.target.value)}
-                placeholder="填写本次旅行的人设，例如：极度喜爱猫咪咖啡馆、喜欢慢节奏踩水摄影…"
-                className="w-full p-3 rounded-xl text-sm border focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none h-20"
-                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold mb-1.5 flex items-center gap-1.5">
-                <Luggage className="w-3.5 h-3.5 text-amber-500" />
-                <span>随身行囊清单</span>
-              </label>
-              <input
-                type="text"
-                value={luggageNotes}
-                onChange={(e) => setLuggageNotes(e.target.value)}
-                placeholder="例如：胶片相机、雨伞、拍立得、无糖拿铁..."
-                className="w-full p-3 rounded-xl text-sm border focus:outline-none focus:ring-1 focus:ring-amber-500"
-                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold mb-1.5">
-                托管旅行时间跨度 (12 小时起步)
-              </label>
-              <select
-                value={durationHours}
-                onChange={(e) => setDurationHours(e.target.value)}
-                className="w-full p-3 rounded-xl text-sm border focus:outline-none focus:ring-1 focus:ring-amber-500"
-                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            <div className="pt-3 border-t flex justify-end" style={{ borderColor: 'var(--divider)' }}>
+              <button
+                onClick={() => setStep(2)}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+                style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
               >
-                <option value={12}>12 小时 (精致短途漫游)</option>
-                <option value={24}>24 小时 (一日沉浸游历)</option>
-                <option value={48}>48 小时 (双日深度探索)</option>
-              </select>
+                <span>下一步：签发 User 护照</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
+        )}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t" style={{ borderColor: 'var(--card-border)' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-neutral-500/10"
-              style={{ color: 'var(--text-muted)' }}
+        {/* 步骤 2：User 护照 */}
+        {step === 2 && (
+          <form onSubmit={handleCompletePassport} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+            <div 
+              className="p-4 rounded-2xl border text-xs space-y-1"
+              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-sub)' }}
             >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-amber-500 text-white hover:bg-amber-600 flex items-center gap-1.5 shadow-md"
-            >
-              <span>下一步：选择目的地</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
+              <div className="font-bold" style={{ color: 'var(--text-main)' }}>User 专属设定说明</div>
+              <div>以下内容为本次旅程的独立人设与行囊，全新填写，不会读取过去保存的旧人设。</div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block font-semibold mb-1 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5" />
+                  <span>User 本次旅行护照名称</span>
+                </label>
+                <input
+                  type="text"
+                  value={userPassportName}
+                  onChange={(e) => setUserPassportName(e.target.value)}
+                  placeholder="填写你的护照称呼"
+                  className="w-full p-3 rounded-xl border focus:outline-none"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">User 本次旅行完整人设 & 期待陪伴方式</label>
+                <textarea
+                  value={userPersona}
+                  onChange={(e) => setUserPersona(e.target.value)}
+                  placeholder="填写你的旅行性格，如：喜欢慢节奏散步、喜欢逛旧书店、希望伴侣在遇到漂亮风景时随时提醒我..."
+                  className="w-full p-3 rounded-xl border focus:outline-none resize-none h-20"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 flex items-center gap-1">
+                  <Luggage className="w-3.5 h-3.5" />
+                  <span>User 的随身行囊清单</span>
+                </label>
+                <input
+                  type="text"
+                  value={luggageNotes}
+                  onChange={(e) => setLuggageNotes(e.target.value)}
+                  placeholder="例如：胶片相机、雨伞、拍立得、无糖拿铁..."
+                  className="w-full p-3 rounded-xl border focus:outline-none"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">托管旅行时间跨度 (最低 12 小时)</label>
+                <select
+                  value={durationHours}
+                  onChange={(e) => setDurationHours(e.target.value)}
+                  className="w-full p-3 rounded-xl border focus:outline-none"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                >
+                  <option value={12}>12 小时 (精致短途同游)</option>
+                  <option value={24}>24 小时 (一日沉浸游历)</option>
+                  <option value={48}>48 小时 (双日深度探索)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--divider)' }}>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="px-4 py-2 rounded-xl border flex items-center gap-1 hover:opacity-70"
+                style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>返回伴侣护照</span>
+              </button>
+
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+                style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+              >
+                <span>核准护照 · 去选机票</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
 };
 
 export default PassportModal;
+
