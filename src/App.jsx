@@ -6,6 +6,7 @@ import PinnedGallery from './apps/hub/PinnedGallery';
 import QuickBoard from './apps/hub/QuickBoard';
 import AppGrid from './apps/hub/AppGrid';
 import SettingsPage from './apps/settings/SettingsPage';
+import MessagesApp from './apps/messages/MessagesApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 
 export const App = () => {
@@ -120,7 +121,13 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings'].includes(currentApp) && (
+        {currentApp === 'messages' && (
+          <ErrorBoundary>
+            <MessagesApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {!['hub', 'settings', 'messages'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
@@ -149,8 +156,6 @@ export const App = () => {
             </section>
           </ErrorBoundary>
         )}
-
-        
       </main>
     </ErrorBoundary>
   );
