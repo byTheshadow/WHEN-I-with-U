@@ -12,13 +12,19 @@ body,
   min-height: 100%;
   margin: 0;
   background: var(--bg-main);
+  color: var(--text-main);
+}
+
+html {
+  min-height: 100%;
+  background-color: var(--bg-main);
 }
 
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  color: var(--page-text-main);
   background-color: var(--bg-main);
+  color: var(--text-main);
   font-family:
     Inter,
     "SF Pro Display",
@@ -28,9 +34,20 @@ body {
     "Helvetica Neue",
     Arial,
     sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition:
-    background-color 420ms ease,
-    color 420ms ease;
+    background-color 380ms ease,
+    color 260ms ease;
+}
+
+#root {
+  isolation: isolate;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 button,
@@ -44,11 +61,23 @@ button {
   color: inherit;
 }
 
-* {
-  box-sizing: border-box;
+button,
+label {
+  -webkit-tap-highlight-color: transparent;
 }
 
-::selection {
-  color: #ffffff;
-  background: #111111;
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* 系统在深色模式时不应篡改白色默认主题下的表单控件 */
+:root[data-theme="mono-mist"],
+:root[data-theme="cream-latte"] {
+  color-scheme: light;
+}
+
+:root[data-theme="obsidian-dark"],
+:root[data-theme="cyber-velvet"] {
+  color-scheme: dark;
 }

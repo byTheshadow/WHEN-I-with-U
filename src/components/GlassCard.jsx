@@ -5,26 +5,33 @@ export const GlassCard = ({
   className = '',
   onClick = null,
   delay = 0,
+  tone = 'light',
 }) => {
-  const interactiveClassName = onClick
-    ? 'cursor-pointer hover:scale-[1.01] active:scale-[0.99]'
-    : '';
+  const isInk = tone === 'ink';
 
   return (
     <div
       onClick={onClick}
       style={{
-        color: 'var(--card-text-main)',
-        backgroundColor: 'var(--card-bg)',
-        borderColor: 'var(--card-border)',
+        background: isInk ? 'var(--ink-card-bg)' : 'var(--card-bg-gradient)',
+        borderColor: isInk
+          ? 'var(--ink-card-border)'
+          : 'var(--card-border)',
         borderWidth: '1px',
         borderStyle: 'solid',
-        backdropFilter: 'blur(22px) saturate(115%)',
-        WebkitBackdropFilter: 'blur(22px) saturate(115%)',
-        boxShadow: '0 16px 36px var(--shadow-color)',
+        boxShadow: isInk
+          ? 'var(--ink-card-shadow)'
+          : 'var(--card-shadow)',
+        color: isInk ? 'var(--text-on-ink)' : 'var(--text-main)',
+        backdropFilter: 'blur(22px) saturate(120%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(120%)',
         animationDelay: `${delay}ms`,
       }}
-      className={`animate-fade-in-up rounded-[2rem] p-5 opacity-0 transition-all duration-300 ${interactiveClassName} ${className}`}
+      className={`animate-fade-in-up rounded-[2rem] p-5 opacity-0 transition-transform duration-300 ${
+        onClick
+          ? 'cursor-pointer active:scale-[0.985] sm:hover:-translate-y-0.5'
+          : ''
+      } ${className}`}
     >
       {children}
     </div>
@@ -32,4 +39,3 @@ export const GlassCard = ({
 };
 
 export default GlassCard;
-

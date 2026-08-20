@@ -12,16 +12,21 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
       <div className="grid grid-cols-2 gap-4">
         <GlassCard
           delay={delay}
+          tone="ink"
           onClick={() => onOpenApp('messages')}
           className="col-span-2 flex items-center justify-between group"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-black/10 dark:bg-white/10 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 opacity-90" />
+              <MessageSquare className="w-5 h-5 opacity-90 text-[var(--text-on-ink)]" />
             </div>
             <div className="text-left">
-              <h4 className="font-bold text-sm">Messages</h4>
-              <p className="text-[11px] opacity-50 mt-0.5">Continue the conversation</p>
+              <h4 className="font-bold text-sm text-[var(--text-on-ink)]">
+                Messages
+              </h4>
+              <p className="mt-0.5 text-[11px] text-[var(--text-on-ink-muted)]">
+                Continue the conversation
+              </p>
             </div>
           </div>
         </GlassCard>
@@ -34,7 +39,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           <BookOpen className="w-6 h-6 opacity-80" />
           <div>
             <h4 className="font-bold text-sm">Diaries</h4>
-            <p className="text-[10px] opacity-40 uppercase tracking-wider mt-0.5">Sync Memories</p>
+            <p className="text-[10px] opacity-40 uppercase tracking-wider mt-0.5">
+              Sync Memories
+            </p>
           </div>
         </GlassCard>
 

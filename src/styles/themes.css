@@ -1,113 +1,133 @@
 :root,
 :root[data-theme="mono-mist"] {
-  /*
-    Default theme: White Mist
-    白色页面背景 + 黑色玻璃组件
-  */
+  /* White Mist: white editorial canvas */
   --bg-main: #ffffff;
-  --bg-surface: #ffffff;
-  --bg-blob-1: rgba(15, 23, 42, 0.09);
-  --bg-blob-2: rgba(71, 85, 105, 0.06);
-  --bg-blob-3: rgba(148, 163, 184, 0.08);
+  --bg-surface: #f7f7f5;
+  --bg-surface-strong: #ececea;
 
-  --page-text-main: #101010;
-  --page-text-sub: #525252;
-  --page-text-muted: #8a8a8a;
+  /* Restrained neutral mist, never coloured */
+  --bg-blob-1: rgba(210, 210, 205, 0.42);
+  --bg-blob-2: rgba(232, 232, 228, 0.72);
+  --bg-blob-3: rgba(196, 196, 191, 0.22);
 
-  --card-bg: rgba(15, 15, 15, 0.9);
-  --card-border: rgba(255, 255, 255, 0.16);
-  --card-text-main: #ffffff;
-  --card-text-sub: rgba(255, 255, 255, 0.7);
-  --card-text-muted: rgba(255, 255, 255, 0.48);
-  --card-control-bg: rgba(255, 255, 255, 0.12);
-  --card-control-hover: rgba(255, 255, 255, 0.2);
+  /* Light glass cards */
+  --card-bg: rgba(255, 255, 255, 0.76);
+  --card-bg-gradient: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(243, 243, 240, 0.74) 100%
+  );
+  --card-border: rgba(17, 17, 17, 0.1);
+  --card-shadow: 0 16px 42px rgba(17, 17, 17, 0.075);
 
+  /* Graphite emphasis cards */
+  --ink-card-bg: linear-gradient(145deg, #242424 0%, #090909 100%);
+  --ink-card-border: rgba(255, 255, 255, 0.14);
+  --ink-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+
+  /* Readable foregrounds */
+  --text-main: #111111;
+  --text-sub: #484848;
+  --text-muted: #707070;
+  --text-on-ink: #ffffff;
+  --text-on-ink-muted: rgba(255, 255, 255, 0.72);
+
+  /* Controls */
   --accent-color: #111111;
-  --accent-light: #f2f2f2;
-  --shadow-color: rgba(0, 0, 0, 0.13);
+  --accent-foreground: #ffffff;
+  --control-soft-bg: rgba(17, 17, 17, 0.065);
+  --control-soft-hover: rgba(17, 17, 17, 0.11);
+  --divider: rgba(17, 17, 17, 0.1);
 }
 
 :root[data-theme="cream-latte"] {
-  --bg-main: #fcfaf6;
-  --bg-surface: #fcfaf6;
-  --bg-blob-1: rgba(155, 122, 91, 0.13);
-  --bg-blob-2: rgba(203, 174, 142, 0.11);
-  --bg-blob-3: rgba(237, 222, 200, 0.2);
-
-  --page-text-main: #2b211d;
-  --page-text-sub: #705d51;
-  --page-text-muted: #99877a;
-
-  --card-bg: rgba(53, 38, 31, 0.9);
-  --card-border: rgba(255, 248, 239, 0.18);
-  --card-text-main: #fffaf5;
-  --card-text-sub: rgba(255, 250, 245, 0.72);
-  --card-text-muted: rgba(255, 250, 245, 0.48);
-  --card-control-bg: rgba(255, 250, 245, 0.12);
-  --card-control-hover: rgba(255, 250, 245, 0.2);
-
-  --accent-color: #5b4032;
-  --accent-light: #f4ece3;
-  --shadow-color: rgba(57, 38, 28, 0.14);
+  --bg-main: #fdfbf7;
+  --bg-surface: #f7f0e7;
+  --bg-surface-strong: #eee0cd;
+  --bg-blob-1: rgba(226, 202, 177, 0.38);
+  --bg-blob-2: rgba(246, 233, 218, 0.72);
+  --bg-blob-3: rgba(204, 173, 143, 0.18);
+  --card-bg: rgba(255, 253, 249, 0.76);
+  --card-bg-gradient: linear-gradient(145deg, rgba(255, 253, 249, 0.94), rgba(247, 237, 224, 0.75));
+  --card-border: rgba(76, 54, 39, 0.12);
+  --card-shadow: 0 16px 42px rgba(76, 54, 39, 0.08);
+  --ink-card-bg: linear-gradient(145deg, #4c352a 0%, #251812 100%);
+  --ink-card-border: rgba(255, 255, 255, 0.14);
+  --ink-card-shadow: 0 16px 34px rgba(45, 29, 20, 0.18);
+  --text-main: #2d211c;
+  --text-sub: #66554b;
+  --text-muted: #8d7a6d;
+  --text-on-ink: #fffaf5;
+  --text-on-ink-muted: rgba(255, 250, 245, 0.72);
+  --accent-color: #39271e;
+  --accent-foreground: #fffaf5;
+  --control-soft-bg: rgba(76, 54, 39, 0.07);
+  --control-soft-hover: rgba(76, 54, 39, 0.12);
+  --divider: rgba(76, 54, 39, 0.12);
 }
 
 :root[data-theme="obsidian-dark"] {
-  --bg-main: #090a0c;
-  --bg-surface: #090a0c;
-  --bg-blob-1: rgba(91, 91, 110, 0.25);
-  --bg-blob-2: rgba(35, 38, 46, 0.35);
-  --bg-blob-3: rgba(255, 255, 255, 0.04);
-
-  --page-text-main: #f7f7f7;
-  --page-text-sub: #b7b7bd;
-  --page-text-muted: #777781;
-
-  --card-bg: rgba(255, 255, 255, 0.09);
-  --card-border: rgba(255, 255, 255, 0.16);
-  --card-text-main: #ffffff;
-  --card-text-sub: rgba(255, 255, 255, 0.72);
-  --card-text-muted: rgba(255, 255, 255, 0.48);
-  --card-control-bg: rgba(255, 255, 255, 0.1);
-  --card-control-hover: rgba(255, 255, 255, 0.18);
-
-  --accent-color: #ffffff;
-  --accent-light: #202126;
-  --shadow-color: rgba(0, 0, 0, 0.35);
+  --bg-main: #0c0c0d;
+  --bg-surface: #151517;
+  --bg-surface-strong: #212124;
+  --bg-blob-1: rgba(76, 76, 82, 0.28);
+  --bg-blob-2: rgba(32, 32, 36, 0.64);
+  --bg-blob-3: rgba(104, 104, 112, 0.14);
+  --card-bg: rgba(31, 31, 34, 0.72);
+  --card-bg-gradient: linear-gradient(145deg, rgba(38, 38, 42, 0.88), rgba(22, 22, 25, 0.82));
+  --card-border: rgba(255, 255, 255, 0.11);
+  --card-shadow: 0 16px 42px rgba(0, 0, 0, 0.26);
+  --ink-card-bg: linear-gradient(145deg, #f4f4f2 0%, #cfcfca 100%);
+  --ink-card-border: rgba(0, 0, 0, 0.1);
+  --ink-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+  --text-main: #f5f5f3;
+  --text-sub: #c7c7c4;
+  --text-muted: #9a9a97;
+  --text-on-ink: #151515;
+  --text-on-ink-muted: rgba(21, 21, 21, 0.66);
+  --accent-color: #f4f4f2;
+  --accent-foreground: #111111;
+  --control-soft-bg: rgba(255, 255, 255, 0.09);
+  --control-soft-hover: rgba(255, 255, 255, 0.15);
+  --divider: rgba(255, 255, 255, 0.11);
 }
 
 :root[data-theme="cyber-velvet"] {
-  --bg-main: #110a18;
-  --bg-surface: #110a18;
-  --bg-blob-1: rgba(120, 54, 162, 0.34);
-  --bg-blob-2: rgba(61, 45, 128, 0.3);
-  --bg-blob-3: rgba(232, 199, 255, 0.09);
-
-  --page-text-main: #fbf7ff;
-  --page-text-sub: #d1bedb;
-  --page-text-muted: #9479a1;
-
-  --card-bg: rgba(30, 17, 40, 0.82);
-  --card-border: rgba(246, 225, 255, 0.16);
-  --card-text-main: #fffaff;
-  --card-text-sub: rgba(255, 250, 255, 0.72);
-  --card-text-muted: rgba(255, 250, 255, 0.48);
-  --card-control-bg: rgba(255, 255, 255, 0.1);
-  --card-control-hover: rgba(255, 255, 255, 0.18);
-
-  --accent-color: #f1dcff;
-  --accent-light: #291333;
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  --bg-main: #120b1a;
+  --bg-surface: #1b1027;
+  --bg-surface-strong: #2a173d;
+  --bg-blob-1: rgba(140, 70, 185, 0.28);
+  --bg-blob-2: rgba(57, 35, 101, 0.55);
+  --bg-blob-3: rgba(191, 117, 219, 0.14);
+  --card-bg: rgba(31, 17, 45, 0.72);
+  --card-bg-gradient: linear-gradient(145deg, rgba(43, 24, 62, 0.88), rgba(23, 13, 34, 0.84));
+  --card-border: rgba(242, 218, 255, 0.15);
+  --card-shadow: 0 16px 42px rgba(8, 3, 14, 0.28);
+  --ink-card-bg: linear-gradient(145deg, #ead8f8 0%, #b885df 100%);
+  --ink-card-border: rgba(255, 255, 255, 0.2);
+  --ink-card-shadow: 0 16px 34px rgba(8, 3, 14, 0.25);
+  --text-main: #fbf5ff;
+  --text-sub: #ddc5ef;
+  --text-muted: #ad8ac4;
+  --text-on-ink: #24102f;
+  --text-on-ink-muted: rgba(36, 16, 47, 0.7);
+  --accent-color: #f0dcff;
+  --accent-foreground: #291134;
+  --control-soft-bg: rgba(240, 220, 255, 0.1);
+  --control-soft-hover: rgba(240, 220, 255, 0.16);
+  --divider: rgba(240, 220, 255, 0.14);
 }
 
+/* 页面区块由下而上依次进入 */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translate3d(0, 18px, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -115,34 +135,11 @@
   animation: fadeInUp 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes diceRoll {
-  0% {
-    opacity: 0;
-    transform: translateY(-160px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(0.6);
+/* 尊重设备的减少动态效果偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation-duration: 0.01ms;
   }
-
-  28% {
-    opacity: 1;
-    transform: translateY(0) rotateX(540deg) rotateY(390deg) rotateZ(180deg) scale(1.08);
-  }
-
-  52% {
-    transform: translateY(-18px) rotateX(720deg) rotateY(570deg) rotateZ(320deg) scale(0.96);
-  }
-
-  78% {
-    transform: translateY(0) rotateX(830deg) rotateY(675deg) rotateZ(430deg) scale(1.02);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0) rotateX(850deg) rotateY(700deg) rotateZ(450deg) scale(1);
-  }
-}
-
-.animate-dice-roll {
-  animation: diceRoll 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-  transform-style: preserve-3d;
 }
 
 .no-scrollbar::-webkit-scrollbar {
