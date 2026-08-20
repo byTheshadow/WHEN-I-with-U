@@ -1,6 +1,8 @@
-import React, { useRef } from 'react';
-import { X, Upload, Trash2, Sliders } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Upload, Trash2, Sliders, Edit2 } from 'lucide-react';
 import AudioKeepAlive from './AudioKeepAlive';
+import ConfirmModal from '../../../components/ConfirmModal';
+import db from '../../../db';
 
 export const ChatSettingsModal = ({
   chat,
@@ -9,9 +11,15 @@ export const ChatSettingsModal = ({
   onUpdateBgOpacity,
   onToggleKeepAlive,
   onOpenBubbleCustomizer,
-  onClearHistory
+  onClearHistory,
+  onDeletedChat,
+  onSaveSummary
 }) => {
   const fileInputRef = useRef(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [summaryInput, setSummaryInput] = useState(chat?.summary || '');
 
   const bgImage = chat?.bgImage || '';
   const bgOpacity = chat?.bgOpacity ?? 0.3;
@@ -27,6 +35,19 @@ export const ChatSettingsModal = ({
     reader.readAsDataURL(file);
   };
 
+  const handleDeleteEntireChat = async () => {
+    await db.chats.delete(chat.id);
+    await db.messages.where('chatId').equals(chat.id).delete();
+    setShowDeleteConfirm(false);
+    onClose();
+    if (onDeletedChat) onDeletedChat();
+  };
+
+  const handleSaveSummaryAction = () => {
+    if (onSaveSummary) onSaveSummary(summaryInput);
+    setIsEditingSummary(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in-up">
       <div 
@@ -35,7 +56,7 @@ export const ChatSettingsModal = ({
       />
 
       <div
-        className="relative w-full max-w-sm rounded-[2rem] p-5 space-y-4 shadow-2xl text-xs text-left z-10"
+        className="relative w-full max-w-sm rounded-[2rem] p-5 space-y-4 shadow-2xl text-xs text-left z-10 overflow-y-auto max-h-[90vh] no-scrollbar"
         style={{
           background: 'var(--card-bg-gradient)',
           border: '1px solid var(--card-border)',
@@ -47,6 +68,46 @@ export const ChatSettingsModal = ({
           <button type="button" onClick={onClose} className="p-1 rounded-full opacity-60 hover:opacity-100">
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* 本窗专属心绪总结查看与编辑 */}
+        <div className="space-y-1.5 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] opacity-60">CHAT SUMMARY / 本窗事实总结</span>
+            {!isEditingSummary ? (
+              <button 
+                type="button" 
+                onClick={() => setIsEditingSummary(true)} 
+                className="flex items-center gap-1 opacity-70 hover:opacity-100 text-[10px]"
+              >
+                <Edit2 className="w-3 h-3" />
+                <span>编辑</span>
+              </button>
+            ) : (
+              <button 
+                type="button" 
+                onClick={handleSaveSummaryAction} 
+                className="font-semibold text-emerald-500 hover:opacity-100 text-[10px]"
+              >
+                保存
+              </button>
+            )}
+          </div>
+
+          {!isEditingSummary ? (
+            <p className="text-[11px] opacity-80 leading-relaxed font-sans">
+              {chat?.summary || '暂无客观总结，对话满一定轮次后将自动提取事实。'}
+            </p>
+          ) : (
+            <textarea
+              rows={3}
+              value={summaryInput}
+              onChange={(e) => setSummaryInput(e.target.value)}
+              className="w-full rounded-xl p-2 bg-transparent border outline-none text-xs leading-relaxed"
+              style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+              placeholder="手动修订本窗事实总结..."
+            />
+          )}
         </div>
 
         {/* 专属背景图 */}
@@ -113,7 +174,7 @@ export const ChatSettingsModal = ({
           )}
         </div>
 
-        {/* 集成 10 分钟+ 后台音频保活组件 */}
+        {/* 10 分钟+ 后台音频保活 */}
         <div className="pt-1">
           <AudioKeepAlive isActive={keepAlive} onToggle={onToggleKeepAlive} />
         </div>
@@ -141,23 +202,51 @@ export const ChatSettingsModal = ({
           </button>
         </div>
 
-        {/* 清空记录 */}
+        {/* 危险区域：清空记录与销毁实体 */}
         <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--divider)' }}>
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm('确定要清空本聊天记录吗？')) {
-                onClearHistory();
-                onClose();
-              }
-            }}
+            onClick={() => setShowClearConfirm(true)}
             className="w-full py-2 rounded-xl bg-rose-500/10 text-rose-600 font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>清空本聊天记录</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full py-2 rounded-xl bg-rose-600 text-white font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>彻底销毁此对话实体</span>
+          </button>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showClearConfirm}
+        title="清空聊天记录"
+        message="确定要清空本聊天框中的所有消息对话吗？操作后数据不可恢复。"
+        confirmText="清空记录"
+        cancelText="保留"
+        onCancel={() => setShowClearConfirm(false)}
+        onConfirm={() => {
+          setShowClearConfirm(false);
+          onClearHistory();
+          onClose();
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        title="销毁对话实体"
+        message="确定要彻底销毁此对话空间吗？销毁后将直接清空消息并退回消息列表。"
+        confirmText="彻底销毁"
+        cancelText="取消"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteEntireChat}
+      />
     </div>
   );
 };

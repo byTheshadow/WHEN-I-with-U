@@ -16,9 +16,9 @@ db.version(1).stores({
 db.version(2).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
-  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive',
-  chats: '++id, characterId, mode, title, updatedAt',
-  messages: '++id, chatId, characterId, sender, type, isRead, timestamp',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp',
   worldBooks: '++id, type, title, isEnabled',
   homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
   diaries: '++id, characterId, author, content, date',
@@ -28,4 +28,3 @@ db.version(2).stores({
 });
 
 export default db;
-

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Plus, Search, MessageSquare, ArrowLeft, Trash2 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
+import ConfirmModal from '../../components/ConfirmModal';
 import db from '../../db';
+import { subscribeAiEvents } from '../../services/aiService';
 
 import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
@@ -16,6 +18,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [editingChar, setEditingChar] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [deletingChatTarget, setDeletingChatTarget] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -23,6 +26,14 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
       onChatRoomStateChange(view === 'chat_room');
     }
   }, [view]);
+
+  useEffect(() => {
+    // 监听后台 AI 完成消息或状态更新，实时刷新消息列表
+    const unsubscribe = subscribeAiEvents(() => {
+      loadData();
+    });
+    return unsubscribe;
+  }, []);
 
   const loadData = async () => {
     const chatList = await db.chats.orderBy('updatedAt').reverse().toArray();
@@ -39,6 +50,13 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const handleOpenCharEditor = (charData) => {
     setEditingChar(charData);
     setView('char_editor');
+  };
+
+  const handleDeleteChatEntity = async (chatId) => {
+    await db.chats.delete(chatId);
+    await db.messages.where('chatId').equals(chatId).delete();
+    setDeletingChatTarget(null);
+    loadData();
   };
 
   const filteredChats = chats.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()));
@@ -81,7 +99,6 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
           <span>返回主页</span>
         </button>
 
-        {/* 杂志风切换按钮 */}
         <div 
           className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
           style={{
@@ -116,7 +133,6 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         </div>
       </div>
 
-      {/* 搜索与新建对话 */}
       {view === 'chats' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -165,10 +181,12 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                 return (
                   <GlassCard
                     key={chat.id}
-                    onClick={() => handleOpenChat(chat.id)}
-                    className="flex items-center justify-between p-4 cursor-pointer hover:opacity-95 transition-all"
+                    className="flex items-center justify-between p-4 group hover:opacity-95 transition-all relative"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div 
+                      onClick={() => handleOpenChat(chat.id)}
+                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                    >
                       {char?.avatar ? (
                         <img src={char.avatar} alt={chat.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" />
                       ) : (
@@ -183,7 +201,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                         </div>
                       )}
 
-                      <div className="space-y-1 min-w-0">
+                      <div className="space-y-1 min-w-0 flex-1 pr-2">
                         <div className="flex items-center gap-2">
                           <h4 className="font-serif font-bold text-sm truncate" style={{ color: 'var(--text-main)' }}>{chat.title}</h4>
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono border ${
@@ -193,10 +211,22 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                           </span>
                         </div>
                         <p className="text-[11px] opacity-60 truncate" style={{ color: 'var(--text-sub)' }}>
-                          开启与 {char?.name || '伴侣'} 的独处时刻
+                          {chat.summary ? chat.summary : `开启与 ${char?.name || '伴侣'} 的独处时刻`}
                         </p>
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingChatTarget(chat);
+                      }}
+                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-rose-500 hover:bg-rose-500/10 rounded-full"
+                      title="抹去此对话实体"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </GlassCard>
                 );
               })}
@@ -205,7 +235,6 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         </div>
       )}
 
-      {/* 角色库视图 */}
       {view === 'characters' && (
         <CharacterLibrary
           onSelectCharacter={(char) => handleOpenCharEditor(char)}
@@ -213,7 +242,6 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         />
       )}
 
-      {/* 新建聊天窗 Modal */}
       {showNewChatModal && (
         <NewChatModal
           onClose={() => setShowNewChatModal(false)}
@@ -227,8 +255,20 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
           }}
         />
       )}
+
+      {/* 彻底删除实体二次确认 Modal */}
+      <ConfirmModal
+        isOpen={!!deletingChatTarget}
+        title="抹去共同记忆"
+        message={`确定要彻底销毁与“${deletingChatTarget?.title}”的对话实体吗？此操作不可逆，聊天记录与心绪总结将一并抹去。`}
+        confirmText="彻底抹去"
+        cancelText="留存"
+        onCancel={() => setDeletingChatTarget(null)}
+        onConfirm={() => handleDeleteChatEntity(deletingChatTarget.id)}
+      />
     </div>
   );
 };
 
 export default MessagesApp;
+

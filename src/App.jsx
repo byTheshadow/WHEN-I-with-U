@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
+import NotificationToast from './components/NotificationToast';
 import ProfileHeader from './apps/hub/ProfileHeader';
 import PinnedGallery from './apps/hub/PinnedGallery';
 import QuickBoard from './apps/hub/QuickBoard';
@@ -37,6 +38,9 @@ export const App = () => {
           <Preloader onFinish={() => setShowPreloader(false)} />
         </ErrorBoundary>
       )}
+
+      {/* 全局自定义 Toast 通知系统 */}
+      <NotificationToast />
 
       {/* 全局弥散光背景 */}
       <div

@@ -1,8 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles, Loader2 } from 'lucide-react';
+import { subscribeSummaryStatus } from '../../../services/aiService';
 
-export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
+export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [editedSummaryText, setEditedSummaryText] = useState(chat?.summary || '');
+
+  useEffect(() => {
+    const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing }) => {
+      if (chatId === chat.id) {
+        setIsSummarizing(isSummarizing);
+      }
+    });
+    return unsubscribe;
+  }, [chat.id]);
 
   if (!character || !chat) return null;
 
@@ -14,7 +27,11 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
   }, [character.id, character.statusList]);
 
   const isRpMode = chat.mode === 'rp';
-  const currentChatSummary = chat.summary || null;
+
+  const handleSaveSummaryClick = () => {
+    if (onSaveSummary) onSaveSummary(editedSummaryText);
+    setIsEditingSummary(false);
+  };
 
   return (
     <div className="sticky top-0 z-30 w-full transition-all flex flex-col items-center">
@@ -33,6 +50,12 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
         >
           <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 animate-pulse" />
           <span className="font-serif font-medium text-[11px] truncate max-w-[80px]">{character.name}</span>
+          {isSummarizing && (
+            <span className="flex items-center gap-1 text-[9px] text-purple-500 font-mono pl-1 border-l" style={{ borderColor: 'var(--divider)' }}>
+              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+              <span>正在倾听并整理心绪…</span>
+            </span>
+          )}
         </button>
       ) : (
         /* 2. 展开状态：杂志风卡片 */
@@ -128,13 +151,33 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
               </div>
 
               <div className="p-2.5 rounded-xl space-y-1 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
-                <div className="flex items-center gap-1 opacity-50 font-mono">
-                  <Sparkles className="w-3 h-3" />
-                  <span>本窗专属总结</span>
+                <div className="flex items-center justify-between opacity-50 font-mono">
+                  <div className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-purple-400" />
+                    <span>本窗事实总结</span>
+                  </div>
+                  {!isEditingSummary ? (
+                    <button type="button" onClick={() => setIsEditingSummary(true)} className="hover:underline">编辑</button>
+                  ) : (
+                    <button type="button" onClick={handleSaveSummaryClick} className="text-emerald-500 font-semibold">Save</button>
+                  )}
                 </div>
-                <p className="opacity-80 truncate">
-                  {currentChatSummary ? currentChatSummary : `暂无本对话总结`}
-                </p>
+
+                {isSummarizing ? (
+                  <p className="opacity-60 italic animate-pulse">正在倾听并整理心绪…</p>
+                ) : !isEditingSummary ? (
+                  <p className="opacity-80 truncate">
+                    {chat.summary || '暂无客观总结'}
+                  </p>
+                ) : (
+                  <input
+                    type="text"
+                    value={editedSummaryText}
+                    onChange={(e) => setEditedSummaryText(e.target.value)}
+                    className="w-full bg-transparent border-b outline-none text-[10px]"
+                    style={{ borderColor: 'var(--card-border)' }}
+                  />
+                )}
               </div>
             </div>
           </div>

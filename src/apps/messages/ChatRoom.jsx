@@ -4,6 +4,7 @@ import {
   Trash2, Quote, CheckCheck, Check, Settings, User
 } from 'lucide-react';
 import db from '../../db';
+import { triggerAiResponse, subscribeAiEvents } from '../../services/aiService';
 import ChatHeaderBar from './components/ChatHeaderBar';
 import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
@@ -32,6 +33,16 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
 
   useEffect(() => {
     loadChatData();
+    const unsubscribe = subscribeAiEvents((event) => {
+      if (event.chatId === chatId) {
+        if (event.type === 'AI_TYPING_START') setIsAiTyping(true);
+        if (event.type === 'AI_TYPING_END') setIsAiTyping(false);
+        if (event.type === 'NEW_MESSAGE' || event.type === 'CHAT_SUMMARY_UPDATED') {
+          loadChatData();
+        }
+      }
+    });
+    return unsubscribe;
   }, [chatId]);
 
   useEffect(() => {
@@ -76,63 +87,10 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     await db.chats.update(chatId, { updatedAt: new Date().toISOString() });
   };
 
-  const handleTriggerAi = async () => {
+  const handleTriggerAi = () => {
     if (!character || isAiTyping) return;
-    setIsAiTyping(true);
-
-    try {
-      const apiSettings = await db.settings.get('apiConfig');
-      const apiConfig = apiSettings?.value || {};
-
-      let aiContent = `${character.name} 关注到了你的心绪，并温和地给予了回应。`;
-
-      if (apiConfig.baseUrl && apiConfig.apiKey) {
-        const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
-        const historyContext = messages.slice(-15).map((m) => ({
-          role: m.sender === 'user' ? 'user' : 'assistant',
-          content: m.content
-        }));
-
-        const res = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiConfig.apiKey}`
-          },
-          body: JSON.stringify({
-            model: apiConfig.model || 'gpt-3.5-turbo',
-            messages: [
-              { role: 'system', content: `${character.bio}\n${character.extraNotes}` },
-              ...historyContext
-            ]
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          aiContent = data.choices?.[0]?.message?.content || aiContent;
-        }
-      }
-
-      const aiMsg = {
-        chatId,
-        characterId: character.id,
-        sender: 'character',
-        type: 'text',
-        content: aiContent,
-        metadata: {},
-        isRead: true,
-        timestamp: new Date().toISOString()
-      };
-
-      const msgId = await db.messages.add(aiMsg);
-      aiMsg.id = msgId;
-      setMessages((prev) => [...prev, aiMsg]);
-    } catch (err) {
-      console.error('AI Response failed:', err);
-    } finally {
-      setIsAiTyping(false);
-    }
+    // 异步交由后台 AI 服务处理，不受页面切出中断影响
+    triggerAiResponse(chatId);
   };
 
   const handleDeleteMessage = async (id) => {
@@ -169,6 +127,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     await db.chats.update(chatId, { keepAlive: keepAliveVal });
   };
 
+  const handleSaveSummary = async (newSummary) => {
+    const updated = { ...chat, summary: newSummary };
+    setChat(updated);
+    await db.chats.update(chatId, { summary: newSummary });
+  };
+
   if (!chat || !character) return null;
 
   const defaultCss = `
@@ -196,7 +160,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         .chat-room-container ${currentCss}
       `}</style>
 
-      {/* 背景图 */}
       {chat.bgImage && (
         <div
           className="absolute inset-0 pointer-events-none rounded-3xl transition-all duration-500 overflow-hidden -z-10"
@@ -232,7 +195,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </button>
       </div>
 
-      <ChatHeaderBar character={character} chat={chat} onOpenSettings={onOpenCharacterEditor} />
+      <ChatHeaderBar
+        character={character}
+        chat={chat}
+        onOpenSettings={onOpenCharacterEditor}
+        onSaveSummary={handleSaveSummary}
+      />
 
       {/* 消息对话流 */}
       <div className="flex-1 overflow-y-auto py-3 space-y-4 px-1 no-scrollbar">
@@ -298,7 +266,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                 </div>
               </div>
 
-              {/* 关键需求 2：对方与自己的消息均有规范已读与时间戳 */}
+              {/* IG 风格对齐时间戳 */}
               <div className={`flex items-center gap-1 text-[9px] opacity-40 font-mono mt-1 px-9 ${isUser ? 'justify-end' : 'justify-start'}`}>
                 <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {isUser ? (
@@ -315,7 +283,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 引用回复 */}
       {quotedMsg && (
         <div 
           className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-1.5 shadow-sm"
@@ -333,7 +300,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 扩展修饰框 */}
       {selectedType !== 'text' && (
         <div className="p-2.5 rounded-2xl border mb-2 space-y-2 text-[11px]" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
@@ -372,7 +338,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 需求 3：充满柔韧性与浮动感、贴合底部的输入框 */}
+      {/* 底部输入框 */}
       <div className="py-1">
         <div 
           className="flex items-center gap-1.5 p-2 rounded-full border backdrop-blur-2xl shadow-xl transition-all duration-300 focus-within:ring-2 focus-within:ring-black/10 dark:focus-within:ring-white/20"
@@ -468,6 +434,8 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
           onToggleKeepAlive={handleToggleKeepAlive}
           onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
           onClearHistory={handleClearHistory}
+          onDeletedChat={onBack}
+          onSaveSummary={handleSaveSummary}
         />
       )}
     </div>
