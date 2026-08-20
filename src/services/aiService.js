@@ -356,7 +356,7 @@ ${diaryText}
 
   } catch (err) {
     console.error('Background AI task error:', err);
-  } finally {
+  } font-medium {
     notifyListeners({ type: 'AI_TYPING_END', chatId });
   }
 };
@@ -380,7 +380,6 @@ export const generateCompanionReplyForDiary = async (diaryId) => {
   } else if (chat) {
     character = await db.characters.get(chat.characterId);
   } else {
-    // 随机匹配伴侣
     const allChars = await db.characters.toArray();
     if (allChars.length > 0) {
       character = allChars[Math.floor(Math.random() * allChars.length)];
@@ -604,6 +603,209 @@ export const generateCompanionProactiveDiary = async (chatId = null) => {
   }
 };
 
+/**
+ * ---------------------------------------------------------
+ * ✈️ 旅行 (Travels) Sub-App 动态 AI 生成服务
+ * ---------------------------------------------------------
+ */
+
+/**
+ * 1. 动态生成伴侣的心愿目的地 (根据伴侣人设/世界书)
+ */
+export const generateCompanionWishlist = async (character) => {
+  if (!character) return [];
+  try {
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+
+    if (apiConfig.baseUrl && apiConfig.apiKey) {
+      const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
+      const systemPrompt = `你现在正扮演 AI 伴侣 "${character.name}"。
+【角色人设】：${character.bio || ''}
+【补充设定】：${character.extraNotes || ''}
+
+请根据你的性格与偏好，为你和用户下一次旅行提议 3 个具有浪漫诗意且符合你人设的目的地。
+请严格输出 JSON 格式（严禁包含 Emoji）：
+{
+  "wishlist": [
+    { "destination": "具体地点名称", "reason": "在此处想和用户一起做的事情或浪漫心绪" },
+    { "destination": "地点2", "reason": "理由" },
+    { "destination": "地点3", "reason": "理由" }
+  ]
+}`;
+
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: apiConfig.model || 'gpt-3.5-turbo',
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: '请提议 3 个你最想和我去旅行的浪漫目的地。' }
+          ]
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const jsonContent = data.choices?.[0]?.message?.content;
+        const parsed = JSON.parse(jsonContent);
+        if (Array.isArray(parsed.wishlist)) return parsed.wishlist;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to generate AI companion wishlist:', err);
+  }
+
+  // 优雅降级 (无 Emoji)
+  return [
+    { destination: '京都 · 岚山竹林', reason: `想在风吹竹林的时候，和你一起散步喝抹茶。` },
+    { destination: '圣托里尼 · 悬崖书店', reason: `想站在悬崖边看黄昏落入爱琴海，为你拍照。` },
+    { destination: '阿姆斯特丹 · 水上运河', reason: `想租一辆双人自行车，踩过石子路看沿途风景。` }
+  ];
+};
+
+/**
+ * 2. 伴侣全权惊喜决定目的地与机票住宿
+ */
+export const generateCompanionSurpriseBooking = async (character) => {
+  const flightNo = `FLIGHT-W${Math.floor(100 + Math.random() * 900)}`;
+  if (!character) {
+    return { destination: '海边古镇', hotelName: '观海独栋木屋', flightNo };
+  }
+
+  try {
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+
+    if (apiConfig.baseUrl && apiConfig.apiKey) {
+      const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
+      const systemPrompt = `你现在扮演 AI 伴侣 "${character.name}"。
+【角色人设】：${character.bio || ''} ${character.extraNotes || ''}。
+请神秘地为用户安排一趟惊喜旅行，决定目的地和具有特定风格的住宿名称。
+请严格输出 JSON 格式（严禁包含 Emoji）：
+{
+  "destination": "目的地名称",
+  "hotelName": "住宿名称风格"
+}`;
+
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: apiConfig.model || 'gpt-3.5-turbo',
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: '请神秘地为我们决定好目的地和酒店。' }
+          ]
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}');
+        if (parsed.destination) {
+          return {
+            destination: parsed.destination,
+            hotelName: parsed.hotelName || '精选诗意客栈',
+            flightNo
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to generate AI surprise booking:', err);
+  }
+
+  return { destination: '冰岛 · 蓝湖温泉', hotelName: '极光穹顶星空房', flightNo };
+};
+
+/**
+ * 3. 动态生成符合【目的地 + 伴侣人设 + User旅途人设/行囊】的专属明信片、伴手礼与偶遇插曲
+ */
+export const generateCompanionPostcard = async (character, travelObj) => {
+  const destination = typeof travelObj === 'string' ? travelObj : (travelObj?.destination || '秘境目的地');
+  const userPersona = travelObj?.userPersona || '喜爱慢节奏踩水与随性摄影的旅人';
+  const luggageNotes = travelObj?.luggageNotes || '随身携带胶片相机与手帐本';
+
+  if (character) {
+    try {
+      const apiSettings = await db.settings.get('apiConfig');
+      const apiConfig = apiSettings?.value || {};
+
+      if (apiConfig.baseUrl && apiConfig.apiKey) {
+        const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
+
+        const systemPrompt = `你现在扮演 AI 伴侣 "${character.name}"。
+你正与用户在【${destination}】旅行漫游。
+【角色人设】：${character.bio || ''} ${character.extraNotes || ''}。
+【用户本次旅行的人设/喜好】：${userPersona}。
+【用户的随身行囊】：${luggageNotes}。
+
+请你在【${destination}】描述一个具体且符合当地特色的场景。
+在这个场景中，你要：
+1. 描写一段伴侣手写信件（直接称呼用户为"你"，表达在【${destination}】与用户相伴的心意，100-200字）。
+2. 结合【${destination}】当地特色和【用户的旅途人设/行囊】，挑选一个具体且具体的实体伴手礼/纪念品名称。
+3. 描绘在此处偶遇的有趣路人或插曲（如：杂货铺老手艺人、路边流浪猫、吹风笛的艺人等）。
+4. 描绘这幕场景的照片艺术视觉风格（如：拍立得暖阳色调、雨后黄昏胶片等）。
+
+🚨 铁律约束：全站严禁出现任何 Emoji 字符！纯文字渲染！
+请严格输出 JSON 格式：
+{
+  "spotName": "特定的细分景点名称 (例如: ${destination} · 街角风铃书店)",
+  "letterContent": "手写信正文",
+  "giftItem": "带回来的具体伴手礼名称及简单描述",
+  "metPerson": "在此处偶遇的路人或插曲",
+  "photoStyle": "照片艺术风格描述"
+}`;
+
+        const res = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            model: apiConfig.model || 'gpt-3.5-turbo',
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `在【${destination}】为我寄回一张明信片和旅途礼物。` }
+            ]
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}');
+          if (parsed.spotName && parsed.letterContent) {
+            return parsed;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate AI companion postcard:', err);
+    }
+  }
+
+  // 降级兜底 (无 Emoji)
+  return {
+    spotName: `${destination} · 隐秘巷弄`,
+    letterContent: `刚刚在 ${destination} 的街角小店停了下来。看着你拿着相机记录周围风光的背影，感觉有你在身边的时光分外安宁。`,
+    giftItem: `${destination} 当地特色手作玻璃风铃`,
+    metPerson: '遇到了一位热情的杂货铺老手艺人。',
+    photoStyle: '黄昏逆光胶片质感'
+  };
+};
+
 const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
   const freq = parseInt(character.summaryFrequency || '10', 10);
   const msgCount = await db.messages.where('chatId').equals(chatId).count();
@@ -675,6 +877,9 @@ export default {
   generateCharacterHomeBoardMessage,
   generateCompanionReplyForDiary,
   generateCompanionProactiveDiary,
+  generateCompanionWishlist,
+  generateCompanionSurpriseBooking,
+  generateCompanionPostcard,
   requestNotificationPermission,
   triggerSystemNotification
 };
