@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Send, Sparkles, Image, Volume2, DollarSign,
-  Trash2, Quote, CheckCheck, Settings, User
+  Trash2, Quote, CheckCheck, Check, Settings, User
 } from 'lucide-react';
 import db from '../../db';
 import ChatHeaderBar from './components/ChatHeaderBar';
@@ -191,12 +191,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   const currentCss = chat.customCss || defaultCss;
 
   return (
-    <div className="chat-room-container relative flex flex-col h-[93vh] text-xs text-left animate-fade-in-up">
+    <div className="chat-room-container relative flex flex-col h-[94vh] text-xs text-left animate-fade-in-up">
       <style>{`
         .chat-room-container ${currentCss}
       `}</style>
 
-      {/* 专属背景图 */}
+      {/* 背景图 */}
       {chat.bgImage && (
         <div
           className="absolute inset-0 pointer-events-none rounded-3xl transition-all duration-500 overflow-hidden -z-10"
@@ -209,7 +209,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         />
       )}
 
-      {/* 1. 顶栏导航 */}
+      {/* 顶栏 */}
       <div className="flex items-center justify-between pb-1 px-1">
         <button
           type="button"
@@ -232,10 +232,9 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </button>
       </div>
 
-      {/* 极简爱心胶囊 Header */}
       <ChatHeaderBar character={character} chat={chat} onOpenSettings={onOpenCharacterEditor} />
 
-      {/* 2. 消息对话流 (IG Direct 风格布局) */}
+      {/* 消息对话流 */}
       <div className="flex-1 overflow-y-auto py-3 space-y-4 px-1 no-scrollbar">
         {messages.length === 0 && (
           <div className="py-16 text-center space-y-2 opacity-40">
@@ -249,7 +248,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
 
           return (
             <div key={msg.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} group`}>
-              {/* 引用回复小条 */}
               {quoted && (
                 <div 
                   className="px-3 py-1 rounded-xl border-l-2 opacity-60 text-[10px] max-w-[75%] mb-1"
@@ -263,9 +261,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                 </div>
               )}
 
-              {/* 消息行：头像 + 气泡并列 (100% IG 对齐) */}
               <div className={`flex items-end gap-2 max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* 头像 */}
                 {!isUser ? (
                   character.avatar ? (
                     <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm border border-white/20" />
@@ -284,16 +280,14 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   )
                 )}
 
-                {/* 主气泡 */}
                 <div className={`p-3 shadow-sm relative transition-all chat-font ${isUser ? 'user-bubble' : 'ai-bubble'}`}>
                   {msg.type === 'text' && <TextCard content={msg.content} />}
                   {msg.type === 'image' && <ImageCard content={msg.content} metadata={msg.metadata} />}
                   {msg.type === 'voice' && <VoiceCard content={msg.content} metadata={msg.metadata} />}
-                  {msg.type === 'transfer' && <TransferCard content={msg.content} metadata={msg.metadata} />}
+                  {msg.type === 'transfer' && <TransferCard content={msg.content} metadata={msg.metadata} sender={msg.sender} />}
                   {msg.type === 'article' && <ArticleCard content={msg.content} metadata={msg.metadata} />}
                 </div>
 
-                {/* 悬浮快捷菜单 */}
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
                   <button type="button" onClick={() => setQuotedMsg(msg)} className="p-1 opacity-50 hover:opacity-100" title="引用">
                     <Quote className="w-3 h-3" />
@@ -304,10 +298,14 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                 </div>
               </div>
 
-              {/* 关键修改：时间戳严格放在【气泡下方】，绝不在上方浮乱 */}
+              {/* 关键需求 2：对方与自己的消息均有规范已读与时间戳 */}
               <div className={`flex items-center gap-1 text-[9px] opacity-40 font-mono mt-1 px-9 ${isUser ? 'justify-end' : 'justify-start'}`}>
                 <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                {isUser && <CheckCheck className="w-3 h-3 text-blue-500 opacity-80" />}
+                {isUser ? (
+                  <CheckCheck className="w-3 h-3 text-blue-500 opacity-80" />
+                ) : (
+                  <Check className="w-3 h-3 opacity-60" />
+                )}
               </div>
             </div>
           );
@@ -317,7 +315,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 引用回复浮条 */}
+      {/* 引用回复 */}
       {quotedMsg && (
         <div 
           className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-1.5 shadow-sm"
@@ -335,7 +333,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 转账/图片类型扩展输入 */}
+      {/* 扩展修饰框 */}
       {selectedType !== 'text' && (
         <div className="p-2.5 rounded-2xl border mb-2 space-y-2 text-[11px]" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
@@ -374,10 +372,10 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 3. 悬浮输入框（下移贴紧底端，无死板文字） */}
-      <div className="pt-1 pb-1">
+      {/* 需求 3：充满柔韧性与浮动感、贴合底部的输入框 */}
+      <div className="py-1">
         <div 
-          className="flex items-center gap-1.5 p-2 rounded-3xl border backdrop-blur-xl shadow-lg transition-all duration-300"
+          className="flex items-center gap-1.5 p-2 rounded-full border backdrop-blur-2xl shadow-xl transition-all duration-300 focus-within:ring-2 focus-within:ring-black/10 dark:focus-within:ring-white/20"
           style={{
             background: 'var(--card-bg-gradient)',
             borderColor: 'var(--card-border)',
