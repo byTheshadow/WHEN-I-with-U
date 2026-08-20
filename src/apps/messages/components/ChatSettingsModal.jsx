@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { X, Upload, Trash2, Sliders, Edit2 } from 'lucide-react';
+import { X, Upload, Trash2, Sliders, Edit2, Plus, Check } from 'lucide-react';
 import AudioKeepAlive from './AudioKeepAlive';
 import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
@@ -18,8 +18,21 @@ export const ChatSettingsModal = ({
   const fileInputRef = useRef(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isEditingSummary, setIsEditingSummary] = useState(false);
-  const [summaryInput, setSummaryInput] = useState(chat?.summary || '');
+
+  // 解析并初始化总结条目数组
+  const parseSummaryList = (sum) => {
+    if (Array.isArray(sum)) return sum;
+    if (typeof sum === 'string' && sum.trim()) {
+      return [{ id: 'legacy', content: sum, createdAt: '历史记录', isAuto: true }];
+    }
+    return [];
+  };
+
+  const [summaryList, setSummaryList] = useState(parseSummaryList(chat?.summary));
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [newSummaryText, setNewSummaryText] = useState('');
+  const [showAddBox, setShowAddBox] = useState(false);
 
   const bgImage = chat?.bgImage || '';
   const bgOpacity = chat?.bgOpacity ?? 0.3;
@@ -43,9 +56,39 @@ export const ChatSettingsModal = ({
     if (onDeletedChat) onDeletedChat();
   };
 
-  const handleSaveSummaryAction = () => {
-    if (onSaveSummary) onSaveSummary(summaryInput);
-    setIsEditingSummary(false);
+  // 总结条目 CRUD 操作 handler
+  const handleStartEdit = (entry) => {
+    setEditingId(entry.id);
+    setEditingText(entry.content);
+  };
+
+  const handleSaveEdit = (id) => {
+    const updated = summaryList.map((item) => item.id === id ? { ...item, content: editingText } : item);
+    setSummaryList(updated);
+    setEditingId(null);
+    if (onSaveSummary) onSaveSummary(updated);
+  };
+
+  const handleDeleteEntry = (id) => {
+    const updated = summaryList.filter((item) => item.id !== id);
+    setSummaryList(updated);
+    if (onSaveSummary) onSaveSummary(updated);
+  };
+
+  const handleAddEntry = () => {
+    if (!newSummaryText.trim()) return;
+    const nowStr = new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const newEntry = {
+      id: `sum_${Date.now()}`,
+      content: newSummaryText.trim(),
+      createdAt: nowStr,
+      isAuto: false
+    };
+    const updated = [...summaryList, newEntry];
+    setSummaryList(updated);
+    setNewSummaryText('');
+    setShowAddBox(false);
+    if (onSaveSummary) onSaveSummary(updated);
   };
 
   return (
@@ -70,43 +113,75 @@ export const ChatSettingsModal = ({
           </button>
         </div>
 
-        {/* 本窗专属心绪总结查看与编辑 */}
-        <div className="space-y-1.5 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+        {/* 阶段性多条目心绪总结管理 */}
+        <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] opacity-60">CHAT SUMMARY / 本窗事实总结</span>
-            {!isEditingSummary ? (
-              <button 
-                type="button" 
-                onClick={() => setIsEditingSummary(true)} 
-                className="flex items-center gap-1 opacity-70 hover:opacity-100 text-[10px]"
-              >
-                <Edit2 className="w-3 h-3" />
-                <span>编辑</span>
-              </button>
-            ) : (
-              <button 
-                type="button" 
-                onClick={handleSaveSummaryAction} 
-                className="font-semibold text-emerald-500 hover:opacity-100 text-[10px]"
-              >
-                保存
-              </button>
-            )}
+            <span className="font-mono text-[10px] opacity-60">TIMELINE SUMMARY / 阶段事实总结</span>
+            <button
+              type="button"
+              onClick={() => setShowAddBox(!showAddBox)}
+              className="flex items-center gap-1 text-[10px] font-semibold text-purple-500 hover:opacity-100"
+            >
+              <Plus className="w-3 h-3" />
+              <span>添加记录</span>
+            </button>
           </div>
 
-          {!isEditingSummary ? (
-            <p className="text-[11px] opacity-80 leading-relaxed font-sans">
-              {chat?.summary || '暂无客观总结，对话满一定轮次后将自动提取事实。'}
-            </p>
+          {showAddBox && (
+            <div className="p-2 rounded-xl border space-y-2" style={{ background: 'var(--bg-main)', borderColor: 'var(--divider)' }}>
+              <textarea
+                rows={2}
+                placeholder="手动新增一段阶段性事实总结..."
+                value={newSummaryText}
+                onChange={(e) => setNewSummaryText(e.target.value)}
+                className="w-full bg-transparent outline-none text-xs leading-relaxed"
+                style={{ color: 'var(--text-main)' }}
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowAddBox(false)} className="opacity-60 text-[10px]">取消</button>
+                <button type="button" onClick={handleAddEntry} className="text-emerald-500 font-semibold text-[10px]">保存条目</button>
+              </div>
+            </div>
+          )}
+
+          {summaryList.length === 0 ? (
+            <p className="text-[11px] opacity-50 italic py-1">暂无阶段性总结记录，满 10 轮对话后将自动生成。</p>
           ) : (
-            <textarea
-              rows={3}
-              value={summaryInput}
-              onChange={(e) => setSummaryInput(e.target.value)}
-              className="w-full rounded-xl p-2 bg-transparent border outline-none text-xs leading-relaxed"
-              style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-              placeholder="手动修订本窗事实总结..."
-            />
+            <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar pt-1">
+              {summaryList.map((item) => (
+                <div key={item.id} className="p-2 rounded-xl border space-y-1 text-[11px]" style={{ background: 'var(--bg-main)', borderColor: 'var(--divider)' }}>
+                  <div className="flex items-center justify-between text-[9px] opacity-50 font-mono">
+                    <span>[{item.createdAt}] {item.isAuto ? '(自动生成)' : '(手动添加)'}</span>
+                    <div className="flex items-center gap-1">
+                      {editingId === item.id ? (
+                        <button type="button" onClick={() => handleSaveEdit(item.id)} className="text-emerald-500 hover:opacity-100" title="保存">
+                          <Check className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => handleStartEdit(item)} className="opacity-60 hover:opacity-100" title="修改">
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button type="button" onClick={() => handleDeleteEntry(item.id)} className="text-rose-500 opacity-60 hover:opacity-100" title="删除">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {editingId === item.id ? (
+                    <textarea
+                      rows={2}
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      className="w-full bg-transparent border-b outline-none text-xs leading-relaxed"
+                      style={{ borderColor: 'var(--card-border)' }}
+                    />
+                  ) : (
+                    <p className="opacity-80 leading-relaxed font-sans">{item.content}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -202,7 +277,7 @@ export const ChatSettingsModal = ({
           </button>
         </div>
 
-        {/* 危险区域：清空记录与销毁实体 */}
+        {/* 危险区域 */}
         <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--divider)' }}>
           <button
             type="button"

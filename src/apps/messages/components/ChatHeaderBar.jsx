@@ -1,12 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles, Loader2 } from 'lucide-react';
+import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles, Loader2, ListOrdered } from 'lucide-react';
 import { subscribeSummaryStatus } from '../../../services/aiService';
 
 export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [isEditingSummary, setIsEditingSummary] = useState(false);
-  const [editedSummaryText, setEditedSummaryText] = useState(chat?.summary || '');
 
   useEffect(() => {
     const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing }) => {
@@ -28,14 +26,17 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
 
   const isRpMode = chat.mode === 'rp';
 
-  const handleSaveSummaryClick = () => {
-    if (onSaveSummary) onSaveSummary(editedSummaryText);
-    setIsEditingSummary(false);
-  };
+  const summaryEntries = useMemo(() => {
+    if (Array.isArray(chat.summary)) return chat.summary;
+    if (typeof chat.summary === 'string' && chat.summary.trim()) {
+      return [{ id: 'legacy', content: chat.summary, createdAt: '历史记录', isAuto: true }];
+    }
+    return [];
+  }, [chat.summary]);
 
   return (
     <div className="sticky top-0 z-30 w-full transition-all flex flex-col items-center">
-      {/* 1. 未唤醒状态：缩成极简爱心图标按钮 */}
+      {/* 1. 未唤醒状态：极简爱心胶囊 */}
       {!isExpanded ? (
         <button
           type="button"
@@ -154,29 +155,18 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
                 <div className="flex items-center justify-between opacity-50 font-mono">
                   <div className="flex items-center gap-1">
                     <Sparkles className="w-3 h-3 text-purple-400" />
-                    <span>本窗事实总结</span>
+                    <span>阶段总结 ({summaryEntries.length})</span>
                   </div>
-                  {!isEditingSummary ? (
-                    <button type="button" onClick={() => setIsEditingSummary(true)} className="hover:underline">编辑</button>
-                  ) : (
-                    <button type="button" onClick={handleSaveSummaryClick} className="text-emerald-500 font-semibold">Save</button>
-                  )}
                 </div>
 
                 {isSummarizing ? (
-                  <p className="opacity-60 italic animate-pulse">正在倾听并整理心绪…</p>
-                ) : !isEditingSummary ? (
-                  <p className="opacity-80 truncate">
-                    {chat.summary || '暂无客观总结'}
-                  </p>
+                  <p className="opacity-60 italic animate-pulse">正在整理最新总结…</p>
+                ) : summaryEntries.length === 0 ? (
+                  <p className="opacity-60 italic">暂无阶段总结条目</p>
                 ) : (
-                  <input
-                    type="text"
-                    value={editedSummaryText}
-                    onChange={(e) => setEditedSummaryText(e.target.value)}
-                    className="w-full bg-transparent border-b outline-none text-[10px]"
-                    style={{ borderColor: 'var(--card-border)' }}
-                  />
+                  <p className="opacity-80 truncate">
+                    最新: {summaryEntries[summaryEntries.length - 1]?.content}
+                  </p>
                 )}
               </div>
             </div>

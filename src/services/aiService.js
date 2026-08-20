@@ -1,6 +1,5 @@
 import db from '../db';
 
-// 事件监听与通知回调订阅器
 const listeners = new Set();
 const summaryStatusListeners = new Set();
 
@@ -22,9 +21,6 @@ const notifySummaryStatus = (chatId, isSummarizing) => {
   summaryStatusListeners.forEach((cb) => cb({ chatId, isSummarizing }));
 };
 
-/**
- * 获取当前的格式化真实时间（含星期）
- */
 const getFormattedRealTime = () => {
   const now = new Date();
   const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -33,12 +29,8 @@ const getFormattedRealTime = () => {
   return `${dateStr} ${days[now.getDay()]} ${timeStr}`;
 };
 
-/**
- * 将 LLM 返回的混合文本解析并拆分为多条独立消息卡片 (方案 A)
- */
 const parseAiResponseToMessages = (text) => {
   const result = [];
-  // 匹配特殊卡片指令: [TRANSFER: 金额 | 留言] 或 [VOICE: 内容] 或 [IMAGE: 画面]
   const pattern = /\[(TRANSFER|VOICE|IMAGE):\s*([^\]]+)\]/g;
   let lastIndex = 0;
   let match;
@@ -90,9 +82,6 @@ const parseAiResponseToMessages = (text) => {
   return result;
 };
 
-/**
- * 后台并发触发 AI 回应
- */
 export const triggerAiResponse = async (chatId) => {
   const chat = await db.chats.get(chatId);
   if (!chat) return;
@@ -111,16 +100,27 @@ export const triggerAiResponse = async (chatId) => {
     if (apiConfig.baseUrl && apiConfig.apiKey) {
       const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
-      // 1. 获取启用的世界书与知识库
+      // 1. 获取启用的世界书
       const enabledWorldBooks = await db.worldBooks.where('isEnabled').equals(1).toArray();
       const worldBooksText = enabledWorldBooks.length > 0
         ? `\n【世界书背景设定】:\n` + enabledWorldBooks.map((wb) => `- ${wb.title}: ${wb.content || ''}`).join('\n')
         : '';
 
-      // 2. 实时真实时间锚点
+      // 2. 格式化本窗阶段性多条目总结记录
+      let summaryEntries = [];
+      if (Array.isArray(chat.summary)) {
+        summaryEntries = chat.summary;
+      } else if (typeof chat.summary === 'string' && chat.summary.trim()) {
+        summaryEntries = [{ id: 'legacy', content: chat.summary, createdAt: '早期记录', isAuto: true }];
+      }
+
+      const summaryText = summaryEntries.length > 0
+        ? `\n【本窗阶段性历史事实记录】:\n` + summaryEntries.map((item, idx) => `${idx + 1}. [${item.createdAt || '历史'}] ${item.content}`).join('\n')
+        : '';
+
+      // 3. 实时真实时间
       const realTimeStr = getFormattedRealTime();
 
-      // 3. 构建高沉浸 System Prompt
       const systemPrompt = `你现在正扮演用户专属的伴侣：${character.name}。
 【当前真实世界时间】：${realTimeStr}（请在对话和陪伴中精准感知时间，如早晚问候、跨夜关注）。
 【角色人设】：${character.bio || ''}
@@ -128,6 +128,7 @@ export const triggerAiResponse = async (chatId) => {
 【用户人设(User Persona)】：${character.userPersona || '我的亲密伴侣'}
 【当前交互模式】：${chat.mode === 'rp' ? 'RP剧情沉浸模式（严格遵守世界书背景与角色设定）' : '现实陪伴模式（打破第四面墙，关注用户的日常实际生活与情绪）'}
 ${worldBooksText}
+${summaryText}
 
 【卡片发送与沉浸认知指令】：
 在你自己的认知视角里，所有发出的转账、语音、图片卡片均属于真实世界/剧情现实中的具体心意表达。
@@ -164,7 +165,6 @@ ${worldBooksText}
       }
     }
 
-    // 解析并拆分为独立消息 (方案 A)
     const parsedMessages = parseAiResponseToMessages(rawAiText);
     const nowIso = new Date().toISOString();
 
@@ -184,7 +184,6 @@ ${worldBooksText}
 
     await db.chats.update(chatId, { updatedAt: nowIso });
 
-    // 触发全局通知
     notifyListeners({
       type: 'NEW_MESSAGE',
       chatId,
@@ -192,7 +191,6 @@ ${worldBooksText}
       preview: parsedMessages[0]?.content || '发来了一条消息'
     });
 
-    // 自动判断并触发客观事实心绪总结
     checkAndTriggerAutoSummary(chatId, character, apiConfig);
 
   } catch (err) {
@@ -202,14 +200,10 @@ ${worldBooksText}
   }
 };
 
-/**
- * 客观事实心绪总结自动触发逻辑
- */
 const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
   const freq = parseInt(character.summaryFrequency || '10', 10);
   const msgCount = await db.messages.where('chatId').equals(chatId).count();
 
-  // 每达到 freq 的倍数轮次时触发总结
   if (msgCount > 0 && msgCount % (freq * 2) === 0) {
     notifySummaryStatus(chatId, true);
 
@@ -230,7 +224,7 @@ const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
             messages: [
               {
                 role: 'system',
-                content: '你是一个客观记录者。请用 1-2 句简练客观的陈述语句总结以下对话中的关键事实、用户近况或约定事项。绝对不要掺杂浪漫感叹或主观情感评价。'
+                content: '你是一个客观记录者。请用 1-2 句简练客观的陈述语句总结以下对话中的最新关键事实、用户近况或约定事项。绝对不要掺杂浪漫感叹或主观情感评价。'
               },
               { role: 'user', content: recentHistory }
             ]
@@ -241,8 +235,24 @@ const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
           const data = await summaryRes.json();
           const summaryText = data.choices?.[0]?.message?.content?.trim();
           if (summaryText) {
-            await db.chats.update(chatId, { summary: summaryText });
-            notifyListeners({ type: 'CHAT_SUMMARY_UPDATED', chatId, summary: summaryText });
+            const currentChat = await db.chats.get(chatId);
+            let summaryList = Array.isArray(currentChat.summary) ? currentChat.summary : [];
+            if (typeof currentChat.summary === 'string' && currentChat.summary.trim()) {
+              summaryList = [{ id: 'legacy', content: currentChat.summary, createdAt: '历史', isAuto: true }];
+            }
+
+            const nowStr = new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+            const newEntry = {
+              id: `sum_${Date.now()}`,
+              content: summaryText,
+              createdAt: nowStr,
+              isAuto: true
+            };
+
+            const updatedSummaryList = [...summaryList, newEntry];
+            await db.chats.update(chatId, { summary: updatedSummaryList });
+            notifyListeners({ type: 'CHAT_SUMMARY_UPDATED', chatId, summary: updatedSummaryList });
           }
         }
       }
