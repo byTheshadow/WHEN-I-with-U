@@ -1,226 +1,592 @@
 :root,
 :root[data-theme="mono-mist"] {
-  /* White Mist: white editorial canvas */
   --bg-main: #ffffff;
   --bg-surface: #f7f7f5;
   --bg-surface-strong: #ececea;
 
-  /* Restrained neutral mist, never coloured */
-  --bg-blob-1: rgba(210, 210, 205, 0.42);
-  --bg-blob-2: rgba(232, 232, 228, 0.72);
-  --bg-blob-3: rgba(196, 196, 191, 0.22);
+  --bg-blob-1: #d7e1e5;
+  --bg-blob-2: #edf1f1;
+  --bg-blob-3: #c8d3d7;
 
-  /* Light glass cards */
-  --card-bg: rgba(255, 255, 255, 0.76);
-  --card-bg-gradient: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.94) 0%,
-    rgba(243, 243, 240, 0.74) 100%
-  );
-  --card-border: rgba(17, 17, 17, 0.1);
+  --card-bg: #ffffff;
+  --card-bg-gradient: linear-gradient(145deg, #ffffff 0%, #f3f4f2 100%);
+  --card-border: #dfe2df;
   --card-shadow: 0 16px 42px rgba(17, 17, 17, 0.075);
 
-  /* Graphite emphasis cards */
-  --ink-card-bg: linear-gradient(145deg, #242424 0%, #090909 100%);
-  --ink-card-border: rgba(255, 255, 255, 0.14);
-  --ink-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+  --modal-bg: #ffffff;
+  --modal-border: #d8dcda;
+  --modal-overlay: rgba(234, 238, 238, 0.82);
+  --modal-shadow: 0 24px 70px rgba(17, 24, 27, 0.16);
 
-  /* Readable foregrounds */
-  --text-main: #111111;
-  --text-sub: #484848;
-  --text-muted: #707070;
+  --ink-card-bg: linear-gradient(145deg, #263137 0%, #111719 100%);
+  --ink-card-border: #435158;
+  --ink-card-shadow: 0 16px 34px rgba(13, 20, 23, 0.2);
+
+  --text-main: #111719;
+  --text-sub: #4d5a60;
+  --text-muted: #748087;
   --text-on-ink: #ffffff;
   --text-on-ink-muted: rgba(255, 255, 255, 0.72);
 
-  /* Controls */
-  --accent-color: #111111;
+  --accent-color: #405d69;
   --accent-foreground: #ffffff;
-  --control-soft-bg: rgba(17, 17, 17, 0.065);
-  --control-soft-hover: rgba(17, 17, 17, 0.11);
-  --divider: rgba(17, 17, 17, 0.1);
+  --control-soft-bg: #e8edef;
+  --control-soft-hover: #dce5e8;
+  --divider: #dfe4e4;
+
+  --dice-face: #fafcfb;
+  --dice-face-edge: #cbd5d7;
+  --dice-ink: #223239;
+  --star-color: #7f9eaa;
+  --star-bright: #effaff;
+  --dice-shadow-color: rgba(16, 27, 31, 0.22);
 }
 
 :root[data-theme="cream-latte"] {
   --bg-main: #fdfbf7;
   --bg-surface: #f7f0e7;
   --bg-surface-strong: #eee0cd;
-  --bg-blob-1: rgba(226, 202, 177, 0.38);
-  --bg-blob-2: rgba(246, 233, 218, 0.72);
-  --bg-blob-3: rgba(204, 173, 143, 0.18);
-  --card-bg: rgba(255, 253, 249, 0.76);
-  --card-bg-gradient: linear-gradient(145deg, rgba(255, 253, 249, 0.94), rgba(247, 237, 224, 0.75));
-  --card-border: rgba(76, 54, 39, 0.12);
+
+  --bg-blob-1: #e2cab1;
+  --bg-blob-2: #f6e9da;
+  --bg-blob-3: #ccad8f;
+
+  --card-bg: #fffdf9;
+  --card-bg-gradient: linear-gradient(145deg, #fffdf9 0%, #f7ede0 100%);
+  --card-border: #e4d7c8;
   --card-shadow: 0 16px 42px rgba(76, 54, 39, 0.08);
+
+  --modal-bg: #fffdf9;
+  --modal-border: #dfcfbd;
+  --modal-overlay: rgba(242, 232, 217, 0.84);
+  --modal-shadow: 0 24px 70px rgba(76, 54, 39, 0.17);
+
   --ink-card-bg: linear-gradient(145deg, #4c352a 0%, #251812 100%);
-  --ink-card-border: rgba(255, 255, 255, 0.14);
+  --ink-card-border: #725847;
   --ink-card-shadow: 0 16px 34px rgba(45, 29, 20, 0.18);
+
   --text-main: #2d211c;
   --text-sub: #66554b;
   --text-muted: #8d7a6d;
   --text-on-ink: #fffaf5;
   --text-on-ink-muted: rgba(255, 250, 245, 0.72);
-  --accent-color: #39271e;
+
+  --accent-color: #604332;
   --accent-foreground: #fffaf5;
-  --control-soft-bg: rgba(76, 54, 39, 0.07);
-  --control-soft-hover: rgba(76, 54, 39, 0.12);
-  --divider: rgba(76, 54, 39, 0.12);
+  --control-soft-bg: #f1e7dc;
+  --control-soft-hover: #e8dacb;
+  --divider: #e2d4c5;
+
+  --dice-face: #fffaf3;
+  --dice-face-edge: #dac9b5;
+  --dice-ink: #5b3e2e;
+  --star-color: #c49466;
+  --star-bright: #fff8e9;
+  --dice-shadow-color: rgba(67, 42, 29, 0.21);
 }
 
 :root[data-theme="obsidian-dark"] {
   --bg-main: #0c0c0d;
   --bg-surface: #151517;
   --bg-surface-strong: #212124;
-  --bg-blob-1: rgba(76, 76, 82, 0.28);
-  --bg-blob-2: rgba(32, 32, 36, 0.64);
-  --bg-blob-3: rgba(104, 104, 112, 0.14);
-  --card-bg: rgba(31, 31, 34, 0.72);
-  --card-bg-gradient: linear-gradient(145deg, rgba(38, 38, 42, 0.88), rgba(22, 22, 25, 0.82));
-  --card-border: rgba(255, 255, 255, 0.11);
+
+  --bg-blob-1: #34343a;
+  --bg-blob-2: #202024;
+  --bg-blob-3: #4a4a51;
+
+  --card-bg: #1d1d20;
+  --card-bg-gradient: linear-gradient(145deg, #29292d 0%, #19191c 100%);
+  --card-border: #343438;
   --card-shadow: 0 16px 42px rgba(0, 0, 0, 0.26);
+
+  --modal-bg: #1b1b1e;
+  --modal-border: #3b3b40;
+  --modal-overlay: rgba(8, 8, 10, 0.74);
+  --modal-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+
   --ink-card-bg: linear-gradient(145deg, #f4f4f2 0%, #cfcfca 100%);
-  --ink-card-border: rgba(0, 0, 0, 0.1);
+  --ink-card-border: #f5f5f3;
   --ink-card-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+
   --text-main: #f5f5f3;
   --text-sub: #c7c7c4;
   --text-muted: #9a9a97;
   --text-on-ink: #151515;
   --text-on-ink-muted: rgba(21, 21, 21, 0.66);
-  --accent-color: #f4f4f2;
+
+  --accent-color: #e9e9e4;
   --accent-foreground: #111111;
-  --control-soft-bg: rgba(255, 255, 255, 0.09);
-  --control-soft-hover: rgba(255, 255, 255, 0.15);
-  --divider: rgba(255, 255, 255, 0.11);
+  --control-soft-bg: #2a2a2e;
+  --control-soft-hover: #36363b;
+  --divider: #35353a;
+
+  --dice-face: #e8e8e4;
+  --dice-face-edge: #5b5b61;
+  --dice-ink: #1a1a1c;
+  --star-color: #c4d1d5;
+  --star-bright: #ffffff;
+  --dice-shadow-color: rgba(0, 0, 0, 0.48);
 }
 
 :root[data-theme="cyber-velvet"] {
   --bg-main: #120b1a;
   --bg-surface: #1b1027;
   --bg-surface-strong: #2a173d;
-  --bg-blob-1: rgba(140, 70, 185, 0.28);
-  --bg-blob-2: rgba(57, 35, 101, 0.55);
-  --bg-blob-3: rgba(191, 117, 219, 0.14);
-  --card-bg: rgba(31, 17, 45, 0.72);
-  --card-bg-gradient: linear-gradient(145deg, rgba(43, 24, 62, 0.88), rgba(23, 13, 34, 0.84));
-  --card-border: rgba(242, 218, 255, 0.15);
+
+  --bg-blob-1: #6f4690;
+  --bg-blob-2: #392365;
+  --bg-blob-3: #9e65b5;
+
+  --card-bg: #251632;
+  --card-bg-gradient: linear-gradient(145deg, #311d43 0%, #1c1129 100%);
+  --card-border: #593a6c;
   --card-shadow: 0 16px 42px rgba(8, 3, 14, 0.28);
+
+  --modal-bg: #241530;
+  --modal-border: #624378;
+  --modal-overlay: rgba(16, 8, 24, 0.76);
+  --modal-shadow: 0 24px 70px rgba(5, 2, 9, 0.46);
+
   --ink-card-bg: linear-gradient(145deg, #ead8f8 0%, #b885df 100%);
-  --ink-card-border: rgba(255, 255, 255, 0.2);
+  --ink-card-border: #f4e5ff;
   --ink-card-shadow: 0 16px 34px rgba(8, 3, 14, 0.25);
+
   --text-main: #fbf5ff;
   --text-sub: #ddc5ef;
   --text-muted: #ad8ac4;
   --text-on-ink: #24102f;
   --text-on-ink-muted: rgba(36, 16, 47, 0.7);
+
   --accent-color: #f0dcff;
   --accent-foreground: #291134;
-  --control-soft-bg: rgba(240, 220, 255, 0.1);
-  --control-soft-hover: rgba(240, 220, 255, 0.16);
-  --divider: rgba(240, 220, 255, 0.14);
+  --control-soft-bg: #382445;
+  --control-soft-hover: #492d59;
+  --divider: #513361;
+
+  --dice-face: #f5e9ff;
+  --dice-face-edge: #b68ed0;
+  --dice-ink: #4a255b;
+  --star-color: #edc5ff;
+  --star-bright: #fff5ff;
+  --dice-shadow-color: rgba(5, 2, 9, 0.46);
 }
 
-/* 占星骰子：从上方甩入、落地反弹、滚动后停下 */
+/* Preloader */
+
+.preloader {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+
+.preloader__ambient-glow {
+  position: absolute;
+  z-index: 0;
+  width: min(76vw, 460px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--bg-blob-1);
+  filter: blur(84px);
+  opacity: 0.74;
+  animation: preloaderAmbientBreathe 5s ease-in-out infinite;
+}
+
+.preloader__ambient-glow::after {
+  position: absolute;
+  inset: 22%;
+  border-radius: inherit;
+  background: var(--bg-blob-2);
+  content: '';
+  filter: blur(38px);
+}
+
+.preloader__dice-wrap {
+  min-height: 275px;
+}
+
+.preloader__copy {
+  animation: preloaderCopyEnter 0.9s 0.25s both;
+}
+
+.preloader__title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 7vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+}
+
+.preloader__title span {
+  opacity: 0.46;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.preloader__quote {
+  max-width: 284px;
+  margin: 14px auto 0;
+  color: var(--text-sub);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.preloader__status {
+  margin: 38px 0 0;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.preloader__status::after {
+  display: inline-block;
+  width: 1.2em;
+  overflow: hidden;
+  content: '...';
+  vertical-align: bottom;
+  animation: preloaderEllipsis 1.3s steps(4, end) infinite;
+}
+
+/* Centered 3D astrology dice */
+
+.astrology-dice-stage {
+  position: relative;
+  display: grid;
+  width: 290px;
+  height: 275px;
+  place-items: center;
+  perspective: 900px;
+  perspective-origin: 50% 42%;
+}
+
+.astrology-dice-shadow {
+  position: absolute;
+  bottom: 35px;
+  width: 112px;
+  height: 25px;
+  border-radius: 50%;
+  background: var(--dice-shadow-color);
+  filter: blur(12px);
+  opacity: 0.18;
+  transform: scaleX(0.78);
+  animation: astrologyDiceShadowSettle 3.4s cubic-bezier(0.2, 0.8, 0.2, 1)
+    infinite;
+}
+
+.astrology-dice-thrower {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: astrologyDiceThrow 3.4s cubic-bezier(0.18, 0.78, 0.2, 1) infinite;
+}
+
+.astrology-dice {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  transform-style: preserve-3d;
+  animation: astrologyDiceSpin 3.4s cubic-bezier(0.2, 0.7, 0.24, 1) infinite;
+}
+
+.astrology-dice__face {
+  position: absolute;
+  display: grid;
+  width: 104px;
+  height: 104px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--dice-face-edge);
+  border-radius: 20px;
+  background: linear-gradient(
+    135deg,
+    var(--dice-face) 0%,
+    var(--bg-surface-strong) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.54),
+    inset 0 -9px 14px rgba(0, 0, 0, 0.055);
+  backface-visibility: hidden;
+}
+
+.astrology-dice__face::before {
+  position: absolute;
+  width: 63%;
+  height: 63%;
+  border: 1px solid var(--dice-face-edge);
+  border-radius: 50%;
+  content: '';
+  opacity: 0.72;
+}
+
+.astrology-dice__symbol {
+  position: relative;
+  z-index: 1;
+  color: var(--dice-ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.astrology-dice__face--front {
+  transform: rotateY(0deg) translateZ(52px);
+}
+
+.astrology-dice__face--back {
+  transform: rotateY(180deg) translateZ(52px);
+}
+
+.astrology-dice__face--right {
+  transform: rotateY(90deg) translateZ(52px);
+}
+
+.astrology-dice__face--left {
+  transform: rotateY(-90deg) translateZ(52px);
+}
+
+.astrology-dice__face--top {
+  transform: rotateX(90deg) translateZ(52px);
+}
+
+.astrology-dice__face--bottom {
+  transform: rotateX(-90deg) translateZ(52px);
+}
+
+.astrology-dice-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.astrology-dice-star {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--star-size);
+  height: var(--star-size);
+  border-radius: 50%;
+  background: var(--star-bright);
+  box-shadow:
+    0 0 7px var(--star-bright),
+    0 0 16px var(--star-color);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  animation: astrologyDiceStarBurst 3.4s ease-out infinite;
+  animation-delay: var(--star-delay);
+}
+
+.astrology-dice-star--cross {
+  width: 3px;
+  height: 3px;
+  border-radius: 0;
+}
+
+.astrology-dice-star--cross::before,
+.astrology-dice-star--cross::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: var(--star-bright);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.astrology-dice-star--cross::before {
+  width: 14px;
+  height: 1px;
+}
+
+.astrology-dice-star--cross::after {
+  width: 1px;
+  height: 14px;
+}
+
+.astrology-dice-impact-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  aspect-ratio: 1;
+  border: 1px solid var(--star-color);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.2);
+  animation: astrologyDiceImpactRing 3.4s ease-out infinite;
+}
+
+/* Solid modal utilities */
+
+.theme-modal-overlay {
+  background: var(--modal-overlay);
+}
+
+.theme-modal-panel {
+  border: 1px solid var(--modal-border);
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
+}
+
+/* Animations */
+
 @keyframes astrologyDiceThrow {
   0% {
     opacity: 0;
-    transform:
-      translate3d(-72px, -260px, 0)
-      rotateX(0deg)
-      rotateY(0deg)
-      rotateZ(-28deg)
-      scale(0.62);
+    transform: translate3d(-64px, -130px, 0) scale(0.72);
   }
 
-  16% {
+  11% {
     opacity: 1;
   }
 
   42% {
-    transform:
-      translate3d(16px, 10px, 0)
-      rotateX(520deg)
-      rotateY(410deg)
-      rotateZ(164deg)
-      scale(1.08);
-  }
-
-  54% {
-    transform:
-      translate3d(30px, -27px, 0)
-      rotateX(660deg)
-      rotateY(545deg)
-      rotateZ(220deg)
-      scale(0.98);
-  }
-
-  68% {
-    transform:
-      translate3d(13px, 2px, 0)
-      rotateX(744deg)
-      rotateY(655deg)
-      rotateZ(290deg)
-      scale(1.035);
-  }
-
-  80% {
-    transform:
-      translate3d(3px, -8px, 0)
-      rotateX(790deg)
-      rotateY(716deg)
-      rotateZ(336deg)
-      scale(1);
-  }
-
-  92% {
-    transform:
-      translate3d(0, 0, 0)
-      rotateX(818deg)
-      rotateY(755deg)
-      rotateZ(360deg)
-      scale(1.012);
-  }
-
-  100% {
-    opacity: 1;
-    transform:
-      translate3d(0, 0, 0)
-      rotateX(820deg)
-      rotateY(760deg)
-      rotateZ(360deg)
-      scale(1);
-  }
-}
-
-/* 骰子停止后保持轻微漂浮呼吸感 */
-@keyframes astrologyDiceRest {
-  0%,
-  100% {
-    filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.13));
+    transform: translate3d(17px, 8px, 0) scale(1.05);
   }
 
   50% {
-    filter: drop-shadow(0 23px 24px rgba(0, 0, 0, 0.18));
+    transform: translate3d(10px, -15px, 0) scale(1.01);
   }
-}
 
-.animate-dice-roll {
-  transform-style: preserve-3d;
-  transform-origin: center bottom;
-  will-change: transform, opacity;
-  animation:
-    astrologyDiceThrow 2.7s cubic-bezier(0.2, 0.82, 0.18, 1) forwards,
-    astrologyDiceRest 2.8s ease-in-out 2.7s infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-dice-roll {
-    animation: none;
+  59%,
+  88% {
     opacity: 1;
-    transform: none;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(18px, 8px, 0) scale(0.96);
   }
 }
 
+@keyframes astrologyDiceSpin {
+  0% {
+    transform: rotateX(-12deg) rotateY(0deg) rotateZ(-18deg);
+  }
 
-/* 页面区块由下而上依次进入 */
+  42% {
+    transform: rotateX(680deg) rotateY(545deg) rotateZ(118deg);
+  }
+
+  50% {
+    transform: rotateX(742deg) rotateY(622deg) rotateZ(148deg);
+  }
+
+  59%,
+  100% {
+    transform: rotateX(720deg) rotateY(630deg) rotateZ(135deg);
+  }
+}
+
+@keyframes astrologyDiceShadowSettle {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.34);
+  }
+
+  39% {
+    opacity: 0.24;
+    transform: scaleX(1.14);
+  }
+
+  51% {
+    opacity: 0.17;
+    transform: scaleX(0.8);
+  }
+
+  60%,
+  88% {
+    opacity: 0.18;
+    transform: scaleX(0.88);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(0.7);
+  }
+}
+
+@keyframes astrologyDiceStarBurst {
+  0%,
+  36% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+  }
+
+  43% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--star-x) * 0.25),
+        calc(-50% + var(--star-y) * 0.25)
+      )
+      scale(1);
+  }
+
+  58% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--star-x)),
+        calc(-50% + var(--star-y))
+      )
+      scale(0.2);
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes astrologyDiceImpactRing {
+  0%,
+  39% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+
+  43% {
+    opacity: 0.85;
+  }
+
+  61% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(8);
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes preloaderAmbientBreathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes preloaderCopyEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes preloaderEllipsis {
+  to {
+    width: 0;
+  }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -237,13 +603,6 @@
   animation: fadeInUp 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* 尊重设备的减少动态效果偏好 */
-@media (prefers-reduced-motion: reduce) {
-  .animate-fade-in-up {
-    animation-duration: 0.01ms;
-  }
-}
-
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -251,4 +610,32 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preloader__ambient-glow,
+  .preloader__copy,
+  .preloader__status::after,
+  .astrology-dice-shadow,
+  .astrology-dice-thrower,
+  .astrology-dice,
+  .astrology-dice-star,
+  .astrology-dice-impact-ring,
+  .animate-fade-in-up {
+    animation: none;
+  }
+
+  .astrology-dice-thrower {
+    opacity: 1;
+    transform: none;
+  }
+
+  .astrology-dice {
+    transform: rotateX(-18deg) rotateY(28deg);
+  }
+
+  .animate-fade-in-up {
+    opacity: 1;
+    transform: none;
+  }
 }

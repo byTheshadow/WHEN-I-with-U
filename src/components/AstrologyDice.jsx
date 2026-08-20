@@ -1,25 +1,69 @@
 import React from 'react';
-import { Sparkles, Moon, Sun, Star, Compass } from 'lucide-react';
+
+const stars = [
+  { x: '-104px', y: '-56px', size: '4px', delay: '0s', type: 'dot' },
+  { x: '-68px', y: '76px', size: '3px', delay: '0.02s', type: 'cross' },
+  { x: '102px', y: '-47px', size: '5px', delay: '0.04s', type: 'dot' },
+  { x: '82px', y: '68px', size: '3px', delay: '0.06s', type: 'cross' },
+  { x: '-128px', y: '16px', size: '3px', delay: '0.08s', type: 'dot' },
+  { x: '132px', y: '12px', size: '3px', delay: '0.1s', type: 'dot' },
+  { x: '-24px', y: '-102px', size: '3px', delay: '0.03s', type: 'dot' },
+  { x: '25px', y: '104px', size: '4px', delay: '0.05s', type: 'dot' }
+];
+
+const diceFaces = [
+  { className: 'astrology-dice__face--front', symbol: '☉', label: 'Sun' },
+  { className: 'astrology-dice__face--back', symbol: '☽', label: 'Moon' },
+  { className: 'astrology-dice__face--right', symbol: '♄', label: 'Saturn' },
+  { className: 'astrology-dice__face--left', symbol: '♃', label: 'Jupiter' },
+  { className: 'astrology-dice__face--top', symbol: '✦', label: 'Star' },
+  { className: 'astrology-dice__face--bottom', symbol: '♆', label: 'Neptune' }
+];
 
 export const AstrologyDice = () => {
   return (
-    <div className="w-24 h-24 relative flex items-center justify-center animate-dice-roll">
-      {/* 3D 占星骰子实体 */}
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 dark:from-slate-800 dark:via-slate-900 dark:to-black border border-white/60 dark:border-slate-700/60 shadow-2xl flex items-center justify-center relative overflow-hidden backdrop-blur-xl">
-        <div className="absolute inset-0 bg-white/20 dark:bg-white/5 backdrop-blur-sm" />
-        {/* 骰子面的古老刻符与图标 */}
-        <div className="relative z-10 flex flex-col items-center justify-center text-slate-800 dark:text-slate-200 space-y-1">
-          <Moon className="w-5 h-5 opacity-90 stroke-[1.5]" />
-          <div className="flex gap-1 text-[8px] font-mono tracking-widest opacity-60">
-            <span>✦</span>
-            <span>XII</span>
-          </div>
+    <div
+      className="astrology-dice-stage"
+      aria-label="正在投掷占星骰子"
+      role="img"
+    >
+      <div className="astrology-dice-shadow" />
+
+      <div className="astrology-dice-stars" aria-hidden="true">
+        <span className="astrology-dice-impact-ring" />
+
+        {stars.map((star, index) => (
+          <span
+            key={`${star.x}-${star.y}-${index}`}
+            className={`astrology-dice-star ${
+              star.type === 'cross' ? 'astrology-dice-star--cross' : ''
+            }`}
+            style={{
+              '--star-x': star.x,
+              '--star-y': star.y,
+              '--star-size': star.size,
+              '--star-delay': star.delay
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="astrology-dice-thrower" aria-hidden="true">
+        <div className="astrology-dice">
+          {diceFaces.map((face) => (
+            <div
+              key={face.className}
+              className={`astrology-dice__face ${face.className}`}
+              title={face.label}
+            >
+              <span className="astrology-dice__symbol">{face.symbol}</span>
+            </div>
+          ))}
         </div>
-        {/* 边缘拟真边缘光泽 */}
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/80 to-transparent" />
       </div>
     </div>
   );
 };
 
 export default AstrologyDice;
+
