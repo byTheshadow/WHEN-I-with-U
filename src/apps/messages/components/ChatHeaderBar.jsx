@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, UserEdit, Activity, Shield, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit3, Activity, Shield, Sparkles } from 'lucide-react';
 
 export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!character || !chat) return null;
 
-  // 使用 useMemo 锁定状态，避免打字重新渲染时状态频繁抽搐跳动 (Fix Bug #10)
+  // 使用 useMemo 锁定打字时的状态抽搐 BUG
   const currentStatus = useMemo(() => {
     if (Array.isArray(character.statusList) && character.statusList.length > 0) {
       return character.statusList[Math.floor(Math.random() * character.statusList.length)];
@@ -16,9 +16,12 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
 
   const isRpMode = chat.mode === 'rp';
 
+  // 严格隔离：仅读取【当前聊天窗】自身的专属总结，绝不跨窗口同步 (Fix Summary Isolation)
+  const currentChatSummary = chat.summary || null;
+
   return (
     <div className="sticky top-0 z-30 w-full transition-all flex flex-col items-center">
-      {/* 1. 未唤醒状态：精美 Pill shape 胶囊小按钮 (Fix Bug #11) */}
+      {/* 1. 未唤醒/收起状态：精美 Pill shape 胶囊小按钮 */}
       {!isExpanded ? (
         <button
           type="button"
@@ -55,9 +58,9 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
           <ChevronDown className="w-3.5 h-3.5 opacity-50 ml-0.5" />
         </button>
       ) : (
-        /* 2. 唤醒展开状态：Carrd 杂志风面板 */
+        /* 2. 展开状态：Carrd 杂志风面板 */
         <div 
-          className="w-full rounded-3xl border backdrop-blur-xl shadow-md p-4 space-y-3 animate-fade-in-up"
+          className="w-full rounded-3xl border backdrop-blur-xl shadow-md p-4 space-y-3 animate-fade-in-up text-left"
           style={{
             background: 'var(--card-bg-gradient)',
             borderColor: 'var(--card-border)',
@@ -104,15 +107,15 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
             </div>
 
             <div className="flex items-center gap-1">
-              {/* 换成 UserEdit 图标，解决双齿轮冲突 (Fix Bug #1) */}
+              {/* 使用 Edit3 解决 npm run build 无法导出 UserEdit 的错误 */}
               <button
                 type="button"
                 onClick={onOpenSettings}
                 className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all active:scale-95"
                 style={{ background: 'var(--control-soft-bg)' }}
-                title="修改角色人设"
+                title="编辑伴侣人设"
               >
-                <UserEdit className="w-3.5 h-3.5" />
+                <Edit3 className="w-3.5 h-3.5" />
               </button>
 
               <button
@@ -120,7 +123,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
                 onClick={() => setIsExpanded(false)}
                 className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all"
                 style={{ background: 'var(--control-soft-bg)' }}
-                title="收起"
+                title="收起状态栏"
               >
                 <ChevronUp className="w-3.5 h-3.5" />
               </button>
@@ -144,18 +147,18 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
                   <span>模式约定</span>
                 </div>
                 <p className="opacity-80">
-                  {isRpMode ? '沉浸于特定世界书背景剧情中。' : '伴于现实，关注日常生活细节。'}
+                  {isRpMode ? '沉浸于剧情背景与专属世界书中。' : '伴于现实，关注日常生活细节。'}
                 </p>
               </div>
 
               <div className="p-2.5 rounded-xl space-y-1 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
                 <div className="flex items-center gap-1 opacity-50 font-mono">
                   <Sparkles className="w-3 h-3" />
-                  <span>本窗心绪总结</span>
+                  <span>本窗专属总结</span>
                 </div>
-                {/* 仅读取本聊天窗总结 (Fix Bug #3) */}
+                {/* 彻底隔离：只呈现当前聊天窗 (chat.summary) 的独有总结 */}
                 <p className="opacity-80 truncate">
-                  {chat.summary ? chat.summary : `按每 ${character.summaryFrequency || 10} 轮记录此窗记忆`}
+                  {currentChatSummary ? currentChatSummary : `暂无本对话总结 (每 ${character.summaryFrequency || 10} 轮自动记忆)`}
                 </p>
               </div>
             </div>
