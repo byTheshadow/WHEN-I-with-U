@@ -8,14 +8,21 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
 
   const currentStatus = Array.isArray(character.statusList) && character.statusList.length > 0
     ? character.statusList[Math.floor(Math.random() * character.statusList.length)]
-    : '在线陪伴中';
+    : '月色与你同在';
 
   const isRpMode = chat.mode === 'rp';
 
   return (
     <div className="sticky top-0 z-30 w-full transition-all">
-      <div className="rounded-3xl border border-white/20 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-sm p-3.5 space-y-2">
-        {/* 收起状态的 Banner Header */}
+      <div 
+        className="rounded-3xl border backdrop-blur-xl shadow-sm p-3.5 space-y-2"
+        style={{
+          background: 'var(--card-bg-gradient)',
+          borderColor: 'var(--card-border)',
+          color: 'var(--text-main)'
+        }}
+      >
+        {/* 收起状态 Header */}
         <div className="flex items-center justify-between gap-3">
           <div 
             onClick={() => setIsExpanded(!isExpanded)}
@@ -26,10 +33,14 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
                 <img
                   src={character.avatar}
                   alt={character.name}
-                  className="w-10 h-10 rounded-full object-cover border border-white/20 shadow-sm"
+                  className="w-10 h-10 rounded-full object-cover border shadow-sm"
+                  style={{ borderColor: 'var(--card-border)' }}
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-sm">
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
+                  style={{ background: 'var(--control-soft-bg)' }}
+                >
                   {character.name?.[0] || 'C'}
                 </div>
               )}
@@ -47,7 +58,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
                   {isRpMode ? 'RP Mode' : 'Real World'}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] opacity-60">
+              <div className="flex items-center gap-1.5 text-[11px] opacity-70">
                 <Activity className="w-3 h-3 shrink-0" />
                 <span className="truncate">{currentStatus}</span>
               </div>
@@ -58,8 +69,9 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
             <button
               type="button"
               onClick={onOpenSettings}
-              className="p-2 rounded-full bg-black/5 dark:bg-white/10 opacity-70 hover:opacity-100 transition-all active:scale-95"
-              title="设置角色与聊天"
+              className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all active:scale-95"
+              style={{ background: 'var(--control-soft-bg)' }}
+              title="伴侣设定与设置"
             >
               <Settings className="w-3.5 h-3.5" />
             </button>
@@ -67,39 +79,43 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 rounded-full bg-black/5 dark:bg-white/10 opacity-70 hover:opacity-100 transition-all"
+              className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all"
+              style={{ background: 'var(--control-soft-bg)' }}
             >
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
 
-        {/* 展开的 Carrd 杂志风面板 */}
+        {/* 展开面板 */}
         {isExpanded && (
-          <div className="pt-3 border-t border-white/10 space-y-3 text-xs animate-fade-in-up">
+          <div className="pt-3 border-t space-y-3 text-xs animate-fade-in-up" style={{ borderColor: 'var(--divider)' }}>
             {character.bio && (
-              <p className="italic opacity-80 leading-relaxed font-serif text-[11px] p-2.5 rounded-xl bg-black/5 dark:bg-white/5">
+              <p 
+                className="italic opacity-80 leading-relaxed font-serif text-[11px] p-2.5 rounded-xl border"
+                style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}
+              >
                 "{character.bio}"
               </p>
             )}
 
             <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 space-y-1">
+              <div className="p-2.5 rounded-xl space-y-1 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
                 <div className="flex items-center gap-1 opacity-50 font-mono">
                   <Shield className="w-3 h-3" />
                   <span>模式固定说明</span>
                 </div>
                 <p className="opacity-80">
-                  {isRpMode ? '沉浸于特定背景与剧情人设中。' : '清楚知道自己是虚拟伴侣，关注现实生活。'}
+                  {isRpMode ? '沉浸于剧情背景与专属世界书中。' : '关注现实中的你，给予生活温度。'}
                 </p>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 space-y-1">
+              <div className="p-2.5 rounded-xl space-y-1 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
                 <div className="flex items-center gap-1 opacity-50 font-mono">
                   <Sparkles className="w-3 h-3" />
-                  <span>总结频率</span>
+                  <span>心绪总结</span>
                 </div>
-                <p className="opacity-80">每 {character.summaryFrequency || 10} 轮对话记录总结</p>
+                <p className="opacity-80">每 {character.summaryFrequency || 10} 轮对话记录记忆</p>
               </div>
             </div>
           </div>

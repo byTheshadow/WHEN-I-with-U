@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  ArrowLeft, Send, Sparkles, Image, Volume2, DollarSign, FileText,
-  Trash2, RotateCcw, Quote, CheckCheck, Sliders, VolumeX, Eye
+  ArrowLeft, Send, Sparkles, Image, Volume2, DollarSign,
+  Trash2, Quote, CheckCheck, Sliders, Settings
 } from 'lucide-react';
 import db from '../../db';
 import ChatHeaderBar from './components/ChatHeaderBar';
 import TypingIndicator from './components/TypingIndicator';
-import AudioKeepAlive from './components/AudioKeepAlive';
 import BubbleCustomizer from './components/BubbleCustomizer';
+import ChatSettingsModal from './components/ChatSettingsModal';
 
 import TextCard from './components/cards/TextCard';
 import ImageCard from './components/cards/ImageCard';
@@ -20,11 +20,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   const [character, setCharacter] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [selectedType, setSelectedType] = useState('text'); // text | image | voice | transfer | article
+  const [selectedType, setSelectedType] = useState('text');
   const [isAiTyping, setIsAiTyping] = useState(false);
 
   const [quotedMsg, setQuotedMsg] = useState(null);
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
+  const [showChatSettings, setShowChatSettings] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
 
   const messagesEndRef = useRef(null);
@@ -49,7 +50,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     setMessages(msgs);
   };
 
-  // 用户发送消息 (不触发 AI，允许连续发多条)
+  // 用户发送消息
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
 
@@ -85,10 +86,9 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
       const apiSettings = await db.settings.get('apiConfig');
       const apiConfig = apiSettings?.value || {};
 
-      let aiContent = `${character.name} 收到你的消息，并给了你温暖的肯定。`;
+      let aiContent = `${character.name} 关注到了你的心绪，并温和地给予了回应。`;
 
       if (apiConfig.baseUrl && apiConfig.apiKey) {
-        // 请求真实 LLM API
         const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
         const historyContext = messages.slice(-15).map((m) => ({
           role: m.sender === 'user' ? 'user' : 'assistant',
@@ -102,7 +102,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             Authorization: `Bearer ${apiConfig.apiKey}`
           },
           body: JSON.stringify({
-            model: apiConfig.model || 'gpt-3.5-turbo',
+ model: apiConfig.model || 'gpt-3.5-turbo',
             messages: [
               { role: 'system', content: `${character.bio}\n${character.extraNotes}` },
               ...historyContext
@@ -149,45 +149,104 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     setMessages([]);
   };
 
-  // 保存气泡与打字文案
-  const handleSaveBubbleStyle = async (newStyle) => {
-    const updated = { ...chat, bubbleStyle: newStyle };
+  // 更新自定义 CSS 气泡
+  const handleSaveCustomCss = async (cssCode) => {
+    const updated = { ...chat, customCss: cssCode };
     setChat(updated);
-    await db.chats.update(chatId, { bubbleStyle: newStyle });
+    await db.chats.update(chatId, { customCss: cssCode });
+  };
+
+  // 更新背景图
+  const handleUpdateBgImage = async (base64Img) => {
+    const updated = { ...chat, bgImage: base64Img };
+    setChat(updated);
+    await db.chats.update(chatId, { bgImage: base64Img });
+  };
+
+  // 更新背景透明度
+  const handleUpdateBgOpacity = async (opacity) => {
+    const updated = { ...chat, bgOpacity: opacity };
+    setChat(updated);
+    await db.chats.update(chatId, { bgOpacity: opacity });
   };
 
   if (!chat || !character) return null;
 
-  const bubbleStyle = chat.bubbleStyle || {};
+  const defaultCss = `
+  .user-bubble {
+    background: var(--accent-color);
+    color: var(--accent-foreground);
+    border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+  }
+  .ai-bubble {
+    background: var(--control-soft-bg);
+    color: var(--text-main);
+    border: 1px solid var(--divider);
+    border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+  }
+  .chat-font {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }`;
+
+  const currentCss = chat.customCss || defaultCss;
 
   return (
-    <div className="flex flex-col h-[85vh] text-xs text-left">
-      {/* 1. 顶部 Header Bar */}
+    <div className="chat-room-container relative flex flex-col h-[88vh] text-xs text-left animate-fade-in-up">
+      {/* 注入局域气泡 CSS */}
+      <style>{`
+        .chat-room-container ${currentCss}
+      `}</style>
+
+      {/* 专属自定义背景图渲染层 */}
+      {chat.bgImage && (
+        <div
+          className="absolute inset-0 pointer-events-none rounded-3xl transition-all duration-500 overflow-hidden -z-10"
+          style={{
+            backgroundImage: `url(${chat.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: chat.bgOpacity ?? 0.3
+          }}
+        />
+      )}
+
+      {/* 1. 沉浸式 Top Header */}
       <div className="flex items-center justify-between pb-2">
-        <button type="button" onClick={onBack} className="flex items-center gap-1.5 font-semibold opacity-70 hover:opacity-100">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+          style={{ color: 'var(--text-main)' }}
+        >
           <ArrowLeft className="w-4 h-4" />
-          <span>Chats</span>
+          <span>返回</span>
         </button>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setShowBubbleCustomizer(true)}
-            className="p-1.5 rounded-full bg-black/5 dark:bg-white/10 opacity-70 hover:opacity-100"
-            title="定制气泡样式"
+            onClick={() => setShowChatSettings(true)}
+            className="p-1.5 rounded-full opacity-70 hover:opacity-100 transition-all"
+            style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+            title="聊天空间设置"
           >
-            <Sliders className="w-3.5 h-3.5" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
 
+      {/* 解耦状态栏件 */}
       <ChatHeaderBar character={character} chat={chat} onOpenSettings={onOpenCharacterEditor} />
 
-      {/* 2. 聊天消息流 */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-4 px-1">
+      {/* 2. 消息对话流 */}
+      <div className="flex-1 overflow-y-auto py-4 space-y-4 px-1 no-scrollbar">
         {messages.length === 0 && (
-          <div className="py-12 text-center space-y-2 opacity-40">
-            <p className="font-mono text-[11px]">NO MESSAGES YET</p>
-            <p className="text-[10px]">在下方输入内容向 {character.name} 发送消息</p>
+          <div className="py-16 text-center space-y-2 opacity-50">
+            <p className="font-serif italic text-sm">风停在这里，等待你们的第一次对话...</p>
+            <p className="text-[10px]" style={{ color: 'var(--text-sub)' }}>
+              向 {character.name} 倾诉此刻的心绪
+            </p>
           </div>
         )}
 
@@ -203,24 +262,24 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
               </div>
 
               {quoted && (
-                <div className="px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border-l-2 border-current opacity-60 text-[10px] max-w-[80%]">
-                  <span className="font-bold block">{quoted.sender === 'user' ? 'You' : character.name}</span>
+                <div 
+                  className="px-3 py-1.5 rounded-xl border-l-2 opacity-70 text-[10px] max-w-[80%]"
+                  style={{
+                    background: 'var(--control-soft-bg)',
+                    borderColor: 'var(--text-main)'
+                  }}
+                >
+                  <span className="font-bold block">{quoted.sender === 'user' ? '你' : character.name}</span>
                   <p className="truncate">{quoted.content}</p>
                 </div>
               )}
 
-              <div className="flex items-end gap-1.5 max-w-[85%]">
+              <div className="flex items-end gap-2 max-w-[88%]">
                 {!isUser && character.avatar && (
-                  <img src={character.avatar} alt={character.name} className="w-6 h-6 rounded-full object-cover shrink-0 mb-1" />
+                  <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 mb-1 shadow-sm border border-white/20" />
                 )}
 
-                <div
-                  className={`p-3.5 rounded-2xl shadow-sm relative transition-all ${bubbleStyle.fontFamily || 'font-sans'} ${bubbleStyle.fontSize || 'text-xs'} ${
-                    isUser
-                      ? bubbleStyle.userBg || 'bg-black text-white dark:bg-white dark:text-black'
-                      : bubbleStyle.aiBg || 'bg-black/5 dark:bg-white/10 text-current'
-                  }`}
-                >
+                <div className={`p-3.5 shadow-sm relative transition-all chat-font ${isUser ? 'user-bubble' : 'ai-bubble'}`}>
                   {msg.type === 'text' && <TextCard content={msg.content} />}
                   {msg.type === 'image' && <ImageCard content={msg.content} metadata={msg.metadata} />}
                   {msg.type === 'voice' && <VoiceCard content={msg.content} metadata={msg.metadata} />}
@@ -228,12 +287,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   {msg.type === 'article' && <ArticleCard content={msg.content} metadata={msg.metadata} />}
                 </div>
 
-                {/* 消息快捷悬浮菜单 */}
+                {/* 快捷悬浮按钮 */}
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
                   <button type="button" onClick={() => setQuotedMsg(msg)} className="p-1 opacity-50 hover:opacity-100" title="引用">
                     <Quote className="w-3 h-3" />
                   </button>
-                  <button type="button" onClick={() => handleDeleteMessage(msg.id)} className="p-1 opacity-50 hover:opacity-100 text-rose-500" title="删除">
+                  <button type="button" onClick={() => handleDeleteMessage(msg.id)} className="p-1 opacity-50 hover:opacity-100 text-rose-500" title="抹去">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
@@ -242,15 +301,21 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
           );
         })}
 
-        {isAiTyping && <TypingIndicator customText={chat.typingText || `${character.name} 正在思考...`} />}
+        {isAiTyping && <TypingIndicator customText={chat.typingText || `${character.name} 正在提笔回复...`} />}
         <div ref={messagesEndRef} />
       </div>
 
       {/* 引用回复提示框 */}
       {quotedMsg && (
-        <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-2 border-black dark:border-white text-[10px] mb-2">
+        <div 
+          className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-2 shadow-sm"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--accent-color)'
+          }}
+        >
           <div className="truncate pr-2">
-            <span className="font-bold">引用 {quotedMsg.sender === 'user' ? 'You' : character.name}:</span> {quotedMsg.content}
+            <span className="font-bold">引用 {quotedMsg.sender === 'user' ? '你' : character.name}:</span> {quotedMsg.content}
           </div>
           <button type="button" onClick={() => setQuotedMsg(null)} className="p-1 opacity-60 hover:opacity-100">
             &times;
@@ -258,59 +323,30 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 特殊卡片类型扩展输入配置 */}
-      {selectedType !== 'text' && (
-        <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/10 mb-2 space-y-2 text-[11px]">
-          <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
-            <span>MODIFIER: {selectedType.toUpperCase()}</span>
-            <button type="button" onClick={() => setSelectedType('text')}>&times;</button>
-          </div>
-          {selectedType === 'image' && (
-            <input
-              type="text"
-              placeholder="输入图片的视觉细节描述..."
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              className="w-full bg-white dark:bg-black/40 rounded p-1.5 outline-none"
-            />
-          )}
-          {selectedType === 'transfer' && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="转账金额 (如 520.00)"
-                onChange={(e) => setExtraInputMeta({ ...extraInputMeta, amount: e.target.value })}
-                className="w-1/2 bg-white dark:bg-black/40 rounded p-1.5 outline-none"
-              />
-              <input
-                type="text"
-                placeholder="名目说明"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                className="w-1/2 bg-white dark:bg-black/40 rounded p-1.5 outline-none"
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. 底部悬浮输入框 */}
-      <div className="space-y-2 pt-2">
-        <div className="flex items-center gap-1.5 p-2 rounded-3xl border border-white/20 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl shadow-lg">
-          {/* 特殊消息类型工具 */}
-          <div className="flex items-center gap-1 border-r border-white/10 pr-1.5 opacity-70">
+      {/* 3. 悬浮输入框与微动效 */}
+      <div className="space-y-1.5 pt-1">
+        <div 
+          className="flex items-center gap-1.5 p-2 rounded-3xl border backdrop-blur-xl shadow-lg transition-all duration-300 hover:shadow-xl focus-within:ring-2 focus-within:ring-black/10 dark:focus-within:ring-white/20"
+          style={{
+            background: 'var(--card-bg-gradient)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
+        >
+          {/* 特殊扩展类型 */}
+          <div className="flex items-center gap-1 border-r pr-1.5 opacity-70" style={{ borderColor: 'var(--divider)' }}>
             <button
               type="button"
               onClick={() => setSelectedType('image')}
-              className={`p-1.5 rounded-full transition-all ${selectedType === 'image' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
-              title="图片卡片"
+              className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'image' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
+              title="画面描述"
             >
               <Image className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={() => setSelectedType('voice')}
-              className={`p-1.5 rounded-full transition-all ${selectedType === 'voice' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
+              className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'voice' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
               title="模拟语音"
             >
               <Volume2 className="w-4 h-4" />
@@ -318,8 +354,8 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             <button
               type="button"
               onClick={() => setSelectedType('transfer')}
-              className={`p-1.5 rounded-full transition-all ${selectedType === 'transfer' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
-              title="杂志风转账"
+              className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'transfer' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
+              title="浪漫转账"
             >
               <DollarSign className="w-4 h-4" />
             </button>
@@ -327,20 +363,25 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
 
           <input
             type="text"
-            placeholder={selectedType === 'text' ? '输入消息...' : `已选 ${selectedType} 格式`}
+            placeholder={selectedType === 'text' ? `与 ${character.name} 倾诉...` : `已选 ${selectedType} 模式`}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
             className="flex-1 bg-transparent px-2 outline-none font-sans text-xs"
+            style={{ color: 'var(--text-main)' }}
           />
 
-          {/* 双发送按钮：发送消息 & Trigger AI */}
+          {/* 双发送按钮 */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={handleSendMessage}
-              className="p-2 rounded-full bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 active:scale-95 transition-all"
-              title="仅发送消息 (不触发AI)"
+              className="p-2 rounded-full transition-transform active:scale-90 hover:opacity-90"
+              style={{
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)'
+              }}
+              title="发送记录 (不触发AI)"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
@@ -349,30 +390,42 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
               type="button"
               onClick={handleTriggerAi}
               disabled={isAiTyping}
-              className="px-3 py-2 rounded-full bg-black text-white dark:bg-white dark:text-black font-semibold text-[10px] flex items-center gap-1 active:scale-95 transition-all disabled:opacity-50"
-              title="触发 AI 生成回复"
+              className="px-3 py-2 rounded-full font-semibold text-[10px] flex items-center gap-1 transition-transform active:scale-95 disabled:opacity-50 shadow-sm"
+              style={{
+                background: 'var(--accent-color)',
+                color: 'var(--accent-foreground)'
+              }}
+              title="触发伴侣回应"
             >
               <Sparkles className="w-3 h-3 text-purple-400" />
-              <span>AI</span>
+              <span>回应</span>
             </button>
           </div>
         </div>
 
-        {/* 顶部/底部提示栏与清理历史 */}
-        <div className="flex items-center justify-between px-2 text-[10px] opacity-40">
-          <button type="button" onClick={handleClearHistory} className="hover:opacity-100 flex items-center gap-1">
-            <RotateCcw className="w-3 h-3" />
-            <span>清空本记录</span>
-          </button>
-          <span className="font-mono">ENCRYPTED LOCAL STORAGE</span>
+        <div className="flex items-center justify-end px-3 text-[9px] opacity-40 font-mono">
+          <span>心事尽数封存于此</span>
         </div>
       </div>
 
+      {/* 弹窗：气泡 CSS 自定义 */}
       {showBubbleCustomizer && (
         <BubbleCustomizer
-          currentStyle={bubbleStyle}
-          onSave={handleSaveBubbleStyle}
+          currentCss={currentCss}
+          onSave={handleSaveCustomCss}
           onClose={() => setShowBubbleCustomizer(false)}
+        />
+      )}
+
+      {/* 弹窗：聊天室专属设置 Modal */}
+      {showChatSettings && (
+        <ChatSettingsModal
+          chat={chat}
+          onClose={() => setShowChatSettings(false)}
+          onUpdateBgImage={handleUpdateBgImage}
+          onUpdateBgOpacity={handleUpdateBgOpacity}
+          onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
+          onClearHistory={handleClearHistory}
         />
       )}
     </div>

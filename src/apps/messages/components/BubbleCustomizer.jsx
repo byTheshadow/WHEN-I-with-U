@@ -1,95 +1,121 @@
 import React, { useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, Code, Sparkles, RefreshCw } from 'lucide-react';
 
-export const BubbleCustomizer = ({ currentStyle = {}, onSave, onClose }) => {
-  const [fontFamily, setFontFamily] = useState(currentStyle.fontFamily || 'font-sans');
-  const [fontSize, setFontSize] = useState(currentStyle.fontSize || 'text-xs');
-  const [userBg, setUserBg] = useState(currentStyle.userBg || 'bg-black text-white dark:bg-white dark:text-black');
-  const [aiBg, setAiBg] = useState(currentStyle.aiBg || 'bg-black/5 dark:bg-white/10 text-current');
+export const BubbleCustomizer = ({ currentCss = '', onSave, onClose }) => {
+  const defaultTemplate = `/* 自定义气泡与文本 CSS (仅作用于当前聊天窗) */
+.user-bubble {
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
 
-  const fontOptions = [
-    { id: 'font-sans', label: '无衬线 Modern (Sans)' },
-    { id: 'font-serif', label: '衬线经典 (Serif)' },
-    { id: 'font-mono', label: '代码打字风 (Mono)' }
-  ];
+.ai-bubble {
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  border: 1px solid var(--divider);
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+}
 
-  const sizeOptions = [
-    { id: 'text-[11px]', label: '精细 (11px)' },
-    { id: 'text-xs', label: '标准 (12px)' },
-    { id: 'text-sm', label: '较大 (14px)' }
-  ];
+.chat-font {
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}`;
+
+  const [customCss, setCustomCss] = useState(currentCss || defaultTemplate);
+
+  const handleReset = () => {
+    setCustomCss(defaultTemplate);
+  };
 
   const handleSave = () => {
-    onSave({ fontFamily, fontSize, userBg, aiBg });
+    onSave(customCss);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in-up">
-      <div className="w-full max-w-sm rounded-[2rem] border border-white/20 bg-white dark:bg-neutral-900 p-5 space-y-4 shadow-2xl text-xs">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <span className="font-bold">气泡与文字样式自定义</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in-up">
+      <div 
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div
+        className="relative w-full max-w-sm rounded-[2rem] p-5 space-y-4 shadow-2xl text-xs text-left z-10 overflow-hidden"
+        style={{
+          background: 'var(--card-bg-gradient)',
+          border: '1px solid var(--card-border)',
+          color: 'var(--text-main)'
+        }}
+      >
+        <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--divider)' }}>
+          <div className="flex items-center gap-1.5 font-bold">
+            <Code className="w-4 h-4" />
+            <span>自定义气泡 CSS (Custom CSS)</span>
+          </div>
           <button type="button" onClick={onClose} className="p-1 rounded-full opacity-60 hover:opacity-100">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* 字体样式 */}
+        <p className="text-[11px] opacity-70 leading-relaxed" style={{ color: 'var(--text-sub)' }}>
+          直接编写或修改 CSS 样式代码。包含 <code className="font-mono bg-black/10 dark:bg-white/10 px-1 rounded">.user-bubble</code> 与 <code className="font-mono bg-black/10 dark:bg-white/10 px-1 rounded">.ai-bubble</code> 类名。
+        </p>
+
+        {/* 交互编辑框 */}
         <div className="space-y-1.5">
-          <label className="block font-mono opacity-50 text-[10px]">FONT FAMILY / 字体系列</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {fontOptions.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFontFamily(f.id)}
-                className={`p-2 rounded-xl border text-center transition-all ${
-                  fontFamily === f.id ? 'border-black dark:border-white font-bold bg-black/5 dark:bg-white/10' : 'border-white/10 opacity-60'
-                }`}
-              >
-                {f.label.split(' ')[0]}
-              </button>
-            ))}
+          <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
+            <span>CSS SCOPED CODE</span>
+            <button type="button" onClick={handleReset} className="flex items-center gap-1 hover:opacity-100">
+              <RefreshCw className="w-3 h-3" />
+              <span>重置预设</span>
+            </button>
           </div>
+
+          <textarea
+            rows={7}
+            value={customCss}
+            onChange={(e) => setCustomCss(e.target.value)}
+            placeholder="输入你的专属 CSS 规则..."
+            className="w-full rounded-xl p-3 font-mono text-[11px] outline-none resize-none transition-colors border"
+            style={{
+              background: 'var(--bg-main)',
+              color: 'var(--text-main)',
+              borderColor: 'var(--divider)'
+            }}
+          />
         </div>
 
-        {/* 字体大小 */}
-        <div className="space-y-1.5">
-          <label className="block font-mono opacity-50 text-[10px]">FONT SIZE / 字号大小</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {sizeOptions.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setFontSize(s.id)}
-                className={`p-2 rounded-xl border text-center transition-all ${
-                  fontSize === s.id ? 'border-black dark:border-white font-bold bg-black/5 dark:bg-white/10' : 'border-white/10 opacity-60'
-                }`}
-              >
-                {s.label.split(' ')[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 预览 */}
-        <div className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 space-y-2 border border-white/10">
-          <span className="block font-mono text-[9px] opacity-40 uppercase">LIVE PREVIEW / 效果预览</span>
-          <div className={`p-2.5 rounded-2xl max-w-[80%] ml-auto ${userBg} ${fontFamily} ${fontSize}`}>
-            User 消息展示样式预览
-          </div>
-          <div className={`p-2.5 rounded-2xl max-w-[80%] ${aiBg} ${fontFamily} ${fontSize}`}>
-            AI 角色消息展示样式预览
+        {/* 实时作用域注入预览 */}
+        <div className="p-3 rounded-2xl space-y-2 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
+          <span className="block font-mono text-[9px] opacity-50 uppercase flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-purple-400" /> LIVE PREVIEW / 效果预览
+          </span>
+          <style>{`
+            .preview-scope ${customCss}
+          `}</style>
+          <div className="preview-scope space-y-2 pt-1">
+            <div className="user-bubble chat-font p-2.5 max-w-[85%] ml-auto text-right">
+              User 消息气泡效果
+            </div>
+            <div className="ai-bubble chat-font p-2.5 max-w-[85%] text-left">
+              伴侣 消息气泡效果
+            </div>
           </div>
         </div>
 
         <button
           type="button"
           onClick={handleSave}
-          className="w-full py-3 rounded-xl bg-black text-white dark:bg-white dark:text-black font-semibold active:scale-95 transition-all flex items-center justify-center gap-1.5"
+          className="w-full py-3 rounded-xl font-semibold active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm"
+          style={{
+            background: 'var(--accent-color)',
+            color: 'var(--accent-foreground)'
+          }}
         >
           <Check className="w-4 h-4" />
-          <span>保存配置</span>
+          <span>应用并保存规则</span>
         </button>
       </div>
     </div>

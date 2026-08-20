@@ -21,7 +21,7 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     autoDiary: characterData?.autoDiary ?? true,
     userPersona: characterData?.userPersona || '',
     userAvatar: characterData?.userAvatar || '',
-    statusList: characterData?.statusList || ['在线陪伴中', '在咖啡馆看书', '思考中', '休息中']
+    statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此']
   });
 
   const [newStatus, setNewStatus] = useState('');

@@ -14,6 +14,7 @@ export const App = () => {
   const [activeTheme, setActiveTheme] = useState('mono-mist');
   const [showTitle, setShowTitle] = useState(true);
   const [currentApp, setCurrentApp] = useState('hub');
+  const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', activeTheme);
@@ -21,8 +22,13 @@ export const App = () => {
 
   const openApp = (appId) => {
     setCurrentApp(appId);
+    if (appId !== 'messages') {
+      setIsInsideChatRoom(false);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const shouldDisplayHeader = showTitle && currentApp !== 'settings' && !isInsideChatRoom;
 
   return (
     <ErrorBoundary>
@@ -32,8 +38,9 @@ export const App = () => {
         </ErrorBoundary>
       )}
 
+      {/* 全局弥散光背景 */}
       <div
-        className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
+        className="fixed inset-0 -z-10 overflow-hidden pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: 'var(--bg-main)' }}
       >
         <div
@@ -50,26 +57,23 @@ export const App = () => {
         />
       </div>
 
-      <main className="relative z-10 mx-auto min-h-screen w-full max-w-[420px] space-y-6 px-5 pb-20 pt-8">
-        {currentApp !== 'settings' && (
-          <header className="flex items-start justify-between">
+      <main className="relative z-10 mx-auto min-h-screen w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6">
+        {/* 顶部 Main Header */}
+        {shouldDisplayHeader && (
+          <header className="flex items-start justify-between animate-fade-in-up">
             <div>
-              {showTitle && (
-                <>
-                  <h1
-                    className="font-serif text-5xl font-semibold leading-none tracking-tighter"
-                    style={{ color: 'var(--page-text-main)' }}
-                  >
-                    WHEN I
-                    <br />
-                    <span className="font-normal italic opacity-40">with U.</span>
-                  </h1>
-                  <div
-                    className="mt-3 h-px w-10"
-                    style={{ backgroundColor: 'var(--page-text-main)', opacity: 0.2 }}
-                  />
-                </>
-              )}
+              <h1
+                className="font-serif text-5xl font-semibold leading-none tracking-tighter"
+                style={{ color: 'var(--text-main)' }}
+              >
+                WHEN I
+                <br />
+                <span className="font-normal italic opacity-40">with U.</span>
+              </h1>
+              <div
+                className="mt-3 h-px w-10"
+                style={{ backgroundColor: 'var(--text-main)', opacity: 0.2 }}
+              />
             </div>
 
             <button
@@ -77,11 +81,11 @@ export const App = () => {
               onClick={() => openApp('settings')}
               title="Settings"
               aria-label="Open settings"
-              className="ml-auto rounded-full p-2.5 transition-all active:scale-95"
+              className="ml-auto rounded-full p-2.5 transition-transform active:scale-95 shadow-sm"
               style={{
-                color: '#ffffff',
+                color: 'var(--accent-foreground)',
                 backgroundColor: 'var(--accent-color)',
-                boxShadow: '0 8px 20px var(--shadow-color)',
+                border: '1px solid var(--card-border)'
               }}
             >
               <SettingsIcon className="h-4 w-4" strokeWidth={1.7} />
@@ -123,7 +127,10 @@ export const App = () => {
 
         {currentApp === 'messages' && (
           <ErrorBoundary>
-            <MessagesApp onBackHub={() => openApp('hub')} />
+            <MessagesApp
+              onBackHub={() => openApp('hub')}
+              onChatRoomStateChange={(inRoom) => setIsInsideChatRoom(inRoom)}
+            />
           </ErrorBoundary>
         )}
 
@@ -132,26 +139,26 @@ export const App = () => {
             <section className="py-14 text-center">
               <h2
                 className="text-xl font-semibold uppercase tracking-[0.16em]"
-                style={{ color: 'var(--page-text-main)' }}
+                style={{ color: 'var(--text-main)' }}
               >
                 {currentApp}
               </h2>
               <p
                 className="mt-3 text-xs"
-                style={{ color: 'var(--page-text-sub)' }}
+                style={{ color: 'var(--text-sub)' }}
               >
-                This module will be built in a later phase.
+                此模块将在后续阶段为您呈现。
               </p>
               <button
                 type="button"
                 onClick={() => openApp('hub')}
                 className="mt-6 rounded-full px-5 py-2 text-xs font-semibold transition-transform active:scale-95"
                 style={{
-                  color: '#ffffff',
+                  color: 'var(--accent-foreground)',
                   backgroundColor: 'var(--accent-color)',
                 }}
               >
-                Back to Home
+                返回主页
               </button>
             </section>
           </ErrorBoundary>

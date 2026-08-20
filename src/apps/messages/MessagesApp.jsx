@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Users, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Plus, Search, MessageSquare, ArrowLeft } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
 
@@ -8,7 +8,7 @@ import CharacterLibrary from './CharacterLibrary';
 import CharacterEditor from './CharacterEditor';
 import NewChatModal from './NewChatModal';
 
-export const MessagesApp = ({ onBackHub }) => {
+export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [view, setView] = useState('chats'); // 'chats' | 'characters' | 'chat_room' | 'char_editor'
@@ -19,6 +19,9 @@ export const MessagesApp = ({ onBackHub }) => {
 
   useEffect(() => {
     loadData();
+    if (onChatRoomStateChange) {
+      onChatRoomStateChange(view === 'chat_room');
+    }
   }, [view]);
 
   const loadData = async () => {
@@ -38,7 +41,7 @@ export const MessagesApp = ({ onBackHub }) => {
     setView('char_editor');
   };
 
-  const filteredChats = chats.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredChats = chats.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (view === 'chat_room' && activeChatId) {
     return (
@@ -71,63 +74,89 @@ export const MessagesApp = ({ onBackHub }) => {
         <button
           type="button"
           onClick={onBackHub}
-          className="flex items-center gap-2 font-semibold opacity-70 hover:opacity-100"
+          className="flex items-center gap-2 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+          style={{ color: 'var(--text-main)' }}
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Hub</span>
+          <span>返回主页</span>
         </button>
 
-        {/* 精美 Pill shape 视图按钮，绝对没有长条导航栏 */}
-        <div className="flex items-center gap-1 p-1 rounded-full bg-black/5 dark:bg-white/10 border border-white/10">
+        {/* 杂志风切换按钮 */}
+        <div 
+          className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
           <button
             type="button"
             onClick={() => setView('chats')}
-            className={`px-3 py-1 rounded-full transition-all ${
-              view === 'chats' ? 'bg-black text-white dark:bg-white dark:text-black font-semibold' : 'opacity-60'
-            }`}
+            className="px-3 py-1 rounded-full transition-all text-xs"
+            style={{
+              background: view === 'chats' ? 'var(--accent-color)' : 'transparent',
+              color: view === 'chats' ? 'var(--accent-foreground)' : 'var(--text-sub)',
+              fontWeight: view === 'chats' ? 600 : 400
+            }}
           >
-            Messages
+            对话
           </button>
           <button
             type="button"
             onClick={() => setView('characters')}
-            className={`px-3 py-1 rounded-full transition-all ${
-              view === 'characters' ? 'bg-black text-white dark:bg-white dark:text-black font-semibold' : 'opacity-60'
-            }`}
+            className="px-3 py-1 rounded-full transition-all text-xs"
+            style={{
+              background: view === 'characters' ? 'var(--accent-color)' : 'transparent',
+              color: view === 'characters' ? 'var(--accent-foreground)' : 'var(--text-sub)',
+              fontWeight: view === 'characters' ? 600 : 400
+            }}
           >
-            Characters
+            角色
           </button>
         </div>
       </div>
 
-      {/* 搜素与新建对话栏 */}
+      {/* 搜索与新建对话 */}
       {view === 'chats' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-2xl bg-black/5 dark:bg-white/10 border border-white/10">
+            <div 
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-2xl border"
+              style={{
+                background: 'var(--control-soft-bg)',
+                borderColor: 'var(--card-border)'
+              }}
+            >
               <Search className="w-3.5 h-3.5 opacity-40" />
               <input
                 type="text"
-                placeholder="搜索聊天窗口..."
+                placeholder="搜索心绪对话..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent outline-none text-xs"
+                style={{ color: 'var(--text-main)' }}
               />
             </div>
             <button
               type="button"
               onClick={() => setShowNewChatModal(true)}
-              className="p-2.5 rounded-2xl bg-black text-white dark:bg-white dark:text-black active:scale-95 transition-all"
-              title="新建聊天窗"
+              className="p-2.5 rounded-2xl active:scale-95 transition-transform shadow-sm"
+              style={{
+                background: 'var(--accent-color)',
+                color: 'var(--accent-foreground)'
+              }}
+              title="开启新对话"
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
 
           {filteredChats.length === 0 ? (
-            <GlassCard className="py-12 text-center space-y-2 opacity-50">
+            <GlassCard className="py-12 text-center space-y-2 opacity-60">
               <MessageSquare className="w-8 h-8 mx-auto opacity-30" />
-              <p className="text-xs">尚无聊天记录，点击右上角 + 开始新的陪伴对话。</p>
+              <p className="text-xs" style={{ color: 'var(--text-sub)' }}>
+                风停在这里，点击右上角 + 开始第一段浪漫陪伴。
+              </p>
             </GlassCard>
           ) : (
             <div className="space-y-2.5">
@@ -137,27 +166,35 @@ export const MessagesApp = ({ onBackHub }) => {
                   <GlassCard
                     key={chat.id}
                     onClick={() => handleOpenChat(chat.id)}
-                    className="flex items-center justify-between p-4 cursor-pointer hover:opacity-90 transition-all"
+                    className="flex items-center justify-between p-4 cursor-pointer hover:opacity-95 transition-all"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {char?.avatar ? (
-                        <img src={char.avatar} alt={chat.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0" />
+                        <img src={char.avatar} alt={chat.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" />
                       ) : (
-                        <div className="w-11 h-11 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold shrink-0">
-                          {chat.title?.[0]}
+                        <div 
+                          className="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm"
+                          style={{
+                            background: 'var(--control-soft-bg)',
+                            color: 'var(--text-main)'
+                          }}
+                        >
+                          {chat.title?.[0] || 'C'}
                         </div>
                       )}
 
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-serif font-bold text-sm truncate">{chat.title}</h4>
-                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono border ${
-                            chat.mode === 'rp' ? 'border-purple-500/30 bg-purple-500/10 text-purple-500' : 'border-blue-500/30 bg-blue-500/10 text-blue-500'
+                          <h4 className="font-serif font-bold text-sm truncate" style={{ color: 'var(--text-main)' }}>{chat.title}</h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono border ${
+                            chat.mode === 'rp' ? 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300' : 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300'
                           }`}>
                             {chat.mode === 'rp' ? 'RP' : 'Real'}
                           </span>
                         </div>
-                        <p className="text-[11px] opacity-60 truncate">点击进入与 {char?.name || '角色'} 的对话</p>
+                        <p className="text-[11px] opacity-60 truncate" style={{ color: 'var(--text-sub)' }}>
+                          开启与 {char?.name || '伴侣'} 的独处时刻
+                        </p>
                       </div>
                     </div>
                   </GlassCard>
