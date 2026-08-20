@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { X, Upload, Trash2, Sliders, Radio } from 'lucide-react';
+import { X, Upload, Trash2, Sliders } from 'lucide-react';
+import AudioKeepAlive from './AudioKeepAlive';
 
 export const ChatSettingsModal = ({
   chat,
@@ -112,24 +113,12 @@ export const ChatSettingsModal = ({
           )}
         </div>
 
-        {/* 8. 后台保活静音音频开关 */}
-        <div className="pt-2 border-t flex items-center justify-between" style={{ borderColor: 'var(--divider)' }}>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 font-medium">
-              <Radio className="w-3.5 h-3.5 opacity-70" />
-              <span>后台音频保活 (Keep Alive)</span>
-            </div>
-            <p className="text-[10px] opacity-50">防止移动端浏览器切入后台后被休眠</p>
-          </div>
-          <input
-            type="checkbox"
-            checked={keepAlive}
-            onChange={(e) => onToggleKeepAlive(e.target.checked)}
-            className="w-4 h-4 accent-black dark:accent-white cursor-pointer"
-          />
+        {/* 集成 10 分钟+ 后台音频保活组件 */}
+        <div className="pt-1">
+          <AudioKeepAlive isActive={keepAlive} onToggle={onToggleKeepAlive} />
         </div>
 
-        {/* CSS 气泡 */}
+        {/* 自定义 CSS 气泡 */}
         <div className="pt-2 border-t" style={{ borderColor: 'var(--divider)' }}>
           <button
             type="button"
