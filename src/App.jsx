@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Settings as SettingsIcon } from 'lucide-react';
-
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
 import ProfileHeader from './apps/hub/ProfileHeader';
@@ -8,6 +6,7 @@ import PinnedGallery from './apps/hub/PinnedGallery';
 import QuickBoard from './apps/hub/QuickBoard';
 import AppGrid from './apps/hub/AppGrid';
 import SettingsPage from './apps/settings/SettingsPage';
+import { Settings as SettingsIcon } from 'lucide-react';
 
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
@@ -19,66 +18,77 @@ export const App = () => {
     document.documentElement.setAttribute('data-theme', activeTheme);
   }, [activeTheme]);
 
-  const isSettings = currentApp === 'settings';
+  const openApp = (appId) => {
+    setCurrentApp(appId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <ErrorBoundary>
       {showPreloader && (
-        <Preloader onFinish={() => setShowPreloader(false)} />
+        <ErrorBoundary>
+          <Preloader onFinish={() => setShowPreloader(false)} />
+        </ErrorBoundary>
       )}
 
       <div
-        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-        aria-hidden="true"
+        className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
+        style={{ backgroundColor: 'var(--bg-main)' }}
       >
         <div
-          className="absolute -left-24 -top-24 h-80 w-80 rounded-full blur-[105px] transition-colors duration-700"
+          className="absolute -top-32 -left-32 h-[25rem] w-[25rem] rounded-full blur-[115px] transition-colors duration-700"
           style={{ backgroundColor: 'var(--bg-blob-1)' }}
         />
-
         <div
-          className="absolute -right-28 top-[42%] h-96 w-96 rounded-full blur-[120px] transition-colors duration-700"
+          className="absolute top-[28%] -right-40 h-[28rem] w-[28rem] rounded-full blur-[130px] transition-colors duration-700"
           style={{ backgroundColor: 'var(--bg-blob-2)' }}
         />
-
         <div
-          className="absolute bottom-[-10%] left-[20%] h-72 w-72 rounded-full blur-[110px] transition-colors duration-700"
+          className="absolute -bottom-48 left-[10%] h-[25rem] w-[25rem] rounded-full blur-[135px] transition-colors duration-700"
           style={{ backgroundColor: 'var(--bg-blob-3)' }}
         />
       </div>
 
       <main className="relative z-10 mx-auto min-h-screen w-full max-w-[420px] space-y-6 px-5 pb-20 pt-8">
-        <header className="flex items-start justify-between">
-          <div className="min-w-0 flex-1">
-            {!isSettings && showTitle && (
-              <>
-                <h1 className="font-serif text-5xl font-semibold leading-none tracking-tighter text-[var(--text-main)]">
-                  WHEN I
-                  <br />
-                  <span className="italic font-normal opacity-40">
-                    with U.
-                  </span>
-                </h1>
+        {currentApp !== 'settings' && (
+          <header className="flex items-start justify-between">
+            <div>
+              {showTitle && (
+                <>
+                  <h1
+                    className="font-serif text-5xl font-semibold leading-none tracking-tighter"
+                    style={{ color: 'var(--page-text-main)' }}
+                  >
+                    WHEN I
+                    <br />
+                    <span className="font-normal italic opacity-40">with U.</span>
+                  </h1>
+                  <div
+                    className="mt-3 h-px w-10"
+                    style={{ backgroundColor: 'var(--page-text-main)', opacity: 0.2 }}
+                  />
+                </>
+              )}
+            </div>
 
-                <div className="mt-3 h-px w-10 bg-[var(--text-main)] opacity-15" />
-              </>
-            )}
-          </div>
+            <button
+              type="button"
+              onClick={() => openApp('settings')}
+              title="Settings"
+              aria-label="Open settings"
+              className="ml-auto rounded-full p-2.5 transition-all active:scale-95"
+              style={{
+                color: '#ffffff',
+                backgroundColor: 'var(--accent-color)',
+                boxShadow: '0 8px 20px var(--shadow-color)',
+              }}
+            >
+              <SettingsIcon className="h-4 w-4" strokeWidth={1.7} />
+            </button>
+          </header>
+        )}
 
-          <button
-            type="button"
-            onClick={() =>
-              setCurrentApp(isSettings ? 'hub' : 'settings')
-            }
-            className="ml-3 rounded-full bg-[var(--bg-control)] p-2.5 opacity-65 backdrop-blur-md transition-opacity hover:opacity-100 focus:opacity-100 active:scale-95"
-            title="Settings"
-            aria-label="Settings"
-          >
-            <SettingsIcon className="h-4 w-4" strokeWidth={1.6} />
-          </button>
-        </header>
-
-        {currentApp === 'hub' ? (
+        {currentApp === 'hub' && (
           <>
             <ErrorBoundary>
               <ProfileHeader delay={100} />
@@ -93,41 +103,59 @@ export const App = () => {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <AppGrid
-                delay={400}
-                onOpenApp={(appId) => setCurrentApp(appId)}
-              />
+              <AppGrid delay={400} onOpenApp={openApp} />
             </ErrorBoundary>
           </>
-        ) : currentApp === 'settings' ? (
+        )}
+
+        {currentApp === 'settings' && (
           <ErrorBoundary>
             <SettingsPage
-              onBack={() => setCurrentApp('hub')}
+              onBack={() => openApp('hub')}
               currentTheme={activeTheme}
               onChangeTheme={setActiveTheme}
               showTitle={showTitle}
               onToggleTitle={setShowTitle}
             />
           </ErrorBoundary>
-        ) : (
-          <div className="space-y-4 py-12 text-center">
-            <h2 className="text-xl font-semibold uppercase tracking-wider">
-              {currentApp}
-            </h2>
-
-            <p className="text-xs opacity-60">
-              Sub-App view is ready for the next phase.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setCurrentApp('hub')}
-              className="rounded-full bg-[var(--bg-control)] px-5 py-2 text-xs font-semibold transition-transform active:scale-95"
-            >
-              Back to Hub
-            </button>
-          </div>
         )}
+
+        {!['hub', 'settings'].includes(currentApp) && (
+          <ErrorBoundary>
+            <section className="py-14 text-center">
+              <h2
+                className="text-xl font-semibold uppercase tracking-[0.16em]"
+                style={{ color: 'var(--page-text-main)' }}
+              >
+                {currentApp}
+              </h2>
+              <p
+                className="mt-3 text-xs"
+                style={{ color: 'var(--page-text-sub)' }}
+              >
+                This module will be built in a later phase.
+              </p>
+              <button
+                type="button"
+                onClick={() => openApp('hub')}
+                className="mt-6 rounded-full px-5 py-2 text-xs font-semibold transition-transform active:scale-95"
+                style={{
+                  color: '#ffffff',
+                  backgroundColor: 'var(--accent-color)',
+                }}
+              >
+                Back to Home
+              </button>
+            </section>
+          </ErrorBoundary>
+        )}
+
+        <footer
+          className="pt-3 text-center font-mono text-[10px]"
+          style={{ color: 'var(--page-text-muted)' }}
+        >
+          by shadow
+        </footer>
       </main>
     </ErrorBoundary>
   );

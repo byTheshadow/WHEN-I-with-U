@@ -4,11 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light;
-  background: var(--bg-main);
-}
-
 html,
 body,
 #root {
@@ -16,19 +11,14 @@ body,
   min-width: 320px;
   min-height: 100%;
   margin: 0;
-  padding: 0;
-  background-color: var(--bg-main);
-}
-
-html {
-  min-height: 100%;
-  transition: background-color 0.45s ease;
+  background: var(--bg-main);
 }
 
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  color: var(--text-main);
+  color: var(--page-text-main);
+  background-color: var(--bg-main);
   font-family:
     Inter,
     "SF Pro Display",
@@ -38,16 +28,9 @@ body {
     "Helvetica Neue",
     Arial,
     sans-serif;
-  background:
-    linear-gradient(
-      135deg,
-      var(--bg-main) 0%,
-      var(--bg-main) 62%,
-      color-mix(in srgb, var(--bg-main) 94%, var(--bg-blob-2)) 100%
-    );
   transition:
-    background-color 0.45s ease,
-    color 0.45s ease;
+    background-color 420ms ease,
+    color 420ms ease;
 }
 
 button,
@@ -61,18 +44,11 @@ button {
   color: inherit;
 }
 
-input,
-textarea,
-select {
-  color: var(--text-main);
-  background-color: var(--bg-control);
-}
-
 * {
   box-sizing: border-box;
 }
 
 ::selection {
-  color: var(--accent-contrast);
-  background: var(--accent-color);
+  color: #ffffff;
+  background: #111111;
 }
