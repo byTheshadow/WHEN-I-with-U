@@ -1,14 +1,45 @@
-@tailwindcss base;
-@tailwindcss components;
-@tailwindcss utilities;
 @import './styles/themes.css';
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  min-height: 100%;
+  background: var(--bg-main);
+}
+
 body {
+  min-width: 320px;
+  min-height: 100vh;
   margin: 0;
-  padding: 0;
+  overflow-x: hidden;
   background-color: var(--bg-main);
   color: var(--text-main);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  overflow-x: hidden;
-  transition: background-color 0.4s ease, color 0.4s ease;
+  font-family:
+    Inter,
+    "SF Pro Display",
+    "SF Pro Text",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+* {
+  box-sizing: border-box;
 }
