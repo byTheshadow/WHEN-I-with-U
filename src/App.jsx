@@ -150,12 +150,7 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        <footer
-          className="pt-3 text-center font-mono text-[10px]"
-          style={{ color: 'var(--page-text-muted)' }}
-        >
-          by shadow
-        </footer>
+        
       </main>
     </ErrorBoundary>
   );
