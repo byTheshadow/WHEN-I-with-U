@@ -9,6 +9,7 @@ import AppGrid from './apps/hub/AppGrid';
 import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
 import TodoApp from './apps/todos/TodoApp';
+import DiaryApp from './apps/diaries/DiaryApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -147,7 +148,13 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings', 'messages', 'todos', 'planner'].includes(currentApp) && (
+        {currentApp === 'diaries' && (
+          <ErrorBoundary>
+            <DiaryApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
