@@ -118,6 +118,108 @@
   --divider: rgba(240, 220, 255, 0.14);
 }
 
+/* 占星骰子：从上方甩入、落地反弹、滚动后停下 */
+@keyframes astrologyDiceThrow {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(-72px, -260px, 0)
+      rotateX(0deg)
+      rotateY(0deg)
+      rotateZ(-28deg)
+      scale(0.62);
+  }
+
+  16% {
+    opacity: 1;
+  }
+
+  42% {
+    transform:
+      translate3d(16px, 10px, 0)
+      rotateX(520deg)
+      rotateY(410deg)
+      rotateZ(164deg)
+      scale(1.08);
+  }
+
+  54% {
+    transform:
+      translate3d(30px, -27px, 0)
+      rotateX(660deg)
+      rotateY(545deg)
+      rotateZ(220deg)
+      scale(0.98);
+  }
+
+  68% {
+    transform:
+      translate3d(13px, 2px, 0)
+      rotateX(744deg)
+      rotateY(655deg)
+      rotateZ(290deg)
+      scale(1.035);
+  }
+
+  80% {
+    transform:
+      translate3d(3px, -8px, 0)
+      rotateX(790deg)
+      rotateY(716deg)
+      rotateZ(336deg)
+      scale(1);
+  }
+
+  92% {
+    transform:
+      translate3d(0, 0, 0)
+      rotateX(818deg)
+      rotateY(755deg)
+      rotateZ(360deg)
+      scale(1.012);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0)
+      rotateX(820deg)
+      rotateY(760deg)
+      rotateZ(360deg)
+      scale(1);
+  }
+}
+
+/* 骰子停止后保持轻微漂浮呼吸感 */
+@keyframes astrologyDiceRest {
+  0%,
+  100% {
+    filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.13));
+  }
+
+  50% {
+    filter: drop-shadow(0 23px 24px rgba(0, 0, 0, 0.18));
+  }
+}
+
+.animate-dice-roll {
+  transform-style: preserve-3d;
+  transform-origin: center bottom;
+  will-change: transform, opacity;
+  animation:
+    astrologyDiceThrow 2.7s cubic-bezier(0.2, 0.82, 0.18, 1) forwards,
+    astrologyDiceRest 2.8s ease-in-out 2.7s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-dice-roll {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
 /* 页面区块由下而上依次进入 */
 @keyframes fadeInUp {
   from {
