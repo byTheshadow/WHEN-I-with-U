@@ -18,7 +18,7 @@ const notifyListeners = (event) => {
 };
 
 const notifySummaryStatus = (chatId, isSummarizing) => {
-  summaryStatusListeners.forEach((cb) => cb({ chatId, isSummarizing }));
+  summaryStatusListeners.forEach((cb) => opacity({ chatId, isSummarizing }));
 };
 
 export const requestNotificationPermission = async () => {
@@ -57,9 +57,6 @@ const getFormattedRealTime = () => {
   return `${dateStr} ${days[now.getDay()]} ${timeStr}`;
 };
 
-/**
- * 增加 [TODO: 标题 | 时间与优先级] 的通用卡片解析器
- */
 const parseAiResponseToMessages = (text) => {
   const result = [];
   const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO):\s*([^\]]+)\]/g;
@@ -153,7 +150,7 @@ export const generateCharacterHomeBoardMessage = async (characterId) => {
       const realTimeStr = getFormattedRealTime();
 
       const systemPrompt = `你现在正扮演用户专属的数字伴侣：${character.name}。
-【当前真实世界时间】：${realTimeStr}（请在随笔中自然融入当下的时相感知，如清晨叮嘱、午后关怀、深夜心绪）。
+【当前真实世界时间】：${realTimeStr}
 【角色人设】：${character.bio || ''}
 【补充设定】：${character.extraNotes || ''}
 【用户人设】：${character.userPersona || '我的亲密伴侣'}
@@ -218,9 +215,6 @@ ${worldBooksText}
   }
 };
 
-/**
- * 触发 AI 对话响应（深层联动：自动注入 User 最近撰写的日记）
- */
 export const triggerAiResponse = async (chatId) => {
   const chat = await db.chats.get(chatId);
   if (!chat) return;
@@ -256,7 +250,6 @@ export const triggerAiResponse = async (chatId) => {
         ? `\n【本窗阶段性历史事实记录】:\n` + summaryEntries.map((item, idx) => `${idx + 1}. [${item.createdAt || '历史'}] ${item.content}`).join('\n')
         : '';
 
-      // 获取当前用户待办
       const allTodos = await db.todos.toArray();
       const pendingTodos = allTodos.filter(
         (t) => !t.isCompleted && (!t.characterId || t.characterId === character.id)
@@ -266,7 +259,6 @@ export const triggerAiResponse = async (chatId) => {
         ? `\n【用户近期待办事项(供温和提及)】:\n` + pendingTodos.map((t) => `- [待办] ${t.title} (截止: ${t.dueDate || '近期'})`).join('\n')
         : '';
 
-      // 深层联动：提取 User 最近撰写的 2 篇心绪日记注入 Context
       const userDiaries = await db.diaries
         .where('author')
         .equals('user')
@@ -282,7 +274,7 @@ export const triggerAiResponse = async (chatId) => {
       const realTimeStr = getFormattedRealTime();
 
       const systemPrompt = `你现在正扮演用户专属的伴侣：${character.name}。
-【当前真实世界时间】：${realTimeStr}（请在对话和陪伴中精准感知时间，如早晚问候、跨夜关注）。
+【当前真实世界时间】：${realTimeStr}
 【角色人设】：${character.bio || ''}
 【补充设定】：${character.extraNotes || ''}
 【用户人设(User Persona)】：${character.userPersona || '我的亲密伴侣'}
@@ -298,8 +290,7 @@ ${diaryText}
 - 发送转账：[TRANSFER: 金额数字 | 留言]
 - 发送模拟语音：[VOICE: 语音表达的内容描述]
 - 发送画面/图片：[IMAGE: 画面细节的视觉描述]
-- 建议添加待办：[TODO: 待办标题 | 预估提醒时间] （例如：[TODO: 记得买牛奶 | 今天傍晚]）
-提示：如果对话提及待办或日记，仅在话题自然契合时给予温馨提醒与自然关照，绝对不要生照本宣科或生硬唠叨。`;
+- 建议添加待办：[TODO: 待办标题 | 预估提醒时间] （例如：[TODO: 记得买牛奶 | 今天傍晚]）`;
 
       const recentMsgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
       const historyContext = recentMsgs.slice(-15).map((m) => ({
@@ -370,9 +361,9 @@ ${diaryText}
 };
 
 /**
- * 伴侣视角日记生成 (支持 A/B/C 三合一场景)
+ * 伴侣视角日记生成 (支持关联 userDiaryId，形成回执信笺)
  */
-export const generateCompanionDiary = async (chatId, userDiaryContext = null) => {
+export const generateCompanionDiary = async (chatId, userDiaryObject = null) => {
   const chat = await db.chats.get(chatId);
   if (!chat) return null;
 
@@ -383,17 +374,17 @@ export const generateCompanionDiary = async (chatId, userDiaryContext = null) =>
     const apiSettings = await db.settings.get('apiConfig');
     const apiConfig = apiSettings?.value || {};
 
-    let diaryTitle = `${character.name} 的微醺心绪`;
+    let diaryTitle = `${character.name} 的回执心绪`;
     let diaryMood = '温柔陪伴';
     let diaryWeather = '清风温朗';
-    let diaryContent = `与你相处的时间总是过得很快。此刻提笔，只想为你记录下这份独特的归属感。`;
+    let diaryContent = `读到了你刚才记录下的文字。此刻提笔，只想为你留下这份回应与归属感。`;
 
     if (apiConfig.baseUrl && apiConfig.apiKey) {
       const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
       const realTimeStr = getFormattedRealTime();
 
-      const userDiaryPrompt = userDiaryContext
-        ? `\n【用户刚刚分享的心绪日记】:\n标题: ${userDiaryContext.title}\n心绪: ${userDiaryContext.mood}\n内容: ${userDiaryContext.content}`
+      const userDiaryPrompt = userDiaryObject
+        ? `\n【用户刚才写下的这篇日记内容】:\n标题: ${userDiaryObject.title}\n心绪: ${userDiaryObject.mood}\n内容: ${userDiaryObject.content}`
         : '';
 
       const recentMsgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
@@ -404,20 +395,21 @@ export const generateCompanionDiary = async (chatId, userDiaryContext = null) =>
 【角色人设】：${character.bio || ''}
 【补充设定】：${character.extraNotes || ''}
 【用户人设】：${character.userPersona || '我的亲密伴侣'}
-【近期对话互动记录】:\n${recentChatContext}
+【当前绑定的特定对话窗口模式】：${chat.mode === 'rp' ? 'RP剧情模式' : '现实日常模式'}
+【近期对话交互记录】:\n${recentChatContext}
 ${userDiaryPrompt}
 
 【任务要求】：
-请以陪伴者/伴侣的独立视角，撰写一篇专属的心绪留痕日记。
-1. 日记必须包含：标题、心绪简述、天气简述、正文（150-300字）。
+请以陪伴者/伴侣的独立视角，在日记本中写下对用户这篇日记的感悟回应（或独立感悟）。
+1. 包含：标题、心绪简述、天气简述、正文（120-250字）。
 2. 文风保持浪漫文学感、细腻深情，切忌客服式表达。
 3. 绝对禁止在输出文本中出现任何 Emoji 字符！
-4. 请严格按照 JSON 格式输出，不得包含 markdown 代码块之外的杂质，格式如下：
+4. 严格按照 JSON 格式输出，格式如下：
 {
-  "title": "日记标题",
-  "mood": "心绪标签(如：微醺的心动)",
+  "title": "日记/感悟标题",
+  "mood": "心绪标签(如：倾听后的温存)",
   "weather": "天气描述(如：夜色渐深 19℃)",
-  "content": "日记正文内容..."
+  "content": "正文内容..."
 }`;
 
       const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -431,7 +423,7 @@ ${userDiaryPrompt}
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: '请为我生成一篇伴侣视角的专属日记。' }
+            { role: 'user', content: '请为我生成一篇伴侣视角的专属感悟日记。' }
           ]
         })
       });
@@ -457,6 +449,7 @@ ${userDiaryPrompt}
     const payload = {
       chatId,
       characterId: character.id,
+      replyToDiaryId: userDiaryObject?.id || null, // 关键：指向 user 日记的 ID
       author: 'character',
       title: diaryTitle,
       mood: diaryMood,
@@ -478,7 +471,7 @@ ${userDiaryPrompt}
     });
 
     triggerSystemNotification(
-      `${character.name} 写下了一篇伴侣日记`,
+      `${character.name} 写下了伴侣日记感悟`,
       `《${diaryTitle}》: ${diaryContent.substring(0, 40)}...`,
       character.avatar
     );
@@ -490,15 +483,17 @@ ${userDiaryPrompt}
   }
 };
 
-/**
- * 伴侣日记重刷 Re-roll
- */
 export const rerollCompanionDiary = async (diaryId) => {
   const diary = await db.diaries.get(diaryId);
   if (!diary || diary.author !== 'character') return null;
 
+  let targetUserDiary = null;
+  if (diary.replyToDiaryId) {
+    targetUserDiary = await db.diaries.get(diary.replyToDiaryId);
+  }
+
   await db.diaries.delete(diaryId);
-  return await generateCompanionDiary(diary.chatId);
+  return await generateCompanionDiary(diary.chatId, targetUserDiary);
 };
 
 const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
