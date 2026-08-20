@@ -10,6 +10,7 @@ import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
 import TodoApp from './apps/todos/TodoApp';
 import DiaryApp from './apps/diaries/DiaryApp';
+import TravelApp from './apps/travels/TravelApp'; // ✈️ 引入打卡足迹旅行 Sub-App
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -154,7 +155,15 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries'].includes(currentApp) && (
+        {/* ✈️ 新增：旅行与打卡足迹 Sub-App 路由渲染 */}
+        {['travels', 'travel'].includes(currentApp) && (
+          <ErrorBoundary>
+            <TravelApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {/* 尚未开发的 Sub-App 兜底拦截（把 travels, travel 加入排除列表） */}
+        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
