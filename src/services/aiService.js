@@ -354,9 +354,9 @@ ${diaryText}
 
     checkAndTriggerAutoSummary(chatId, character, apiConfig);
 
-  } catch (err) {
+   } catch (err) {
     console.error('Background AI task error:', err);
-  } font-medium {
+  } finally {
     notifyListeners({ type: 'AI_TYPING_END', chatId });
   }
 };
