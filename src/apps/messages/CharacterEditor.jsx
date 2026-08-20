@@ -91,19 +91,32 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     setCharacter((prev) => ({ ...prev, knowledgeEntries: prev.knowledgeEntries.filter((k) => k.id !== id) }));
   };
 
-  // 保存数据至 Dexie
+   // 保存数据至 Dexie
   const handleSave = async () => {
     if (!character.name.trim()) return;
 
-    if (character.id) {
-      await db.characters.put(character);
-    } else {
-      const id = await db.characters.add({ ...character, createdAt: new Date().toISOString() });
-      character.id = id;
+    try {
+      const payload = { ...character };
+      
+      if (!payload.id) {
+        // 如果是新建，必须删掉 id 属性，让 Dexie 自动生成 ++id
+        delete payload.id;
+        const newId = await db.characters.add({
+          ...payload,
+          createdAt: new Date().toISOString()
+        });
+        payload.id = newId;
+      } else {
+        await db.characters.put(payload);
+      }
+
+      if (onSaved) onSaved(payload);
+      onBack();
+    } catch (err) {
+      console.error('Save character failed:', err);
     }
-    if (onSaved) onSaved(character);
-    onBack();
   };
+
 
   // 删除角色
   const handleDelete = async () => {
