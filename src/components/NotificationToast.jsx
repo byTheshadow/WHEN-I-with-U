@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X } from 'lucide-react';
+import { Bell, X, Mail } from 'lucide-react';
 import { subscribeAiEvents } from '../services/aiService';
 
 export const NotificationToast = () => {
@@ -11,10 +11,21 @@ export const NotificationToast = () => {
         setToast({
           title: event.characterName,
           content: event.preview,
+          iconType: 'chat',
           id: Date.now()
         });
 
         const timer = setTimeout(() => setToast(null), 4000);
+        return () => clearTimeout(timer);
+      } else if (event.type === 'NEW_HOME_BOARD_MESSAGE') {
+        setToast({
+          title: `${event.characterName} 在主页发来随笔`,
+          content: event.content,
+          iconType: 'mail',
+          id: Date.now()
+        });
+
+        const timer = setTimeout(() => setToast(null), 5000);
         return () => clearTimeout(timer);
       }
     });
@@ -39,7 +50,7 @@ export const NotificationToast = () => {
             className="p-2 rounded-xl shrink-0"
             style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
           >
-            <Bell className="w-4 h-4" />
+            {toast.iconType === 'mail' ? <Mail className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
           </div>
           <div className="min-w-0 space-y-0.5">
             <h5 className="font-bold font-serif truncate">{toast.title}</h5>

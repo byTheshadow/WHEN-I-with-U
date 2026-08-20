@@ -9,6 +9,7 @@ import AppGrid from './apps/hub/AppGrid';
 import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
 import { Settings as SettingsIcon } from 'lucide-react';
+import { requestNotificationPermission } from './services/aiService';
 
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
@@ -19,6 +20,8 @@ export const App = () => {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', activeTheme);
+    // 初始化申请浏览器 / 手机锁屏原生通知权限
+    requestNotificationPermission();
   }, [activeTheme]);
 
   const openApp = (appId) => {
@@ -108,7 +111,7 @@ export const App = () => {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <QuickBoard delay={300} messages={[]} />
+              <QuickBoard delay={300} />
             </ErrorBoundary>
 
             <ErrorBoundary>
