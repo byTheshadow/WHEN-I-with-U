@@ -362,7 +362,7 @@ ${diaryText}
 };
 
 /**
- * 针对某一封已撰写的日记，动态添加/重刷伴侣的【信件下方嵌入回执】
+ * 针对某一封用户日记，在信末生成/更新伴侣的嵌入回执
  */
 export const generateCompanionReplyForDiary = async (diaryId) => {
   const diary = await db.diaries.get(diaryId);
@@ -380,7 +380,7 @@ export const generateCompanionReplyForDiary = async (diaryId) => {
   } else if (chat) {
     character = await db.characters.get(chat.characterId);
   } else {
-    // 系统随机匹配伴侣
+    // 随机匹配伴侣
     const allChars = await db.characters.toArray();
     if (allChars.length > 0) {
       character = allChars[Math.floor(Math.random() * allChars.length)];
@@ -465,6 +465,145 @@ export const generateCompanionReplyForDiary = async (diaryId) => {
   }
 };
 
+/**
+ * 伴侣主动撰写独立日记 (author: 'character')
+ */
+export const generateCompanionProactiveDiary = async (chatId = null) => {
+  let chat = null;
+  let character = null;
+
+  if (chatId) {
+    chat = await db.chats.get(chatId);
+    if (chat) {
+      character = await db.characters.get(chat.characterId);
+    }
+  }
+
+  if (!character) {
+    const allChats = await db.chats.toArray();
+    if (allChats.length > 0) {
+      chat = allChats[Math.floor(Math.random() * allChats.length)];
+      character = await db.characters.get(chat.characterId);
+    } else {
+      const allChars = await db.characters.toArray();
+      if (allChars.length > 0) {
+        character = allChars[0];
+      }
+    }
+  }
+
+  if (!character) return null;
+
+  try {
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+    const realTimeStr = getFormattedRealTime();
+
+    let diaryTitle = `${character.name} 的独立心绪留痕`;
+    let diaryMood = '静谧关怀';
+    let diaryWeather = '月色温柔 19℃';
+    let diaryContent = `提笔落墨的时刻，忽然想起了与你相处的片段。在属于现实世界的静谧时空中，愿这份文字能给你带来陪伴。`;
+
+    if (apiConfig.baseUrl && apiConfig.apiKey) {
+      const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
+
+      let recentChatText = '';
+      if (chat) {
+        const msgs = await db.messages.where('chatId').equals(chat.id).sortBy('timestamp');
+        recentChatText = msgs.slice(-10).map(m => `${m.sender === 'user' ? '用户' : character.name}: ${m.content}`).join('\n');
+      }
+
+      const systemPrompt = `你现在正扮演用户专属的伴侣：${character.name}。
+【当前真实世界时间】：${realTimeStr}
+【角色人设】：${character.bio || ''}
+【补充设定】：${character.extraNotes || ''}
+【用户人设】：${character.userPersona || '我的亲密伴侣'}
+【与用户的近期互动记录】:\n${recentChatText}
+
+【任务要求】：
+请以陪伴者/伴侣的独立视角，主动撰写一封留给用户的专属心绪日记。
+1. 日记必须包含：标题、心绪简述、天气简述、正文（150-300字）。
+2. 文风保持浪漫文学感、细腻深情。
+3. 绝对禁止在输出文本中出现任何 Emoji 字符！
+4. 请严格按照 JSON 格式输出，不要附加 Markdown 外包装，格式：
+{
+  "title": "日记标题",
+  "mood": "心绪标签(如: 微醺的思念)",
+  "weather": "天气描述(如: 晚风渐起 20℃)",
+  "content": "日记正文内容..."
+}`;
+
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: apiConfig.model || 'gpt-3.5-turbo',
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: '请撰写一封属于你的伴侣主动日记。' }
+          ]
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawJson = data.choices?.[0]?.message?.content?.trim();
+        if (rawJson) {
+          try {
+            const parsed = JSON.parse(rawJson);
+            diaryTitle = parsed.title || diaryTitle;
+            diaryMood = parsed.mood || diaryMood;
+            diaryWeather = parsed.weather || diaryWeather;
+            diaryContent = parsed.content || diaryContent;
+          } catch (e) {
+            diaryContent = rawJson.replace(/```json|```/g, '').trim();
+          }
+        }
+      }
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const payload = {
+      chatId: chat ? chat.id : null,
+      characterId: character.id,
+      author: 'character',
+      title: diaryTitle,
+      mood: diaryMood,
+      weather: diaryWeather,
+      content: diaryContent,
+      companionReply: null,
+      images: [],
+      date: todayStr,
+      timestamp: Date.now()
+    };
+
+    delete payload.id;
+    const newId = await db.diaries.add(payload);
+
+    notifyListeners({
+      type: 'NEW_DIARY_ENTRY',
+      chatId: chat ? chat.id : null,
+      characterId: character.id,
+      diaryId: newId
+    });
+
+    triggerSystemNotification(
+      `${character.name} 写下了一篇伴侣日记`,
+      `《${diaryTitle}》: ${diaryContent.substring(0, 40)}...`,
+      character.avatar
+    );
+
+    return newId;
+  } catch (err) {
+    console.error('Failed to generate companion proactive diary:', err);
+    return null;
+  }
+};
+
 const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
   const freq = parseInt(character.summaryFrequency || '10', 10);
   const msgCount = await db.messages.where('chatId').equals(chatId).count();
@@ -535,6 +674,7 @@ export default {
   triggerAiResponse,
   generateCharacterHomeBoardMessage,
   generateCompanionReplyForDiary,
+  generateCompanionProactiveDiary,
   requestNotificationPermission,
   triggerSystemNotification
 };
