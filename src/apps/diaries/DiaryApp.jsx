@@ -175,19 +175,23 @@ export const DiaryApp = ({ onBackHub }) => {
     <div className="space-y-5 animate-fade-in-up pb-10 text-left">
       <style>{`
         .diary-envelope-shell {
-          --envelope-paper: var(--card-bg);
-          --envelope-fold: var(--control-soft-bg);
-          --envelope-line: var(--card-border);
-          --envelope-ink: var(--text-main);
-          --envelope-soft-ink: var(--text-sub);
-          --envelope-seal: var(--accent-color);
-          --envelope-seal-ink: var(--accent-foreground);
-          position: relative;
-          perspective: 1200px;
-          animation:
-            diary-envelope-enter 620ms cubic-bezier(0.22, 0.85, 0.31, 1) both,
-            diary-envelope-drift 7s ease-in-out var(--envelope-drift-delay) infinite;
-        }
+  --envelope-paper: var(--card-bg);
+  --envelope-fold: var(--control-soft-bg);
+  --envelope-line: var(--card-border);
+  --envelope-ink: var(--text-main);
+  --envelope-soft-ink: var(--text-sub);
+  --envelope-seal: var(--accent-color);
+  --envelope-seal-ink: var(--accent-foreground);
+  position: relative;
+  perspective: 1200px;
+  animation:
+    diary-envelope-enter 620ms cubic-bezier(0.22, 0.85, 0.31, 1)
+      var(--envelope-enter-delay) both,
+    diary-envelope-drift 7s ease-in-out
+      calc(var(--envelope-enter-delay) + 620ms + var(--envelope-drift-delay))
+      infinite;
+}
+
 
         .diary-envelope-clickable {
           position: relative;
@@ -199,8 +203,17 @@ export const DiaryApp = ({ onBackHub }) => {
         }
 
         .diary-envelope-clickable:hover {
-          transform: translateY(-4px) rotate(var(--envelope-tilt));
-        }
+  transform: translateY(-4px) rotate(var(--envelope-tilt));
+}
+
+.diary-envelope-clickable.is-open {
+  transform: translateY(-6px) rotate(var(--envelope-tilt));
+}
+
+.diary-envelope-clickable.is-open:hover {
+  transform: translateY(-8px) rotate(var(--envelope-tilt));
+}
+
 
         .diary-envelope-clickable:focus-visible {
           border-radius: 0.75rem;
@@ -706,18 +719,20 @@ export const DiaryApp = ({ onBackHub }) => {
               : '我';
 
             const envelopeTilt = `${((index % 5) - 2) * 0.38}deg`;
-            const motionDelay = `${(index % 6) * 90}ms`;
-            const driftDelay = `${(index % 5) * -0.78}s`;
+            const enterDelay = `${index * 110}ms`;
+const driftDelay = `${(index % 5) * -0.78}s`;
+
 
             return (
               <div
                 key={diary.id}
                 className={`diary-envelope-shell ${isOpen ? 'is-open' : ''}`}
                 style={{
-                  '--envelope-tilt': envelopeTilt,
-                  '--envelope-drift-delay': driftDelay,
-                  animationDelay: motionDelay
-                }}
+  '--envelope-tilt': envelopeTilt,
+  '--envelope-enter-delay': enterDelay,
+  '--envelope-drift-delay': driftDelay
+}}
+
               >
                 <div
                   role="button"
