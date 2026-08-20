@@ -1,11 +1,11 @@
 import React from 'react';
-import { MessageSquare, BookOpen, Compass, Calendar, Settings } from 'lucide-react';
+import { MessageSquare, BookOpen, Compass, Calendar } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   return (
     <div className="space-y-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-widest opacity-50 px-2">
+      <h3 className="text-[11px] font-semibold uppercase tracking-widest opacity-50 px-2 text-left">
         Applications
       </h3>
 
@@ -17,7 +17,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           className="col-span-2 flex items-center justify-between group"
         >
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-black/10 dark:bg-white/10 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div className="text-left">

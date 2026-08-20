@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { getRandomQuote } from '../data/quotes';
 
 export const Preloader = ({ onFinish }) => {
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [quote] = useState(() => getRandomQuote());
   const [isFading, setIsFading] = useState(false);
 
   useEffect(() => {
-    // 翻牌动画触发
-    const flipTimer = setTimeout(() => setIsFlipped(true), 400);
-    // 开始淡出
-    const fadeTimer = setTimeout(() => setIsFading(true), 2000);
-    // 彻底销毁组件
-    const finishTimer = setTimeout(() => onFinish && onFinish(), 2600);
+    // 3.4 秒后开始淡出
+    const fadeTimer = setTimeout(() => setIsFading(true), 3400);
+    // 4.0 秒后销毁
+    const finishTimer = setTimeout(() => onFinish && onFinish(), 4000);
 
     return () => {
-      clearTimeout(flipTimer);
       clearTimeout(fadeTimer);
       clearTimeout(finishTimer);
     };
@@ -22,62 +19,50 @@ export const Preloader = ({ onFinish }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-700 bg-slate-950 text-white ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 transition-opacity duration-700 select-none ${
         isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
+      style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-main)' }}
     >
-      {/* 3D 塔罗牌容器 */}
-      <div className="w-56 h-80 perspective-1000 cursor-pointer">
+      {/* 弥散光 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className={`w-full h-full relative transition-transform duration-1000 transform-style-3d ${
-            isFlipped ? 'rotate-y-180' : ''
-          }`}
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-[100px] opacity-60"
+          style={{ backgroundColor: 'var(--bg-blob-1)' }}
+        />
+      </div>
+
+      {/* 占星 3D 甩落骰子 (SVG 矢量刻面) */}
+      <div className="relative z-10 animate-dice-roll mb-8">
+        <div
+          className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl border backdrop-blur-md"
           style={{
-            transformStyle: 'preserve-3d',
-            transition: 'transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+            backgroundColor: 'var(--dice-bg)',
+            borderColor: 'var(--dice-border)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.06)'
           }}
         >
-          {/* 牌背面 */}
-          <div
-            className="absolute inset-0 rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 flex flex-col items-center justify-center p-6 shadow-2xl"
-            style={{ backfaceVisibility: 'hidden' }}
-          >
-            <div className="w-16 h-24 border border-slate-700 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-slate-500 animate-pulse" />
-            </div>
-          </div>
-
-          {/* 牌正面 */}
-          <div
-            className="absolute inset-0 rounded-3xl border border-rose-300/30 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col items-center justify-between p-6 shadow-2xl text-center"
-            style={{
-              backfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)'
-            }}
-          >
-            <div className="text-[10px] tracking-widest uppercase text-rose-300 font-mono">
-              Tarot of the Day
-            </div>
-            
-            <div className="space-y-2">
-              <Sparkles className="w-8 h-8 text-rose-300 mx-auto" />
-              <h2 className="text-xl font-serif tracking-tight text-slate-100">
-                WHEN I with U
-              </h2>
-              <p className="text-xs text-slate-400 font-serif italic">
-                "In your presence, time finds its softest rhythm."
-              </p>
-            </div>
-
-            <div className="text-[9px] text-slate-500 uppercase tracking-widest">
-              Tap to enter
-            </div>
-          </div>
+          {/* 占星 12 芒星/骰子线框 SVG */}
+          <svg className="w-10 h-10 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
         </div>
+      </div>
+
+      {/* 文字展示 */}
+      <div className="relative z-10 text-center space-y-4 max-w-xs animate-fade-in-up">
+        <h1 className="font-serif text-3xl font-bold tracking-tight">
+          WHEN I with U
+        </h1>
+        <div className="w-8 h-[1px] mx-auto opacity-30 bg-current" />
+        <p className="text-xs font-serif italic leading-relaxed opacity-75 px-2">
+          "{quote}"
+        </p>
       </div>
     </div>
   );
 };
 
 export default Preloader;
+

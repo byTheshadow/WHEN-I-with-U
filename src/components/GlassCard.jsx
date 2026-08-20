@@ -20,9 +20,7 @@ export const GlassCard = ({
         animationDelay: `${delay}ms`,
       }}
       className={`animate-fade-in-up rounded-[2rem] p-5 opacity-0 transition-all duration-300 ${
-        onClick
-          ? 'cursor-pointer hover:scale-[1.01] active:scale-[0.99]'
-          : ''
+        onClick ? 'cursor-pointer hover:scale-[1.01] active:scale-[0.99]' : ''
       } ${className}`}
     >
       {children}
@@ -31,3 +29,4 @@ export const GlassCard = ({
 };
 
 export default GlassCard;
+
