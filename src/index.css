@@ -1,19 +1,14 @@
 @tailwindcss base;
 @tailwindcss components;
 @tailwindcss utilities;
-
-:root {
-  --color-theme-bg: #090d16;
-  --color-theme-card: rgba(30, 41, 59, 0.7);
-  --color-theme-accent: #ec4899;
-  --color-theme-text: #f8fafc;
-}
+@import './styles/themes.css';
 
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--color-theme-bg);
-  color: var(--color-theme-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   overflow-x: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
