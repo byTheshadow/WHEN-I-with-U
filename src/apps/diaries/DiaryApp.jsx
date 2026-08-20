@@ -1,32 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, BookOpen, PenTool, Sparkles, RefreshCw,
-  Trash2, Filter, Calendar, Heart, User, CornerDownRight, Shuffle
+  Trash2, Filter, Calendar, Heart, Mail, ChevronDown, ChevronUp, User, Sparkle
 } from 'lucide-react';
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
-import { generateCompanionDiary, rerollCompanionDiary } from '../../services/aiService';
+import { generateCompanionReplyForDiary } from '../../services/aiService';
 
 export const DiaryApp = ({ onBackHub }) => {
   const [diaries, setDiaries] = useState([]);
   const [chats, setChats] = useState([]);
   const [characters, setCharacters] = useState([]);
 
-  // 极简 Tab: 'all' | 'user' | 'character'
-  const [authorTab, setAuthorTab] = useState('all');
-  const [selectedChatId, setSelectedChatId] = useState('all');
+  // 展开信封 ID 集合
+  const [openEnvelopeIds, setOpenEnvelopeIds] = useState(new Set());
 
-  // 新建日记状态
+  // 筛选器状态
+  const [authorTab, setAuthorTab] = useState('all'); // 'all' | 'with_reply' | 'user_only'
+  const [selectedChatId, setSelectedChatId] = useState('all');
+  const [selectedCharId, setSelectedCharId] = useState('all');
+
+  // 新建日记 Modal 状态
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newMood, setNewMood] = useState('');
   const [newWeather, setNewWeather] = useState('');
   const [newContent, setNewContent] = useState('');
-  
-  // 关键：绑定的消息框 / 伴侣策略 ('random' | 'none' | chatId)
-  const [bindStrategy, setBindStrategy] = useState('random'); 
+  const [newChatId, setNewChatId] = useState('random'); // 'random' 或具体的 chatId
+  const [requestReply, setRequestReply] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 操作状态 Modal
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [isRerollingId, setIsRerollingId] = useState(null);
 
@@ -41,10 +45,6 @@ export const DiaryApp = ({ onBackHub }) => {
     const allChars = await db.characters.toArray();
     setCharacters(allChars);
 
-    if (allChats.length > 0) {
-      setBindStrategy(allChats[0].id.toString());
-    }
-
     loadDiaries();
   };
 
@@ -53,51 +53,57 @@ export const DiaryApp = ({ onBackHub }) => {
     setDiaries(list);
   };
 
+  const toggleEnvelope = (id) => {
+    setOpenEnvelopeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const handleCreateDiary = async (e) => {
     e.preventDefault();
     if (!newContent.trim()) return;
 
     setIsSubmitting(true);
-    const todayStr = new Date().toISOString().split('T')[0];
 
-    let targetChatId = null;
-    let targetCharId = null;
+    let boundChatId = null;
+    let boundCharId = null;
 
-    if (bindStrategy === 'random') {
-      if (chats.length > 0) {
-        const randomChat = chats[Math.floor(Math.random() * chats.length)];
-        targetChatId = randomChat.id;
-        targetCharId = randomChat.characterId;
-      }
-    } else if (bindStrategy !== 'none') {
-      const selectedChat = chats.find(c => c.id.toString() === bindStrategy.toString());
-      if (selectedChat) {
-        targetChatId = selectedChat.id;
-        targetCharId = selectedChat.characterId;
+    if (newChatId !== 'random') {
+      boundChatId = parseInt(newChatId, 10);
+      const targetChat = chats.find(c => c.id === boundChatId);
+      if (targetChat) {
+        boundCharId = targetChat.characterId;
       }
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const payload = {
-      chatId: targetChatId,
-      characterId: targetCharId,
-      replyToDiaryId: null,
+      chatId: boundChatId,
+      characterId: boundCharId,
       author: 'user',
       title: newTitle.trim() || '无题心绪',
-      mood: newMood.trim() || '平静',
+      mood: newMood.trim() || '微醺感',
       weather: newWeather.trim() || '温朗',
       content: newContent.trim(),
+      companionReply: null,
       images: [],
       date: todayStr,
       timestamp: Date.now()
     };
 
     delete payload.id;
-    const createdId = await db.diaries.add(payload);
-    payload.id = createdId;
+    const newDiaryId = await db.diaries.add(payload);
 
-    // 如果绑定了特定/随机消息框，立刻触发伴侣回执
-    if (targetChatId) {
-      await generateCompanionDiary(targetChatId, payload);
+    // 如果勾选了让伴侣即时回复
+    if (requestReply) {
+      await generateCompanionReplyForDiary(newDiaryId);
     }
 
     setNewTitle('');
@@ -106,36 +112,38 @@ export const DiaryApp = ({ onBackHub }) => {
     setNewContent('');
     setShowCreateModal(false);
     setIsSubmitting(false);
+
+    // 默认展开新创建的信封
+    setOpenEnvelopeIds(prev => new Set(prev).add(newDiaryId));
     loadDiaries();
   };
 
   const handleDeleteDiary = async () => {
     if (!deleteTargetId) return;
-    // 如果删除的是 User 日记，连带删除其下面的伴侣回执日记
-    const companionReply = diaries.find(d => d.replyToDiaryId === deleteTargetId);
-    if (companionReply) {
-      await db.diaries.delete(companionReply.id);
-    }
     await db.diaries.delete(deleteTargetId);
     setDeleteTargetId(null);
     loadDiaries();
   };
 
-  const handleReroll = async (diaryId) => {
+  const handleRerollReply = async (diaryId) => {
     setIsRerollingId(diaryId);
-    await rerollCompanionDiary(diaryId);
+    await generateCompanionReplyForDiary(diaryId);
     setIsRerollingId(null);
     loadDiaries();
   };
 
-  // 分离出独立伴侣日记与 User 日记
-  // 注意：如果是作为回执的伴侣日记 (has replyToDiaryId)，直接合并在 user 日记底部
-  const userDiaries = diaries.filter(d => d.author === 'user');
-  const standaloneCompanionDiaries = diaries.filter(d => d.author === 'character' && !d.replyToDiaryId);
+  // 过滤逻辑
+  const filteredDiaries = diaries.filter(item => {
+    if (authorTab === 'with_reply' && !item.companionReply) return false;
+    if (authorTab === 'user_only' && item.companionReply) return false;
+    if (selectedChatId !== 'all' && item.chatId?.toString() !== selectedChatId.toString()) return false;
+    if (selectedCharId !== 'all' && item.characterId?.toString() !== selectedCharId.toString()) return false;
+    return true;
+  });
 
   return (
-    <div className="space-y-6 animate-fade-in-up pb-10 text-left">
-      {/* Header Bar */}
+    <div className="space-y-5 animate-fade-in-up pb-10 text-left">
+      {/* 顶栏 Header */}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -150,293 +158,261 @@ export const DiaryApp = ({ onBackHub }) => {
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-transform active:scale-95 shadow-md"
+          className="px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-transform active:scale-95 shadow-md"
           style={{
             backgroundColor: 'var(--accent-color)',
             color: 'var(--accent-foreground)'
           }}
         >
           <PenTool className="w-3.5 h-3.5" />
-          <span>提笔记心绪</span>
+          <span>封存新信件</span>
         </button>
       </div>
 
-      {/* Title Section */}
+      {/* 杂志风 Title Header */}
       <div className="space-y-1 border-b pb-4" style={{ borderColor: 'var(--divider)' }}>
         <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 opacity-70" />
+          <Mail className="w-5 h-5 opacity-70" />
           <h2 className="font-serif text-2xl font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>
-            Dual Diaries
+            Envelope Diaries
           </h2>
         </div>
         <p className="text-xs opacity-50 font-serif italic">
-          每一页都是沉淀在消息框里的双向纸页。
+          信封包裹的心绪留痕，每一封信下方嵌入伴侣的深情回执。
         </p>
       </div>
 
-      {/* 极简无灰块下划线 Segment Tab */}
-      <div className="flex items-center justify-between border-b pb-1" style={{ borderColor: 'var(--divider)' }}>
-        <div className="flex items-center gap-6 text-xs font-serif">
-          <button
-            type="button"
-            onClick={() => setAuthorTab('all')}
-            className={`pb-2 relative transition-all ${authorTab === 'all' ? 'font-bold opacity-100' : 'opacity-40'}`}
-            style={{ color: 'var(--text-main)' }}
-          >
-            全部手记 ({userDiaries.length + standaloneCompanionDiaries.length})
-            {authorTab === 'all' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: 'var(--text-main)' }} />
-            )}
-          </button>
+      {/* 极简精致的分栏 Tab (非灰块死板 Pill) */}
+      <div className="flex items-center gap-6 text-xs font-medium border-b pb-2 px-1" style={{ borderColor: 'var(--divider)' }}>
+        <button
+          type="button"
+          onClick={() => setAuthorTab('all')}
+          className={`relative pb-1.5 transition-all ${authorTab === 'all' ? 'font-bold opacity-100' : 'opacity-40 hover:opacity-70'}`}
+          style={{ color: 'var(--text-main)' }}
+        >
+          全部信件 ({diaries.length})
+          {authorTab === 'all' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: 'var(--text-main)' }} />
+          )}
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setAuthorTab('user')}
-            className={`pb-2 relative transition-all ${authorTab === 'user' ? 'font-bold opacity-100' : 'opacity-40'}`}
-            style={{ color: 'var(--text-main)' }}
-          >
-            我的日记本
-            {authorTab === 'user' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: 'var(--text-main)' }} />
-            )}
-          </button>
+        <button
+          type="button"
+          onClick={() => setAuthorTab('with_reply')}
+          className={`relative pb-1.5 transition-all ${authorTab === 'with_reply' ? 'font-bold opacity-100' : 'opacity-40 hover:opacity-70'}`}
+          style={{ color: 'var(--text-main)' }}
+        >
+          含伴侣回执
+          {authorTab === 'with_reply' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: 'var(--text-main)' }} />
+          )}
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setAuthorTab('character')}
-            className={`pb-2 relative transition-all ${authorTab === 'character' ? 'font-bold opacity-100' : 'opacity-40'}`}
-            style={{ color: 'var(--text-main)' }}
-          >
-            伴侣独立感悟
-            {authorTab === 'character' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: 'var(--text-main)' }} />
-            )}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setAuthorTab('user_only')}
+          className={`relative pb-1.5 transition-all ${authorTab === 'user_only' ? 'font-bold opacity-100' : 'opacity-40 hover:opacity-70'}`}
+          style={{ color: 'var(--text-main)' }}
+        >
+          个人独白信
+          {authorTab === 'user_only' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: 'var(--text-main)' }} />
+          )}
+        </button>
+      </div>
 
-        {/* 消息框筛选下拉 */}
-        <div className="flex items-center gap-1 opacity-70 text-[11px]">
-          <Filter className="w-3 h-3" />
+      {/* 筛选拉框 */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+          <Filter className="w-3.5 h-3.5 opacity-40 shrink-0" />
           <select
             value={selectedChatId}
             onChange={(e) => setSelectedChatId(e.target.value)}
-            className="bg-transparent outline-none font-medium"
+            className="w-full bg-transparent outline-none font-medium truncate"
             style={{ color: 'var(--text-main)' }}
           >
-            <option value="all">所有消息框</option>
+            <option value="all">所有对话窗口</option>
             {chats.map((c) => {
               const char = characters.find(ch => ch.id === c.characterId);
               return (
                 <option key={c.id} value={c.id}>
-                  {c.title || `与 ${char?.name || '伴侣'} 的对话 (${c.mode === 'rp' ? 'RP' : '现实'})`}
+                  {c.title || `与 ${char?.name || '伴侣'} 的对话`}
                 </option>
               );
             })}
           </select>
         </div>
+
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+          <Heart className="w-3.5 h-3.5 opacity-40 shrink-0" />
+          <select
+            value={selectedCharId}
+            onChange={(e) => setSelectedCharId(e.target.value)}
+            className="w-full bg-transparent outline-none font-medium truncate"
+            style={{ color: 'var(--text-main)' }}
+          >
+            <option value="all">所有伴侣对象</option>
+            {characters.map((ch) => (
+              <option key={ch.id} value={ch.id}>
+                {ch.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* 日记流展示 */}
-      <div className="space-y-6 pt-2">
-        {userDiaries.length === 0 && standaloneCompanionDiaries.length === 0 ? (
-          <div className="py-20 text-center space-y-3 opacity-40">
-            <BookOpen className="w-8 h-8 mx-auto" />
-            <p className="text-xs font-serif italic">还没有写下日记，点击右上角提笔记心绪吧...</p>
+      {/* 信封流 (Envelope Cards) */}
+      <div className="space-y-4 pt-1">
+        {filteredDiaries.length === 0 ? (
+          <div className="py-16 text-center space-y-3 opacity-40 border rounded-[2.5rem]" style={{ borderColor: 'var(--card-border)' }}>
+            <Mail className="w-8 h-8 mx-auto" />
+            <p className="text-xs font-serif italic">还没有信件留存... 提笔封存一封心绪信件吧。</p>
           </div>
         ) : (
-          <>
-            {/* 1. 展示 User 日记卡片（自动内嵌伴侣回执） */}
-            {(authorTab === 'all' || authorTab === 'user') &&
-              userDiaries
-                .filter(ud => selectedChatId === 'all' || ud.chatId?.toString() === selectedChatId.toString())
-                .map((diary) => {
-                  const replyCompanionDiary = diaries.find(d => d.replyToDiaryId === diary.id);
-                  const char = characters.find(c => c.id === diary.characterId);
-                  const chat = chats.find(c => c.id === diary.chatId);
+          filteredDiaries.map((diary) => {
+            const isOpen = openEnvelopeIds.has(diary.id);
+            const reply = diary.companionReply;
+            const char = reply ? characters.find(c => c.id === reply.characterId) : (diary.characterId ? characters.find(c => c.id === diary.characterId) : null);
+            const chat = chats.find(c => c.id === diary.chatId);
 
-                  return (
-                    <div
-                      key={diary.id}
-                      className="p-6 rounded-[2.5rem] border shadow-sm relative space-y-4 transition-all duration-300"
-                      style={{
-                        backgroundColor: 'var(--card-bg)',
-                        borderColor: 'var(--card-border)',
-                        color: 'var(--text-main)'
-                      }}
-                    >
-                      {/* User 日记顶栏 */}
-                      <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--divider)' }}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px]">
-                            <User className="w-3.5 h-3.5 opacity-70" />
-                          </div>
-                          <div>
-                            <span className="font-bold text-xs">我的心绪日记</span>
-                            <p className="text-[10px] opacity-40 font-mono">
-                              {chat ? `${chat.title || '专属消息框'} (${chat.mode === 'rp' ? 'RP' : '现实模式'})` : '未绑定消息框'}
-                            </p>
-                          </div>
-                        </div>
+            return (
+              <div
+                key={diary.id}
+                className="rounded-[2.2rem] border overflow-hidden transition-all duration-500 shadow-sm relative group"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--card-border)',
+                  color: 'var(--text-main)'
+                }}
+              >
+                {/* 信封封面卡片 Header (点击切换展开/折叠) */}
+                <div
+                  onClick={() => toggleEnvelope(diary.id)}
+                  className="p-5 cursor-pointer flex items-center justify-between transition-colors hover:opacity-90"
+                >
+                  <div className="flex items-center gap-3.5">
+                    {/* 火漆印章 / 信封图标 */}
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center border shadow-inner shrink-0" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+                      {reply ? (
+                        <Sparkles className="w-5 h-5 text-purple-400" />
+                      ) : (
+                        <Mail className="w-5 h-5 opacity-60" />
+                      )}
+                    </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] opacity-40 font-mono">{diary.date}</span>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTargetId(diary.id)}
-                            className="p-1 opacity-30 hover:opacity-100 hover:text-rose-500 transition-opacity"
-                            title="抹去"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-serif font-bold text-sm tracking-tight">
+                          {diary.title || '无题心绪信件'}
+                        </h3>
+                        {reply && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-mono border text-purple-400 border-purple-400/30">
+                            已收到回执
+                          </span>
+                        )}
                       </div>
+                      <p className="text-[10px] opacity-40 font-mono flex items-center gap-2">
+                        <span>{diary.date}</span>
+                        <span>•</span>
+                        <span>{chat ? chat.title : '个人心绪信扎'}</span>
+                      </p>
+                    </div>
+                  </div>
 
-                      {/* 标题 & 简评 */}
-                      <div className="space-y-1">
-                        <h3 className="font-serif font-bold text-base tracking-tight">{diary.title}</h3>
-                        <div className="flex gap-2 text-[10px] opacity-60">
-                          <span>心绪: {diary.mood}</span>
-                          <span>•</span>
-                          <span>天气: {diary.weather}</span>
-                        </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] opacity-50 font-mono hidden sm:inline">
+                      {isOpen ? '收起信纸' : '拆开信封'}
+                    </span>
+                    {isOpen ? <ChevronUp className="w-4 h-4 opacity-50" /> : <ChevronDown className="w-4 h-4 opacity-50" />}
+                  </div>
+                </div>
+
+                {/* 拆开后展开的完整信纸 (Letter Content Inside) */}
+                {isOpen && (
+                  <div className="px-6 pb-6 pt-2 border-t space-y-5 animate-fade-in" style={{ borderColor: 'var(--divider)' }}>
+                    {/* 顶部信纸信息标语 */}
+                    <div className="flex items-center justify-between text-[10px] opacity-60 border-b pb-2" style={{ borderColor: 'var(--divider)' }}>
+                      <div className="flex items-center gap-3 font-mono">
+                        <span>心绪: {diary.mood}</span>
+                        <span>天气: {diary.weather}</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTargetId(diary.id)}
+                        className="opacity-40 hover:opacity-100 hover:text-rose-500 transition-opacity p-1"
+                        title="彻底销毁此信"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                      {/* 正文 */}
+                    {/* 我写的信件正文 */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest opacity-40 block">
+                        MY LETTER / 我的心绪
+                      </span>
                       <p className="text-xs leading-relaxed opacity-90 whitespace-pre-wrap font-sans">
                         {diary.content}
                       </p>
+                    </div>
 
-                      {/* 关键：伴侣回执感悟（直接包含在日记本底部） */}
-                      {replyCompanionDiary && (
-                        <div
-                          className="mt-4 p-4 rounded-2xl border border-dashed relative space-y-2 animate-fade-in"
-                          style={{
-                            backgroundColor: 'var(--control-soft-bg)',
-                            borderColor: 'var(--card-border)'
-                          }}
-                        >
-                          <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--divider)' }}>
-                            <div className="flex items-center gap-2">
-                              <CornerDownRight className="w-3.5 h-3.5 text-purple-400" />
-                              {char?.avatar ? (
-                                <img src={char.avatar} alt={char.name} className="w-5 h-5 rounded-full object-cover" />
-                              ) : (
-                                <Heart className="w-3.5 h-3.5 text-rose-400" />
-                              )}
-                              <span className="font-bold text-xs">{char?.name || '伴侣'} 的信笺回执</span>
+                    {/* 嵌入在信纸下方的伴侣回执 (Embedded Reply) */}
+                    <div className="pt-4 border-t space-y-3" style={{ borderColor: 'var(--divider)' }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {char?.avatar ? (
+                            <img src={char.avatar} alt={char.name} className="w-6 h-6 rounded-full object-cover border" style={{ borderColor: 'var(--card-border)' }} />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center font-bold text-[9px] text-purple-400">
+                              <Sparkle className="w-3 h-3" />
                             </div>
+                          )}
+                          <span className="font-bold text-xs">
+                            {reply ? `${reply.characterName || char?.name || '伴侣'} 的心绪回执` : '邀请伴侣写下回执'}
+                          </span>
+                        </div>
 
-                            <button
-                              type="button"
-                              onClick={() => handleReroll(replyCompanionDiary.id)}
-                              disabled={isRerollingId === replyCompanionDiary.id}
-                              className="flex items-center gap-1 text-[10px] opacity-60 hover:opacity-100 transition-opacity"
-                              title="重刷/重新抽卡伴侣回复"
-                            >
-                              <RefreshCw className={`w-3 h-3 ${isRerollingId === replyCompanionDiary.id ? 'animate-spin' : ''}`} />
-                              <span>Re-roll</span>
-                            </button>
-                          </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRerollReply(diary.id)}
+                          disabled={isRerollingId === diary.id}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] border transition-transform active:scale-95 disabled:opacity-50"
+                          style={{ borderColor: 'var(--card-border)', background: 'var(--control-soft-bg)' }}
+                          title="重新生成或邀请回复"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isRerollingId === diary.id ? 'animate-spin text-purple-400' : ''}`} />
+                          <span>{reply ? '重刷回执 (Re-roll)' : '召唤伴侣回执'}</span>
+                        </button>
+                      </div>
 
-                          <div className="space-y-1">
-                            <h4 className="font-serif font-semibold text-xs text-purple-300">
-                              《{replyCompanionDiary.title}》
-                            </h4>
-                            <p className="text-[11px] leading-relaxed opacity-85 font-serif italic">
-                              "{replyCompanionDiary.content}"
-                            </p>
+                      {reply ? (
+                        <div className="p-4 rounded-2xl border backdrop-blur-sm text-xs leading-relaxed italic opacity-95 space-y-2" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+                          <p className="font-serif whitespace-pre-wrap">{reply.replyText}</p>
+                          <div className="text-[9px] opacity-40 font-mono text-right pt-1">
+                            {new Date(reply.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
-
-                          <div className="flex justify-between items-center text-[9px] opacity-40 font-mono pt-1">
-                            <span>心绪: {replyCompanionDiary.mood}</span>
-                            <span>{new Date(replyCompanionDiary.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-4 text-center text-[11px] opacity-40 italic font-serif border border-dashed rounded-2xl" style={{ borderColor: 'var(--card-border)' }}>
+                          信末尚留白，点击右上角【召唤伴侣回执】听听伴侣的心声。
                         </div>
                       )}
                     </div>
-                  );
-                })}
-
-            {/* 2. 展示伴侣独立日记（非回执类） */}
-            {(authorTab === 'all' || authorTab === 'character') &&
-              standaloneCompanionDiaries
-                .filter(sd => selectedChatId === 'all' || sd.chatId?.toString() === selectedChatId.toString())
-                .map((diary) => {
-                  const char = characters.find(c => c.id === diary.characterId);
-                  const chat = chats.find(c => c.id === diary.chatId);
-
-                  return (
-                    <div
-                      key={diary.id}
-                      className="p-6 rounded-[2.5rem] border shadow-sm relative space-y-4 transition-all duration-300"
-                      style={{
-                        backgroundColor: 'var(--control-soft-bg)',
-                        borderColor: 'var(--card-border)',
-                        color: 'var(--text-main)'
-                      }}
-                    >
-                      <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--divider)' }}>
-                        <div className="flex items-center gap-2">
-                          {char?.avatar ? (
-                            <img src={char.avatar} alt={char.name} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <Heart className="w-4 h-4 text-rose-400" />
-                          )}
-                          <div>
-                            <span className="font-bold text-xs">{char?.name || '伴侣'} 的独立心绪</span>
-                            <p className="text-[10px] opacity-40 font-mono">
-                              {chat ? `消息框: ${chat.title}` : '静谧随笔'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <button
-                            type="button"
-                            onClick={() => handleReroll(diary.id)}
-                            disabled={isRerollingId === diary.id}
-                            className="p-1 opacity-50 hover:opacity-100"
-                            title="重新抽卡"
-                          >
-                            <RefreshCw className={`w-3.5 h-3.5 ${isRerollingId === diary.id ? 'animate-spin' : ''}`} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTargetId(diary.id)}
-                            className="p-1 opacity-30 hover:opacity-100 hover:text-rose-500"
-                            title="抹去"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <h3 className="font-serif font-bold text-base tracking-tight">{diary.title}</h3>
-                        <div className="flex gap-2 text-[10px] opacity-60">
-                          <span>心绪: {diary.mood}</span>
-                          <span>•</span>
-                          <span>天气: {diary.weather}</span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs leading-relaxed opacity-90 whitespace-pre-wrap font-serif italic">
-                        {diary.content}
-                      </p>
-                    </div>
-                  );
-                })}
-          </>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
-      {/* 新建日记高透 Modal (彻底去除了深灰方块遮罩) */}
+      {/* 彻底去除冗余灰框的新建日记 Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in">
           <div
             className="w-full max-w-md p-6 rounded-[2.5rem] border shadow-2xl space-y-4 text-left"
             style={{
-              backgroundColor: 'var(--card-bg)',
+              backgroundColor: 'var(--bg-main)',
               borderColor: 'var(--card-border)',
               color: 'var(--text-main)'
             }}
@@ -444,36 +420,34 @@ export const DiaryApp = ({ onBackHub }) => {
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--divider)' }}>
               <div className="flex items-center gap-2">
                 <PenTool className="w-4 h-4 opacity-70" />
-                <h3 className="font-serif font-bold text-base">落笔心绪手记</h3>
+                <h3 className="font-serif font-bold text-base">封存一封心绪信件</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="opacity-50 hover:opacity-100 text-sm font-mono"
+                className="opacity-50 hover:opacity-100 text-base font-mono"
               >
                 &times;
               </button>
             </div>
 
             <form onSubmit={handleCreateDiary} className="space-y-3 text-xs">
-              {/* 关键：选择绑定的【特定消息框】或【随机伴侣】 */}
               <div>
                 <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">
-                  选择感悟绑定的消息框 (独立日记本)
+                  选择倾诉的消息框 / 伴侣
                 </label>
                 <select
-                  value={bindStrategy}
-                  onChange={(e) => setBindStrategy(e.target.value)}
+                  value={newChatId}
+                  onChange={(e) => setNewChatId(e.target.value)}
                   className="w-full p-2.5 rounded-xl border outline-none font-medium"
-                  style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                  style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
                 >
-                  <option value="random">系统随机挑选伴侣即时感悟</option>
-                  <option value="none">暂不绑定 (仅存为个人私人日记)</option>
+                  <option value="random">不绑定特定消息框 (系统随机匹配一名伴侣倾听与回复)</option>
                   {chats.map((c) => {
                     const char = characters.find(ch => ch.id === c.characterId);
                     return (
                       <option key={c.id} value={c.id}>
-                        {c.title || `与 ${char?.name || '伴侣'} 的对话`} ({c.mode === 'rp' ? 'RP剧情' : '现实陪伴'})
+                        绑定对话: {c.title || `与 ${char?.name || '伴侣'} 的对话`}
                       </option>
                     );
                   })}
@@ -481,55 +455,77 @@ export const DiaryApp = ({ onBackHub }) => {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">心绪主题</label>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">
+                    心绪主题
+                  </label>
                   <input
                     type="text"
-                    placeholder="如：清晨微醺"
+                    placeholder="如: 清晨微醺"
                     value={newMood}
                     onChange={(e) => setNewMood(e.target.value)}
                     className="w-full p-2 rounded-xl border outline-none"
-                    style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                    style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">当下的天气</label>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">
+                    当下天气
+                  </label>
                   <input
                     type="text"
-                    placeholder="如：细雨 18℃"
+                    placeholder="如: 细雨 18℃"
                     value={newWeather}
                     onChange={(e) => setNewWeather(e.target.value)}
                     className="w-full p-2 rounded-xl border outline-none"
-                    style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                    style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">日记标题</label>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">
+                    信件标题
+                  </label>
                   <input
                     type="text"
                     placeholder="标题"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     className="w-full p-2 rounded-xl border outline-none font-bold"
-                    style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                    style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">日记正文</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider opacity-60 mb-1">
+                  信件正文
+                </label>
                 <textarea
                   rows={5}
                   placeholder="倾诉你的现实生活、今日情绪与记忆..."
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   className="w-full p-3 rounded-2xl border outline-none resize-none leading-relaxed"
-                  style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                  style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
                   required
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="requestReplyCheck"
+                  checked={requestReply}
+                  onChange={(e) => setRequestReply(e.target.checked)}
+                  className="rounded accent-purple-500 w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="requestReplyCheck" className="text-[11px] font-medium cursor-pointer flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>在信末即刻附带伴侣的心绪回执</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
@@ -540,13 +536,13 @@ export const DiaryApp = ({ onBackHub }) => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 rounded-full font-semibold transition-transform active:scale-95 disabled:opacity-50"
+                  className="px-5 py-2 rounded-full font-semibold transition-transform active:scale-95 disabled:opacity-50 shadow-md"
                   style={{
                     backgroundColor: 'var(--accent-color)',
                     color: 'var(--accent-foreground)'
                   }}
                 >
-                  {isSubmitting ? '落笔联络中...' : '落笔封存'}
+                  {isSubmitting ? '封存中...' : '封存信件'}
                 </button>
               </div>
             </form>
@@ -554,11 +550,12 @@ export const DiaryApp = ({ onBackHub }) => {
         </div>
       )}
 
+      {/* 彻底销毁确认 Modal */}
       {deleteTargetId && (
         <ConfirmModal
-          title="抹去日记"
-          message="确定要彻底抹去这篇心绪手记吗？此操作无法撤销。"
-          confirmText="确认抹去"
+          title="销毁信件"
+          message="确定要彻底销毁这封信件及其伴侣回执吗？此操作不可撤销。"
+          confirmText="确认销毁"
           onConfirm={handleDeleteDiary}
           onCancel={() => setDeleteTargetId(null)}
         />
