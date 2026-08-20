@@ -1,37 +1,59 @@
 import React, { useState } from 'react';
-import { Image, Eye, EyeOff } from 'lucide-react';
+import { Image as ImageIcon, RotateCw } from 'lucide-react';
 
-export const ImageCard = ({ content = '', metadata = {} }) => {
-  const [showDescription, setShowDescription] = useState(false);
-  const altText = metadata?.alt || 'Visual Description';
+export const ImageCard = ({ content, metadata = {} }) => {
+  const [isFlipped, setIsFlipped] = useState(false);
 
   return (
-    <div className="space-y-2.5 max-w-[260px]">
-      <div 
-        onClick={() => setShowDescription(!showDescription)}
-        className="relative overflow-hidden rounded-2xl border border-white/20 bg-black/5 dark:bg-white/5 p-4 cursor-pointer transition-all hover:bg-black/10 dark:hover:bg-white/10"
+    <div 
+      className="relative cursor-pointer select-none perspective-1000"
+      onClick={() => setIsFlipped(!isFlipped)}
+      style={{ perspective: '1000px' }}
+    >
+      <div
+        className={`w-48 h-36 rounded-2xl transition-transform duration-700 transform-style-3d relative ${
+          isFlipped ? 'rotate-y-180' : ''
+        }`}
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+        }}
       >
-        <div className="flex flex-col items-center justify-center py-6 space-y-2 text-center">
-          <div className="p-3 rounded-full bg-black/5 dark:bg-white/10 opacity-80">
-            <Image className="w-6 h-6 stroke-[1.5]" />
+        {/* 正面：图片或者占位 */}
+        <div 
+          className="absolute inset-0 rounded-2xl border p-3 flex flex-col justify-between backface-hidden"
+          style={{
+            backfaceVisibility: 'hidden',
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between opacity-60 text-[10px] font-mono">
+            <span className="flex items-center gap-1"><ImageIcon className="w-3 h-3" /> IMAGE CARD</span>
+            <RotateCw className="w-3 h-3" />
           </div>
-          <span className="text-[10px] font-mono tracking-widest uppercase opacity-40">Virtual Image Attachment</span>
+          <p className="text-xs italic truncate my-auto">{content || '点击翻转查看画卷细节'}</p>
+          <span className="text-[9px] opacity-40 text-right">点击翻转 3D Card</span>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[11px] opacity-70">
-          <span className="truncate pr-2 font-medium">{altText}</span>
-          <button type="button" className="shrink-0">
-            {showDescription ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
+        {/* 背面：图片细节描述 */}
+        <div 
+          className="absolute inset-0 rounded-2xl border p-3 flex flex-col justify-between rotate-y-180 backface-hidden"
+          style={{
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+            background: 'var(--accent-color)',
+            color: 'var(--accent-foreground)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <span className="text-[9px] font-mono opacity-60">DETAILS / 画面描写</span>
+          <p className="text-xs leading-relaxed overflow-y-auto max-h-24">
+            {metadata.description || content || '静谧的氛围漫过镜头，停留在此刻。'}
+          </p>
+          <span className="text-[8px] opacity-50 text-right">点击翻回正页</span>
         </div>
       </div>
-
-      {showDescription && (
-        <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-white/10 text-[11px] leading-relaxed opacity-90 animate-fade-in-up">
-          <span className="block font-mono text-[9px] uppercase tracking-wider opacity-40 mb-1">Image Description</span>
-          {content}
-        </div>
-      )}
     </div>
   );
 };

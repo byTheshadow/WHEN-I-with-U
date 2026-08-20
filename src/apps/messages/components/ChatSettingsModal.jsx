@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { X, Upload, Trash2, Sliders, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { X, Upload, Trash2, Sliders } from 'lucide-react';
 
 export const ChatSettingsModal = ({
   chat,
@@ -26,8 +26,9 @@ export const ChatSettingsModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in-up">
+      {/* 彻底去除脏灰色蒙层，使用高级高透模糊 (Fix Bug #4) */}
       <div 
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+        className="fixed inset-0 backdrop-blur-md bg-white/5 dark:bg-black/5 transition-opacity"
         onClick={onClose}
       />
 
@@ -52,7 +53,7 @@ export const ChatSettingsModal = ({
           <div className="flex items-center gap-3">
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="w-16 h-16 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative group transition-all"
+              className="w-16 h-16 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all"
               style={{
                 background: 'var(--control-soft-bg)',
                 borderColor: 'var(--divider)'
@@ -85,17 +86,16 @@ export const ChatSettingsModal = ({
                   onClick={() => onUpdateBgImage('')}
                   className="w-full py-1.5 rounded-xl text-rose-500 text-[11px] opacity-80 hover:opacity-100"
                 >
-                  移除当前背景
+                  移除背景
                 </button>
               )}
             </div>
           </div>
 
-          {/* 透明度滑动条 */}
           {bgImage && (
             <div className="space-y-1 pt-2">
               <div className="flex items-center justify-between text-[11px] opacity-70">
-                <span>背景模糊透明度</span>
+                <span>背景透明度</span>
                 <span className="font-mono">{Math.round(bgOpacity * 100)}%</span>
               </div>
               <input
@@ -111,7 +111,7 @@ export const ChatSettingsModal = ({
           )}
         </div>
 
-        {/* 气泡 CSS 入口 */}
+        {/* 定制 CSS 气泡 */}
         <div className="pt-2 border-t" style={{ borderColor: 'var(--divider)' }}>
           <button
             type="button"
@@ -128,19 +128,19 @@ export const ChatSettingsModal = ({
           >
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 opacity-70" />
-              <span>定制专属 CSS 气泡与字体</span>
+              <span>自定义气泡 CSS 样式</span>
             </div>
             <span className="opacity-40 font-mono text-[10px]">&gt;</span>
           </button>
         </div>
 
-        {/* 清空本聊天记录 */}
+        {/* 清空记录移入设置 Modal */}
         <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--divider)' }}>
           <label className="block font-mono opacity-50 text-[10px] text-rose-500">DANGER ZONE / 危险区域</label>
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('确定要抹去与伴侣在此聊天窗的全部思绪记录吗？')) {
+              if (window.confirm('确定要抹去本聊天窗的所有对话回忆吗？')) {
                 onClearHistory();
                 onClose();
               }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Send, Sparkles, Image, Volume2, DollarSign,
-  Trash2, Quote, CheckCheck, Sliders, Settings
+  Trash2, Quote, CheckCheck, Settings, User
 } from 'lucide-react';
 import db from '../../db';
 import ChatHeaderBar from './components/ChatHeaderBar';
@@ -50,7 +50,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     setMessages(msgs);
   };
 
-  // 用户发送消息
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
 
@@ -59,7 +58,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
       characterId: character?.id,
       sender: 'user',
       type: selectedType,
-      content: inputText.trim() || (selectedType === 'image' ? '看我发给你的这张图片' : '语音消息'),
+      content: inputText.trim() || (selectedType === 'image' ? '看我发给你的这张图片' : '心意转账'),
       metadata: extraInputMeta,
       quotedMessageId: quotedMsg?.id || null,
       isRead: true,
@@ -77,7 +76,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     await db.chats.update(chatId, { updatedAt: new Date().toISOString() });
   };
 
-  // 触发 AI 回复 (Trigger AI)
   const handleTriggerAi = async () => {
     if (!character || isAiTyping) return;
     setIsAiTyping(true);
@@ -102,7 +100,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             Authorization: `Bearer ${apiConfig.apiKey}`
           },
           body: JSON.stringify({
- model: apiConfig.model || 'gpt-3.5-turbo',
+            model: apiConfig.model || 'gpt-3.5-turbo',
             messages: [
               { role: 'system', content: `${character.bio}\n${character.extraNotes}` },
               ...historyContext
@@ -137,33 +135,28 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     }
   };
 
-  // 删除单条消息
   const handleDeleteMessage = async (id) => {
     await db.messages.delete(id);
     setMessages((prev) => prev.filter((m) => m.id !== id));
   };
 
-  // 清空聊天记录
   const handleClearHistory = async () => {
     await db.messages.where('chatId').equals(chatId).delete();
     setMessages([]);
   };
 
-  // 更新自定义 CSS 气泡
   const handleSaveCustomCss = async (cssCode) => {
     const updated = { ...chat, customCss: cssCode };
     setChat(updated);
     await db.chats.update(chatId, { customCss: cssCode });
   };
 
-  // 更新背景图
   const handleUpdateBgImage = async (base64Img) => {
     const updated = { ...chat, bgImage: base64Img };
     setChat(updated);
     await db.chats.update(chatId, { bgImage: base64Img });
   };
 
-  // 更新背景透明度
   const handleUpdateBgOpacity = async (opacity) => {
     const updated = { ...chat, bgOpacity: opacity };
     setChat(updated);
@@ -192,13 +185,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   const currentCss = chat.customCss || defaultCss;
 
   return (
-    <div className="chat-room-container relative flex flex-col h-[88vh] text-xs text-left animate-fade-in-up">
-      {/* 注入局域气泡 CSS */}
+    <div className="chat-room-container relative flex flex-col h-[91vh] text-xs text-left animate-fade-in-up pb-1">
       <style>{`
         .chat-room-container ${currentCss}
       `}</style>
 
-      {/* 专属自定义背景图渲染层 */}
+      {/* 专属背景图 */}
       {chat.bgImage && (
         <div
           className="absolute inset-0 pointer-events-none rounded-3xl transition-all duration-500 overflow-hidden -z-10"
@@ -211,36 +203,34 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         />
       )}
 
-      {/* 1. 沉浸式 Top Header */}
-      <div className="flex items-center justify-between pb-2">
+      {/* 1. 顶栏 (只留唯一设置齿轮 Fix Bug #1) */}
+      <div className="flex items-center justify-between pb-1.5 px-1">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+          className="flex items-center gap-1 font-semibold opacity-70 hover:opacity-100 transition-opacity text-xs"
           style={{ color: 'var(--text-main)' }}
         >
           <ArrowLeft className="w-4 h-4" />
           <span>返回</span>
         </button>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowChatSettings(true)}
-            className="p-1.5 rounded-full opacity-70 hover:opacity-100 transition-all"
-            style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
-            title="聊天空间设置"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowChatSettings(true)}
+          className="p-1.5 rounded-full opacity-70 hover:opacity-100 transition-all"
+          style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+          title="对话空间设置"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* 解耦状态栏件 */}
+      {/* 解耦状态栏 */}
       <ChatHeaderBar character={character} chat={chat} onOpenSettings={onOpenCharacterEditor} />
 
       {/* 2. 消息对话流 */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-4 px-1 no-scrollbar">
+      <div className="flex-1 overflow-y-auto py-3 space-y-4 px-1 no-scrollbar">
         {messages.length === 0 && (
           <div className="py-16 text-center space-y-2 opacity-50">
             <p className="font-serif italic text-sm">风停在这里，等待你们的第一次对话...</p>
@@ -256,6 +246,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
 
           return (
             <div key={msg.id} className={`flex flex-col space-y-1 group ${isUser ? 'items-end' : 'items-start'}`}>
+              {/* 精细时间戳 (Fix Bug #12) */}
               <div className="flex items-center gap-1 text-[9px] opacity-40 font-mono px-1">
                 <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {isUser && <CheckCheck className="w-3 h-3 text-blue-500 opacity-80" />}
@@ -274,9 +265,16 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                 </div>
               )}
 
+              {/* 双向完整头像显示 (Fix Bug #5) */}
               <div className="flex items-end gap-2 max-w-[88%]">
-                {!isUser && character.avatar && (
-                  <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 mb-1 shadow-sm border border-white/20" />
+                {!isUser && (
+                  character.avatar ? (
+                    <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 mb-1 shadow-sm border border-white/20" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0 mb-1">
+                      {character.name?.[0]}
+                    </div>
+                  )
                 )}
 
                 <div className={`p-3.5 shadow-sm relative transition-all chat-font ${isUser ? 'user-bubble' : 'ai-bubble'}`}>
@@ -287,7 +285,16 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   {msg.type === 'article' && <ArticleCard content={msg.content} metadata={msg.metadata} />}
                 </div>
 
-                {/* 快捷悬浮按钮 */}
+                {isUser && (
+                  character.userAvatar ? (
+                    <img src={character.userAvatar} alt="You" className="w-7 h-7 rounded-full object-cover shrink-0 mb-1 shadow-sm border border-white/20" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0 mb-1">
+                      <User className="w-3.5 h-3.5 opacity-60" />
+                    </div>
+                  )
+                )}
+
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
                   <button type="button" onClick={() => setQuotedMsg(msg)} className="p-1 opacity-50 hover:opacity-100" title="引用">
                     <Quote className="w-3 h-3" />
@@ -305,10 +312,10 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 引用回复提示框 */}
+      {/* 引用回复 */}
       {quotedMsg && (
         <div 
-          className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-2 shadow-sm"
+          className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-1.5 shadow-sm"
           style={{
             background: 'var(--control-soft-bg)',
             borderColor: 'var(--accent-color)'
@@ -323,17 +330,55 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 3. 悬浮输入框与微动效 */}
-      <div className="space-y-1.5 pt-1">
+      {/* 转账/图片类型扩展输入配置 (Fix Bug #6) */}
+      {selectedType !== 'text' && (
+        <div className="p-2.5 rounded-2xl border mb-2 space-y-2 text-[11px]" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
+            <span>MODIFIER: {selectedType.toUpperCase()}</span>
+            <button type="button" onClick={() => setSelectedType('text')}>&times;</button>
+          </div>
+          {selectedType === 'image' && (
+            <input
+              type="text"
+              placeholder="输入图片的视觉描写细节..."
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              className="w-full rounded p-1.5 outline-none"
+              style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+            />
+          )}
+          {selectedType === 'transfer' && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="转账数字 (如 520.00)"
+                onChange={(e) => setExtraInputMeta({ ...extraInputMeta, amount: e.target.value })}
+                className="w-1/2 rounded p-1.5 outline-none font-mono"
+                style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+              />
+              <input
+                type="text"
+                placeholder="心意留言"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                className="w-1/2 rounded p-1.5 outline-none"
+                style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. 悬浮输入框 (下移贴紧底端 Fix Bug #9) */}
+      <div className="space-y-1">
         <div 
-          className="flex items-center gap-1.5 p-2 rounded-3xl border backdrop-blur-xl shadow-lg transition-all duration-300 hover:shadow-xl focus-within:ring-2 focus-within:ring-black/10 dark:focus-within:ring-white/20"
+          className="flex items-center gap-1.5 p-2 rounded-3xl border backdrop-blur-xl shadow-lg transition-all duration-300"
           style={{
             background: 'var(--card-bg-gradient)',
             borderColor: 'var(--card-border)',
             color: 'var(--text-main)'
           }}
         >
-          {/* 特殊扩展类型 */}
           <div className="flex items-center gap-1 border-r pr-1.5 opacity-70" style={{ borderColor: 'var(--divider)' }}>
             <button
               type="button"
@@ -355,7 +400,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
               type="button"
               onClick={() => setSelectedType('transfer')}
               className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'transfer' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
-              title="浪漫转账"
+              title="心意转账"
             >
               <DollarSign className="w-4 h-4" />
             </button>
@@ -371,7 +416,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             style={{ color: 'var(--text-main)' }}
           />
 
-          {/* 双发送按钮 */}
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -381,7 +425,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                 background: 'var(--control-soft-bg)',
                 color: 'var(--text-main)'
               }}
-              title="发送记录 (不触发AI)"
+              title="发送记录"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
@@ -408,7 +452,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       </div>
 
-      {/* 弹窗：气泡 CSS 自定义 */}
       {showBubbleCustomizer && (
         <BubbleCustomizer
           currentCss={currentCss}
@@ -417,7 +460,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         />
       )}
 
-      {/* 弹窗：聊天室专属设置 Modal */}
       {showChatSettings && (
         <ChatSettingsModal
           chat={chat}

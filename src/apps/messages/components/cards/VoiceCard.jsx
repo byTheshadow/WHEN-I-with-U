@@ -1,76 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, Play, Pause } from 'lucide-react';
 
-export const VoiceCard = ({ content = '', metadata = {} }) => {
+export const VoiceCard = ({ content, metadata = {} }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
-  const duration = metadata?.duration || 5;
 
+  const fullText = content || '“这一刻的风，替我把心声带给你。”';
+
+  // 播放时文字逐字渐显动画 (Fix Bug #8)
   useEffect(() => {
     let timer;
     if (isPlaying) {
       setDisplayedText('');
-      let index = 0;
-      const stepTime = (duration * 1000) / Math.max(content.length, 1);
-      
+      let idx = 0;
       timer = setInterval(() => {
-        if (index < content.length) {
-          setDisplayedText((prev) => prev + content[index]);
-          index++;
+        if (idx <= fullText.length) {
+          setDisplayedText(fullText.slice(0, idx));
+          idx++;
         } else {
-          setIsPlaying(false);
           clearInterval(timer);
         }
-      }, Math.max(stepTime, 50));
+      }, 90);
+    } else {
+      setDisplayedText(fullText);
     }
     return () => clearInterval(timer);
-  }, [isPlaying, content, duration]);
-
-  const togglePlay = () => {
-    if (isPlaying) {
-      setIsPlaying(false);
-    } else {
-      setIsPlaying(true);
-    }
-  };
+  }, [isPlaying, fullText]);
 
   return (
-    <div className="space-y-2 min-w-[200px] max-w-[260px]">
+    <div className="space-y-2 min-w-[180px]">
       <div 
-        onClick={togglePlay}
-        className="flex items-center gap-3 p-3 rounded-2xl border border-white/20 bg-black/5 dark:bg-white/5 cursor-pointer transition-all hover:bg-black/10 dark:hover:bg-white/10"
+        onClick={() => setIsPlaying(!isPlaying)}
+        className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border transition-all active:scale-98"
+        style={{
+          background: 'var(--control-soft-bg)',
+          borderColor: 'var(--card-border)'
+        }}
       >
-        <button type="button" className="p-2 rounded-full bg-black/10 dark:bg-white/10">
-          {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+        <button type="button" className="p-1.5 rounded-full bg-black/10 dark:bg-white/10">
+          {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
         </button>
 
-        {/* 矢量波形线段 (无 Emoji) */}
-        <div className="flex-1 flex items-center gap-1 h-5 overflow-hidden">
-          {[40, 70, 30, 90, 50, 100, 60, 30, 80, 40, 60, 30].map((h, idx) => (
-            <div
-              key={idx}
-              className={`w-0.5 rounded-full transition-all duration-300 ${
-                isPlaying ? 'bg-black dark:bg-white animate-pulse' : 'bg-black/30 dark:bg-white/30'
+        {/* 动态音波 */}
+        <div className="flex items-center gap-1 flex-1">
+          {[40, 70, 30, 90, 50, 80, 40].map((h, i) => (
+            <span
+              key={i}
+              className={`w-0.5 rounded-full bg-current transition-all duration-300 ${
+                isPlaying ? 'animate-pulse' : 'opacity-40'
               }`}
-              style={{
-                height: `${h}%`,
-                animationDelay: isPlaying ? `${(idx % 4) * 0.15}s` : '0s'
-              }}
+              style={{ height: isPlaying ? `${Math.max(15, (h * Math.random()).toFixed(0))}px` : `${h * 0.2}px` }}
             />
           ))}
         </div>
 
-        <div className="flex items-center gap-1 text-[10px] font-mono opacity-50 shrink-0">
-          <Volume2 className="w-3 h-3" />
-          <span>{duration}"</span>
-        </div>
+        <span className="text-[10px] font-mono opacity-60">{metadata.duration || "0'05\""}</span>
       </div>
 
-      {(isPlaying || displayedText) && (
-        <div className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 text-[11px] leading-relaxed italic opacity-80 border border-white/10 animate-fade-in-up">
-          {displayedText || content}
-        </div>
-      )}
+      {/* 渐显文字 */}
+      <p className="text-xs italic opacity-90 font-serif leading-relaxed px-1 transition-all">
+        {displayedText}
+      </p>
     </div>
   );
 };
