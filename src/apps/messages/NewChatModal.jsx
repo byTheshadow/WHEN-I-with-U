@@ -78,12 +78,9 @@ export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-fade-in-up"
-      style={{ backgroundColor: 'rgba(17, 17, 17, 0.22)' }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in-up">
       <div
-        className="w-full max-w-sm rounded-[2rem] p-6 space-y-4 text-xs text-left"
+        className="w-full max-w-sm rounded-[2rem] p-6 space-y-4 text-left text-xs"
         style={{
           background: 'var(--card-bg-gradient)',
           border: '1px solid var(--card-border)',
