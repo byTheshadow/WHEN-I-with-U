@@ -163,6 +163,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     await db.chats.update(chatId, { bgOpacity: opacity });
   };
 
+  const handleToggleKeepAlive = async (keepAliveVal) => {
+    const updated = { ...chat, keepAlive: keepAliveVal };
+    setChat(updated);
+    await db.chats.update(chatId, { keepAlive: keepAliveVal });
+  };
+
   if (!chat || !character) return null;
 
   const defaultCss = `
@@ -174,7 +180,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   .ai-bubble {
     background: var(--control-soft-bg);
     color: var(--text-main);
-    border: 1px solid var(--divider);
+    border: 1px solid var(--card-border);
     border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
   }
   .chat-font {
@@ -185,7 +191,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   const currentCss = chat.customCss || defaultCss;
 
   return (
-    <div className="chat-room-container relative flex flex-col h-[91vh] text-xs text-left animate-fade-in-up pb-1">
+    <div className="chat-room-container relative flex flex-col h-[93vh] text-xs text-left animate-fade-in-up">
       <style>{`
         .chat-room-container ${currentCss}
       `}</style>
@@ -203,8 +209,8 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         />
       )}
 
-      {/* 1. 顶栏 (只留唯一设置齿轮 Fix Bug #1) */}
-      <div className="flex items-center justify-between pb-1.5 px-1">
+      {/* 1. 顶栏导航 */}
+      <div className="flex items-center justify-between pb-1 px-1">
         <button
           type="button"
           onClick={onBack}
@@ -226,17 +232,14 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </button>
       </div>
 
-      {/* 解耦状态栏 */}
+      {/* 极简爱心胶囊 Header */}
       <ChatHeaderBar character={character} chat={chat} onOpenSettings={onOpenCharacterEditor} />
 
-      {/* 2. 消息对话流 */}
+      {/* 2. 消息对话流 (IG Direct 风格布局) */}
       <div className="flex-1 overflow-y-auto py-3 space-y-4 px-1 no-scrollbar">
         {messages.length === 0 && (
-          <div className="py-16 text-center space-y-2 opacity-50">
-            <p className="font-serif italic text-sm">风停在这里，等待你们的第一次对话...</p>
-            <p className="text-[10px]" style={{ color: 'var(--text-sub)' }}>
-              向 {character.name} 倾诉此刻的心绪
-            </p>
+          <div className="py-16 text-center space-y-2 opacity-40">
+            <p className="font-serif italic text-xs">此刻停在这里，等待你们的对话...</p>
           </div>
         )}
 
@@ -245,16 +248,11 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
           const quoted = msg.quotedMessageId ? messages.find((m) => m.id === msg.quotedMessageId) : null;
 
           return (
-            <div key={msg.id} className={`flex flex-col space-y-1 group ${isUser ? 'items-end' : 'items-start'}`}>
-              {/* 精细时间戳 (Fix Bug #12) */}
-              <div className="flex items-center gap-1 text-[9px] opacity-40 font-mono px-1">
-                <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                {isUser && <CheckCheck className="w-3 h-3 text-blue-500 opacity-80" />}
-              </div>
-
+            <div key={msg.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} group`}>
+              {/* 引用回复小条 */}
               {quoted && (
                 <div 
-                  className="px-3 py-1.5 rounded-xl border-l-2 opacity-70 text-[10px] max-w-[80%]"
+                  className="px-3 py-1 rounded-xl border-l-2 opacity-60 text-[10px] max-w-[75%] mb-1"
                   style={{
                     background: 'var(--control-soft-bg)',
                     borderColor: 'var(--text-main)'
@@ -265,19 +263,29 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                 </div>
               )}
 
-              {/* 双向完整头像显示 (Fix Bug #5) */}
-              <div className="flex items-end gap-2 max-w-[88%]">
-                {!isUser && (
+              {/* 消息行：头像 + 气泡并列 (100% IG 对齐) */}
+              <div className={`flex items-end gap-2 max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* 头像 */}
+                {!isUser ? (
                   character.avatar ? (
-                    <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 mb-1 shadow-sm border border-white/20" />
+                    <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm border border-white/20" />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0 mb-1">
+                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0">
                       {character.name?.[0]}
+                    </div>
+                  )
+                ) : (
+                  character.userAvatar ? (
+                    <img src={character.userAvatar} alt="You" className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm border border-white/20" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0">
+                      <User className="w-3.5 h-3.5 opacity-60" />
                     </div>
                   )
                 )}
 
-                <div className={`p-3.5 shadow-sm relative transition-all chat-font ${isUser ? 'user-bubble' : 'ai-bubble'}`}>
+                {/* 主气泡 */}
+                <div className={`p-3 shadow-sm relative transition-all chat-font ${isUser ? 'user-bubble' : 'ai-bubble'}`}>
                   {msg.type === 'text' && <TextCard content={msg.content} />}
                   {msg.type === 'image' && <ImageCard content={msg.content} metadata={msg.metadata} />}
                   {msg.type === 'voice' && <VoiceCard content={msg.content} metadata={msg.metadata} />}
@@ -285,16 +293,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   {msg.type === 'article' && <ArticleCard content={msg.content} metadata={msg.metadata} />}
                 </div>
 
-                {isUser && (
-                  character.userAvatar ? (
-                    <img src={character.userAvatar} alt="You" className="w-7 h-7 rounded-full object-cover shrink-0 mb-1 shadow-sm border border-white/20" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0 mb-1">
-                      <User className="w-3.5 h-3.5 opacity-60" />
-                    </div>
-                  )
-                )}
-
+                {/* 悬浮快捷菜单 */}
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity shrink-0">
                   <button type="button" onClick={() => setQuotedMsg(msg)} className="p-1 opacity-50 hover:opacity-100" title="引用">
                     <Quote className="w-3 h-3" />
@@ -304,6 +303,12 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   </button>
                 </div>
               </div>
+
+              {/* 关键修改：时间戳严格放在【气泡下方】，绝不在上方浮乱 */}
+              <div className={`flex items-center gap-1 text-[9px] opacity-40 font-mono mt-1 px-9 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {isUser && <CheckCheck className="w-3 h-3 text-blue-500 opacity-80" />}
+              </div>
             </div>
           );
         })}
@@ -312,7 +317,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 引用回复 */}
+      {/* 引用回复浮条 */}
       {quotedMsg && (
         <div 
           className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-1.5 shadow-sm"
@@ -330,7 +335,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 转账/图片类型扩展输入配置 (Fix Bug #6) */}
+      {/* 转账/图片类型扩展输入 */}
       {selectedType !== 'text' && (
         <div className="p-2.5 rounded-2xl border mb-2 space-y-2 text-[11px]" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
@@ -369,8 +374,8 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 3. 悬浮输入框 (下移贴紧底端 Fix Bug #9) */}
-      <div className="space-y-1">
+      {/* 3. 悬浮输入框（下移贴紧底端，无死板文字） */}
+      <div className="pt-1 pb-1">
         <div 
           className="flex items-center gap-1.5 p-2 rounded-3xl border backdrop-blur-xl shadow-lg transition-all duration-300"
           style={{
@@ -446,10 +451,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             </button>
           </div>
         </div>
-
-        <div className="flex items-center justify-end px-3 text-[9px] opacity-40 font-mono">
-          <span>心事尽数封存于此</span>
-        </div>
       </div>
 
       {showBubbleCustomizer && (
@@ -466,6 +467,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
           onClose={() => setShowChatSettings(false)}
           onUpdateBgImage={handleUpdateBgImage}
           onUpdateBgOpacity={handleUpdateBgOpacity}
+          onToggleKeepAlive={handleToggleKeepAlive}
           onOpenBubbleCustomizer={() => setShowBubbleCustomizer(true)}
           onClearHistory={handleClearHistory}
         />

@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Edit3, Activity, Shield, Sparkles } from 'lucide-react';
+import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles } from 'lucide-react';
 
 export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!character || !chat) return null;
 
-  // 使用 useMemo 锁定打字时的状态抽搐 BUG
   const currentStatus = useMemo(() => {
     if (Array.isArray(character.statusList) && character.statusList.length > 0) {
       return character.statusList[Math.floor(Math.random() * character.statusList.length)];
@@ -15,50 +14,28 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
   }, [character.id, character.statusList]);
 
   const isRpMode = chat.mode === 'rp';
-
-  // 严格隔离：仅读取【当前聊天窗】自身的专属总结，绝不跨窗口同步 (Fix Summary Isolation)
   const currentChatSummary = chat.summary || null;
 
   return (
     <div className="sticky top-0 z-30 w-full transition-all flex flex-col items-center">
-      {/* 1. 未唤醒/收起状态：精美 Pill shape 胶囊小按钮 */}
+      {/* 1. 未唤醒状态：缩成极简爱心图标按钮 */}
       {!isExpanded ? (
         <button
           type="button"
           onClick={() => setIsExpanded(true)}
-          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm backdrop-blur-xl transition-transform active:scale-95 hover:opacity-90"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm backdrop-blur-xl transition-all active:scale-90 hover:opacity-100"
           style={{
             background: 'var(--card-bg-gradient)',
             borderColor: 'var(--card-border)',
             color: 'var(--text-main)'
           }}
+          title={`${character.name} · ${currentStatus}`}
         >
-          <div className="relative shrink-0">
-            {character.avatar ? (
-              <img
-                src={character.avatar}
-                alt={character.name}
-                className="w-5 h-5 rounded-full object-cover"
-              />
-            ) : (
-              <div 
-                className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px]"
-                style={{ background: 'var(--control-soft-bg)' }}
-              >
-                {character.name?.[0] || 'C'}
-              </div>
-            )}
-            <div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          </div>
-
-          <span className="font-serif font-semibold text-xs truncate max-w-[100px]">{character.name}</span>
-
-          <span className="text-[10px] opacity-60 font-mono truncate max-w-[90px]">· {currentStatus}</span>
-
-          <ChevronDown className="w-3.5 h-3.5 opacity-50 ml-0.5" />
+          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 animate-pulse" />
+          <span className="font-serif font-medium text-[11px] truncate max-w-[80px]">{character.name}</span>
         </button>
       ) : (
-        /* 2. 展开状态：Carrd 杂志风面板 */
+        /* 2. 展开状态：杂志风卡片 */
         <div 
           className="w-full rounded-3xl border backdrop-blur-xl shadow-md p-4 space-y-3 animate-fade-in-up text-left"
           style={{
@@ -107,7 +84,6 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
             </div>
 
             <div className="flex items-center gap-1">
-              {/* 使用 Edit3 解决 npm run build 无法导出 UserEdit 的错误 */}
               <button
                 type="button"
                 onClick={onOpenSettings}
@@ -123,7 +99,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
                 onClick={() => setIsExpanded(false)}
                 className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all"
                 style={{ background: 'var(--control-soft-bg)' }}
-                title="收起状态栏"
+                title="收起"
               >
                 <ChevronUp className="w-3.5 h-3.5" />
               </button>
@@ -156,9 +132,8 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings }) => {
                   <Sparkles className="w-3 h-3" />
                   <span>本窗专属总结</span>
                 </div>
-                {/* 彻底隔离：只呈现当前聊天窗 (chat.summary) 的独有总结 */}
                 <p className="opacity-80 truncate">
-                  {currentChatSummary ? currentChatSummary : `暂无本对话总结 (每 ${character.summaryFrequency || 10} 轮自动记忆)`}
+                  {currentChatSummary ? currentChatSummary : `暂无本对话总结`}
                 </p>
               </div>
             </div>

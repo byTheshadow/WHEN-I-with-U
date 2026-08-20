@@ -1,11 +1,12 @@
 import React, { useRef } from 'react';
-import { X, Upload, Trash2, Sliders } from 'lucide-react';
+import { X, Upload, Trash2, Sliders, Radio } from 'lucide-react';
 
 export const ChatSettingsModal = ({
   chat,
   onClose,
   onUpdateBgImage,
   onUpdateBgOpacity,
+  onToggleKeepAlive,
   onOpenBubbleCustomizer,
   onClearHistory
 }) => {
@@ -13,6 +14,7 @@ export const ChatSettingsModal = ({
 
   const bgImage = chat?.bgImage || '';
   const bgOpacity = chat?.bgOpacity ?? 0.3;
+  const keepAlive = chat?.keepAlive ?? false;
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -26,9 +28,8 @@ export const ChatSettingsModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in-up">
-      {/* 彻底去除脏灰色蒙层，使用高级高透模糊 (Fix Bug #4) */}
       <div 
-        className="fixed inset-0 backdrop-blur-md bg-white/5 dark:bg-black/5 transition-opacity"
+        className="fixed inset-0 backdrop-blur-md bg-white/5 dark:bg-black/5"
         onClick={onClose}
       />
 
@@ -47,27 +48,27 @@ export const ChatSettingsModal = ({
           </button>
         </div>
 
-        {/* 专属背景图设置 */}
+        {/* 专属背景图 */}
         <div className="space-y-2">
-          <label className="block font-mono opacity-60 text-[10px]">CHAT BACKGROUND / 聊天窗专属背景图</label>
+          <label className="block font-mono opacity-60 text-[10px]">CHAT BACKGROUND / 背景图设置</label>
           <div className="flex items-center gap-3">
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="w-16 h-16 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all"
+              className="w-14 h-14 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all"
               style={{
                 background: 'var(--control-soft-bg)',
                 borderColor: 'var(--divider)'
               }}
             >
               {bgImage ? (
-                <img src={bgImage} alt="Chat Background" className="w-full h-full object-cover" />
+                <img src={bgImage} alt="Background" className="w-full h-full object-cover" />
               ) : (
-                <Upload className="w-5 h-5 opacity-40" />
+                <Upload className="w-4 h-4 opacity-40" />
               )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
 
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-1.5">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -84,7 +85,7 @@ export const ChatSettingsModal = ({
                 <button
                   type="button"
                   onClick={() => onUpdateBgImage('')}
-                  className="w-full py-1.5 rounded-xl text-rose-500 text-[11px] opacity-80 hover:opacity-100"
+                  className="w-full py-1 text-rose-500 text-[10px] opacity-80 hover:opacity-100"
                 >
                   移除背景
                 </button>
@@ -93,8 +94,8 @@ export const ChatSettingsModal = ({
           </div>
 
           {bgImage && (
-            <div className="space-y-1 pt-2">
-              <div className="flex items-center justify-between text-[11px] opacity-70">
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[10px] opacity-70">
                 <span>背景透明度</span>
                 <span className="font-mono">{Math.round(bgOpacity * 100)}%</span>
               </div>
@@ -111,7 +112,24 @@ export const ChatSettingsModal = ({
           )}
         </div>
 
-        {/* 定制 CSS 气泡 */}
+        {/* 8. 后台保活静音音频开关 */}
+        <div className="pt-2 border-t flex items-center justify-between" style={{ borderColor: 'var(--divider)' }}>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 font-medium">
+              <Radio className="w-3.5 h-3.5 opacity-70" />
+              <span>后台音频保活 (Keep Alive)</span>
+            </div>
+            <p className="text-[10px] opacity-50">防止移动端浏览器切入后台后被休眠</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={keepAlive}
+            onChange={(e) => onToggleKeepAlive(e.target.checked)}
+            className="w-4 h-4 accent-black dark:accent-white cursor-pointer"
+          />
+        </div>
+
+        {/* CSS 气泡 */}
         <div className="pt-2 border-t" style={{ borderColor: 'var(--divider)' }}>
           <button
             type="button"
@@ -119,7 +137,7 @@ export const ChatSettingsModal = ({
               onClose();
               onOpenBubbleCustomizer();
             }}
-            className="w-full p-3 rounded-2xl flex items-center justify-between border transition-all"
+            className="w-full p-2.5 rounded-xl flex items-center justify-between border transition-all"
             style={{
               background: 'var(--control-soft-bg)',
               borderColor: 'var(--divider)',
@@ -127,27 +145,26 @@ export const ChatSettingsModal = ({
             }}
           >
             <div className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 opacity-70" />
+              <Sliders className="w-3.5 h-3.5 opacity-70" />
               <span>自定义气泡 CSS 样式</span>
             </div>
             <span className="opacity-40 font-mono text-[10px]">&gt;</span>
           </button>
         </div>
 
-        {/* 清空记录移入设置 Modal */}
-        <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--divider)' }}>
-          <label className="block font-mono opacity-50 text-[10px] text-rose-500">DANGER ZONE / 危险区域</label>
+        {/* 清空记录 */}
+        <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--divider)' }}>
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('确定要抹去本聊天窗的所有对话回忆吗？')) {
+              if (window.confirm('确定要清空本聊天记录吗？')) {
                 onClearHistory();
                 onClose();
               }
             }}
-            className="w-full py-2.5 rounded-2xl bg-rose-500/10 text-rose-600 font-semibold flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full py-2 rounded-xl bg-rose-500/10 text-rose-600 font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
             <span>清空本聊天记录</span>
           </button>
         </div>
