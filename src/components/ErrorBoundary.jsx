@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -18,16 +18,17 @@ export class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-6 rounded-3xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-md text-rose-500 my-4 flex items-start gap-4">
+        <div className="p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-md text-rose-500 my-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <div className="text-left">
-            <h4 className="font-medium text-sm">模块暂时不可用</h4>
-            <p className="text-xs opacity-75 mt-1">沙盒隔离已生效，全站数据安全不受影响。</p>
+          <div className="text-left text-xs space-y-1.5">
+            <h4 className="font-semibold text-sm">Component Sandbox Error</h4>
+            <p className="opacity-80">This module encountered an issue and was safely isolated.</p>
             <button
               onClick={() => this.setState({ hasError: false, error: null })}
-              className="mt-3 px-3 py-1 text-xs bg-rose-500 text-white rounded-full transition-transform active:scale-95"
+              className="inline-flex items-center gap-1 px-3 py-1 bg-rose-500 text-white rounded-full transition-transform active:scale-95 text-[11px]"
             >
-              重置重试
+              <RefreshCw className="w-3 h-3" />
+              <span>Retry</span>
             </button>
           </div>
         </div>

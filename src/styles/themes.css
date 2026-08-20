@@ -1,70 +1,64 @@
-/* 默认白黑极简弥散风 */
-:root,
+/* 1. 默认白黑极简与弥散雾感主题 (Mono Mist) */
 :root[data-theme="mono-mist"] {
-  --bg-main: #fbfbfb;
-  --bg-blob-1: #e5e5e5;
-  --bg-blob-2: #d4d4d4;
-  --card-bg: rgba(255, 255, 255, 0.65);
-  --card-border: rgba(255, 255, 255, 0.9);
-  --text-main: #171717;
-  --text-sub: #737373;
-  --text-muted: #a3a3a3;
-  --accent-color: #171717;
-  --accent-light: #f5f5f5;
-  --dice-bg: #ffffff;
-  --dice-border: #e5e5e5;
+  --bg-main: #ffffff;
+  --bg-blob-1: #e2e8f0;
+  --bg-blob-2: #cbd5e1;
+  --card-bg: rgba(15, 23, 42, 0.04);
+  --card-border: rgba(0, 0, 0, 0.08);
+  --text-main: #0f172a;
+  --text-sub: #475569;
+  --text-muted: #94a3b8;
+  --accent-color: #0f172a;
+  --accent-light: #f1f5f9;
 }
 
+/* 2. 燕麦拿铁主题 (Cream & Latte) */
 :root[data-theme="cream-latte"] {
-  --bg-main: #fcf8f2;
+  --bg-main: #fdfbf7;
   --bg-blob-1: #f3e8d7;
   --bg-blob-2: #e7d5c0;
-  --card-bg: rgba(253, 251, 247, 0.7);
-  --card-border: rgba(255, 255, 255, 0.9);
+  --card-bg: rgba(67, 48, 38, 0.05);
+  --card-border: rgba(140, 109, 88, 0.12);
   --text-main: #2c221e;
   --text-sub: #78665c;
   --text-muted: #a8968a;
   --accent-color: #8c6d58;
   --accent-light: #f4ece1;
-  --dice-bg: #fffcf7;
-  --dice-border: #e7d5c0;
 }
 
+/* 3. 黑曜石暗黑主题 (Obsidian Dark) */
 :root[data-theme="obsidian-dark"] {
   --bg-main: #090d16;
   --bg-blob-1: #1e1b4b;
   --bg-blob-2: #0f172a;
-  --card-bg: rgba(15, 23, 42, 0.7);
+  --card-bg: rgba(30, 41, 59, 0.5);
   --card-border: rgba(255, 255, 255, 0.1);
   --text-main: #f8fafc;
   --text-sub: #94a3b8;
   --text-muted: #64748b;
   --accent-color: #f8fafc;
   --accent-light: #1e293b;
-  --dice-bg: #1e293b;
-  --dice-border: #334155;
 }
 
+/* 4. 赛博紫暗夜主题 (Cyber Velvet) */
 :root[data-theme="cyber-velvet"] {
   --bg-main: #0d0714;
   --bg-blob-1: #3b0764;
   --bg-blob-2: #1e1b4b;
-  --card-bg: rgba(24, 15, 38, 0.75);
+  --card-bg: rgba(88, 28, 135, 0.2);
   --card-border: rgba(216, 180, 254, 0.15);
   --text-main: #faf5ff;
   --text-sub: #c084fc;
   --text-muted: #7e22ce;
   --accent-color: #e9d5ff;
   --accent-light: #2e1065;
-  --dice-bg: #2e1065;
-  --dice-border: #581c87;
 }
 
-/* 区块上浮渐入 */
+/* 逐层上浮入场动画 */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(18px);
   }
   to {
     opacity: 1;
@@ -73,35 +67,34 @@
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* 占星骰子甩落与翻滚动画 */
-@keyframes diceDropAndRoll {
+/* 占星骰子 3D 旋转甩落动画 */
+@keyframes diceRoll {
   0% {
-    transform: translateY(-120px) rotate(0deg) scale(0.5);
+    transform: translateY(-160px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(0.6);
     opacity: 0;
   }
-  40% {
-    transform: translateY(0px) rotate(360deg) scale(1.1);
+  30% {
+    transform: translateY(0px) rotateX(540deg) rotateY(360deg) rotateZ(180deg) scale(1.1);
     opacity: 1;
   }
   60% {
-    transform: translateY(-15px) rotate(540deg) scale(0.95);
+    transform: translateY(-20px) rotateX(720deg) rotateY(540deg) rotateZ(360deg) scale(0.95);
   }
-  80% {
-    transform: translateY(0px) rotate(720deg) scale(1.02);
+  85% {
+    transform: translateY(0px) rotateX(810deg) rotateY(630deg) rotateZ(450deg) scale(1.02);
   }
   100% {
-    transform: translateY(0px) rotate(720deg) scale(1);
-    opacity: 1;
+    transform: translateY(0px) rotateX(810deg) rotateY(630deg) rotateZ(450deg) scale(1);
   }
 }
 
 .animate-dice-roll {
-  animation: diceDropAndRoll 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diceRoll 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  transform-style: preserve-3d;
 }
 
-/* 隐藏滚动条 */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
