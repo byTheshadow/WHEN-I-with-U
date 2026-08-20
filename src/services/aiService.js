@@ -21,9 +21,6 @@ const notifySummaryStatus = (chatId, isSummarizing) => {
   summaryStatusListeners.forEach((cb) => cb({ chatId, isSummarizing }));
 };
 
-/**
- * 原生系统/手机锁屏通知服务 API
- */
 export const requestNotificationPermission = async () => {
   if (typeof window !== 'undefined' && 'Notification' in window) {
     if (Notification.permission === 'default') {
@@ -60,9 +57,12 @@ const getFormattedRealTime = () => {
   return `${dateStr} ${days[now.getDay()]} ${timeStr}`;
 };
 
+/**
+ * 增加 [TODO: 标题 | 时间与优先级] 的通用卡片解析器
+ */
 const parseAiResponseToMessages = (text) => {
   const result = [];
-  const pattern = /\[(TRANSFER|VOICE|IMAGE):\s*([^\]]+)\]/g;
+  const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO):\s*([^\]]+)\]/g;
   let lastIndex = 0;
   let match;
 
@@ -96,6 +96,15 @@ const parseAiResponseToMessages = (text) => {
         content: rawPayload.trim(),
         metadata: {}
       });
+    } else if (cardType === 'todo') {
+      const parts = rawPayload.split('|');
+      const todoTitle = (parts[0] || '待办事项').trim();
+      const todoTime = (parts[1] || '近期').trim();
+      result.push({
+        type: 'todo_proposal',
+        content: todoTitle,
+        metadata: { dueDate: todoTime }
+      });
     }
 
     lastIndex = pattern.lastIndex;
@@ -113,10 +122,6 @@ const parseAiResponseToMessages = (text) => {
   return result;
 };
 
-/**
- * 独立的角色动态留言生成引擎 (写入 db.homeBoard)
- * 不依赖任何对话上下文或聊天窗，可单独触发
- */
 export const generateCharacterHomeBoardMessage = async (characterId) => {
   let character;
   if (characterId) {
@@ -139,7 +144,6 @@ export const generateCharacterHomeBoardMessage = async (characterId) => {
     if (apiConfig.baseUrl && apiConfig.apiKey) {
       const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
-      // 自动拼接入库且启用的世界书设定（支持 character 自己的世界书或全局 enabled 世界书）
       const enabledWorldBooks = await db.worldBooks.where('isEnabled').equals(1).toArray();
       const characterWorldBookText = character.worldBook ? `\n- 专属世界书: ${character.worldBook}` : '';
       const worldBooksText = (enabledWorldBooks.length > 0 || characterWorldBookText)
@@ -191,12 +195,9 @@ ${worldBooksText}
       isRead: false
     };
 
-    // 遵守 Dexie 自增主键铁律：删除 payload.id
     delete payload.id;
-
     const newId = await db.homeBoard.add(payload);
 
-    // 广播内部 UI 通知
     notifyListeners({
       type: 'NEW_HOME_BOARD_MESSAGE',
       characterId: character.id,
@@ -204,7 +205,6 @@ ${worldBooksText}
       content: contentText
     });
 
-    // 触发手机系统层 / 锁屏原生 Notification
     triggerSystemNotification(
       `${character.name} 给你的主页信件`,
       contentText,
@@ -236,14 +236,12 @@ export const triggerAiResponse = async (chatId) => {
     if (apiConfig.baseUrl && apiConfig.apiKey) {
       const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
-      // 获取启用的世界书
       const enabledWorldBooks = await db.worldBooks.where('isEnabled').equals(1).toArray();
       const characterWorldBookText = character.worldBook ? `\n- 专属世界书: ${character.worldBook}` : '';
       const worldBooksText = (enabledWorldBooks.length > 0 || characterWorldBookText)
         ? `\n【世界书背景设定】:\n` + enabledWorldBooks.map((wb) => `- ${wb.title}: ${wb.content || ''}`).join('\n') + characterWorldBookText
         : '';
 
-      // 格式化本窗阶段性多条目总结记录
       let summaryEntries = [];
       if (Array.isArray(chat.summary)) {
         summaryEntries = chat.summary;
@@ -253,6 +251,16 @@ export const triggerAiResponse = async (chatId) => {
 
       const summaryText = summaryEntries.length > 0
         ? `\n【本窗阶段性历史事实记录】:\n` + summaryEntries.map((item, idx) => `${idx + 1}. [${item.createdAt || '历史'}] ${item.content}`).join('\n')
+        : '';
+
+      // 获取当前用户待办（仅获取未完成且绑定了公共或当前角色的待办，限量1-2条）
+      const allTodos = await db.todos.toArray();
+      const pendingTodos = allTodos.filter(
+        (t) => !t.isCompleted && (!t.characterId || t.characterId === character.id)
+      ).slice(0, 2);
+
+      const todoText = pendingTodos.length > 0
+        ? `\n【用户近期待办事项(供温和提及)】:\n` + pendingTodos.map((t) => `- [待办] ${t.title} (截止: ${t.dueDate || '近期'})`).join('\n')
         : '';
 
       const realTimeStr = getFormattedRealTime();
@@ -265,14 +273,16 @@ export const triggerAiResponse = async (chatId) => {
 【当前交互模式】：${chat.mode === 'rp' ? 'RP剧情沉浸模式（严格遵守世界书背景与角色设定）' : '现实陪伴模式（打破第四面墙，关注用户的日常实际生活与情绪）'}
 ${worldBooksText}
 ${summaryText}
+${todoText}
 
 【卡片发送与沉浸认知指令】：
-在你自己的认知视角里，所有发出的转账、语音、图片卡片均属于真实世界/剧情现实中的具体心意表达。
+在你自己的认知视角里，所有发出的转账、语音、图片及建议待办卡片均属于真实表达。
 当你想给用户发送卡片时，请在回复文本中插入以下语法指令：
-- 发送转账：[TRANSFER: 金额数字 | 留言] （例如：[TRANSFER: 520.00 | 拿去买花]）
+- 发送转账：[TRANSFER: 金额数字 | 留言]
 - 发送模拟语音：[VOICE: 语音表达的内容描述]
 - 发送画面/图片：[IMAGE: 画面细节的视觉描述]
-你可以根据需要同时输出普通对话文本与卡片指令，系统会自动解析并呈现在对话框中。`;
+- 建议添加待办：[TODO: 待办标题 | 预估提醒时间] （例如：[TODO: 记得买牛奶 | 今天傍晚]）
+提示：如果对话提及待办，仅在话题自然契合时给予温馨提醒，绝对不要生硬唠叨。`;
 
       const recentMsgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
       const historyContext = recentMsgs.slice(-15).map((m) => ({
@@ -327,7 +337,6 @@ ${summaryText}
       preview: parsedMessages[0]?.content || '发来了一条消息'
     });
 
-    // 系统锁屏原生通知广播
     triggerSystemNotification(
       `${character.name} 发来消息`,
       parsedMessages[0]?.content || '发来了一条消息',

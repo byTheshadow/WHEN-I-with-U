@@ -8,6 +8,7 @@ import QuickBoard from './apps/hub/QuickBoard';
 import AppGrid from './apps/hub/AppGrid';
 import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
+import TodoApp from './apps/todos/TodoApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -20,7 +21,6 @@ export const App = () => {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', activeTheme);
-    // 初始化申请浏览器 / 手机锁屏原生通知权限
     requestNotificationPermission();
   }, [activeTheme]);
 
@@ -141,7 +141,13 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings', 'messages'].includes(currentApp) && (
+        {['todos', 'planner'].includes(currentApp) && (
+          <ErrorBoundary>
+            <TodoApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {!['hub', 'settings', 'messages', 'todos', 'planner'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
