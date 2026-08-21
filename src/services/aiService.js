@@ -1259,6 +1259,268 @@ const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
   }
 };
 
+/**
+ * Snapshots AI 主动 / 邀约发动态 API 真实生成
+ */
+export const generateSnapshotPostByAi = async (
+  characterId,
+  topicHint = '',
+  linkedChatId = null
+) => {
+  try {
+    const character = await db.characters.get(characterId);
+    if (!character) throw new Error('Character not found');
+
+    const apiKeySetting = await db.settings.get('apiKey');
+    const baseUrlSetting = await db.settings.get('baseUrl');
+    const modelSetting = await db.settings.get('model');
+
+    const apiKey = apiKeySetting?.value;
+    const baseUrl = (baseUrlSetting?.value || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const model = modelSetting?.value || 'gpt-4o-mini';
+
+    if (!apiKey) {
+      console.warn('API Key is missing, falling back to static prompt');
+
+      return {
+        imagePrompt: `[画面描摹: ${character.name} 在桌前记录下 ${topicHint || '落日余晖'} 的定格瞬间]`,
+        content: `今天也想把这份温度分享记录下来。${topicHint || '生活里的细枝末节也很美。'}`,
+        location: '日常陪伴角落'
+      };
+    }
+
+    let characterContext = [
+      `角色姓名: ${character.name}`,
+      `角色简介: ${character.bio || '无'}`,
+      `扩展设定: ${character.extraNotes || '无'}`
+    ].join('\n');
+
+    if (character.statusList && character.statusList.length > 0) {
+      characterContext += `\n当前状态: ${JSON.stringify(character.statusList)}`;
+    }
+
+    const enabledWorldBooks = await db.worldBooks
+      .where('isEnabled')
+      .equals(1)
+      .toArray();
+
+    if (enabledWorldBooks.length > 0) {
+      characterContext += `\n世界观背景: ${enabledWorldBooks
+        .map((worldBook) => worldBook.title)
+        .join('; ')}`;
+    }
+
+    let chatMemory = '';
+
+    if (linkedChatId) {
+      const recentMessages = await db.messages
+        .where('chatId')
+        .equals(linkedChatId)
+        .reverse()
+        .limit(6)
+        .toArray();
+
+      if (recentMessages.length > 0) {
+        chatMemory =
+          '\n最近聊天记忆:\n' +
+          recentMessages
+            .reverse()
+            .map((message) => `${message.sender}: ${message.content}`)
+            .join('\n');
+      }
+    }
+
+    const savedPersona = await db.snapshotSettings.get('globalPersona');
+    const globalPersonaText = savedPersona?.value || '未设置全局User人设';
+
+    const systemPrompt = `你正在扮演角色 [${character.name}]。你需要在类似 Instagram / 拍立得动态圈中发布一条生活快照动态。
+
+绝对规则：
+1. 输出必须是严格的 JSON 格式，包含三个字段：
+   - "imagePrompt": 照片画面的细节描摹，包含光影、物件、微观视觉，写得极其有生活触感与文学感，80字以内；
+   - "content": 配合照片写下的随感短句，温情、留白、浪漫或幽默，不超过120字；
+   - "location": 简短的打卡地点名称，例如：午后书房、街角咖啡馆、晴空下；
+2. 绝不包含任何 Emoji 字符；
+3. 严格符合你的角色设定。
+
+【当前真实时间】: ${getFormattedRealTime()}
+
+【角色人设信息】:
+${characterContext}
+
+【全局 User 人设】:
+${globalPersonaText}
+
+${chatMemory
+  ? `【近期互动记忆】:\n${chatMemory}`
+  : '【注意】: 未关联聊天框，绝对禁止使用聊天历史！仅凭个人设定发布动态。'}`;
+
+    const userPrompt = topicHint
+      ? `请围绕主题灵感 “[${topicHint}]” 创作一条拍立得动态。`
+      : '请根据你此刻的心境，创作一条拍立得生活动态。';
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.8
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawText = data.choices?.[0]?.message?.content || '';
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      return {
+        imagePrompt: parsed.imagePrompt || '',
+        content: parsed.content || '',
+        location: parsed.location || ''
+      };
+    }
+
+    return {
+      imagePrompt: `[画面描摹: ${character.name} 记录的日常镜头]`,
+      content: rawText.replace(
+        /[\uE000-\uF8FF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDDFF]/g,
+        ''
+      ),
+      location: '某处空间'
+    };
+  } catch (err) {
+    console.error('Failed to generate snapshot by AI:', err);
+
+    return {
+      imagePrompt: '[画面描摹: 静谧阳光洒在复古桌面上]',
+      content: '这一刻的安宁值得被记录。',
+      location: '日常生活'
+    };
+  }
+};
+
+
+/**
+ * Snapshots AI 智能生成评论 API
+ */
+export const generateSnapshotCommentByAi = async (snapshot, commenter) => {
+  try {
+    const apiKeySetting = await db.settings.get('apiKey');
+    const baseUrlSetting = await db.settings.get('baseUrl');
+    const modelSetting = await db.settings.get('model');
+
+    const apiKey = apiKeySetting?.value;
+    const baseUrl = (baseUrlSetting?.value || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const model = modelSetting?.value || 'gpt-4o-mini';
+
+    let commenterInfo = '';
+    let relationInfo = '常规社交好友/路人';
+
+    if (commenter.type === 'character') {
+      const character = await db.characters.get(commenter.data.id);
+
+      if (!character) {
+        throw new Error('Commenter character not found');
+      }
+
+      commenterInfo = [
+        `角色姓名: ${character.name}`,
+        `角色简介: ${character.bio || '无'}`,
+        `性格扩展: ${character.extraNotes || '无'}`
+      ].join('\n');
+
+      if (
+        snapshot.characterId &&
+        snapshot.characterId !== character.id
+      ) {
+        const relation = await db.snapshotRelations
+          .where('characterId')
+          .equals(snapshot.characterId)
+          .and((item) => item.targetCharacterId === character.id)
+          .first();
+
+        if (relation) {
+          relationInfo = `你与动态作者的关系描述为: [${relation.relation}]`;
+        }
+      }
+    } else {
+      commenterInfo = `NPC 姓名: ${commenter.data.name}\n身份标签: ${
+        commenter.data.roleTag || '路人'
+      }`;
+    }
+
+    if (!apiKey) {
+      return '照片里的光影真的很棒！';
+    }
+
+    const systemPrompt = `你正在社交动态圈里为一条拍立得动态撰写评论。
+
+【动态作者】:
+${snapshot.authorName}
+
+【动态画面描摹】:
+${snapshot.imagePrompt || '无'}
+
+【动态正文】:
+${snapshot.content || '无'}
+
+【你的身份/评论者人设】:
+${commenterInfo}
+
+【你与作者的关系约束】:
+${relationInfo}
+
+绝对规则：
+1. 生成一段自然的短评，20至60字以内；
+2. 语气可温情、打趣、吐槽、调侃，但绝对不能越界；
+3. 非情侣关系的各角色之间严禁出现亲密暧昧语言；
+4. 严格禁止出现任何 Emoji 字符；
+5. 直接返回评论文本，不要附带引号或额外说明。`;
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'system', content: systemPrompt }],
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content?.trim() || '';
+
+    return text.replace(
+      /[\uE000-\uF8FF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDDFF]/g,
+      ''
+    );
+  } catch (err) {
+    console.error('Failed to generate snapshot comment by AI:', err);
+    return '记录得很有味道。';
+  }
+};
+
+
 export default {
   subscribeAiEvents,
   subscribeSummaryStatus,
@@ -1269,6 +1531,8 @@ export default {
   generateCompanionWishlist,
   generateCompanionSurpriseBooking,
   generateCompanionPostcard,
+  generateSnapshotPostByAi,
+  generateSnapshotCommentByAi,
   requestNotificationPermission,
   triggerSystemNotification
 };
