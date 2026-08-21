@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Compass, Sparkles } from 'lucide-react';
+import { Plus, Compass, ArrowLeft } from 'lucide-react';
 import { db } from '../../db';
 import { TravelCard } from './components/TravelCard';
 import { PassportModal } from './components/PassportModal';
@@ -154,41 +154,62 @@ export const TravelApp = ({ onBackHub }) => {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-      {/* 极简顶栏 */}
-      <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: 'var(--divider)' }}>
-        <div className="flex items-center gap-2.5">
-          <Compass className="w-5 h-5" style={{ color: 'var(--text-main)' }} />
-          <span className="font-serif font-bold text-base" style={{ color: 'var(--text-main)' }}>
-            双人漫游足迹
-          </span>
+      {/* 顶栏导航：全站一致返回按钮 + 切换视角 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: 'var(--divider)' }}>
+        <div className="flex items-center gap-3">
+          {onBackHub && (
+            <button
+              onClick={onBackHub}
+              className="p-2 rounded-xl border hover:opacity-80 active:scale-95 transition-transform"
+              style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+              title="返回主界面"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
+
+          <div className="flex items-center gap-2.5">
+            <Compass className="w-5 h-5" style={{ color: 'var(--text-main)' }} />
+            <span className="font-serif font-bold text-lg tracking-wide" style={{ color: 'var(--text-main)' }}>
+              双人漫游足迹
+            </span>
+          </div>
         </div>
 
-        {activeTravel ? (
-          <button
-            onClick={() => setActiveTravel(null)}
-            className="px-4 py-2 rounded-xl text-xs font-semibold border hover:opacity-70"
-            style={{ borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-          >
-            返回旅程卡片列表
-          </button>
-        ) : (
-          characters.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {characters.map((char) => (
-                <button
-                  key={char.id}
-                  onClick={() => handleStartNewJourney(char)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold hover:opacity-80 active:scale-95 transition-transform shrink-0"
-                  style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-                >
-                  {char.avatar && <img src={char.avatar} alt={char.name} className="w-4 h-4 rounded-full object-cover" />}
-                  <span>签发与 {char.name} 的旅程</span>
-                  <Plus className="w-3 h-3" />
-                </button>
-              ))}
-            </div>
-          )
-        )}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          {activeTravel ? (
+            <button
+              onClick={() => setActiveTravel(null)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold border hover:opacity-80 transition-all shrink-0"
+              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            >
+              返回邮票展柜
+            </button>
+          ) : (
+            characters.length > 0 && (
+              <div className="flex items-center gap-2">
+                {characters.map((char) => (
+                  <button
+                    key={char.id}
+                    onClick={() => handleStartNewJourney(char)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold hover:opacity-80 active:scale-95 transition-all shrink-0 shadow-sm"
+                    style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                  >
+                    {char.avatar ? (
+                      <img src={char.avatar} alt={char.name} className="w-4 h-4 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
+                        {char.name?.[0] || 'C'}
+                      </div>
+                    )}
+                    <span>与 {char.name} 发起新旅程</span>
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                ))}
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       {/* 成功踏上旅程的弹窗提示 */}
@@ -212,24 +233,24 @@ export const TravelApp = ({ onBackHub }) => {
         />
       ) : (
         <div className="space-y-6">
-          {/* 无旅行卡片时的温馨诗意提示 */}
+          {/* 无旅行卡片时的温馨提示 */}
           {travels.length === 0 ? (
             <div 
-              className="py-16 px-6 rounded-3xl border border-dashed text-center space-y-4"
+              className="py-20 px-6 rounded-3xl border border-dashed text-center space-y-4 shadow-sm"
               style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
             >
-              <Compass className="w-10 h-10 mx-auto opacity-30" />
-              <div className="space-y-1 font-serif">
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-                  还没有一起寄往远方的旅程。
+              <Compass className="w-12 h-12 mx-auto opacity-30" style={{ color: 'var(--text-muted)' }} />
+              <div className="space-y-2 font-serif">
+                <p className="text-base font-semibold" style={{ color: 'var(--text-main)' }}>
+                  还没有一起寄往远方的旅程
                 </p>
-                <p className="text-xs opacity-70" style={{ color: 'var(--text-sub)' }}>
-                  也许今天，可以为你们签发第一张目的地机票。
+                <p className="text-xs max-w-sm mx-auto opacity-70 leading-relaxed" style={{ color: 'var(--text-sub)' }}>
+                  挑选一位陪伴你的伴侣，为你们签发第一份旅行护照与双人机票，开启一段只有彼此的动态漫游。
                 </p>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {travels.map((travel) => (
                 <TravelCard
                   key={travel.id}
@@ -273,7 +294,7 @@ export const TravelApp = ({ onBackHub }) => {
         onFinishTuckIn={handleFinishTuckInTickets}
       />
 
-      {/* 4. 明信片 3D 详情 Modal */}
+      {/* 4. 明信片 Modal */}
       <PostcardDetailModal
         isOpen={Boolean(activePostcard)}
         onClose={() => setActivePostcard(null)}
@@ -295,3 +316,4 @@ export const TravelApp = ({ onBackHub }) => {
 };
 
 export default TravelApp;
+
