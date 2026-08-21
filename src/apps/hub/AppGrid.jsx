@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageSquare, BookOpen, Compass, Calendar, Camera } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
+import KeepAlivePlayer from './KeepAlivePlayer'; // 👈 引入新组件
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   return (
@@ -31,7 +32,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* 新增 Snapshots 拍立得 IG 动态朋友圈入口 */}
+        {/* Snapshots 拍立得 IG 动态朋友圈入口 */}
         <GlassCard
           delay={delay + 25}
           onClick={() => onOpenApp('snapshots')}
@@ -84,6 +85,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </GlassCard>
         </div>
       </div>
+
+      {/* 👈 挂载在 Applications 下方的黑胶保活播放器 */}
+      <KeepAlivePlayer delay={delay + 200} />
     </div>
   );
 };
