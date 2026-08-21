@@ -114,7 +114,6 @@ db.version(6).stores({
   });
 });
 
-// 🛠️ Version 7: 完美修复 messages 表 chatId 索引，chats 独立存储 userPersona/userName/userAvatar/inputPlaceholder/typingText
 db.version(7).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -138,7 +137,55 @@ db.version(7).stores({
   pebblings: '++id, characterId, status, stoneType, createdAt, respondAt'
 });
 
+db.version(8).stores({
+  profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+  travels: '++id, characterId, status',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt'
+});
+
+// 🛠️ Version 9: 新增 chats 表字段 typingStyle / isBgDimmed / soundEnabled 定义
+db.version(9).stores({
+  profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText, typingStyle, isBgDimmed, soundEnabled',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+  travels: '++id, characterId, status',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt'
+});
+
 export default db;
+
 
 
 
