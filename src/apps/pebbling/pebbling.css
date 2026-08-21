@@ -344,10 +344,23 @@
 }
 
 .pebble-nest-index__item.is-active {
+  border-color: var(--accent-color);
   background: var(--card-bg-gradient);
   box-shadow: var(--card-shadow);
-  transform: translateY(-6px) rotate(-1deg);
+  transform: translateY(-8px) rotate(-1deg);
 }
+
+.pebble-nest-index__item.is-active::after {
+  position: absolute;
+  right: 11px;
+  bottom: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent-color);
+  content: '';
+}
+
 
 .pebble-nest-index__avatar {
   position: relative;
@@ -687,3 +700,21 @@
     transform: none;
   }
 }
+.pebbling-nest-content {
+  animation: pebblingNestChange 520ms ease both;
+}
+
+@keyframes pebblingNestChange {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+

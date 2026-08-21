@@ -147,7 +147,7 @@ export default function PebblingApp({ onBack }) {
       </section>
 
       {characters.length > 0 ? (
-        <>
+        <div key={activeCharId} className="pebbling-nest-content">
           <PebbleNestCompass
             characters={characters}
             activeCharId={activeCharId}
@@ -158,7 +158,9 @@ export default function PebblingApp({ onBack }) {
             onAiInitiate={handleAiInitiate}
           />
 
-          <div className="pebbling-section-label">RECENTLY RESTING IN THIS NEST</div>
+          <div className="pebbling-section-label">
+            RECENTLY RESTING IN THIS NEST
+          </div>
 
           <section className="pebbling-field">
             {pebblings.length > 0 ? (
@@ -181,7 +183,7 @@ export default function PebblingApp({ onBack }) {
               </div>
             )}
           </section>
-        </>
+        </div>
       ) : (
         <section className="pebbling-empty">
           <Inbox size={25} strokeWidth={1.35} />
