@@ -117,21 +117,15 @@ const getFormattedRealTime = () => {
   return `${dateStr} ${days[now.getDay()]} ${timeStr}`;
 };
 
+
 export const parseAiResponseToMessages = (text = '') => {
   const result = [];
-  const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO):\s*([^\]]+)\]/g;
+  // 1. 扩充正则匹配，加入 GIFT, FOOD, KINSHIP 标签
+  const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP):\s*([^\]]+)\]/g;
 
   let lastIndex = 0;
   let match;
 
-  /**
-   * 将普通文本拆分为多个独立气泡。
-   *
-   * 约定：
-   * - 使用 ||| 分隔多个气泡
-   * - 空气泡自动忽略
-   * - 不影响卡片消息
-   */
   const pushTextMessages = (content) => {
     if (!content || typeof content !== 'string') {
       return;
@@ -164,7 +158,6 @@ export const parseAiResponseToMessages = (text = '') => {
 
     if (cardType === 'transfer') {
       const parts = rawPayload.split('|');
-
       result.push({
         type: 'transfer',
         content: (parts[1] || '心意转账').trim(),
@@ -186,7 +179,6 @@ export const parseAiResponseToMessages = (text = '') => {
       });
     } else if (cardType === 'todo') {
       const parts = rawPayload.split('|');
-
       result.push({
         type: 'todo_proposal',
         content: (parts[0] || '待办事项').trim(),
@@ -194,22 +186,51 @@ export const parseAiResponseToMessages = (text = '') => {
           dueDate: (parts[1] || '近期').trim()
         }
       });
+    } else if (cardType === 'gift') {
+      // 礼物卡片解析 [GIFT: 礼物名称 | 寄语 | 金额]
+      const parts = rawPayload.split('|');
+      result.push({
+        type: 'gift',
+        content: (parts[1] || '送出礼物').trim(),
+        metadata: {
+          name: (parts[0] || '心意礼物').trim(),
+          note: (parts[1] || '表达一份温暖的心意。').trim(),
+          amount: (parts[2] || '').trim()
+        }
+      });
+    } else if (cardType === 'food') {
+      // 外卖代点卡片解析 [FOOD: 餐品名称 | 商家名称 | 预计时间 | 叮嘱留言]
+      const parts = rawPayload.split('|');
+      result.push({
+        type: 'food',
+        content: (parts[0] || '外卖美食').trim(),
+        metadata: {
+          item: (parts[0] || '热腾腾的爱心餐').trim(),
+          store: (parts[1] || '精选外卖').trim(),
+          eta: (parts[2] || '约 30 分钟内送达').trim(),
+          note: (parts[3] || '记得按时吃饭。').trim()
+        }
+      });
+    } else if (cardType === 'kinship') {
+      // 亲属卡解析 [KINSHIP: 额度数字 | 周期 | 赠言]
+      const parts = rawPayload.split('|');
+      result.push({
+        type: 'kinship',
+        content: (parts[2] || '专属亲属卡').trim(),
+        metadata: {
+          amount: (parts[0] || '5200').trim(),
+          cycle: (parts[1] || '月度额度').trim(),
+          quote: (parts[2] || '拿去随便刷，我的就是你的。').trim()
+        }
+      });
     }
 
     lastIndex = pattern.lastIndex;
   }
 
-  const textAfter = text
-    .slice(lastIndex)
-    .trim();
-
-  if (textAfter) {
-    pushTextMessages(textAfter);
-  }
-
-  // 没有卡片、没有分隔符，但有普通文本时，至少生成一个文本气泡。
-  if (result.length === 0 && text.trim()) {
-    pushTextMessages(text.trim());
+  const restText = text.slice(lastIndex).trim();
+  if (restText) {
+    pushTextMessages(restText);
   }
 
   return result;
@@ -468,6 +489,9 @@ ${diaryText}
 - 画面或图片：[IMAGE: 画面细节的视觉描述]
 - 建议待办：[TODO: 待办标题 | 预估提醒时间]
 -如果想发送多条连续气泡消息，请使用 ||| 将不同气泡隔开。
+- 赠送礼物：[GIFT: 礼物名称 | 寄语与选礼理由 | 金额(可选)]
+- 代点外卖：[FOOD: 餐饮名称 | 商家名称 | 预计到达时间 | 叮嘱留言]
+- 开通亲属卡：[KINSHIP: 额度数字 | 周期(如:月度) | 卡片赠言]
 
 注意：
 - [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
