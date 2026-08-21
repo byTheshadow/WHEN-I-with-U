@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, SlidersHorizontal, Camera, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, SlidersHorizontal, Camera } from 'lucide-react';
 import db from '../../db';
-import SnapshotCard from './components/SnapshotCard';
-import CreateSnapshotModal from './components/CreateSnapshotModal';
-import SnapshotSettingsModal from './components/SnapshotSettingsModal';
+import SnapshotCard from './SnapshotCard';
+import CreateSnapshotModal from './CreateSnapshotModal';
+import SnapshotSettingsModal from './SnapshotSettingsModal';
 
 export const SnapshotsApp = ({ onBackHub }) => {
   const [snapshots, setSnapshots] = useState([]);
@@ -54,7 +54,6 @@ export const SnapshotsApp = ({ onBackHub }) => {
         npcId = target.data.id;
       }
 
-      // 模拟根据关系与画面描述生成的真实互动文本
       const mockCommentContent = target.type === 'character'
         ? `在这张照片里看懂了属于你的浪漫。`
         : `真是个有趣的照片视角！`;
