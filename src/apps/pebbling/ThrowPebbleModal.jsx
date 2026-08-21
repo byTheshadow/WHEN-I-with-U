@@ -1,7 +1,7 @@
 // src/apps/pebbling/ThrowPebbleModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PEBBLE_TYPES } from './pebbleTypes';
-import { X, Send, Feather } from 'lucide-react';
+import { X, Send, Feather, AlertCircle } from 'lucide-react';
 
 export default function ThrowPebbleModal({
   isOpen,
@@ -10,28 +10,56 @@ export default function ThrowPebbleModal({
   defaultCharId,
   onThrow
 }) {
-  const [selectedCharId, setSelectedCharId] = useState(defaultCharId || characters[0]?.id);
+  const [selectedCharId, setSelectedCharId] = useState('');
   const [selectedType, setSelectedType] = useState('stream-pebble');
   const [content, setContent] = useState('');
   const [delayMinutes, setDelayMinutes] = useState(15);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // 关键修复：当弹窗打开或角色数据加载完成时，强行同步 selectedCharId
+  useEffect(() => {
+    if (isOpen) {
+      const validId = defaultCharId || (characters.length > 0 ? characters[0].id : '');
+      setSelectedCharId(validId ? String(validId) : '');
+      setErrorMessage('');
+    }
+  }, [isOpen, defaultCharId, characters]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim() || !selectedCharId) return;
+    setErrorMessage('');
 
-    setSubmitting(true);
-    await onThrow({
-      characterId: selectedCharId,
-      stoneType: selectedType,
-      userContent: content.trim(),
-      delayMinutes: Number(delayMinutes)
-    });
-    setSubmitting(false);
-    setContent('');
-    onClose();
+    // 智能兜底：如果 selectedCharId 依然为空，尝试使用 defaultCharId 或第一个角色
+    const targetCharId = selectedCharId || defaultCharId || (characters[0]?.id);
+
+    if (!content.trim()) {
+      setErrorMessage('请输入想要分享的内容');
+      return;
+    }
+    if (!targetCharId) {
+      setErrorMessage('请先在角色模块中创建至少一个角色');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await onThrow({
+        characterId: Number(targetCharId),
+        stoneType: selectedType,
+        userContent: content.trim(),
+        delayMinutes: Number(delayMinutes)
+      });
+      setContent('');
+      onClose();
+    } catch (err) {
+      console.error('Throw pebble error:', err);
+      setErrorMessage('投掷失败，请检查数据库设置或重试');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -51,13 +79,22 @@ export default function ThrowPebbleModal({
             <h3 className="text-base font-medium tracking-wide">悄悄抛入一颗小石头</h3>
           </div>
           <button 
+            type="button"
             onClick={onClose}
-            className="p-1 rounded.full hover:opacity-80 transition-opacity"
+            className="p-1 rounded-full hover:opacity-80 transition-opacity"
             style={{ color: 'var(--text-sub)' }}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* 错误提示栏 */}
+        {errorMessage && (
+          <div className="mb-4 p-3 rounded-xl border flex items-center gap-2 text-xs" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}>
+            <AlertCircle className="w-4 h-4 flex-shrink-0 opacity-80" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* 选择目标角色 */}
@@ -67,7 +104,7 @@ export default function ThrowPebbleModal({
             </label>
             <select
               value={selectedCharId}
-              onChange={(e) => setSelectedCharId(Number(e.target.value))}
+              onChange={(e) => setSelectedCharId(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none"
               style={{
                 backgroundColor: 'var(--control-soft-bg)',
@@ -75,11 +112,15 @@ export default function ThrowPebbleModal({
                 color: 'var(--text-main)'
               }}
             >
-              {characters.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {characters.length === 0 ? (
+                <option value="">暂无可用角色</option>
+              ) : (
+                characters.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -140,7 +181,6 @@ export default function ThrowPebbleModal({
                 borderColor: 'var(--card-border)',
                 color: 'var(--text-main)'
               }}
-              required
             />
           </div>
 
@@ -200,3 +240,4 @@ export default function ThrowPebbleModal({
     </div>
   );
 }
+
