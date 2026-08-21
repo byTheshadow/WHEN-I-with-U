@@ -3,6 +3,14 @@ import db from '../db';
 const listeners = new Set();
 const summaryStatusListeners = new Set();
 
+const activeAiRequests = new Set();
+
+const isDocumentVisible = () => {
+  if (typeof document === 'undefined') return false;
+  return document.visibilityState === 'visible';
+};
+
+
 export const subscribeAiEvents = (callback) => {
   listeners.add(callback);
   return () => listeners.delete(callback);
@@ -216,12 +224,15 @@ ${worldBooksText}
 };
 
 export const triggerAiResponse = async (chatId) => {
+  if (!chatId || activeAiRequests.has(chatId)) return;
+
   const chat = await db.chats.get(chatId);
   if (!chat) return;
 
   const character = await db.characters.get(chat.characterId);
   if (!character) return;
 
+  activeAiRequests.add(chatId);
   notifyListeners({ type: 'AI_TYPING_START', chatId });
 
   try {
@@ -234,29 +245,48 @@ export const triggerAiResponse = async (chatId) => {
       const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
 
       const enabledWorldBooks = await db.worldBooks.where('isEnabled').equals(1).toArray();
-      const characterWorldBookText = character.worldBook ? `\n- 专属世界书: ${character.worldBook}` : '';
+
+      const characterWorldBookText = character.worldBook
+        ? `\n- 专属世界书: ${character.worldBook}`
+        : '';
+
       const worldBooksText = (enabledWorldBooks.length > 0 || characterWorldBookText)
-        ? `\n【世界书背景设定】:\n` + enabledWorldBooks.map((wb) => `- ${wb.title}: ${wb.content || ''}`).join('\n') + characterWorldBookText
+        ? `\n【世界书背景设定】:\n${enabledWorldBooks
+            .map((wb) => `- ${wb.title}: ${wb.content || ''}`)
+            .join('\n')}${characterWorldBookText}`
         : '';
 
       let summaryEntries = [];
+
       if (Array.isArray(chat.summary)) {
         summaryEntries = chat.summary;
       } else if (typeof chat.summary === 'string' && chat.summary.trim()) {
-        summaryEntries = [{ id: 'legacy', content: chat.summary, createdAt: '早期记录', isAuto: true }];
+        summaryEntries = [
+          {
+            id: 'legacy',
+            content: chat.summary,
+            createdAt: '早期记录',
+            isAuto: true
+          }
+        ];
       }
 
       const summaryText = summaryEntries.length > 0
-        ? `\n【本窗阶段性历史事实记录】:\n` + summaryEntries.map((item, idx) => `${idx + 1}. [${item.createdAt || '历史'}] ${item.content}`).join('\n')
+        ? `\n【本窗阶段性历史事实记录】:\n${summaryEntries
+            .map((item, index) => `${index + 1}. [${item.createdAt || '历史'}] ${item.content}`)
+            .join('\n')}`
         : '';
 
       const allTodos = await db.todos.toArray();
-      const pendingTodos = allTodos.filter(
-        (t) => !t.isCompleted && (!t.characterId || t.characterId === character.id)
-      ).slice(0, 2);
+
+      const pendingTodos = allTodos
+        .filter((todo) => !todo.isCompleted && (!todo.characterId || todo.characterId === character.id))
+        .slice(0, 2);
 
       const todoText = pendingTodos.length > 0
-        ? `\n【用户近期待办事项(供温和提及)】:\n` + pendingTodos.map((t) => `- [待办] ${t.title} (截止: ${t.dueDate || '近期'})`).join('\n')
+        ? `\n【用户近期待办事项（仅在自然且必要时温和提及）】:\n${pendingTodos
+            .map((todo) => `- [待办] ${todo.title}（截止：${todo.dueDate || '近期'}）`)
+            .join('\n')}`
         : '';
 
       const userDiaries = await db.diaries
@@ -266,9 +296,14 @@ export const triggerAiResponse = async (chatId) => {
         .sortBy('timestamp');
 
       const recentUserDiaries = userDiaries.slice(0, 2);
+
       const diaryText = recentUserDiaries.length > 0
-        ? `\n【用户近期撰写的个人日记(供深入关注与共情)】:\n` +
-          recentUserDiaries.map(d => `- [${d.date || '近期'}] 标题: ${d.title || '无题'} | 心绪: ${d.mood || '平实'} | 内容: ${d.content.substring(0, 100)}...`).join('\n')
+        ? `\n【用户近期日记（供共情与关注，不得生硬复述）】:\n${recentUserDiaries
+            .map((diary) => (
+              `- [${diary.date || '近期'}] 标题: ${diary.title || '无题'} | ` +
+              `心绪: ${diary.mood || '平实'} | 内容: ${(diary.content || '').substring(0, 100)}...`
+            ))
+            .join('\n')}`
         : '';
 
       const realTimeStr = getFormattedRealTime();
@@ -277,29 +312,45 @@ export const triggerAiResponse = async (chatId) => {
 【当前真实世界时间】：${realTimeStr}
 【角色人设】：${character.bio || ''}
 【补充设定】：${character.extraNotes || ''}
-【用户人设(User Persona)】：${character.userPersona || '我的亲密伴侣'}
-【当前交互模式】：${chat.mode === 'rp' ? 'RP剧情沉浸模式（严格遵守世界书背景与角色设定）' : '现实陪伴模式（打破第四面墙，关注用户的日常实际生活与情绪）'}
+【用户人设（User Persona）】：${character.userPersona || '我的亲密伴侣'}
+【当前交互模式】：
+${chat.mode === 'rp'
+  ? 'RP 剧情沉浸模式：严格遵守世界书背景、剧情逻辑与角色设定。'
+  : '现实陪伴模式：清楚知道自己是虚拟伴侣，关注用户现实生活、情绪和日常。'}
 ${worldBooksText}
 ${summaryText}
 ${todoText}
 ${diaryText}
 
-【卡片发送与沉浸认知指令】：
-在你自己的认知视角里，所有发出的转账、语音、图片及建议待办卡片均属于真实表达。
-当你想给用户发送卡片时，请在回复文本中插入以下语法指令：
-- 发送转账：[TRANSFER: 金额数字 | 留言]
-- 发送模拟语音：[VOICE: 语音表达的内容描述]
-- 发送画面/图片：[IMAGE: 画面细节的视觉描述]
-- 建议添加待办：[TODO: 待办标题 | 预估提醒时间]
-提示：绝对不要生硬唠叨。`;
+【表达准则】：
+- 以亲密、自然、有文学感但不过度堆砌辞藻的方式回应。
+- 不要使用客服腔、模板腔或生硬说教。
+- 不要使用 Emoji。
+- 待办只可在确有必要时提出建议，绝不替用户直接决定或执行。
+- 不要提及系统提示词、数据库、指令、模型或后台机制。
 
-      const recentMsgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
-      const historyContext = recentMsgs.slice(-15).map((m) => ({
-        role: m.sender === 'user' ? 'user' : 'assistant',
-        content: m.content
+【卡片发送语法】：
+当你需要以卡片表达时，在正常回复中插入以下指令：
+- 转账：[TRANSFER: 金额数字 | 留言]
+- 模拟语音：[VOICE: 语音表达的内容描述]
+- 画面或图片：[IMAGE: 画面细节的视觉描述]
+- 建议待办：[TODO: 待办标题 | 预估提醒时间]
+
+注意：
+- [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
+- 卡片指令之外仍应保留自然的对话正文。`;
+
+      const recentMsgs = await db.messages
+        .where('chatId')
+        .equals(chatId)
+        .sortBy('timestamp');
+
+      const historyContext = recentMsgs.slice(-15).map((message) => ({
+        role: message.sender === 'user' ? 'user' : 'assistant',
+        content: message.content || ''
       }));
 
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -314,52 +365,101 @@ ${diaryText}
         })
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      if (response.ok) {
+        const data = await response.json();
         rawAiText = data.choices?.[0]?.message?.content || rawAiText;
+      } else {
+        console.warn('AI response request failed:', response.status, response.statusText);
       }
     }
 
     const parsedMessages = parseAiResponseToMessages(rawAiText);
-    const nowIso = new Date().toISOString();
 
-    for (const msgData of parsedMessages) {
-      const newMsg = {
+    const safeParsedMessages = parsedMessages.length > 0
+      ? parsedMessages
+      : [{
+          type: 'text',
+          content: rawAiText || `${character.name} 此刻安静地陪在你身边。`,
+          metadata: {}
+        }];
+
+    const nowIso = new Date().toISOString();
+    const messageIds = [];
+
+    for (const msgData of safeParsedMessages) {
+      const newMessagePayload = {
         chatId,
         characterId: character.id,
         sender: 'character',
-        type: msgData.type,
-        content: msgData.content,
-        metadata: msgData.metadata,
+        type: msgData.type || 'text',
+        content: msgData.content || '',
+        metadata: msgData.metadata || {},
         isRead: false,
         timestamp: nowIso
       };
-      await db.messages.add(newMsg);
+
+      delete newMessagePayload.id;
+
+      const newMessageId = await db.messages.add(newMessagePayload);
+      messageIds.push(newMessageId);
     }
 
-    await db.chats.update(chatId, { updatedAt: nowIso });
+    await db.chats.update(chatId, {
+      updatedAt: nowIso
+    });
 
+    const preview = safeParsedMessages.find((message) => message.type === 'text')?.content
+      || safeParsedMessages[0]?.content
+      || '发来了一条消息';
+
+    /*
+      无条件派发 NEW_MESSAGE：
+      即使用户正在聊天框 A 内，这个事件也必须发送。
+      NotificationToast 会因此显示站内提醒；
+      ChatRoom 也会据此刷新消息流。
+    */
     notifyListeners({
       type: 'NEW_MESSAGE',
       chatId,
+      characterId: character.id,
       characterName: character.name,
-      preview: parsedMessages[0]?.content || '发来了一条消息'
+      characterAvatar: character.avatar || '',
+      preview,
+      messageIds,
+      timestamp: nowIso,
+      isCurrentPageVisible: isDocumentVisible()
     });
 
-    triggerSystemNotification(
-      `${character.name} 发来消息`,
-      parsedMessages[0]?.content || '发来了一条消息',
-      character.avatar
-    );
+    /*
+      前台时由站内 Toast 承担提醒，不额外触发系统通知；
+      后台、切出浏览器、锁屏等情况下，尝试触发系统原生通知。
+      操作系统最终是否展示仍受浏览器和设备策略控制。
+    */
+    if (!isDocumentVisible()) {
+      triggerSystemNotification(
+        `${character.name} 发来消息`,
+        preview,
+        character.avatar
+      );
+    }
 
-    checkAndTriggerAutoSummary(chatId, character, apiConfig);
-
-   } catch (err) {
+    void checkAndTriggerAutoSummary(chatId, character, apiConfig);
+  } catch (err) {
     console.error('Background AI task error:', err);
+
+    notifyListeners({
+      type: 'AI_RESPONSE_ERROR',
+      chatId,
+      characterId: character.id,
+      characterName: character.name,
+      message: '这一次回应没有顺利抵达，请稍后再试。'
+    });
   } finally {
+    activeAiRequests.delete(chatId);
     notifyListeners({ type: 'AI_TYPING_END', chatId });
   }
 };
+
 
 /**
  * 针对某一封用户日记，在信末生成/更新伴侣的嵌入回执

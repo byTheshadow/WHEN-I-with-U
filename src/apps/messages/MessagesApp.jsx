@@ -13,7 +13,7 @@ import NewChatModal from './NewChatModal';
 export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
   const [characters, setCharacters] = useState([]);
-  const [view, setView] = useState('chats'); // 'chats' | 'characters' | 'chat_room' | 'char_editor'
+  const [view, setView] = useState('chats');
   const [activeChatId, setActiveChatId] = useState(null);
   const [editingChar, setEditingChar] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,13 +22,13 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 
   useEffect(() => {
     loadData();
-    if (onChatRoomStateChange) {
-      onChatRoomStateChange(view === 'chat_room');
-    }
-  }, [view]);
+  }, []);
 
   useEffect(() => {
-    // 监听后台 AI 完成消息或状态更新，实时刷新消息列表
+    onChatRoomStateChange?.(view === 'chat_room');
+  }, [view, onChatRoomStateChange]);
+
+  useEffect(() => {
     const unsubscribe = subscribeAiEvents(() => {
       loadData();
     });
@@ -66,6 +66,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
       <ChatRoom
         chatId={activeChatId}
         onBack={() => setView('chats')}
+        onRoomStateChange={(inRoom) => onChatRoomStateChange?.(inRoom)}
         onOpenCharacterEditor={() => {
           const currentChat = chats.find((c) => c.id === activeChatId);
           const char = characters.find((ch) => ch.id === currentChat?.characterId);
@@ -87,7 +88,6 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 
   return (
     <div className="space-y-5 animate-fade-in-up pb-12 text-xs text-left">
-      {/* 顶部 Header 导航 */}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -99,7 +99,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
           <span>返回主页</span>
         </button>
 
-        <div 
+        <div
           className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
           style={{
             background: 'var(--control-soft-bg)',
@@ -136,7 +136,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
       {view === 'chats' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <div 
+            <div
               className="flex-1 flex items-center gap-2 px-3 py-2 rounded-2xl border"
               style={{
                 background: 'var(--control-soft-bg)',
@@ -183,14 +183,14 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                     key={chat.id}
                     className="flex items-center justify-between p-4 group hover:opacity-95 transition-all relative"
                   >
-                    <div 
+                    <div
                       onClick={() => handleOpenChat(chat.id)}
                       className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                     >
                       {char?.avatar ? (
                         <img src={char.avatar} alt={chat.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" />
                       ) : (
-                        <div 
+                        <div
                           className="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm"
                           style={{
                             background: 'var(--control-soft-bg)',
@@ -204,9 +204,14 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                       <div className="space-y-1 min-w-0 flex-1 pr-2">
                         <div className="flex items-center gap-2">
                           <h4 className="font-serif font-bold text-sm truncate" style={{ color: 'var(--text-main)' }}>{chat.title}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono border ${
-                            chat.mode === 'rp' ? 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300' : 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300'
-                          }`}>
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[9px] font-mono border"
+                            style={{
+                              borderColor: 'var(--divider)',
+                              background: 'var(--control-soft-bg)',
+                              color: 'var(--text-muted)'
+                            }}
+                          >
                             {chat.mode === 'rp' ? 'RP' : 'Real'}
                           </span>
                         </div>
@@ -222,7 +227,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                         e.stopPropagation();
                         setDeletingChatTarget(chat);
                       }}
-                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-rose-500 hover:bg-rose-500/10 rounded-full"
+                      className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--control-soft-bg)] rounded-full"
                       title="抹去此对话实体"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -256,7 +261,6 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         />
       )}
 
-      {/* 彻底删除实体二次确认 Modal */}
       <ConfirmModal
         isOpen={!!deletingChatTarget}
         title="抹去共同记忆"
@@ -271,4 +275,3 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 };
 
 export default MessagesApp;
-

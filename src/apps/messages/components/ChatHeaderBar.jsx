@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles, Loader2, ListOrdered } from 'lucide-react';
+import { Heart, ChevronUp, Edit3, Activity, Shield, Sparkles, Loader2 } from 'lucide-react';
 import { subscribeSummaryStatus } from '../../../services/aiService';
 
 export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }) => {
@@ -8,9 +8,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
 
   useEffect(() => {
     const unsubscribe = subscribeSummaryStatus(({ chatId, isSummarizing }) => {
-      if (chatId === chat.id) {
-        setIsSummarizing(isSummarizing);
-      }
+      if (chatId === chat.id) setIsSummarizing(isSummarizing);
     });
     return unsubscribe;
   }, [chat.id]);
@@ -35,13 +33,12 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
   }, [chat.summary]);
 
   return (
-    <div className="sticky top-0 z-30 w-full transition-all flex flex-col items-center">
-      {/* 1. 未唤醒状态：极简爱心胶囊 */}
+    <div className="sticky top-0 z-30 w-full flex flex-col items-center transition-all">
       {!isExpanded ? (
         <button
           type="button"
           onClick={() => setIsExpanded(true)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm backdrop-blur-xl transition-all active:scale-90 hover:opacity-100"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm backdrop-blur-xl transition-all active:scale-95"
           style={{
             background: 'var(--card-bg-gradient)',
             borderColor: 'var(--card-border)',
@@ -49,18 +46,26 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
           }}
           title={`${character.name} · ${currentStatus}`}
         >
-          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/20 animate-pulse" />
-          <span className="font-serif font-medium text-[11px] truncate max-w-[80px]">{character.name}</span>
+          <Heart
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ color: 'var(--accent-color)' }}
+          />
+          <span className="font-serif font-medium text-[11px] truncate max-w-[84px]">
+            {character.name}
+          </span>
+
           {isSummarizing && (
-            <span className="flex items-center gap-1 text-[9px] text-purple-500 font-mono pl-1 border-l" style={{ borderColor: 'var(--divider)' }}>
+            <span
+              className="flex items-center gap-1 text-[9px] font-mono pl-1.5 ml-0.5 border-l opacity-75"
+              style={{ borderColor: 'var(--divider)', color: 'var(--text-muted)' }}
+            >
               <Loader2 className="w-2.5 h-2.5 animate-spin" />
-              <span>正在倾听并整理心绪…</span>
+              <span>整理中</span>
             </span>
           )}
         </button>
       ) : (
-        /* 2. 展开状态：杂志风卡片 */
-        <div 
+        <div
           className="w-full rounded-3xl border backdrop-blur-xl shadow-md p-4 space-y-3 animate-fade-in-up text-left"
           style={{
             background: 'var(--card-bg-gradient)',
@@ -79,24 +84,38 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
                     style={{ borderColor: 'var(--card-border)' }}
                   />
                 ) : (
-                  <div 
+                  <div
                     className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
-                    style={{ background: 'var(--control-soft-bg)' }}
+                    style={{
+                      background: 'var(--control-soft-bg)',
+                      color: 'var(--text-main)'
+                    }}
                   >
                     {character.name?.[0] || 'C'}
                   </div>
                 )}
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900" />
+                <div
+                  className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+                  style={{
+                    background: 'var(--accent-color)',
+                    borderColor: 'var(--bg-main)'
+                  }}
+                />
               </div>
 
               <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-serif font-semibold text-sm truncate">{character.name}</h3>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono tracking-wider uppercase border ${
-                    isRpMode 
-                      ? 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300' 
-                      : 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300'
-                  }`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="font-serif font-semibold text-sm truncate">
+                    {character.name}
+                  </h3>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[9px] font-mono tracking-wider uppercase border"
+                    style={{
+                      borderColor: 'var(--divider)',
+                      background: 'var(--control-soft-bg)',
+                      color: 'var(--text-muted)'
+                    }}
+                  >
                     {isRpMode ? 'RP Mode' : 'Real World'}
                   </span>
                 </div>
@@ -111,7 +130,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all active:scale-95"
+                className="p-2 rounded-full opacity-75 hover:opacity-100 transition-all active:scale-95"
                 style={{ background: 'var(--control-soft-bg)' }}
                 title="编辑伴侣人设"
               >
@@ -121,7 +140,7 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
               <button
                 type="button"
                 onClick={() => setIsExpanded(false)}
-                className="p-2 rounded-full opacity-70 hover:opacity-100 transition-all"
+                className="p-2 rounded-full opacity-75 hover:opacity-100 transition-all active:scale-95"
                 style={{ background: 'var(--control-soft-bg)' }}
                 title="收起"
               >
@@ -132,16 +151,25 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
 
           <div className="pt-2 border-t space-y-2 text-xs" style={{ borderColor: 'var(--divider)' }}>
             {character.bio && (
-              <p 
+              <p
                 className="italic opacity-80 leading-relaxed font-serif text-[11px] p-2.5 rounded-xl border"
-                style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}
+                style={{
+                  background: 'var(--control-soft-bg)',
+                  borderColor: 'var(--divider)'
+                }}
               >
                 "{character.bio}"
               </p>
             )}
 
             <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <div className="p-2.5 rounded-xl space-y-1 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
+              <div
+                className="p-2.5 rounded-xl space-y-1 border"
+                style={{
+                  background: 'var(--control-soft-bg)',
+                  borderColor: 'var(--divider)'
+                }}
+              >
                 <div className="flex items-center gap-1 opacity-50 font-mono">
                   <Shield className="w-3 h-3" />
                   <span>模式约定</span>
@@ -151,10 +179,16 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
                 </p>
               </div>
 
-              <div className="p-2.5 rounded-xl space-y-1 border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--divider)' }}>
+              <div
+                className="p-2.5 rounded-xl space-y-1 border"
+                style={{
+                  background: 'var(--control-soft-bg)',
+                  borderColor: 'var(--divider)'
+                }}
+              >
                 <div className="flex items-center justify-between opacity-50 font-mono">
                   <div className="flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-purple-400" />
+                    <Sparkles className="w-3 h-3" />
                     <span>阶段总结 ({summaryEntries.length})</span>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ArrowLeft, Send, Sparkles, Image, Volume2, DollarSign,
   Trash2, Quote, CheckCheck, Check, Settings, User
@@ -16,7 +16,7 @@ import VoiceCard from './components/cards/VoiceCard';
 import TransferCard from './components/cards/TransferCard';
 import ArticleCard from './components/cards/ArticleCard';
 
-export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
+export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor, onRoomStateChange }) => {
   const [chat, setChat] = useState(null);
   const [character, setCharacter] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -30,9 +30,16 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   const [extraInputMeta, setExtraInputMeta] = useState({});
 
   const messagesEndRef = useRef(null);
+  const scrollAreaRef = useRef(null);
+
+  useEffect(() => {
+    onRoomStateChange?.(true);
+    return () => onRoomStateChange?.(false);
+  }, [onRoomStateChange]);
 
   useEffect(() => {
     loadChatData();
+
     const unsubscribe = subscribeAiEvents((event) => {
       if (event.chatId === chatId) {
         if (event.type === 'AI_TYPING_START') setIsAiTyping(true);
@@ -42,11 +49,14 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         }
       }
     });
+
     return unsubscribe;
   }, [chatId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
   }, [messages, isAiTyping]);
 
   const loadChatData = async () => {
@@ -76,7 +86,10 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
       timestamp: new Date().toISOString()
     };
 
-    const msgId = await db.messages.add(newMsg);
+    const payload = { ...newMsg };
+    delete payload.id;
+
+    const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
     setMessages((prev) => [...prev, newMsg]);
 
@@ -89,7 +102,6 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
 
   const handleTriggerAi = () => {
     if (!character || isAiTyping) return;
-    // 异步交由后台 AI 服务处理，不受页面切出中断影响
     triggerAiResponse(chatId);
   };
 
@@ -133,9 +145,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
     await db.chats.update(chatId, { summary: newSummary });
   };
 
-  if (!chat || !character) return null;
-
-  const defaultCss = `
+  const defaultCss = useMemo(() => `
   .user-bubble {
     background: var(--accent-color);
     color: var(--accent-foreground);
@@ -150,12 +160,20 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
   .chat-font {
     font-size: 0.75rem;
     line-height: 1.5;
-  }`;
+  }`, []);
+
+  if (!chat || !character) return null;
 
   const currentCss = chat.customCss || defaultCss;
 
   return (
-    <div className="chat-room-container relative flex flex-col h-[94vh] text-xs text-left animate-fade-in-up">
+    <div
+      className="chat-room-container relative flex flex-col min-h-[100dvh] overflow-hidden text-xs text-left animate-fade-in-up"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)'
+      }}
+    >
       <style>{`
         .chat-room-container ${currentCss}
       `}</style>
@@ -172,38 +190,41 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         />
       )}
 
-      {/* 顶栏 */}
-      <div className="flex items-center justify-between pb-1 px-1">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1 font-semibold opacity-70 hover:opacity-100 transition-opacity text-xs"
-          style={{ color: 'var(--text-main)' }}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>返回</span>
-        </button>
+      <div className="shrink-0 px-1">
+        <div className="flex items-center justify-between pb-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 font-semibold opacity-75 hover:opacity-100 transition-opacity text-xs"
+            style={{ color: 'var(--text-main)' }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>返回</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setShowChatSettings(true)}
-          className="p-1.5 rounded-full opacity-70 hover:opacity-100 transition-all"
-          style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
-          title="对话空间设置"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowChatSettings(true)}
+            className="p-1.5 rounded-full opacity-75 hover:opacity-100 transition-all"
+            style={{ background: 'var(--control-soft-bg)', color: 'var(--text-main)' }}
+            title="对话空间设置"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+
+        <ChatHeaderBar
+          character={character}
+          chat={chat}
+          onOpenSettings={onOpenCharacterEditor}
+          onSaveSummary={handleSaveSummary}
+        />
       </div>
 
-      <ChatHeaderBar
-        character={character}
-        chat={chat}
-        onOpenSettings={onOpenCharacterEditor}
-        onSaveSummary={handleSaveSummary}
-      />
-
-      {/* 消息对话流 */}
-      <div className="flex-1 overflow-y-auto py-3 space-y-4 px-1 no-scrollbar">
+      <div
+        ref={scrollAreaRef}
+        className="flex-1 min-h-0 overflow-y-auto py-3 space-y-4 px-1 no-scrollbar"
+      >
         {messages.length === 0 && (
           <div className="py-16 text-center space-y-2 opacity-40">
             <p className="font-serif italic text-xs">此刻停在这里，等待你们的对话...</p>
@@ -217,11 +238,11 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
           return (
             <div key={msg.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} group`}>
               {quoted && (
-                <div 
+                <div
                   className="px-3 py-1 rounded-xl border-l-2 opacity-60 text-[10px] max-w-[75%] mb-1"
                   style={{
                     background: 'var(--control-soft-bg)',
-                    borderColor: 'var(--text-main)'
+                    borderColor: 'var(--divider)'
                   }}
                 >
                   <span className="font-bold block">{quoted.sender === 'user' ? '你' : character.name}</span>
@@ -234,7 +255,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   character.avatar ? (
                     <img src={character.avatar} alt={character.name} className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm border border-white/20" />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0" style={{ background: 'var(--control-soft-bg)' }}>
                       {character.name?.[0]}
                     </div>
                   )
@@ -242,7 +263,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   character.userAvatar ? (
                     <img src={character.userAvatar} alt="You" className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm border border-white/20" />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center font-bold text-[10px] shrink-0">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0" style={{ background: 'var(--control-soft-bg)' }}>
                       <User className="w-3.5 h-3.5 opacity-60" />
                     </div>
                   )
@@ -260,32 +281,37 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
                   <button type="button" onClick={() => setQuotedMsg(msg)} className="p-1 opacity-50 hover:opacity-100" title="引用">
                     <Quote className="w-3 h-3" />
                   </button>
-                  <button type="button" onClick={() => handleDeleteMessage(msg.id)} className="p-1 opacity-50 hover:opacity-100 text-rose-500" title="抹去">
+                  <button type="button" onClick={() => handleDeleteMessage(msg.id)} className="p-1 opacity-50 hover:opacity-100" title="抹去">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>
 
-              {/* IG 风格对齐时间戳 */}
-              <div className={`flex items-center gap-1 text-[9px] opacity-40 font-mono mt-1 px-9 ${isUser ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`flex items-center gap-1 text-[9px] opacity-40 font-mono mt-1 px-9 ${
+                  isUser ? 'justify-end' : 'justify-start'
+                }`}
+              >
                 <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {isUser ? (
-                  <CheckCheck className="w-3 h-3 text-blue-500 opacity-80" />
+                  <CheckCheck className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
                 ) : (
-                  <Check className="w-3 h-3 opacity-60" />
+                  <Check className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
                 )}
               </div>
             </div>
           );
         })}
 
-        {isAiTyping && <TypingIndicator customText={chat.typingText || `${character.name} 正在提笔回复...`} />}
+        {isAiTyping && (
+          <TypingIndicator customText={chat.typingText || `${character.name} 正在提笔回复...`} />
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {quotedMsg && (
-        <div 
-          className="flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-1.5 shadow-sm"
+        <div
+          className="shrink-0 flex items-center justify-between p-2 rounded-xl border-l-2 text-[10px] mb-1.5 shadow-sm"
           style={{
             background: 'var(--control-soft-bg)',
             borderColor: 'var(--accent-color)'
@@ -301,7 +327,10 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
       )}
 
       {selectedType !== 'text' && (
-        <div className="p-2.5 rounded-2xl border mb-2 space-y-2 text-[11px]" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+        <div
+          className="shrink-0 p-2.5 rounded-2xl border mb-2 space-y-2 text-[11px]"
+          style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
+        >
           <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
             <span>MODIFIER: {selectedType.toUpperCase()}</span>
             <button type="button" onClick={() => setSelectedType('text')}>&times;</button>
@@ -338,10 +367,9 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
         </div>
       )}
 
-      {/* 底部输入框 */}
-      <div className="py-1">
-        <div 
-          className="flex items-center gap-1.5 p-2 rounded-full border backdrop-blur-2xl shadow-xl transition-all duration-300 focus-within:ring-2 focus-within:ring-black/10 dark:focus-within:ring-white/20"
+      <div className="shrink-0 pt-1">
+        <div
+          className="flex items-center gap-1.5 p-2 rounded-full border backdrop-blur-2xl shadow-xl transition-all duration-300"
           style={{
             background: 'var(--card-bg-gradient)',
             borderColor: 'var(--card-border)',
@@ -352,7 +380,9 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             <button
               type="button"
               onClick={() => setSelectedType('image')}
-              className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'image' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
+              className={`p-1.5 rounded-full transition-transform active:scale-90 ${
+                selectedType === 'image' ? 'opacity-100' : 'opacity-70'
+              }`}
               title="画面描述"
             >
               <Image className="w-4 h-4" />
@@ -360,7 +390,9 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             <button
               type="button"
               onClick={() => setSelectedType('voice')}
-              className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'voice' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
+              className={`p-1.5 rounded-full transition-transform active:scale-90 ${
+                selectedType === 'voice' ? 'opacity-100' : 'opacity-70'
+              }`}
               title="模拟语音"
             >
               <Volume2 className="w-4 h-4" />
@@ -368,7 +400,9 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
             <button
               type="button"
               onClick={() => setSelectedType('transfer')}
-              className={`p-1.5 rounded-full transition-transform active:scale-90 ${selectedType === 'transfer' ? 'bg-black/10 dark:bg-white/20 font-bold' : ''}`}
+              className={`p-1.5 rounded-full transition-transform active:scale-90 ${
+                selectedType === 'transfer' ? 'opacity-100' : 'opacity-70'
+              }`}
               title="心意转账"
             >
               <DollarSign className="w-4 h-4" />
@@ -410,7 +444,7 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
               }}
               title="触发伴侣回应"
             >
-              <Sparkles className="w-3 h-3 text-purple-400" />
+              <Sparkles className="w-3 h-3" />
               <span>回应</span>
             </button>
           </div>
@@ -443,3 +477,4 @@ export const ChatRoom = ({ chatId, onBack, onOpenCharacterEditor }) => {
 };
 
 export default ChatRoom;
+

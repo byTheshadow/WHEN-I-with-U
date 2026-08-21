@@ -27,12 +27,14 @@ export const App = () => {
   }, [activeTheme]);
 
   const openApp = (appId) => {
-    setCurrentApp(appId);
-    if (appId !== 'messages') {
-      setIsInsideChatRoom(false);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  setCurrentApp(appId);
+  if (appId !== 'messages') {
+    setIsInsideChatRoom(false);
+  }
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  });
+};
 
   const shouldDisplayHeader = showTitle && currentApp !== 'settings' && !isInsideChatRoom;
 
@@ -134,14 +136,15 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {currentApp === 'messages' && (
-          <ErrorBoundary>
-            <MessagesApp
-              onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={(inRoom) => setIsInsideChatRoom(inRoom)}
-            />
-          </ErrorBoundary>
-        )}
+{currentApp === 'messages' && (
+  <ErrorBoundary>
+    <MessagesApp
+      onBackHub={() => openApp('hub')}
+      onChatRoomStateChange={(inRoom) => setIsInsideChatRoom(inRoom)}
+    />
+  </ErrorBoundary>
+)}
+
 
         {['todos', 'planner'].includes(currentApp) && (
           <ErrorBoundary>
