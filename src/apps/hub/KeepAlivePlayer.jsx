@@ -1,184 +1,171 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Volume2,
-  VolumeX,
-  ShieldCheck,
-  Play,
-  Pause,
-  Edit3,
   Check,
-  Disc,
-  Radio,
+  Edit3,
+  Pause,
+  Play,
+  Settings2,
   Upload,
-  Sparkles,
-  Music,
-  Activity,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
 
-export const KeepAlivePlayer = ({ delay = 450 }) => {
-  // --- 状态定义 ---
+const PLAYER_CONFIG_KEY = 'keep_alive_player_config';
+const SILENT_WAV_DATA =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+const WAVE_BARS = Array.from({ length: 34 }, (_, index) => index);
+
+const getInitial = (name, fallback) => {
+  const value = String(name || '').trim();
+  return value ? value.slice(0, 1).toUpperCase() : fallback;
+};
+
+export const KeepAlivePlayer = ({ delay = 600 }) => {
   const [isActive, setIsActive] = useState(false);
-  const [isEditingText, setIsEditingText] = useState(false);
-  const [showStats, setShowStats] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
-  // 自定义可编辑文本
-  const [title, setTitle] = useState('You Make Me Sad');
-  const [artist, setArtist] = useState('Lovely Bomb · Angel Kittens');
-  const [quote, setQuote] = useState('有些歌不是一个人听完的。它们穿过夜色，把两个相隔很远的人放进同一段旋律。');
-
-  // 自定义头像 (支持上传)
-  const [userAvatar, setUserAvatar] = useState(null);
-  const [companionAvatar, setCompanionAvatar] = useState(null);
-  const [companionName, setCompanionName] = useState('伴侣');
-
-  // 网站全局数据统计
-  const [stats, setStats] = useState({
-    diariesCount: 0,
-    snapshotsCount: 0,
-    travelsCount: 0,
-    todosCount: 0,
+  const [config, setConfig] = useState({
+    issue: 'LATE NIGHT ISSUE / 001',
+    title: 'You make me sad',
+    artist: 'Lovely Bomb · Angel Kittens',
+    description:
+      '有些歌不是一个人听完的。它们穿过夜色，把两个相隔很远的人，暂时放进同一段旋律。',
+    companionName: '陪伴者',
+    userAvatar: null,
+    companionAvatar: null,
   });
 
-  // 音频与 Web Audio API 引用
+  const [draft, setDraft] = useState(config);
+  const [stats, setStats] = useState({
+    diaries: 0,
+    snapshots: 0,
+    travels: 0,
+    todos: 0,
+  });
+
   const audioContextRef = useRef(null);
   const oscillatorRef = useRef(null);
-  const gainNodeRef = useRef(null);
   const audioRef = useRef(null);
   const userInputRef = useRef(null);
   const companionInputRef = useRef(null);
 
-  // 1秒 Base64 静音 WAV 备用源 (维持 iOS/Android Media Session)
-  const silentWavData = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-
-  // --- 初始化读取数据库数据 ---
   useEffect(() => {
-    loadPlayerData();
-    loadSystemStats();
+    const loadInitialData = async () => {
+      try {
+        const [savedSetting, profile, character, diaries, snapshots, travels, todos] =
+          await Promise.all([
+            db.settings.get(PLAYER_CONFIG_KEY),
+            db.profile.toCollection().first(),
+            db.characters.orderBy('id').first(),
+            db.diaries.count(),
+            db.snapshots.count(),
+            db.travels.count(),
+            db.todos.count(),
+          ]);
+
+        const savedConfig = savedSetting?.value || {};
+
+        const nextConfig = {
+          issue: savedConfig.issue || 'LATE NIGHT ISSUE / 001',
+          title: savedConfig.title || 'You make me sad',
+          artist: savedConfig.artist || 'Lovely Bomb · Angel Kittens',
+          description:
+            savedConfig.description ||
+            '有些歌不是一个人听完的。它们穿过夜色，把两个相隔很远的人，暂时放进同一段旋律。',
+          companionName:
+            savedConfig.companionName || character?.name || '陪伴者',
+          userAvatar: savedConfig.userAvatar || profile?.avatar || null,
+          companionAvatar:
+            savedConfig.companionAvatar || character?.avatar || null,
+        };
+
+        setConfig(nextConfig);
+        setDraft(nextConfig);
+        setStats({
+          diaries,
+          snapshots,
+          travels,
+          todos,
+        });
+      } catch (error) {
+        console.warn('Unable to load keep-alive player data:', error);
+      } finally {
+        setIsReady(true);
+      }
+    };
+
+    loadInitialData();
   }, []);
 
-  const loadPlayerData = async () => {
-    try {
-      // 1. 读取保存的播放器自定义设置
-      const savedConfig = await db.settings.get('player_config');
-      if (savedConfig?.value) {
-        if (savedConfig.value.title) setTitle(savedConfig.value.title);
-        if (savedConfig.value.artist) setArtist(savedConfig.value.artist);
-        if (savedConfig.value.quote) setQuote(savedConfig.value.quote);
-        if (savedConfig.value.userAvatar) setUserAvatar(savedConfig.value.userAvatar);
-        if (savedConfig.value.companionAvatar) setCompanionAvatar(savedConfig.value.companionAvatar);
-        if (savedConfig.value.isActive !== undefined) setIsActive(savedConfig.value.isActive);
-      }
-
-      // 2. 如果未自定义头像，自动读取 DB 默认 Profile & Character 头像
-      const profile = await db.profile.get('default_user');
-      if (profile?.avatar && !savedConfig?.value?.userAvatar) {
-        setUserAvatar(profile.avatar);
-      }
-
-      const activeChar = await db.characters.orderBy('id').first();
-      if (activeChar) {
-        setCompanionName(activeChar.name || '伴侣');
-        if (activeChar.avatar && !savedConfig?.value?.companionAvatar) {
-          setCompanionAvatar(activeChar.avatar);
-        }
-      }
-    } catch (err) {
-      console.warn('Load player config notice:', err);
-    }
-  };
-
-  const loadSystemStats = async () => {
-    try {
-      const diariesCount = await db.diaries.count();
-      const snapshotsCount = await db.snapshots.count();
-      const travelsCount = await db.travels.count();
-      const todosCount = await db.todos.count();
-
-      setStats({
-        diariesCount,
-        snapshotsCount,
-        travelsCount,
-        todosCount,
-      });
-    } catch (err) {
-      console.warn('Load stats notice:', err);
-    }
-  };
-
-  // 持久化保存设置
-  const savePlayerConfig = async (newFields) => {
-    try {
-      const existing = (await db.settings.get('player_config'))?.value || {};
-      const updated = {
-        ...existing,
-        title,
-        artist,
-        quote,
-        userAvatar,
-        companionAvatar,
-        isActive,
-        ...newFields,
-      };
-      await db.settings.put({ key: 'player_config', value: updated });
-    } catch (err) {
-      console.error('Save player config error:', err);
-    }
-  };
-
-  // --- 保活与音频播放控制 ---
   useEffect(() => {
+    if (!isReady) return undefined;
+
     if (isActive) {
       startKeepAlive();
     } else {
       stopKeepAlive();
     }
+
     return () => stopKeepAlive();
-  }, [isActive]);
+  }, [isActive, isReady]);
 
-  const startKeepAlive = () => {
+  const saveConfig = async (nextConfig) => {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
+      await db.settings.put({
+        key: PLAYER_CONFIG_KEY,
+        value: nextConfig,
+      });
+    } catch (error) {
+      console.error('Unable to save keep-alive player configuration:', error);
+    }
+  };
+
+  const startKeepAlive = async () => {
+    try {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (AudioContextClass) {
         if (!audioContextRef.current) {
-          audioContextRef.current = new AudioCtx();
+          audioContextRef.current = new AudioContextClass();
         }
+
         if (audioContextRef.current.state === 'suspended') {
-          audioContextRef.current.resume();
+          await audioContextRef.current.resume();
         }
 
-        // 极低频 1Hz 静音震荡
-        const osc = audioContextRef.current.createOscillator();
-        const gain = audioContextRef.current.createGain();
+        if (!oscillatorRef.current) {
+          const oscillator = audioContextRef.current.createOscillator();
+          const gain = audioContextRef.current.createGain();
 
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1, audioContextRef.current.currentTime);
-        gain.gain.setValueAtTime(0.0001, audioContextRef.current.currentTime);
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(
+            1,
+            audioContextRef.current.currentTime,
+          );
+          gain.gain.setValueAtTime(0.0001, audioContextRef.current.currentTime);
 
-        osc.connect(gain);
-        gain.connect(audioContextRef.current.destination);
+          oscillator.connect(gain);
+          gain.connect(audioContextRef.current.destination);
+          oscillator.start();
 
-        osc.start();
-        oscillatorRef.current = osc;
-        gainNodeRef.current = gain;
+          oscillatorRef.current = oscillator;
+        }
       }
 
-      if (audioRef.current) {
-        audioRef.current.play().catch((err) => {
-          console.warn('Audio keep-alive notice:', err);
-        });
-      }
+      await audioRef.current?.play();
 
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: title || 'WHEN I with U',
-          artist: companionName ? `Together with ${companionName}` : 'Personal Companion Space',
-          album: 'Background Keep-Alive Active',
+          title: config.title || 'WHEN I with U',
+          artist: config.artist || config.companionName,
+          album: 'WHEN I with U / Quiet Frequency',
         });
       }
-    } catch (err) {
-      console.error('KeepAlive start failed:', err);
+    } catch (error) {
+      console.warn('Keep-alive audio needs a user interaction:', error);
     }
   };
 
@@ -189,302 +176,586 @@ export const KeepAlivePlayer = ({ delay = 450 }) => {
         oscillatorRef.current.disconnect();
         oscillatorRef.current = null;
       }
-      if (audioRef.current) {
-        audioRef.current.pause();
+
+      audioRef.current?.pause();
+
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
       }
-    } catch (err) {
-      console.warn('KeepAlive stop notice:', err);
+    } catch (error) {
+      console.warn('Unable to stop keep-alive audio:', error);
     }
   };
 
-  const toggleActive = () => {
-    const nextState = !isActive;
-    setIsActive(nextState);
-    savePlayerConfig({ isActive: nextState });
+  const handleToggle = () => {
+    setIsActive((currentValue) => !currentValue);
   };
 
-  // --- 头像选择处理 ---
-  const handleAvatarUpload = (e, target) => {
-    const file = e.target.files?.[0];
+  const handleEdit = () => {
+    if (!isEditing) {
+      setDraft(config);
+      setIsEditing(true);
+      return;
+    }
+
+    setConfig(draft);
+    setIsEditing(false);
+    saveConfig(draft);
+  };
+
+  const handleAvatarUpload = (event, target) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result;
-      if (target === 'user') {
-        setUserAvatar(dataUrl);
-        savePlayerConfig({ userAvatar: dataUrl });
-      } else {
-        setCompanionAvatar(dataUrl);
-        savePlayerConfig({ companionAvatar: dataUrl });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
-  // 保存文本修改
-  const handleSaveText = () => {
-    setIsEditingText(false);
-    savePlayerConfig({ title, artist, quote });
+    reader.onload = (loadEvent) => {
+      const avatar = loadEvent.target?.result;
+      if (!avatar) return;
+
+      const nextConfig = {
+        ...config,
+        [target]: avatar,
+      };
+
+      setConfig(nextConfig);
+      setDraft(nextConfig);
+      saveConfig(nextConfig);
+    };
+
+    reader.readAsDataURL(file);
+    event.target.value = '';
   };
 
   return (
-    <GlassCard delay={delay} className="relative overflow-hidden space-y-4">
-      {/* 隐藏的文件上传 input */}
+    <GlassCard
+      delay={delay}
+      tone="ink"
+      className="keep-alive-player relative overflow-hidden !rounded-[0.35rem] !p-0"
+    >
       <input
-        type="file"
         ref={userInputRef}
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => handleAvatarUpload(e, 'user')}
-      />
-      <input
         type="file"
-        ref={companionInputRef}
         accept="image/*"
         className="hidden"
-        onChange={(e) => handleAvatarUpload(e, 'companion')}
+        onChange={(event) => handleAvatarUpload(event, 'userAvatar')}
       />
-      <audio ref={audioRef} src={silentWavData} loop hidden />
 
-      {/* 顶部 Header：状态指示与切换按钮 */}
-      <div className="flex items-center justify-between border-b pb-2.5" style={{ borderColor: 'var(--divider)' }}>
-        <div className="flex items-center gap-2">
-          <div className="relative flex items-center justify-center">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                isActive ? 'bg-emerald-500 animate-ping absolute inset-0 opacity-75' : 'bg-stone-400'
-              }`}
-            />
-            <span
-              className={`w-2 h-2 rounded-full relative ${
-                isActive ? 'bg-emerald-500' : 'bg-stone-400'
-              }`}
-            />
-          </div>
-          <span className="text-[10px] font-semibold tracking-widest uppercase opacity-70">
-            {isActive ? 'Live Syncing · 保活已启动' : 'Keep Alive · 静置中'}
+      <input
+        ref={companionInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => handleAvatarUpload(event, 'companionAvatar')}
+      />
+
+      <audio ref={audioRef} src={SILENT_WAV_DATA} loop hidden />
+
+      <div className="pointer-events-none absolute inset-0 keep-alive-player__grid" />
+
+      <header className="relative flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.18em] text-[var(--text-on-ink-muted)]">
+          <strong className="font-semibold text-[var(--text-on-ink)]">
+            Together
+          </strong>
+          <span>/ Quiet Frequency</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] tracking-[0.16em] text-[var(--text-on-ink-muted)]">
+            01 / 01
           </span>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowStats(!showStats)}
-            className="p-1 rounded-lg transition-colors opacity-60 hover:opacity-100"
-            title="查看全站状态"
-          >
-            <Activity className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => (isEditingText ? handleSaveText() : setIsEditingText(true))}
-            className="p-1 rounded-lg transition-colors opacity-60 hover:opacity-100"
-            title={isEditingText ? '完成编辑' : '编辑文字与信息'}
-          >
-            {isEditingText ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Edit3 className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* 全站数据统计面板 (收纳展开) */}
-      {showStats && (
-        <div
-          className="p-2.5 rounded-xl border text-[11px] grid grid-cols-4 gap-2 text-center animate-fade-in-up"
-          style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
-        >
-          <div>
-            <div className="font-bold text-xs">{stats.diariesCount}</div>
-            <div className="text-[9px] opacity-60">手帐日记</div>
-          </div>
-          <div>
-            <div className="font-bold text-xs">{stats.snapshotsCount}</div>
-            <div className="text-[9px] opacity-60">拍立得</div>
-          </div>
-          <div>
-            <div className="font-bold text-xs">{stats.travelsCount}</div>
-            <div className="text-[9px] opacity-60">旅行集邮</div>
-          </div>
-          <div>
-            <div className="font-bold text-xs">{stats.todosCount}</div>
-            <div className="text-[9px] opacity-60">生活待办</div>
-          </div>
-        </div>
-      )}
-
-      {/* 核心黑胶唱片与手帐试听区 */}
-      <div className="flex items-center gap-4">
-        {/* 左侧旋转黑胶唱片 */}
-        <div className="relative shrink-0 w-24 h-24 flex items-center justify-center">
-          <div
-            className="w-24 h-24 rounded-full border shadow-md flex items-center justify-center transition-all"
-            style={{
-              background: 'repeating-radial-gradient(circle, #202021 0px, #202021 2px, #151516 3px, #252526 4px)',
-              borderColor: 'var(--card-border)',
-              animation: isActive ? 'spin 16s linear infinite' : 'none',
-            }}
-          >
-            {/* 唱片中央孔位与贴标 */}
-            <div
-              className="w-9 h-9 rounded-full border flex items-center justify-center overflow-hidden"
-              style={{ borderColor: 'var(--divider)', background: 'var(--card-bg)' }}
-            >
-              <Disc className={`w-5 h-5 ${isActive ? 'animate-pulse text-emerald-500' : 'opacity-40'}`} />
-            </div>
-          </div>
-          <style>{`
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
-        </div>
-
-        {/* 右侧曲目信息与文字编辑 */}
-        <div className="flex-1 min-w-0 space-y-1">
-          {isEditingText ? (
-            <div className="space-y-1.5">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-xs font-bold px-2 py-1 rounded border bg-transparent"
-                style={{ borderColor: 'var(--card-border)' }}
-                placeholder="自定义曲目/主题名称"
-              />
-              <input
-                type="text"
-                value={artist}
-                onChange={(e) => setArtist(e.target.value)}
-                className="w-full text-[10px] px-2 py-0.5 rounded border bg-transparent"
-                style={{ borderColor: 'var(--card-border)' }}
-                placeholder="自定义歌手/伴侣短语"
-              />
-            </div>
-          ) : (
-            <>
-              <div className="text-[10px] uppercase tracking-wider opacity-50 flex items-center gap-1 font-mono">
-                <Music className="w-3 h-3" />
-                <span>Now Playing · KeepAlive</span>
-              </div>
-              <h4 className="font-serif font-bold text-base tracking-tight truncate">{title}</h4>
-              <p className="text-[11px] opacity-70 truncate">{artist}</p>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* 手帐文案寄语区 */}
-      <div className="text-[11px] italic opacity-75 border-l-2 pl-2.5 py-0.5" style={{ borderColor: 'var(--card-border)' }}>
-        {isEditingText ? (
-          <textarea
-            value={quote}
-            onChange={(e) => setQuote(e.target.value)}
-            rows={2}
-            className="w-full text-[11px] p-1 rounded border bg-transparent italic"
-            style={{ borderColor: 'var(--card-border)' }}
-            placeholder="自定义浪漫随笔/寄语..."
-          />
-        ) : (
-          <p className="line-clamp-2">{quote}</p>
-        )}
-      </div>
-
-      {/* 双人头像与同听状态（点击头像支持上传自定义图） */}
-      <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: 'var(--divider)' }}>
-        <div className="flex items-center gap-2.5">
-          <div className="flex -space-x-2">
-            {/* 伴侣头像 */}
-            <button
-              type="button"
-              onClick={() => companionInputRef.current?.click()}
-              className="relative w-8 h-8 rounded-full border-2 overflow-hidden shadow-sm transition-transform active:scale-95 group"
-              style={{ borderColor: 'var(--card-bg)', background: 'var(--control-soft-bg)' }}
-              title="点击更换伴侣头像"
-            >
-              {companionAvatar ? (
-                <img src={companionAvatar} alt="Companion" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">
-                  {companionName[0] || 'C'}
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Upload className="w-3 h-3 text-white" />
-              </div>
-            </button>
-
-            {/* 用户头像 */}
-            <button
-              type="button"
-              onClick={() => userInputRef.current?.click()}
-              className="relative w-8 h-8 rounded-full border-2 overflow-hidden shadow-sm transition-transform active:scale-95 group"
-              style={{ borderColor: 'var(--card-bg)', background: 'var(--control-soft-bg)' }}
-              title="点击更换你的头像"
-            >
-              {userAvatar ? (
-                <img src={userAvatar} alt="User" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">U</div>
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Upload className="w-3 h-3 text-white" />
-              </div>
-            </button>
-          </div>
-
-          <div className="text-[10px]">
-            <div className="font-semibold">你 和 {companionName}</div>
-            <div className="opacity-50">双通道音轨同听中</div>
-          </div>
-        </div>
-
-        {/* 播放控制与保活开关按纽 */}
-        <button
-          type="button"
-          onClick={toggleActive}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all active:scale-95"
-          style={{
-            backgroundColor: isActive ? 'var(--accent-color)' : 'var(--control-soft-bg)',
-            color: isActive ? 'var(--accent-foreground)' : 'var(--text-main)',
-            border: '1px solid var(--card-border)',
-          }}
-        >
-          {isActive ? (
-            <>
-              <Pause className="w-3.5 h-3.5 fill-current" />
-              <span>暂停保活</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-              <span>开启保活</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* 底部律动音轨 (Wave bars) */}
-      <div className="flex items-center justify-between gap-1 h-5 pt-1">
-        {Array.from({ length: 28 }).map((_, idx) => {
-          const randomHeight = isActive
-            ? 4 + Math.abs(Math.sin((idx + 1) * 0.7)) * 14
-            : 3;
-          return (
-            <span
-              key={idx}
-              className="flex-1 rounded-full transition-all duration-300"
-              style={{
-                height: `${randomHeight}px`,
-                backgroundColor: isActive ? 'var(--accent-color)' : 'var(--divider)',
-                opacity: isActive ? 0.8 : 0.3,
-              }}
+          <span className="flex items-center gap-1.5 text-[9px] font-medium tracking-[0.16em] text-[var(--text-on-ink)]">
+            <i
+              className={`keep-alive-player__status-dot ${
+                isActive ? 'keep-alive-player__status-dot--active' : ''
+              }`}
             />
-          );
-        })}
+            {isActive ? 'Live Sync' : 'Standby'}
+          </span>
+
+          <button
+            type="button"
+            onClick={handleEdit}
+            aria-label={isEditing ? '保存播放器文字' : '编辑播放器文字'}
+            title={isEditing ? '保存' : '编辑'}
+            className="flex h-6 w-6 items-center justify-center transition-opacity hover:opacity-60 active:scale-95"
+          >
+            {isEditing ? (
+              <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+            ) : (
+              <Settings2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+            )}
+          </button>
+        </div>
+      </header>
+
+      <div className="relative px-5 pb-5 pt-6">
+        <div className="grid grid-cols-[minmax(0,1fr)_8.8rem] items-start gap-3">
+          <section className="min-w-0 pt-1">
+            {isEditing ? (
+              <input
+                value={draft.issue}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    issue: event.target.value,
+                  }))
+                }
+                className="keep-alive-player__field mb-4 w-full"
+                aria-label="期刊标签"
+              />
+            ) : (
+              <p className="mb-4 text-[9px] uppercase tracking-[0.18em] text-[var(--text-on-ink-muted)]">
+                {config.issue}
+              </p>
+            )}
+
+            {isEditing ? (
+              <textarea
+                value={draft.title}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+                rows={2}
+                className="keep-alive-player__title-field w-full"
+                aria-label="主标题"
+              />
+            ) : (
+              <h4 className="keep-alive-player__title">
+                {config.title}
+              </h4>
+            )}
+
+            {isEditing ? (
+              <textarea
+                value={draft.description}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                rows={4}
+                className="keep-alive-player__field mt-4 w-full leading-relaxed"
+                aria-label="描述文字"
+              />
+            ) : (
+              <p className="mt-4 max-w-[12rem] text-[11px] leading-relaxed text-[var(--text-on-ink-muted)]">
+                {config.description}
+              </p>
+            )}
+          </section>
+
+          <section className="pt-2">
+            <div className="keep-alive-player__vinyl-stage">
+              <div
+                className={`keep-alive-player__vinyl ${
+                  isActive ? 'keep-alive-player__vinyl--playing' : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => companionInputRef.current?.click()}
+                  title="更换唱片封面或伴侣头像"
+                  aria-label="更换唱片封面或伴侣头像"
+                  className="keep-alive-player__label group"
+                >
+                  {config.companionAvatar ? (
+                    <img
+                      src={config.companionAvatar}
+                      alt={config.companionName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-serif text-xl">
+                      {getInitial(config.companionName, 'W')}
+                    </span>
+                  )}
+
+                  <span className="keep-alive-player__label-upload">
+                    <Upload className="h-3.5 w-3.5" strokeWidth={1.4} />
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-3 text-center text-[8px] uppercase tracking-[0.16em] text-[var(--text-on-ink-muted)]">
+              Quiet transmission
+            </p>
+          </section>
+        </div>
+
+        <section className="relative mt-7 border-t pt-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[9px] uppercase tracking-[0.17em] text-[var(--text-on-ink-muted)]">
+                Now keeping alive / Track 01
+              </p>
+
+              {isEditing ? (
+                <input
+                  value={draft.artist}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      artist: event.target.value,
+                    }))
+                  }
+                  className="keep-alive-player__title-field mt-1 w-full !text-lg"
+                  aria-label="副标题"
+                />
+              ) : (
+                <h5 className="mt-1 font-serif text-xl leading-none tracking-tight text-[var(--text-on-ink)]">
+                  {config.artist}
+                </h5>
+              )}
+            </div>
+
+            <span className="shrink-0 pt-1 text-right text-[9px] leading-relaxed tracking-[0.13em] text-[var(--text-on-ink-muted)]">
+              {stats.diaries} NOTES
+              <br />
+              {stats.snapshots} MOMENTS
+              <br />
+              {stats.travels} JOURNEYS
+            </span>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between">
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => companionInputRef.current?.click()}
+                className="keep-alive-player__avatar relative z-10"
+                title="更换伴侣头像"
+                aria-label="更换伴侣头像"
+              >
+                {config.companionAvatar ? (
+                  <img
+                    src={config.companionAvatar}
+                    alt={config.companionName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  getInitial(config.companionName, 'W')
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => userInputRef.current?.click()}
+                className="keep-alive-player__avatar -ml-2"
+                title="更换用户头像"
+                aria-label="更换用户头像"
+              >
+                {config.userAvatar ? (
+                  <img
+                    src={config.userAvatar}
+                    alt="用户头像"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  'U'
+                )}
+              </button>
+
+              <div className="ml-3 text-[10px] leading-relaxed text-[var(--text-on-ink-muted)]">
+                <strong className="block font-medium text-[var(--text-on-ink)]">
+                  你 和 {config.companionName}
+                </strong>
+                {isActive ? '正在一起听 · 页面状态已同步' : '等待下一次静默同行'}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggle}
+              className="keep-alive-player__play-button"
+              aria-label={isActive ? '停止静音保活' : '启动静音保活'}
+            >
+              {isActive ? (
+                <Pause className="h-4 w-4 fill-current" strokeWidth={1.5} />
+              ) : (
+                <Play className="ml-0.5 h-4 w-4 fill-current" strokeWidth={1.5} />
+              )}
+            </button>
+          </div>
+
+          <div className="keep-alive-player__wave mt-5" aria-hidden="true">
+            {WAVE_BARS.map((bar) => (
+              <span
+                key={bar}
+                className={
+                  isActive ? 'keep-alive-player__wave-bar--active' : ''
+                }
+                style={{ '--wave-index': bar }}
+              />
+            ))}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-[9px] tracking-[0.14em] text-[var(--text-on-ink-muted)]">
+            <span>{isActive ? '00:00' : '--:--'}</span>
+            <span>{isActive ? 'KEEPING ALIVE' : 'QUIET MODE'}</span>
+          </div>
+        </section>
       </div>
+
+      <div className="relative border-t px-5 py-2 text-right text-[8px] uppercase tracking-[0.2em] text-[var(--text-on-ink-muted)]">
+        Two people · One frequency · {stats.todos} open notes
+      </div>
+
+      <style>{`
+        .keep-alive-player {
+          border-color: var(--ink-card-border) !important;
+          box-shadow: var(--ink-card-shadow) !important;
+        }
+
+        .keep-alive-player__grid {
+          opacity: 0.34;
+          background-image:
+            linear-gradient(
+              90deg,
+              transparent 0,
+              transparent 49.75%,
+              var(--ink-card-border) 49.9%,
+              transparent 50.05%
+            ),
+            linear-gradient(
+              0deg,
+              transparent 0,
+              transparent 76%,
+              var(--ink-card-border) 76.15%,
+              transparent 76.3%
+            );
+        }
+
+        .keep-alive-player header,
+        .keep-alive-player section,
+        .keep-alive-player > div:last-of-type {
+          border-color: var(--ink-card-border);
+        }
+
+        .keep-alive-player__status-dot {
+          display: block;
+          width: 5px;
+          height: 5px;
+          border-radius: 999px;
+          background: var(--text-on-ink-muted);
+        }
+
+        .keep-alive-player__status-dot--active {
+          background: var(--text-on-ink);
+          box-shadow: 0 0 0 4px var(--ink-card-border);
+          animation: keep-alive-status-pulse 2s ease-in-out infinite;
+        }
+
+        .keep-alive-player__vinyl-stage {
+          display: flex;
+          min-height: 142px;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .keep-alive-player__vinyl {
+          display: flex;
+          width: 132px;
+          height: 132px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--ink-card-border);
+          border-radius: 999px;
+          background:
+            repeating-radial-gradient(
+              circle,
+              transparent 0,
+              transparent 4px,
+              var(--ink-card-border) 4.5px,
+              transparent 5.5px
+            ),
+            var(--ink-card-bg);
+          box-shadow: inset 0 0 0 10px var(--ink-card-bg);
+        }
+
+        .keep-alive-player__vinyl--playing {
+          animation: keep-alive-vinyl-spin 11s linear infinite;
+        }
+
+        .keep-alive-player__label {
+          position: relative;
+          width: 55px;
+          height: 55px;
+          overflow: hidden;
+          border: 1px solid var(--ink-card-border);
+          border-radius: 999px;
+          background: var(--control-soft-bg);
+          color: var(--text-main);
+        }
+
+        .keep-alive-player__label-upload {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--ink-card-bg);
+          color: var(--text-on-ink);
+          opacity: 0;
+          transition: opacity 180ms ease;
+        }
+
+        .keep-alive-player__label:hover .keep-alive-player__label-upload,
+        .keep-alive-player__label:focus-visible .keep-alive-player__label-upload {
+          opacity: 0.84;
+        }
+
+        .keep-alive-player__title {
+          margin: 0;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(1.85rem, 8vw, 2.55rem);
+          font-weight: 400;
+          line-height: 0.84;
+          letter-spacing: -0.07em;
+          color: var(--text-on-ink);
+        }
+
+        .keep-alive-player__title::first-letter {
+          font-style: italic;
+        }
+
+        .keep-alive-player__field,
+        .keep-alive-player__title-field {
+          border: 0;
+          border-bottom: 1px solid var(--ink-card-border);
+          border-radius: 0;
+          outline: 0;
+          resize: none;
+          background: transparent;
+          color: var(--text-on-ink);
+        }
+
+        .keep-alive-player__field {
+          padding: 3px 0;
+          font-size: 11px;
+        }
+
+        .keep-alive-player__title-field {
+          padding: 2px 0 5px;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 1.8rem;
+          line-height: 0.9;
+          letter-spacing: -0.06em;
+        }
+
+        .keep-alive-player__avatar {
+          display: flex;
+          width: 31px;
+          height: 31px;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          border: 1px solid var(--ink-card-border);
+          border-radius: 999px;
+          background: var(--control-soft-bg);
+          color: var(--text-main);
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 11px;
+          transition: transform 180ms ease;
+        }
+
+        .keep-alive-player__avatar:active {
+          transform: scale(0.92);
+        }
+
+        .keep-alive-player__play-button {
+          display: flex;
+          width: 38px;
+          height: 38px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--text-on-ink-muted);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--text-on-ink);
+          transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+        }
+
+        .keep-alive-player__play-button:hover {
+          background: var(--text-on-ink);
+          color: var(--accent-color);
+        }
+
+        .keep-alive-player__play-button:active {
+          transform: scale(0.9);
+        }
+
+        .keep-alive-player__wave {
+          display: flex;
+          height: 30px;
+          align-items: center;
+          gap: 2px;
+          overflow: hidden;
+        }
+
+        .keep-alive-player__wave span {
+          display: block;
+          width: 100%;
+          min-width: 1px;
+          height: calc(4px + (var(--wave-index) % 7) * 2px);
+          border-radius: 999px;
+          background: var(--text-on-ink-muted);
+          opacity: 0.34;
+        }
+
+        .keep-alive-player__wave .keep-alive-player__wave-bar--active {
+          animation: keep-alive-wave 1.45s ease-in-out infinite;
+          animation-delay: calc(var(--wave-index) * -0.075s);
+          background: var(--text-on-ink);
+          opacity: 0.78;
+        }
+
+        @keyframes keep-alive-vinyl-spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes keep-alive-status-pulse {
+          0%,
+          100% {
+            opacity: 0.55;
+          }
+
+          50% {
+            opacity: 1;
+          }
+        }
+
+        @keyframes keep-alive-wave {
+          0%,
+          100% {
+            height: calc(5px + (var(--wave-index) % 5) * 2px);
+          }
+
+          50% {
+            height: calc(11px + (var(--wave-index) % 9) * 2px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .keep-alive-player__vinyl--playing,
+          .keep-alive-player__status-dot--active,
+          .keep-alive-player__wave .keep-alive-player__wave-bar--active {
+            animation: none;
+          }
+        }
+      `}</style>
     </GlassCard>
   );
 };
 
 export default KeepAlivePlayer;
+
