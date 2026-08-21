@@ -66,11 +66,11 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
           <button
             type="button"
             onClick={() => setIsExpanded(true)}
-            className="chat-header-heart-button relative flex h-8 w-8 items-center justify-center rounded-full border transition-transform duration-300 active:scale-90"
+           className="chat-header-heart-button group relative flex h-8 w-8 items-center justify-center rounded-full border transition-transform duration-300 active:scale-90"
             style={{
               background: 'var(--card-bg-gradient)',
               borderColor: 'var(--card-border)',
-              color: 'var(--accent-color)',
+             color: 'var(--text-muted)',
               boxShadow: 'var(--card-shadow)'
             }}
             title={`${character.name} · ${currentStatus}`}
@@ -80,11 +80,11 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
               className="absolute inset-1 rounded-full opacity-30"
               style={{ background: 'var(--control-soft-bg)' }}
             />
-            <Heart
-              className="relative h-3.5 w-3.5"
-              fill="currentColor"
-              strokeWidth={1.7}
-            />
+           <Heart
+  className="chat-header-heart-icon relative h-3.5 w-3.5"
+  strokeWidth={1.7}
+/>
+
           </button>
         </div>
       ) : (
@@ -450,6 +450,23 @@ export const ChatHeaderBar = ({ character, chat, onOpenSettings, onSaveSummary }
                 animation: none;
               }
             }
+              .chat-header-heart-icon {
+  fill: transparent;
+  opacity: 0.72;
+  transition:
+    fill 220ms ease,
+    color 220ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.chat-header-heart-button:hover .chat-header-heart-icon {
+  fill: var(--accent-color);
+  color: var(--accent-color);
+  opacity: 1;
+  transform: scale(1.08);
+}
+
           `}</style>
         </section>
       )}
