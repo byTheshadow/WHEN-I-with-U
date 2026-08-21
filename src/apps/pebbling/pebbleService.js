@@ -1,7 +1,61 @@
 // src/apps/pebbling/pebbleService.js
 import db from '../../db';
-import { generateAIResponse } from '../../services/aiService';
+import * as aiServiceModule from '../../services/aiService';
 import { PEBBLE_TYPES } from './pebbleTypes';
+
+/**
+ * AI 服务通用自适应调用器
+ * 自动识别 aiService.js 中实际导出的函数并进行参数适配，避免 Rollup 导出匹配报错
+ */
+async function invokeAI(messages, options = {}) {
+  // 自动搜寻 aiService.js 导出的有效 AI 生成函数
+  const aiFn = 
+    aiServiceModule.generateResponse ||
+    aiServiceModule.generateAIResponse ||
+    aiServiceModule.generateChatResponse ||
+    aiServiceModule.callAI ||
+    aiServiceModule.sendChatMessage ||
+    aiServiceModule.generateText ||
+    aiServiceModule.chat ||
+    (typeof aiServiceModule.default === 'function' ? aiServiceModule.default : null) ||
+    (aiServiceModule.default && typeof aiServiceModule.default.sendMessage === 'function' ? aiServiceModule.default.sendMessage : null) ||
+    (aiServiceModule.default && typeof aiServiceModule.default.generate === 'function' ? aiServiceModule.default.generate : null);
+
+  if (!aiFn) {
+    console.warn('Pebbling: 未在 aiService.js 中找到标准 AI 接口，使用保底兜底回复');
+    return null;
+  }
+
+  // 尝试不同的参数签名适配
+  try {
+    // 签名 1: standard (messages, options)
+    const result = await aiFn(messages, options);
+    if (typeof result === 'string') return result;
+    if (result && typeof result.content === 'string') return result.content;
+    if (result && typeof result.text === 'string') return result.text;
+    if (result && typeof result.reply === 'string') return result.reply;
+    return String(result || '');
+  } catch (err1) {
+    try {
+      // 签名 2: object style ({ systemPrompt, prompt, messages, ...options })
+      const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+      const userMsg = messages.find(m => m.role === 'user')?.content || '';
+      const result = await aiFn({
+        systemPrompt: systemMsg,
+        prompt: userMsg,
+        messages,
+        ...options
+      });
+      if (typeof result === 'string') return result;
+      if (result && typeof result.content === 'string') return result.content;
+      if (result && typeof result.text === 'string') return result.text;
+      return String(result || '');
+    } catch (err2) {
+      console.error('Pebbling invokeAI failed:', err2);
+      throw err2;
+    }
+  }
+}
 
 // 随机挑选石头类型
 function getRandomStoneType() {
@@ -11,7 +65,6 @@ function getRandomStoneType() {
 
 // 1. 用户投掷小石头入巢
 export async function throwPebble({ characterId, stoneType, userContent, delayMinutes = 15 }) {
-  // 按照 Dexie 规范，写入 ++id 表前必须确保对象上没有 id: null
   const now = Date.now();
   const respondAt = now + delayMinutes * 60 * 1000;
 
@@ -46,7 +99,7 @@ export async function aiInitiatePebble(characterId) {
 绝对禁止使用任何 Emoji！仅输出陪伴文字本身。`;
 
   try {
-    const aiText = await generateAIResponse([
+    const aiText = await invokeAI([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: `（衔来了一颗${stoneConfig.name}）` }
     ], { temperature: 0.85 });
@@ -54,7 +107,7 @@ export async function aiInitiatePebble(characterId) {
     const now = Date.now();
     const pebbleData = {
       characterId: Number(characterId),
-      sender: 'ai', // 由 AI 主动发起
+      sender: 'ai',
       stoneType,
       userContent: null,
       status: 'replied',
@@ -75,7 +128,7 @@ export async function aiInitiatePebble(characterId) {
   }
 }
 
-// 3. 检查并处理超时的 pending 小石头 (轮询或切页触发)
+// 3. 检查并处理超时的 pending 小石头
 export async function processPendingPebbles() {
   const now = Date.now();
   const pendingList = await db.pebblings
@@ -103,7 +156,7 @@ export async function processPendingPebbles() {
 请你回赠一颗【${giftStone.name}】，并用 1~3 句话给出温暖、轻盈、无社交负担的回应。
 绝对禁止使用任何 Emoji！不要有礼貌套话，像在同一个巢里安静对齐呼吸。`;
 
-      const aiReply = await generateAIResponse([
+      const aiReply = await invokeAI([
         { role: 'system', content: prompt },
         { role: 'user', content: item.userContent }
       ], { temperature: 0.8 });
