@@ -5,7 +5,10 @@ import './index.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+    // 使用 Vite 环境变量 BASE_URL 兼容 GitHub Pages 子路径部署
+    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+
+    navigator.serviceWorker.register(swUrl).catch((err) => {
       console.warn('ServiceWorker registration failed:', err);
     });
   });
