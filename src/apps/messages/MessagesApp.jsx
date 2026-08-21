@@ -53,6 +53,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   };
 
   const handleDeleteChatEntity = async (chatId) => {
+    if (!chatId) return;
     await db.chats.delete(chatId);
     await db.messages.where('chatId').equals(chatId).delete();
     setDeletingChatTarget(null);
@@ -65,7 +66,10 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
     return (
       <ChatRoom
         chatId={activeChatId}
-        onBack={() => setView('chats')}
+        onBack={() => {
+          setView('chats');
+          loadData();
+        }}
         onRoomStateChange={(inRoom) => onChatRoomStateChange?.(inRoom)}
         onOpenCharacterEditor={() => {
           const currentChat = chats.find((c) => c.id === activeChatId);
@@ -176,19 +180,19 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
             </GlassCard>
           ) : (
             <div className="space-y-2.5">
-              {filteredChats.map((chat) => {
-                const char = characters.find((c) => c.id === chat.characterId);
+              {filteredChats.map((chatItem) => {
+                const char = characters.find((c) => c.id === chatItem.characterId);
                 return (
                   <GlassCard
-                    key={chat.id}
+                    key={chatItem.id}
                     className="flex items-center justify-between p-4 group hover:opacity-95 transition-all relative"
                   >
                     <div
-                      onClick={() => handleOpenChat(chat.id)}
+                      onClick={() => handleOpenChat(chatItem.id)}
                       className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                     >
                       {char?.avatar ? (
-                        <img src={char.avatar} alt={chat.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" />
+                        <img src={char.avatar} alt={chatItem.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" />
                       ) : (
                         <div
                           className="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm"
@@ -197,13 +201,13 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                             color: 'var(--text-main)'
                           }}
                         >
-                          {chat.title?.[0] || 'C'}
+                          {chatItem.title?.[0] || 'C'}
                         </div>
                       )}
 
                       <div className="space-y-1 min-w-0 flex-1 pr-2">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-serif font-bold text-sm truncate" style={{ color: 'var(--text-main)' }}>{chat.title}</h4>
+                          <h4 className="font-serif font-bold text-sm truncate" style={{ color: 'var(--text-main)' }}>{chatItem.title}</h4>
                           <span
                             className="px-2 py-0.5 rounded-full text-[9px] font-mono border"
                             style={{
@@ -212,11 +216,11 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                               color: 'var(--text-muted)'
                             }}
                           >
-                            {chat.mode === 'rp' ? 'RP' : 'Real'}
+                            {chatItem.mode === 'rp' ? 'RP' : 'Real'}
                           </span>
                         </div>
                         <p className="text-[11px] opacity-60 truncate" style={{ color: 'var(--text-sub)' }}>
-                          {chat.summary ? chat.summary : `开启与 ${char?.name || '伴侣'} 的独处时刻`}
+                          {chatItem.summary ? chatItem.summary : `开启与 ${char?.name || '伴侣'} 的独处时刻`}
                         </p>
                       </div>
                     </div>
@@ -225,7 +229,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDeletingChatTarget(chat);
+                        setDeletingChatTarget(chatItem);
                       }}
                       className="p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--control-soft-bg)] rounded-full"
                       title="抹去此对话实体"
@@ -275,3 +279,4 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 };
 
 export default MessagesApp;
+

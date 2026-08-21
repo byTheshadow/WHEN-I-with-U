@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { X, Upload, Trash2, Sliders, Edit2, Plus, Check } from 'lucide-react';
+import { X, Upload, Trash2, Sliders, Edit2, Plus, Check, User } from 'lucide-react';
 import AudioKeepAlive from './AudioKeepAlive';
 import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
 
 export const ChatSettingsModal = ({
   chat,
+  character,
   onClose,
   onUpdateBgImage,
   onUpdateBgOpacity,
@@ -13,11 +14,18 @@ export const ChatSettingsModal = ({
   onOpenBubbleCustomizer,
   onClearHistory,
   onDeletedChat,
-  onSaveSummary
+  onSaveSummary,
+  onUpdatedUserPersona
 }) => {
   const fileInputRef = useRef(null);
+  const userAvatarInputRef = useRef(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // 追加：User 专属昵称与头像配置，任意模式都可使用
+  const [userName, setUserName] = useState(chat?.userName || character?.userName || '');
+  const [userAvatar, setUserAvatar] = useState(chat?.userAvatar || character?.userAvatar || '');
+  const [isSavingUserIdentity, setIsSavingUserIdentity] = useState(false);
 
   // 解析并初始化总结条目数组
   const parseSummaryList = (sum) => {
@@ -46,6 +54,59 @@ export const ChatSettingsModal = ({
       onUpdateBgImage(reader.result);
     };
     reader.readAsDataURL(file);
+  };
+
+  // 追加：上传 User 头像
+  const handleUserAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUserAvatar(reader.result);
+      handleSaveUserIdentity({
+        nextUserAvatar: reader.result
+      });
+    };
+    reader.readAsDataURL(file);
+
+    // 允许重复选择同一张图片
+    e.target.value = '';
+  };
+
+  // 追加：保存 User 昵称和头像到当前 chat，并兼容写入 character
+  const handleSaveUserIdentity = async (override = {}) => {
+    if (!chat?.id) return;
+
+    const nextUserName = Object.prototype.hasOwnProperty.call(override, 'nextUserName')
+      ? override.nextUserName
+      : userName;
+
+    const nextUserAvatar = Object.prototype.hasOwnProperty.call(override, 'nextUserAvatar')
+      ? override.nextUserAvatar
+      : userAvatar;
+
+    const payload = {
+      userName: (nextUserName || '').trim(),
+      userAvatar: (nextUserAvatar || '').trim()
+    };
+
+    try {
+      setIsSavingUserIdentity(true);
+
+      await db.chats.update(chat.id, payload);
+
+      // 兼容旧逻辑：如果角色表也存过 userName/userAvatar，则同步更新
+      if (character?.id) {
+        await db.characters.update(character.id, payload);
+      }
+
+      if (onUpdatedUserPersona) {
+        onUpdatedUserPersona(payload);
+      }
+    } finally {
+      setIsSavingUserIdentity(false);
+    }
   };
 
   const handleDeleteEntireChat = async () => {
@@ -111,6 +172,115 @@ export const ChatSettingsModal = ({
           <button type="button" onClick={onClose} className="p-1 rounded-full opacity-60 hover:opacity-100">
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* 追加：User 专属配置区，不论 RP / 现实 / 其他模式均可配置 */}
+        <div className="space-y-3 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <User className="w-3.5 h-3.5" />
+              <span>你的个人名片</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">
+              {isSavingUserIdentity ? 'SAVING...' : 'USER PROFILE'}
+            </span>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={() => userAvatarInputRef.current?.click()}
+              className="w-14 h-14 shrink-0 rounded-2xl border flex items-center justify-center overflow-hidden relative transition-all active:scale-95"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--divider)'
+              }}
+              title="上传你的头像"
+            >
+              {userAvatar ? (
+                <img src={userAvatar} alt="User Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-5 h-5 opacity-35" />
+              )}
+            </button>
+
+            <input
+              ref={userAvatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleUserAvatarUpload}
+            />
+
+            <div className="flex-1 min-w-0 space-y-2">
+              <div>
+                <label className="block text-[10px] opacity-60 mb-1">你的昵称 / 称呼</label>
+                <input
+                  type="text"
+                  value={userName}
+                  placeholder="例如：阿泽 / User / 我"
+                  onChange={(e) => setUserName(e.target.value)}
+                  onBlur={() => handleSaveUserIdentity()}
+                  className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
+                  style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] opacity-60 mb-1">你的头像 URL / Base64</label>
+                <input
+                  type="text"
+                  value={userAvatar}
+                  placeholder="https://... 或上传图片自动填入"
+                  onChange={(e) => setUserAvatar(e.target.value)}
+                  onBlur={() => handleSaveUserIdentity()}
+                  className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
+                  style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => userAvatarInputRef.current?.click()}
+              className="flex-1 py-1.5 rounded-xl border text-[10px] font-medium transition-all active:scale-95"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--divider)',
+                color: 'var(--text-main)'
+              }}
+            >
+              {userAvatar ? '更换头像' : '上传头像'}
+            </button>
+
+            {userAvatar && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUserAvatar('');
+                  handleSaveUserIdentity({ nextUserAvatar: '' });
+                }}
+                className="px-3 py-1.5 rounded-xl text-rose-500 bg-rose-500/10 text-[10px] font-semibold transition-all active:scale-95"
+              >
+                移除头像
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleSaveUserIdentity()}
+              className="px-3 py-1.5 rounded-xl text-emerald-600 bg-emerald-500/10 text-[10px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+              disabled={isSavingUserIdentity}
+            >
+              保存
+            </button>
+          </div>
+
+          <p className="text-[10px] opacity-45 leading-relaxed">
+            此配置会保存到当前对话空间，并在有角色数据时同步写入角色的 User 身份字段；适用于任意聊天模式。
+          </p>
         </div>
 
         {/* 阶段性多条目心绪总结管理 */}

@@ -57,7 +57,6 @@ db.version(4).stores({
   travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead'
 });
 
-// 📷 Version 5: Snapshots（IG 拍立得动态朋友圈 Sub-App 数据表）
 db.version(5).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -80,8 +79,6 @@ db.version(5).stores({
   snapshotSettings: 'key, value'
 });
 
-// 🪨 Version 6: Pebblings 数据表
-// 保留旧表定义，避免 Dexie 在升级时删除 v5 已存在的数据表。
 db.version(6).stores({
   profile: 'id',
   pinnedGallery: 'id, title, caption, photos',
@@ -104,14 +101,12 @@ db.version(6).stores({
   settings: 'key',
   pebblings: '++id, characterId, status, stoneType, createdAt, respondAt'
 }).upgrade(async (tx) => {
-  // 为旧快照数据补齐 createdAt，确保升级后可按新索引查询。
   await tx.table('snapshots').toCollection().modify((snapshot) => {
     if (snapshot.createdAt == null && snapshot.timestamp != null) {
       snapshot.createdAt = snapshot.timestamp;
     }
   });
 
-  // 为旧评论数据补齐 createdAt。
   await tx.table('snapshotComments').toCollection().modify((comment) => {
     if (comment.createdAt == null && comment.timestamp != null) {
       comment.createdAt = comment.timestamp;
@@ -119,5 +114,30 @@ db.version(6).stores({
   });
 });
 
+// 🛠️ Version 7: 补齐 messages 表缺失的 chatId 索引，增加多版本与用户人设/头像字段
+db.version(7).stores({
+  profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userName, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+  travels: '++id, characterId, status',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt'
+});
+
 export default db;
+
 

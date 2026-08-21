@@ -65,7 +65,7 @@ const getFormattedRealTime = () => {
   return `${dateStr} ${days[now.getDay()]} ${timeStr}`;
 };
 
-const parseAiResponseToMessages = (text) => {
+export const parseAiResponseToMessages = (text) => {
   const result = [];
   const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO):\s*([^\]]+)\]/g;
   let lastIndex = 0;
@@ -126,6 +126,218 @@ const parseAiResponseToMessages = (text) => {
 
   return result;
 };
+
+// ==============================
+// AI 统一请求 / 错误处理引擎
+// ==============================
+
+const fetchAiCompletion = async (systemPrompt, historyContext = [], configOverride = null) => {
+  const apiSettings = configOverride ? null : await db.settings.get('apiConfig');
+  const apiConfig = configOverride || apiSettings?.value || {};
+
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+    return {
+      error: true,
+      code: 'CONFIG_MISSING',
+      message: '请先在系统设置中配置有效的 API Base URL 与 API Key。'
+    };
+  }
+
+  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: apiConfig.model || 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...historyContext
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      let errorDetail = response.statusText || '请求未成功';
+
+      try {
+        const errorData = await response.json();
+        errorDetail = errorData?.error?.message || errorData?.message || errorDetail;
+      } catch (err) {
+        // 某些 API 会返回 HTML 或纯文本错误页，此时保留 statusText。
+      }
+
+      return {
+        error: true,
+        code: `HTTP_${response.status}`,
+        message: `[API Error ${response.status}] ${errorDetail}`
+      };
+    }
+
+    const data = await response.json();
+    const content = String(data?.choices?.[0]?.message?.content || '').trim();
+
+    if (!content) {
+      return {
+        error: true,
+        code: 'EMPTY_RESPONSE',
+        message: 'AI 返回内容为空，请检查当前模型或 API 服务状态。'
+      };
+    }
+
+    return {
+      error: false,
+      content
+    };
+  } catch (err) {
+    return {
+      error: true,
+      code: 'NETWORK_ERROR',
+      message: `网络请求失败: ${err?.message || '未知错误'}`
+    };
+  }
+};
+
+const saveAiErrorMessage = async (chatId, character, result) => {
+  const nowIso = new Date().toISOString();
+
+  return db.messages.add({
+    chatId,
+    characterId: character.id,
+    sender: 'character',
+    type: 'error',
+    content: result.message,
+    metadata: {
+      errorCode: result.code,
+      errorMessage: result.message
+    },
+    versions: [
+      {
+        type: 'error',
+        content: result.message,
+        metadata: {
+          errorCode: result.code,
+          errorMessage: result.message
+        },
+        errorCode: result.code,
+        errorMessage: result.message,
+        timestamp: nowIso
+      }
+    ],
+    currentVersionIndex: 0,
+    isRead: true,
+    timestamp: nowIso
+  });
+};
+
+const buildChatSystemPrompt = async (chatId, chat, character) => {
+  const enabledWorldBooks = await db.worldBooks
+    .where('isEnabled')
+    .equals(1)
+    .toArray();
+
+  const characterWorldBookText = character.worldBook
+    ? `\n- 专属世界书: ${character.worldBook}`
+    : '';
+
+  const worldBooksText = (enabledWorldBooks.length > 0 || characterWorldBookText)
+    ? `\n【世界书背景设定】:\n${enabledWorldBooks
+        .map((wb) => `- ${wb.title}: ${wb.content || ''}`)
+        .join('\n')}${characterWorldBookText}`
+    : '';
+
+  let summaryEntries = [];
+
+  if (Array.isArray(chat.summary)) {
+    summaryEntries = chat.summary;
+  } else if (typeof chat.summary === 'string' && chat.summary.trim()) {
+    summaryEntries = [
+      {
+        id: 'legacy',
+        content: chat.summary,
+        createdAt: '早期记录',
+        isAuto: true
+      }
+    ];
+  }
+
+  const summaryText = summaryEntries.length > 0
+    ? `\n【本窗阶段性历史事实记录】:\n${summaryEntries
+        .map((item, index) => `${index + 1}. [${item.createdAt || '历史'}] ${item.content}`)
+        .join('\n')}`
+    : '';
+
+  const allTodos = await db.todos.toArray();
+
+  const pendingTodos = allTodos
+    .filter((todo) => !todo.isCompleted && (!todo.characterId || todo.characterId === character.id))
+    .slice(0, 2);
+
+  const todoText = pendingTodos.length > 0
+    ? `\n【用户近期待办事项（仅在自然且必要时温和提及）】:\n${pendingTodos
+        .map((todo) => `- [待办] ${todo.title}（截止：${todo.dueDate || '近期'}）`)
+        .join('\n')}`
+    : '';
+
+  const userDiaries = await db.diaries
+    .where('author')
+    .equals('user')
+    .reverse()
+    .sortBy('timestamp');
+
+  const recentUserDiaries = userDiaries.slice(0, 2);
+
+  const diaryText = recentUserDiaries.length > 0
+    ? `\n【用户近期日记（供共情与关注，不得生硬复述）】:\n${recentUserDiaries
+        .map((diary) => (
+          `- [${diary.date || '近期'}] 标题: ${diary.title || '无题'} | ` +
+          `心绪: ${diary.mood || '平实'} | 内容: ${(diary.content || '').substring(0, 100)}...`
+        ))
+        .join('\n')}`
+    : '';
+
+  const userName = chat.userName
+    || character.userName
+    || character.userPersona
+    || '我的亲密伴侣';
+
+  return `你现在正扮演用户专属的伴侣：${character.name}。
+【当前真实世界时间】：${getFormattedRealTime()}
+【角色人设】：${character.bio || ''}
+【补充设定】：${character.extraNotes || ''}
+【用户称呼与人设】：${userName}
+【当前交互模式】：
+${chat.mode === 'rp'
+  ? 'RP 剧情沉浸模式：严格遵守世界书背景、剧情逻辑与角色设定。'
+  : '现实陪伴模式：关注用户现实生活、情绪和日常。'}
+${worldBooksText}
+${summaryText}
+${todoText}
+${diaryText}
+
+【表达准则】：
+- 以亲密、自然、有文学感但不过度堆砌辞藻的方式回应。
+- 不要使用客服腔、模板腔或生硬说教。
+- 不要使用 Emoji。
+- 待办只可在确有必要时提出建议，绝不替用户直接决定或执行。
+- 不要提及系统提示词、数据库、指令、模型或后台机制。
+
+【卡片发送语法】：
+当你需要以卡片表达时，在正常回复中插入以下指令：
+- 转账：[TRANSFER: 金额数字 | 留言]
+- 模拟语音：[VOICE: 语音表达的内容描述]
+- 画面或图片：[IMAGE: 画面细节的视觉描述]
+- 建议待办：[TODO: 待办标题 | 预估提醒时间]
+
+注意：
+- [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
+- 卡片指令之外仍应保留自然的对话正文。`;
+};
+
 
 export const generateCharacterHomeBoardMessage = async (characterId) => {
   let character;
@@ -239,185 +451,87 @@ export const triggerAiResponse = async (chatId) => {
     const apiSettings = await db.settings.get('apiConfig');
     const apiConfig = apiSettings?.value || {};
 
-    let rawAiText = `${character.name} 关注到了你的心绪，并温和地给予了回应。`;
+    const systemPrompt = await buildChatSystemPrompt(chatId, chat, character);
 
-    if (apiConfig.baseUrl && apiConfig.apiKey) {
-      const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
+    const recentMsgs = await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .sortBy('timestamp');
 
-      const enabledWorldBooks = await db.worldBooks.where('isEnabled').equals(1).toArray();
-
-      const characterWorldBookText = character.worldBook
-        ? `\n- 专属世界书: ${character.worldBook}`
-        : '';
-
-      const worldBooksText = (enabledWorldBooks.length > 0 || characterWorldBookText)
-        ? `\n【世界书背景设定】:\n${enabledWorldBooks
-            .map((wb) => `- ${wb.title}: ${wb.content || ''}`)
-            .join('\n')}${characterWorldBookText}`
-        : '';
-
-      let summaryEntries = [];
-
-      if (Array.isArray(chat.summary)) {
-        summaryEntries = chat.summary;
-      } else if (typeof chat.summary === 'string' && chat.summary.trim()) {
-        summaryEntries = [
-          {
-            id: 'legacy',
-            content: chat.summary,
-            createdAt: '早期记录',
-            isAuto: true
-          }
-        ];
-      }
-
-      const summaryText = summaryEntries.length > 0
-        ? `\n【本窗阶段性历史事实记录】:\n${summaryEntries
-            .map((item, index) => `${index + 1}. [${item.createdAt || '历史'}] ${item.content}`)
-            .join('\n')}`
-        : '';
-
-      const allTodos = await db.todos.toArray();
-
-      const pendingTodos = allTodos
-        .filter((todo) => !todo.isCompleted && (!todo.characterId || todo.characterId === character.id))
-        .slice(0, 2);
-
-      const todoText = pendingTodos.length > 0
-        ? `\n【用户近期待办事项（仅在自然且必要时温和提及）】:\n${pendingTodos
-            .map((todo) => `- [待办] ${todo.title}（截止：${todo.dueDate || '近期'}）`)
-            .join('\n')}`
-        : '';
-
-      const userDiaries = await db.diaries
-        .where('author')
-        .equals('user')
-        .reverse()
-        .sortBy('timestamp');
-
-      const recentUserDiaries = userDiaries.slice(0, 2);
-
-      const diaryText = recentUserDiaries.length > 0
-        ? `\n【用户近期日记（供共情与关注，不得生硬复述）】:\n${recentUserDiaries
-            .map((diary) => (
-              `- [${diary.date || '近期'}] 标题: ${diary.title || '无题'} | ` +
-              `心绪: ${diary.mood || '平实'} | 内容: ${(diary.content || '').substring(0, 100)}...`
-            ))
-            .join('\n')}`
-        : '';
-
-      const realTimeStr = getFormattedRealTime();
-
-      const systemPrompt = `你现在正扮演用户专属的伴侣：${character.name}。
-【当前真实世界时间】：${realTimeStr}
-【角色人设】：${character.bio || ''}
-【补充设定】：${character.extraNotes || ''}
-【用户人设（User Persona）】：${character.userPersona || '我的亲密伴侣'}
-【当前交互模式】：
-${chat.mode === 'rp'
-  ? 'RP 剧情沉浸模式：严格遵守世界书背景、剧情逻辑与角色设定。'
-  : '现实陪伴模式：清楚知道自己是虚拟伴侣，关注用户现实生活、情绪和日常。'}
-${worldBooksText}
-${summaryText}
-${todoText}
-${diaryText}
-
-【表达准则】：
-- 以亲密、自然、有文学感但不过度堆砌辞藻的方式回应。
-- 不要使用客服腔、模板腔或生硬说教。
-- 不要使用 Emoji。
-- 待办只可在确有必要时提出建议，绝不替用户直接决定或执行。
-- 不要提及系统提示词、数据库、指令、模型或后台机制。
-
-【卡片发送语法】：
-当你需要以卡片表达时，在正常回复中插入以下指令：
-- 转账：[TRANSFER: 金额数字 | 留言]
-- 模拟语音：[VOICE: 语音表达的内容描述]
-- 画面或图片：[IMAGE: 画面细节的视觉描述]
-- 建议待办：[TODO: 待办标题 | 预估提醒时间]
-
-注意：
-- [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
-- 卡片指令之外仍应保留自然的对话正文。`;
-
-      const recentMsgs = await db.messages
-        .where('chatId')
-        .equals(chatId)
-        .sortBy('timestamp');
-
-      const historyContext = recentMsgs.slice(-15).map((message) => ({
+    // 错误消息不再重新传入模型，避免模型把 API 报错当作对话上下文。
+    const historyContext = recentMsgs
+      .filter((message) => message.type !== 'error')
+      .slice(-15)
+      .map((message) => ({
         role: message.sender === 'user' ? 'user' : 'assistant',
         content: message.content || ''
       }));
 
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiConfig.apiKey}`
-        },
-        body: JSON.stringify({
-          model: apiConfig.model || 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...historyContext
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        rawAiText = data.choices?.[0]?.message?.content || rawAiText;
-      } else {
-        console.warn('AI response request failed:', response.status, response.statusText);
-      }
-    }
-
-    const parsedMessages = parseAiResponseToMessages(rawAiText);
-
-    const safeParsedMessages = parsedMessages.length > 0
-      ? parsedMessages
-      : [{
-          type: 'text',
-          content: rawAiText || `${character.name} 此刻安静地陪在你身边。`,
-          metadata: {}
-        }];
-
+    const result = await fetchAiCompletion(systemPrompt, historyContext, apiConfig);
     const nowIso = new Date().toISOString();
-    const messageIds = [];
 
-    for (const msgData of safeParsedMessages) {
-      const newMessagePayload = {
+    let messageIds = [];
+    let preview = '';
+
+    if (result.error) {
+      const errorMessageId = await saveAiErrorMessage(chatId, character, result);
+
+      messageIds = [errorMessageId];
+      preview = '请求未成功抵达';
+
+      notifyListeners({
+        type: 'AI_RESPONSE_ERROR',
         chatId,
         characterId: character.id,
-        sender: 'character',
-        type: msgData.type || 'text',
-        content: msgData.content || '',
-        metadata: msgData.metadata || {},
-        isRead: false,
-        timestamp: nowIso
-      };
+        characterName: character.name,
+        message: result.message,
+        errorCode: result.code
+      });
+    } else {
+      const parsedMessages = parseAiResponseToMessages(result.content);
 
-      delete newMessagePayload.id;
+      const safeParsedMessages = parsedMessages.length > 0
+        ? parsedMessages
+        : [{
+            type: 'text',
+            content: result.content,
+            metadata: {}
+          }];
 
-      const newMessageId = await db.messages.add(newMessagePayload);
-      messageIds.push(newMessageId);
+      for (const msgData of safeParsedMessages) {
+        const newMessagePayload = {
+          chatId,
+          characterId: character.id,
+          sender: 'character',
+          type: msgData.type || 'text',
+          content: msgData.content || '',
+          metadata: msgData.metadata || {},
+          versions: [
+            {
+              type: msgData.type || 'text',
+              content: msgData.content || '',
+              metadata: msgData.metadata || {},
+              timestamp: nowIso
+            }
+          ],
+          currentVersionIndex: 0,
+          isRead: false,
+          timestamp: nowIso
+        };
+
+        const newMessageId = await db.messages.add(newMessagePayload);
+        messageIds.push(newMessageId);
+      }
+
+      preview = safeParsedMessages.find((message) => message.type === 'text')?.content
+        || safeParsedMessages[0]?.content
+        || '发来了一条消息';
     }
 
     await db.chats.update(chatId, {
       updatedAt: nowIso
     });
 
-    const preview = safeParsedMessages.find((message) => message.type === 'text')?.content
-      || safeParsedMessages[0]?.content
-      || '发来了一条消息';
-
-    /*
-      无条件派发 NEW_MESSAGE：
-      即使用户正在聊天框 A 内，这个事件也必须发送。
-      NotificationToast 会因此显示站内提醒；
-      ChatRoom 也会据此刷新消息流。
-    */
     notifyListeners({
       type: 'NEW_MESSAGE',
       chatId,
@@ -430,11 +544,6 @@ ${diaryText}
       isCurrentPageVisible: isDocumentVisible()
     });
 
-    /*
-      前台时由站内 Toast 承担提醒，不额外触发系统通知；
-      后台、切出浏览器、锁屏等情况下，尝试触发系统原生通知。
-      操作系统最终是否展示仍受浏览器和设备策略控制。
-    */
     if (!isDocumentVisible()) {
       triggerSystemNotification(
         `${character.name} 发来消息`,
@@ -443,7 +552,10 @@ ${diaryText}
       );
     }
 
-    void checkAndTriggerAutoSummary(chatId, character, apiConfig);
+    // 只有真实 AI 回复成功时，才触发自动总结。
+    if (!result.error) {
+      void checkAndTriggerAutoSummary(chatId, character, apiConfig);
+    }
   } catch (err) {
     console.error('Background AI task error:', err);
 
@@ -453,6 +565,152 @@ ${diaryText}
       characterId: character.id,
       characterName: character.name,
       message: '这一次回应没有顺利抵达，请稍后再试。'
+    });
+  } finally {
+    activeAiRequests.delete(chatId);
+    notifyListeners({ type: 'AI_TYPING_END', chatId });
+  }
+};
+
+// 重新生成（重 roll）指定角色消息。
+// 每次重 roll 会保留旧版本，并将新版本设为当前展示版本。
+export const rerollAiResponse = async (chatId, messageId) => {
+  if (!chatId || !messageId || activeAiRequests.has(chatId)) return;
+
+  const targetMsg = await db.messages.get(messageId);
+
+  if (!targetMsg || targetMsg.sender !== 'character') {
+    return;
+  }
+
+  const chat = await db.chats.get(chatId);
+  if (!chat) return;
+
+  const character = await db.characters.get(chat.characterId);
+  if (!character) return;
+
+  activeAiRequests.add(chatId);
+  notifyListeners({ type: 'AI_TYPING_START', chatId });
+
+  try {
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+
+    const systemPrompt = await buildChatSystemPrompt(chatId, chat, character);
+
+    const allMessages = await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .sortBy('timestamp');
+
+    const targetIndex = allMessages.findIndex((message) => message.id === messageId);
+
+    // 重 roll 时只使用该消息之前的上下文，不带入原回复及后续内容。
+    const historyMessages = targetIndex >= 0
+      ? allMessages.slice(0, targetIndex)
+      : allMessages;
+
+    const historyContext = historyMessages
+      .filter((message) => message.type !== 'error')
+      .slice(-15)
+      .map((message) => ({
+        role: message.sender === 'user' ? 'user' : 'assistant',
+        content: message.content || ''
+      }));
+
+    const result = await fetchAiCompletion(systemPrompt, historyContext, apiConfig);
+    const nowIso = new Date().toISOString();
+
+    const currentVersions = Array.isArray(targetMsg.versions) && targetMsg.versions.length > 0
+      ? [...targetMsg.versions]
+      : [{
+          type: targetMsg.type || 'text',
+          content: targetMsg.content || '',
+          metadata: targetMsg.metadata || {},
+          timestamp: targetMsg.timestamp || nowIso
+        }];
+
+    let newVersion;
+
+    if (result.error) {
+      newVersion = {
+        type: 'error',
+        content: result.message,
+        metadata: {
+          errorCode: result.code,
+          errorMessage: result.message
+        },
+        errorCode: result.code,
+        errorMessage: result.message,
+        timestamp: nowIso
+      };
+    } else {
+      const parsed = parseAiResponseToMessages(result.content);
+      const firstMessage = parsed[0] || {
+        type: 'text',
+        content: result.content,
+        metadata: {}
+      };
+
+      newVersion = {
+        type: firstMessage.type || 'text',
+        content: firstMessage.content || '',
+        metadata: firstMessage.metadata || {},
+        timestamp: nowIso
+      };
+    }
+
+    currentVersions.push(newVersion);
+
+    await db.messages.update(messageId, {
+      type: newVersion.type,
+      content: newVersion.content,
+      metadata: newVersion.metadata || {},
+      versions: currentVersions,
+      currentVersionIndex: currentVersions.length - 1,
+      timestamp: nowIso
+    });
+
+    await db.chats.update(chatId, {
+      updatedAt: nowIso
+    });
+
+    notifyListeners({
+      type: 'NEW_MESSAGE',
+      chatId,
+      characterId: character.id,
+      characterName: character.name,
+      characterAvatar: character.avatar || '',
+      preview: newVersion.type === 'error'
+        ? '重新生成未成功'
+        : newVersion.content || '已重新生成回复',
+      messageIds: [messageId],
+      timestamp: nowIso,
+      isReroll: true,
+      isCurrentPageVisible: isDocumentVisible()
+    });
+
+    if (result.error) {
+      notifyListeners({
+        type: 'AI_RESPONSE_ERROR',
+        chatId,
+        characterId: character.id,
+        characterName: character.name,
+        message: result.message,
+        errorCode: result.code,
+        isReroll: true
+      });
+    }
+  } catch (err) {
+    console.error('Reroll failed:', err);
+
+    notifyListeners({
+      type: 'AI_RESPONSE_ERROR',
+      chatId,
+      characterId: character.id,
+      characterName: character.name,
+      message: '重新生成失败，请稍后再试。',
+      isReroll: true
     });
   } finally {
     activeAiRequests.delete(chatId);
@@ -1525,6 +1783,7 @@ export default {
   subscribeAiEvents,
   subscribeSummaryStatus,
   triggerAiResponse,
+  rerollAiResponse,
   generateCharacterHomeBoardMessage,
   generateCompanionReplyForDiary,
   generateCompanionProactiveDiary,
