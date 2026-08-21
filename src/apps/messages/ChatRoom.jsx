@@ -29,6 +29,10 @@ import ImageCard from './components/cards/ImageCard';
 import VoiceCard from './components/cards/VoiceCard';
 import TransferCard from './components/cards/TransferCard';
 import ArticleCard from './components/cards/ArticleCard';
+import GiftCard from './components/cards/GiftCard';
+import FoodDeliveryCard from './components/cards/FoodDeliveryCard';
+import KinshipCard from './components/cards/KinshipCard';
+import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 
 export const ChatRoom = ({
   chatId,
@@ -418,6 +422,9 @@ export const ChatRoom = ({
                         {msg.type === 'voice' && <VoiceCard content={msg.content} metadata={msg.metadata} />}
                         {msg.type === 'transfer' && <TransferCard content={msg.content} metadata={msg.metadata} sender={msg.sender} />}
                         {msg.type === 'article' && <ArticleCard content={msg.content} metadata={msg.metadata} />}
+                        {msg.type === 'gift' && <GiftCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
+                        {msg.type === 'food' && <FoodDeliveryCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
+                        {msg.type === 'kinship' && <KinshipCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
                       </div>
                     )}
                   </div>
@@ -615,6 +622,108 @@ export const ChatRoom = ({
                 />
               </div>
             )}
+
+            {selectedType === 'gift' && (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  placeholder="礼物名称 (如: 羊绒围巾)"
+                  onChange={(event) => setExtraInputMeta({
+                    ...extraInputMeta,
+                    name: event.target.value
+                  })}
+                  className="w-full rounded-xl p-2 text-xs outline-none"
+                  style={{
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-main)'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="寄语或选礼理由..."
+                  value={inputText}
+                  onChange={(event) => setInputText(event.target.value)}
+                  className="w-full rounded-xl p-2 text-xs outline-none"
+                  style={{
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-main)'
+                  }}
+                />
+              </div>
+            )}
+
+            {selectedType === 'food' && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="餐品/饮品"
+                    onChange={(event) => setExtraInputMeta({
+                      ...extraInputMeta,
+                      item: event.target.value
+                    })}
+                    className="w-1/2 rounded-xl p-2 text-xs outline-none"
+                    style={{
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-main)'
+                    }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="商家/品牌"
+                    onChange={(event) => setExtraInputMeta({
+                      ...extraInputMeta,
+                      store: event.target.value
+                    })}
+                    className="w-1/2 rounded-xl p-2 text-xs outline-none"
+                    style={{
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-main)'
+                    }}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="叮嘱留言 (如: 记得趁热吃)"
+                  value={inputText}
+                  onChange={(event) => setInputText(event.target.value)}
+                  className="w-full rounded-xl p-2 text-xs outline-none"
+                  style={{
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-main)'
+                  }}
+                />
+              </div>
+            )}
+
+            {selectedType === 'kinship' && (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  placeholder="额度数字 (如: 5200)"
+                  onChange={(event) => setExtraInputMeta({
+                    ...extraInputMeta,
+                    amount: event.target.value
+                  })}
+                  className="w-full rounded-xl p-2 font-mono text-xs outline-none"
+                  style={{
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-main)'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="专属卡面赠言..."
+                  value={inputText}
+                  onChange={(event) => setInputText(event.target.value)}
+                  className="w-full rounded-xl p-2 text-xs outline-none"
+                  style={{
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-main)'
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -627,6 +736,8 @@ export const ChatRoom = ({
           }}
         >
           <div className="flex items-center gap-1 opacity-80">
+            <InteractiveMenuPopover onSelectAction={(type) => setSelectedType(type)} />
+
             <button
               type="button"
               onClick={() => setSelectedType('image')}
