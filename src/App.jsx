@@ -12,6 +12,7 @@ import TodoApp from './apps/todos/TodoApp';
 import DiaryApp from './apps/diaries/DiaryApp';
 import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
+import PebblingApp from './apps/pebbling/PebblingApp'; // 👈 引入 Pebbling Sub-App
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -206,7 +207,14 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel', 'snapshots'].includes(currentApp) && (
+        {/* 👈 挂载全新的 PEBBLING 企鹅小石 Sub-App */}
+        {currentApp === 'pebbling' && (
+          <ErrorBoundary>
+            <PebblingApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel', 'snapshots', 'pebbling'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2

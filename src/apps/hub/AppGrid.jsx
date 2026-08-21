@@ -1,7 +1,7 @@
 import React from 'react';
-import { MessageSquare, BookOpen, Compass, Calendar, Camera } from 'lucide-react';
+import { MessageSquare, BookOpen, Compass, Calendar, Camera, Waves } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
-import KeepAlivePlayer from './KeepAlivePlayer'; // 👈 引入新组件
+import KeepAlivePlayer from './KeepAlivePlayer';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   return (
@@ -11,6 +11,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
+        {/* Messages 主消息 */}
         <GlassCard
           delay={delay}
           tone="ink"
@@ -32,7 +33,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Snapshots 拍立得 IG 动态朋友圈入口 */}
+        {/* Snapshots 拍立得动态 */}
         <GlassCard
           delay={delay + 25}
           onClick={() => onOpenApp('snapshots')}
@@ -51,6 +52,26 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
+        {/* 👈 新增：Pebbling 企鹅小石 Sub-App 入口 */}
+        <GlassCard
+          delay={delay + 40}
+          onClick={() => onOpenApp('pebbling')}
+          className="col-span-2 flex items-center justify-between group cursor-pointer"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
+              <Waves className="w-5 h-5 opacity-90 text-[var(--text-main)]" />
+            </div>
+            <div className="text-left">
+              <h4 className="font-bold text-sm">Pebbling</h4>
+              <p className="mt-0.5 text-[10px] opacity-50 uppercase tracking-wider">
+                Unhurried Pebble Nest Exchange
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* Diaries 日记 */}
         <GlassCard
           delay={delay + 50}
           onClick={() => onOpenApp('diaries')}
@@ -66,6 +87,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         </GlassCard>
 
         <div className="flex flex-col gap-4">
+          {/* Travel 旅行 */}
           <GlassCard
             delay={delay + 100}
             onClick={() => onOpenApp('travel')}
@@ -75,6 +97,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <h4 className="font-bold text-sm">Travel</h4>
           </GlassCard>
 
+          {/* Planner 计划 */}
           <GlassCard
             delay={delay + 150}
             onClick={() => onOpenApp('planner')}
@@ -86,7 +109,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         </div>
       </div>
 
-      {/* 👈 挂载在 Applications 下方的黑胶保活播放器 */}
+      {/* 挂载在 Applications 下方的黑胶保活播放器 */}
       <KeepAlivePlayer delay={delay + 200} />
     </div>
   );
