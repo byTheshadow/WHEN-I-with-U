@@ -1,0 +1,25 @@
+{
+  "short_name": "WHEN I with U",
+  "name": "WHEN I with U - Digital Companion Sanctuary",
+  "description": "基于 PWA 纯静态架构的 AIRP 个人数字伴侣陪伴空间与生活手帐 Hub",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fcfbf7",
+  "theme_color": "#fcfbf7",
+  "icons": [
+    {
+      "src": "https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}
