@@ -3,15 +3,13 @@ import { Heart, MessageSquare, Trash2, MapPin, Sparkles, Send, CornerDownRight, 
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
 
-export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComment }) => {
+export const SnapshotCard = ({ snapshot, onDelete, onAutoSummonComment, onReplyComment }) => {
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState('');
   const [replyTarget, setReplyTarget] = useState(null); // { id, name, characterId }
   const [showPromptModal, setShowPromptModal] = useState(false);
-  const [showSummonModal, setShowSummonModal] = useState(false);
-  const [characters, setCharacters] = useState([]);
-  const [npcs, setNpcs] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSummoning, setIsSummoning] = useState(false);
 
   const loadComments = useCallback(async () => {
     try {
@@ -24,19 +22,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
 
   useEffect(() => {
     loadComments();
-    loadCharactersAndNpcs();
   }, [loadComments]);
-
-  const loadCharactersAndNpcs = async () => {
-    try {
-      const charList = await db.characters.toArray();
-      setCharacters(charList);
-      const savedNpcs = await db.snapshotSettings.get('npcs');
-      setNpcs(savedNpcs?.value || []);
-    } catch (err) {
-      console.error('Failed to load chars/npcs:', err);
-    }
-  };
 
   // 快捷点赞
   const handleToggleLike = async () => {
@@ -52,7 +38,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
     }
   };
 
-  // User 提交评论或嵌套回复
+  // User 提交评论或针对性回复
   const handleSubmitComment = async (e) => {
     e.preventDefault();
     if (!commentInput.trim()) return;
@@ -100,6 +86,20 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
     }
   };
 
+  // 一键智能召唤角色/NPC 评论（无需手动选人）
+  const handleTriggerAutoSummon = async () => {
+    if (isSummoning) return;
+    setIsSummoning(true);
+    try {
+      await onAutoSummonComment(snapshot);
+      await loadComments();
+    } catch (err) {
+      console.error('Auto summon comment failed:', err);
+    } finally {
+      setIsSummoning(false);
+    }
+  };
+
   // 删除评论
   const handleDeleteComment = async (commentId, e) => {
     e.stopPropagation();
@@ -128,7 +128,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           color: 'var(--text-main)'
         }}
       >
-        {/* 卡片头部：发布者头像、姓名、时间、删帖 */}
+        {/* 卡片头部 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             {snapshot.authorAvatar ? (
@@ -194,7 +194,6 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
             </div>
           )}
 
-          {/* 图像画面描述浮层微标 */}
           {snapshot.imagePrompt && (
             <button
               type="button"
@@ -219,7 +218,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           </p>
         )}
 
-        {/* 交互工具条：点赞、召唤 AI 评论 */}
+        {/* 交互工具条：点赞、智能一键召唤 AI 评论 */}
         <div className="flex items-center justify-between pt-1 border-t px-1" style={{ borderColor: 'var(--card-border)' }}>
           <div className="flex items-center gap-4">
             <button
@@ -240,20 +239,21 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
 
           <button
             type="button"
-            onClick={() => setShowSummonModal(true)}
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
+            onClick={handleTriggerAutoSummon}
+            disabled={isSummoning}
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 opacity-80 hover:opacity-100 transition-all active:scale-95 disabled:opacity-40"
             style={{
               backgroundColor: 'var(--control-soft-bg)',
               borderColor: 'var(--card-border)',
               color: 'var(--text-main)'
             }}
           >
-            <Sparkles className="w-3 h-3" />
-            <span>召唤角色评论</span>
+            <Sparkles className={`w-3 h-3 ${isSummoning ? 'animate-spin' : ''}`} />
+            <span>{isSummoning ? '正在召唤中...' : '智能召唤评论'}</span>
           </button>
         </div>
 
-        {/* 评论区多轮列表 */}
+        {/* 评论区 */}
         {comments.length > 0 && (
           <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--card-border)' }}>
             {comments.map((cm) => (
@@ -324,7 +324,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
         </form>
       </div>
 
-      {/* 图片描摹查看 Modal */}
+      {/* 图片描摹 Modal */}
       {showPromptModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-xs rounded-2xl p-4 border space-y-3" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
@@ -333,58 +333,6 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
               <button type="button" onClick={() => setShowPromptModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <p className="text-xs leading-relaxed opacity-90 font-serif italic">"{snapshot.imagePrompt}"</p>
-          </div>
-        </div>
-      )}
-
-      {/* 召唤 AI 评论选择 Modal */}
-      {showSummonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-xs rounded-2xl p-4 border space-y-3" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-            <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--card-border)' }}>
-              <h4 className="text-xs font-bold">选择召唤互动者</h4>
-              <button type="button" onClick={() => setShowSummonModal(false)}><X className="w-4 h-4" /></button>
-            </div>
-
-            <div className="space-y-1.5 max-h-60 overflow-y-auto">
-              <span className="text-[10px] font-semibold opacity-50 block">伴侣角色库</span>
-              {characters.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    setShowSummonModal(false);
-                    onSummonComment(snapshot, { type: 'character', data: c });
-                  }}
-                  className="w-full text-left p-2 rounded-xl text-xs border flex items-center justify-between hover:opacity-100 opacity-80"
-                  style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
-                >
-                  <span className="font-bold">{c.name}</span>
-                  <Sparkles className="w-3 h-3 opacity-60" />
-                </button>
-              ))}
-
-              {npcs.length > 0 && (
-                <>
-                  <span className="text-[10px] font-semibold opacity-50 block pt-2">NPC 列表</span>
-                  {npcs.map((n) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      onClick={() => {
-                        setShowSummonModal(false);
-                        onSummonComment(snapshot, { type: 'npc', data: n });
-                      }}
-                      className="w-full text-left p-2 rounded-xl text-xs border flex items-center justify-between hover:opacity-100 opacity-80"
-                      style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
-                    >
-                      <span>{n.name} <strong className="opacity-50 font-normal text-[10px]">({n.roleTag})</strong></span>
-                      <Sparkles className="w-3 h-3 opacity-60" />
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -407,4 +355,3 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
 };
 
 export default SnapshotCard;
-

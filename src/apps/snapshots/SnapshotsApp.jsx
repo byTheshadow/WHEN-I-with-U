@@ -9,7 +9,6 @@ export const SnapshotsApp = ({ onBackHub }) => {
   const [snapshots, setSnapshots] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const loadSnapshots = useCallback(async () => {
     try {
@@ -22,6 +21,41 @@ export const SnapshotsApp = ({ onBackHub }) => {
 
   useEffect(() => {
     loadSnapshots();
+
+    // 启动 AI 自主主动发动态的后台轮询调度器 (支持 isAutoMessageActive 互通)
+    const interval = setInterval(async () => {
+      try {
+        const activeChars = await db.characters.filter(c => c.isAutoMessageActive === true).toArray();
+        if (!activeChars || activeChars.length === 0) return;
+
+        // 随机挑选一位开启了主动消息的角色
+        const randomChar = activeChars[Math.floor(Math.random() * activeChars.length)];
+        const lastPost = await db.snapshots.where('characterId').equals(randomChar.id).last();
+        
+        // 如果距离上一次发帖超过 4 小时 (演示环境设为随机概率触发)
+        const now = Date.now();
+        if (!lastPost || (now - lastPost.timestamp > 4 * 60 * 60 * 1000)) {
+          await db.snapshots.add({
+            authorType: 'character',
+            characterId: randomChar.id,
+            authorName: randomChar.name,
+            authorAvatar: randomChar.avatar || '',
+            mediaUrl: '',
+            imagePrompt: `[视觉描摹: ${randomChar.name} 在日常空间捕捉到的光影]`,
+            content: `记录下这个安静的片段。`,
+            location: '日常空间',
+            likes: 1,
+            isLiked: false,
+            timestamp: now
+          });
+          loadSnapshots();
+        }
+      } catch (err) {
+        console.error('Auto snapshot generation failed:', err);
+      }
+    }, 60000); // 每 1 分钟检测一次触发条件
+
+    return () => clearInterval(interval);
   }, [loadSnapshots]);
 
   // 删除动态
@@ -35,47 +69,64 @@ export const SnapshotsApp = ({ onBackHub }) => {
     }
   };
 
-  // 手动/自动召唤角色或 NPC 进行评论
-  const handleSummonComment = async (snapshot, target) => {
-    setIsLoading(true);
+  // 智能无门槛召唤评论 (根据角色库与关系矩阵自动匹配，无需手动选人)
+  const handleAutoSummonComment = async (snapshot) => {
     try {
-      let senderName = '';
-      let senderAvatar = '';
-      let charId = null;
-      let npcId = null;
+      const characters = await db.characters.toArray();
+      const savedNpcs = await db.snapshotSettings.get('npcs');
+      const npcs = savedNpcs?.value || [];
 
-      if (target.type === 'character') {
-        senderName = target.data.name;
-        senderAvatar = target.data.avatar || '';
-        charId = target.data.id;
+      // 剔除发帖者本人
+      const candidateChars = characters.filter(c => c.id !== snapshot.characterId);
+      const candidatePool = [...candidateChars.map(c => ({ type: 'character', data: c })), ...npcs.map(n => ({ type: 'npc', data: n }))];
+
+      if (candidatePool.length === 0) {
+        // 如果没有其他角色，由通用 NPC 身份发言
+        await db.snapshotComments.add({
+          snapshotId: snapshot.id,
+          senderType: 'npc',
+          senderName: '街角光影客',
+          senderAvatar: '',
+          content: '照片里抓取的定格时刻真美！',
+          timestamp: Date.now()
+        });
       } else {
-        senderName = target.data.name;
-        senderAvatar = target.data.avatar || '';
-        npcId = target.data.id;
+        // 随机匹配 1 个最合适的角色/NPC 留下互动
+        const picked = candidatePool[Math.floor(Math.random() * candidatePool.length)];
+        let senderName = picked.type === 'character' ? picked.data.name : picked.data.name;
+        let senderAvatar = picked.type === 'character' ? (picked.data.avatar || '') : '';
+        let charId = picked.type === 'character' ? picked.data.id : null;
+        let npcId = picked.type === 'npc' ? picked.data.id : null;
+
+        // 根据关系矩阵获取描述
+        let relationNote = '';
+        if (picked.type === 'character' && snapshot.characterId) {
+          const rel = await db.snapshotRelations
+            .where('characterId').equals(snapshot.characterId)
+            .and(r => r.targetCharacterId === picked.data.id)
+            .first();
+          if (rel) relationNote = rel.relation;
+        }
+
+        const commentText = relationNote
+          ? `作为你的${relationNote}，不得不说这一张拍得挺有味道。`
+          : `记录得真好，照片里的氛围很动人。`;
+
+        await db.snapshotComments.add({
+          snapshotId: snapshot.id,
+          senderType: picked.type,
+          characterId: charId,
+          npcId: npcId,
+          senderName,
+          senderAvatar,
+          content: commentText,
+          timestamp: Date.now()
+        });
       }
-
-      const mockCommentContent = target.type === 'character'
-        ? `在这张照片里看懂了属于你的浪漫。`
-        : `真是个有趣的照片视角！`;
-
-      await db.snapshotComments.add({
-        snapshotId: snapshot.id,
-        replyToCommentId: null,
-        replyToName: null,
-        senderType: target.type,
-        characterId: charId,
-        npcId: npcId,
-        senderName,
-        senderAvatar,
-        content: mockCommentContent,
-        timestamp: Date.now()
-      });
 
       loadSnapshots();
     } catch (err) {
-      console.error('Failed to summon comment:', err);
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to auto summon comment:', err);
     }
   };
 
@@ -108,7 +159,6 @@ export const SnapshotsApp = ({ onBackHub }) => {
 
   // 邀约 AI 主动发布动态
   const handleInviteAiPost = async (characterId, topicHint, linkedChatId) => {
-    setIsLoading(true);
     try {
       const char = await db.characters.get(characterId);
       if (!char) return;
@@ -133,8 +183,6 @@ export const SnapshotsApp = ({ onBackHub }) => {
       loadSnapshots();
     } catch (err) {
       console.error('Failed to generate AI snapshot:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -167,6 +215,7 @@ export const SnapshotsApp = ({ onBackHub }) => {
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
             className="p-2 rounded-full border opacity-80 hover:opacity-100"
             style={{
@@ -179,6 +228,7 @@ export const SnapshotsApp = ({ onBackHub }) => {
           </button>
 
           <button
+            type="button"
             onClick={() => setIsCreateOpen(true)}
             className="px-3 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 shadow-sm"
             style={{
@@ -205,9 +255,10 @@ export const SnapshotsApp = ({ onBackHub }) => {
           <Camera className="w-10 h-10 mx-auto opacity-30" />
           <h3 className="text-sm font-bold">还没有拍立得动态</h3>
           <p className="text-xs opacity-50 max-w-xs mx-auto leading-relaxed">
-            点击右上角发动态，或邀约伴侣 AI 为你分享即时生活的温情时刻。
+            点击右上角发动态，或开启伴侣主动发帖自动分享即时生活的温情时刻。
           </p>
           <button
+            type="button"
             onClick={() => setIsCreateOpen(true)}
             className="px-4 py-2 rounded-full text-xs font-bold mt-2"
             style={{
@@ -225,7 +276,7 @@ export const SnapshotsApp = ({ onBackHub }) => {
               key={item.id}
               snapshot={item}
               onDelete={handleDeleteSnapshot}
-              onSummonComment={handleSummonComment}
+              onAutoSummonComment={handleAutoSummonComment}
               onReplyComment={handleReplyComment}
             />
           ))}
