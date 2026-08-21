@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, BookOpen, Compass, Calendar } from 'lucide-react';
+import { MessageSquare, BookOpen, Compass, Calendar, Camera } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
@@ -14,7 +14,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           delay={delay}
           tone="ink"
           onClick={() => onOpenApp('messages')}
-          className="col-span-2 flex items-center justify-between group"
+          className="col-span-2 flex items-center justify-between group cursor-pointer"
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-black/10 dark:bg-white/10 flex items-center justify-center">
@@ -31,10 +31,29 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
+        {/* 新增 Snapshots 拍立得 IG 动态朋友圈入口 */}
+        <GlassCard
+          delay={delay + 25}
+          onClick={() => onOpenApp('snapshots')}
+          className="col-span-2 flex items-center justify-between group cursor-pointer"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
+              <Camera className="w-5 h-5 opacity-90 text-[var(--text-main)]" />
+            </div>
+            <div className="text-left">
+              <h4 className="font-bold text-sm">Snapshots</h4>
+              <p className="mt-0.5 text-[10px] opacity-50 uppercase tracking-wider">
+                Polaroid Moments Feed
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+
         <GlassCard
           delay={delay + 50}
           onClick={() => onOpenApp('diaries')}
-          className="flex flex-col justify-between aspect-square text-left"
+          className="flex flex-col justify-between aspect-square text-left cursor-pointer"
         >
           <BookOpen className="w-6 h-6 opacity-80" />
           <div>
@@ -49,7 +68,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           <GlassCard
             delay={delay + 100}
             onClick={() => onOpenApp('travel')}
-            className="flex-1 flex items-center gap-3 p-4 text-left"
+            className="flex-1 flex items-center gap-3 p-4 text-left cursor-pointer"
           >
             <Compass className="w-5 h-5 opacity-80" />
             <h4 className="font-bold text-sm">Travel</h4>
@@ -58,7 +77,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           <GlassCard
             delay={delay + 150}
             onClick={() => onOpenApp('planner')}
-            className="flex-1 flex items-center gap-3 p-4 text-left"
+            className="flex-1 flex items-center gap-3 p-4 text-left cursor-pointer"
           >
             <Calendar className="w-5 h-5 opacity-80" />
             <h4 className="font-bold text-sm">Planner</h4>

@@ -11,6 +11,7 @@ import MessagesApp from './apps/messages/MessagesApp';
 import TodoApp from './apps/todos/TodoApp';
 import DiaryApp from './apps/diaries/DiaryApp';
 import TravelApp from './apps/travels/TravelApp';
+import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -166,7 +167,13 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel'].includes(currentApp) && (
+        {currentApp === 'snapshots' && (
+          <ErrorBoundary>
+            <SnapshotsApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel', 'snapshots'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
@@ -203,4 +210,5 @@ export const App = () => {
 };
 
 export default App;
+
 
