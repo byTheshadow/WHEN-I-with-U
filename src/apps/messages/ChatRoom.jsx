@@ -18,7 +18,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import db from '../../db';
-import { triggerAiResponse, rerollAiResponse, subscribeAiEvents } from '../../services/aiService';
+import { triggerAiResponse, rerollAiResponse, subscribeAiEvents, playMessageSound } from '../../services/aiService';
 import ChatHeaderBar from './components/ChatHeaderBar';
 import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
@@ -124,6 +124,9 @@ export const ChatRoom = ({
     const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
 
+    // 播放发送提示音
+    playMessageSound('send');
+
     setMessages((prev) => [...prev, newMsg]);
     setInputText('');
     setQuotedMsg(null);
@@ -222,6 +225,10 @@ export const ChatRoom = ({
   const activeUserAvatar = chat.userAvatar || character.userAvatar || '';
   const activeUserName = chat.userName || character.userName || '你';
 
+  // 背景蒙层受控参数
+  const bgOpacity = chat.bgOpacity ?? 0.3;
+  const isBgDimmed = chat.isBgDimmed ?? true;
+
   return (
     <div
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
@@ -232,20 +239,30 @@ export const ChatRoom = ({
     >
       <style>{`.chat-room-container ${currentCss}`}</style>
 
+      {/* 背景图渲染：支持淡化/蒙层自由切换 */}
       {chat.bgImage && (
-  <div
-    className="absolute inset-0 -z-10 pointer-events-none"
-    style={{
-      backgroundImage: `url(${chat.bgImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
-    }}
-  />
-)}
+        <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${chat.bgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
+          />
+          {isBgDimmed && (
+            <div
+              className="absolute inset-0 backdrop-blur-[2px] transition-all"
+              style={{
+                background: `rgba(0, 0, 0, ${bgOpacity})`
+              }}
+            />
+          )}
+        </div>
+      )}
 
-
-      {/* 顶部按钮控制区：彻底没有横线 border-b */}
+      {/* 顶部按钮控制区 */}
       <header className="z-20 shrink-0 px-4 pt-3 pb-1">
         <div className="flex items-center justify-between pb-1">
           <button
@@ -312,8 +329,6 @@ export const ChatRoom = ({
                 key={msg.id}
                 className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
               >
-                {/* 彻底去除气泡上方的名字展示，保持极简纯净 */}
-
                 {quoted && (
                   <div
                     className="mb-1 max-w-[75%] rounded-xl border-l-2 px-3 py-1 text-[10px] opacity-60"
@@ -407,7 +422,7 @@ export const ChatRoom = ({
                     )}
                   </div>
 
-                  {/* 悬浮工具与重roll */}
+                  {/* 悬浮工具 */}
                   <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     {!isUser && (
                       <button
@@ -498,13 +513,14 @@ export const ChatRoom = ({
 
           {isAiTyping && (
             <TypingIndicator
-              customText={chat.typingText || `${character.name} 正在提笔回复...`}
+              customText={chat.typingText || `${character.name} 正在思考...`}
+              styleType={chat.typingStyle || 'default'}
             />
           )}
         </div>
       </section>
 
-      {/* 悬浮输入框区：无任何线条 border-t ，柔和悬浮胶囊风 */}
+      {/* 悬浮输入框区 */}
       <footer
         className="z-20 shrink-0 px-4 pt-1"
         style={{
@@ -602,7 +618,6 @@ export const ChatRoom = ({
           </div>
         )}
 
-        {/* 极致柔和的悬浮输入胶囊，无任何 border */}
         <div
           className="flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
           style={{

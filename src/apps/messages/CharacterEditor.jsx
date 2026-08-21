@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   ArrowLeft, Save, Trash2, Upload, Plus, BookOpen, Brain,
-  List, User, Calendar, FileText, X, Check, Activity, Shield
+  List, User, X, Activity, Shield, ChevronDown, ChevronRight, FoldVertical, UnfoldVertical
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
@@ -24,6 +24,10 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此']
   });
 
+  // 控制世界书与知识库手风琴折叠展开状态 (Key: entryId -> boolean)
+  const [expandedWorldEntries, setExpandedWorldEntries] = useState({});
+  const [expandedKnowledgeEntries, setExpandedKnowledgeEntries] = useState({});
+
   const [newStatus, setNewStatus] = useState('');
   const [newWorldTitle, setNewWorldTitle] = useState('');
   const [newWorldContent, setNewWorldContent] = useState('');
@@ -35,7 +39,6 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
   const avatarInputRef = useRef(null);
   const userAvatarInputRef = useRef(null);
 
-  // 本地图片转 Base64 读取
   const handleImageUpload = (e, targetField) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -46,52 +49,77 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     reader.readAsDataURL(file);
   };
 
-  // 状态列表控制
   const addStatus = () => {
     if (!newStatus.trim()) return;
     setCharacter((prev) => ({ ...prev, statusList: [...prev.statusList, newStatus.trim()] }));
     setNewStatus('');
   };
+
   const removeStatus = (idx) => {
     setCharacter((prev) => ({ ...prev, statusList: prev.statusList.filter((_, i) => i !== idx) }));
   };
 
-  // 总结条目控制
   const addSummary = () => {
     if (!newSummaryContent.trim()) return;
     const item = { id: Date.now(), content: newSummaryContent.trim(), date: new Date().toLocaleDateString() };
     setCharacter((prev) => ({ ...prev, summaries: [item, ...prev.summaries] }));
     setNewSummaryContent('');
   };
+
   const removeSummary = (id) => {
     setCharacter((prev) => ({ ...prev, summaries: prev.summaries.filter((s) => s.id !== id) }));
   };
 
-  // 世界书条目控制
+  // 世界书展开/折叠
+  const toggleWorldEntry = (id) => {
+    setExpandedWorldEntries(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleAllWorldEntries = (expandAll) => {
+    const nextState = {};
+    character.worldBookEntries.forEach(w => { nextState[w.id] = expandAll; });
+    setExpandedWorldEntries(nextState);
+  };
+
   const addWorldEntry = () => {
     if (!newWorldTitle.trim() || !newWorldContent.trim()) return;
-    const entry = { id: Date.now(), title: newWorldTitle.trim(), content: newWorldContent.trim(), isEnabled: true };
+    const newId = Date.now();
+    const entry = { id: newId, title: newWorldTitle.trim(), content: newWorldContent.trim(), isEnabled: true };
     setCharacter((prev) => ({ ...prev, worldBookEntries: [...prev.worldBookEntries, entry] }));
+    setExpandedWorldEntries(prev => ({ ...prev, [newId]: true }));
     setNewWorldTitle('');
     setNewWorldContent('');
   };
+
   const removeWorldEntry = (id) => {
     setCharacter((prev) => ({ ...prev, worldBookEntries: prev.worldBookEntries.filter((w) => w.id !== id) }));
   };
 
-  // 知识库条目控制
+  // 知识库展开/折叠
+  const toggleKnowledgeEntry = (id) => {
+    setExpandedKnowledgeEntries(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleAllKnowledgeEntries = (expandAll) => {
+    const nextState = {};
+    character.knowledgeEntries.forEach(k => { nextState[k.id] = expandAll; });
+    setExpandedKnowledgeEntries(nextState);
+  };
+
   const addKnowledgeEntry = () => {
     if (!newKnowledgeTitle.trim() || !newKnowledgeContent.trim()) return;
-    const entry = { id: Date.now(), title: newKnowledgeTitle.trim(), content: newKnowledgeContent.trim(), isEnabled: true };
+    const newId = Date.now();
+    const entry = { id: newId, title: newKnowledgeTitle.trim(), content: newKnowledgeContent.trim(), isEnabled: true };
     setCharacter((prev) => ({ ...prev, knowledgeEntries: [...prev.knowledgeEntries, entry] }));
+    setExpandedKnowledgeEntries(prev => ({ ...prev, [newId]: true }));
     setNewKnowledgeTitle('');
     setNewKnowledgeContent('');
   };
+
   const removeKnowledgeEntry = (id) => {
     setCharacter((prev) => ({ ...prev, knowledgeEntries: prev.knowledgeEntries.filter((k) => k.id !== id) }));
   };
 
-   // 保存数据至 Dexie
   const handleSave = async () => {
     if (!character.name.trim()) return;
 
@@ -99,7 +127,6 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
       const payload = { ...character };
       
       if (!payload.id) {
-        // 如果是新建，必须删掉 id 属性，让 Dexie 自动生成 ++id
         delete payload.id;
         const newId = await db.characters.add({
           ...payload,
@@ -117,8 +144,6 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     }
   };
 
-
-  // 删除角色
   const handleDelete = async () => {
     if (!character.id) return;
     await db.characters.delete(character.id);
@@ -286,11 +311,34 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
         </div>
       </GlassCard>
 
-      {/* 4. 角色的世界书 (WorldBook) */}
+      {/* 4. 角色的世界书 (支持展开与折叠) */}
       <GlassCard className="space-y-3">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <BookOpen className="w-4 h-4" />
-          <span>角色的世界书 (World Book)</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-sm">
+            <BookOpen className="w-4 h-4" />
+            <span>角色的世界书 (World Book)</span>
+          </div>
+
+          {character.worldBookEntries.length > 0 && (
+            <div className="flex items-center gap-2 text-[10px]">
+              <button
+                type="button"
+                onClick={() => toggleAllWorldEntries(false)}
+                className="flex items-center gap-1 opacity-60 hover:opacity-100"
+              >
+                <FoldVertical className="w-3 h-3" />
+                <span>全部收起</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleAllWorldEntries(true)}
+                className="flex items-center gap-1 opacity-60 hover:opacity-100"
+              >
+                <UnfoldVertical className="w-3 h-3" />
+                <span>全部展开</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -314,25 +362,71 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
         </div>
 
         <div className="space-y-2 pt-2">
-          {character.worldBookEntries.map((w) => (
-            <div key={w.id} className="p-3 rounded-xl bg-black/5 dark:bg-white/5 space-y-1">
-              <div className="flex items-center justify-between font-bold">
-                <span>{w.title}</span>
-                <button type="button" onClick={() => removeWorldEntry(w.id)} className="opacity-50 hover:opacity-100">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+          {character.worldBookEntries.map((w) => {
+            const isExpanded = expandedWorldEntries[w.id] ?? false;
+            return (
+              <div key={w.id} className="rounded-xl bg-black/5 dark:bg-white/5 overflow-hidden transition-all">
+                <div
+                  onClick={() => toggleWorldEntry(w.id)}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2 font-bold min-w-0 pr-2">
+                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-60" />}
+                    <span className="truncate">{w.title}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeWorldEntry(w.id);
+                    }}
+                    className="opacity-50 hover:opacity-100 p-1"
+                    title="删除"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  </button>
+                </div>
+
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5 text-[11px] opacity-80 leading-relaxed font-sans">
+                    {w.content}
+                  </div>
+                )}
               </div>
-              <p className="opacity-80 leading-relaxed">{w.content}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </GlassCard>
 
-      {/* 5. 角色的知识库 (Knowledge Base) */}
+      {/* 5. 角色的知识库 (支持展开与折叠) */}
       <GlassCard className="space-y-3">
-        <div className="flex items-center gap-2 font-bold text-sm">
-          <Brain className="w-4 h-4" />
-          <span>角色的知识库 (Knowledge Base)</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-sm">
+            <Brain className="w-4 h-4" />
+            <span>角色的知识库 (Knowledge Base)</span>
+          </div>
+
+          {character.knowledgeEntries.length > 0 && (
+            <div className="flex items-center gap-2 text-[10px]">
+              <button
+                type="button"
+                onClick={() => toggleAllKnowledgeEntries(false)}
+                className="flex items-center gap-1 opacity-60 hover:opacity-100"
+              >
+                <FoldVertical className="w-3 h-3" />
+                <span>全部收起</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleAllKnowledgeEntries(true)}
+                className="flex items-center gap-1 opacity-60 hover:opacity-100"
+              >
+                <UnfoldVertical className="w-3 h-3" />
+                <span>全部展开</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -356,17 +450,40 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
         </div>
 
         <div className="space-y-2 pt-2">
-          {character.knowledgeEntries.map((k) => (
-            <div key={k.id} className="p-3 rounded-xl bg-black/5 dark:bg-white/5 space-y-1">
-              <div className="flex items-center justify-between font-bold">
-                <span>{k.title}</span>
-                <button type="button" onClick={() => removeKnowledgeEntry(k.id)} className="opacity-50 hover:opacity-100">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+          {character.knowledgeEntries.map((k) => {
+            const isExpanded = expandedKnowledgeEntries[k.id] ?? false;
+            return (
+              <div key={k.id} className="rounded-xl bg-black/5 dark:bg-white/5 overflow-hidden transition-all">
+                <div
+                  onClick={() => toggleKnowledgeEntry(k.id)}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2 font-bold min-w-0 pr-2">
+                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-60" />}
+                    <span className="truncate">{k.title}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeKnowledgeEntry(k.id);
+                    }}
+                    className="opacity-50 hover:opacity-100 p-1"
+                    title="删除"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  </button>
+                </div>
+
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-1 border-t border-black/5 dark:border-white/5 text-[11px] opacity-80 leading-relaxed font-sans">
+                    {k.content}
+                  </div>
+                )}
               </div>
-              <p className="opacity-80 leading-relaxed">{k.content}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </GlassCard>
 
@@ -464,3 +581,4 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
 };
 
 export default CharacterEditor;
+

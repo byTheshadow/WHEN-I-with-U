@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { X, Upload, Trash2, Sliders, Edit2, Plus, Check, User, Sparkles } from 'lucide-react';
+import { X, Upload, Trash2, Sliders, Edit2, Plus, Check, User, Sparkles, Image, Eye, EyeOff } from 'lucide-react';
 import AudioKeepAlive from './AudioKeepAlive';
 import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
@@ -29,6 +29,13 @@ export const ChatSettingsModal = ({
   const [inputPlaceholder, setInputPlaceholder] = useState(chat?.inputPlaceholder || '');
   const [typingText, setTypingText] = useState(chat?.typingText || '');
 
+  // 加载动画样式选择
+  const [typingStyle, setTypingStyle] = useState(chat?.typingStyle || 'default');
+
+  // 背景蒙层 / 淡化可选项
+  const [isBgDimmed, setIsBgDimmed] = useState(chat?.isBgDimmed ?? true);
+  const [bgOpacity, setBgOpacity] = useState(chat?.bgOpacity ?? 0.3);
+
   const [isSavingUserIdentity, setIsSavingUserIdentity] = useState(false);
 
   const parseSummaryList = (sum) => {
@@ -46,7 +53,6 @@ export const ChatSettingsModal = ({
   const [showAddBox, setShowAddBox] = useState(false);
 
   const bgImage = chat?.bgImage || '';
-  const bgOpacity = chat?.bgOpacity ?? 0.3;
   const keepAlive = chat?.keepAlive ?? false;
 
   const handleImageChange = (e) => {
@@ -72,36 +78,18 @@ export const ChatSettingsModal = ({
     e.target.value = '';
   };
 
-  // 核心改动：仅更新当前 db.chats 绝不写入 db.characters ，隔离各聊天窗人设
   const handleSaveUserIdentity = async (override = {}) => {
     if (!chat?.id) return;
 
-    const nextUserName = Object.prototype.hasOwnProperty.call(override, 'nextUserName')
-      ? override.nextUserName
-      : userName;
-
-    const nextUserAvatar = Object.prototype.hasOwnProperty.call(override, 'nextUserAvatar')
-      ? override.nextUserAvatar
-      : userAvatar;
-
-    const nextUserPersona = Object.prototype.hasOwnProperty.call(override, 'nextUserPersona')
-      ? override.nextUserPersona
-      : userPersona;
-
-    const nextPlaceholder = Object.prototype.hasOwnProperty.call(override, 'nextPlaceholder')
-      ? override.nextPlaceholder
-      : inputPlaceholder;
-
-    const nextTypingText = Object.prototype.hasOwnProperty.call(override, 'nextTypingText')
-      ? override.nextTypingText
-      : typingText;
-
     const payload = {
-      userName: (nextUserName || '').trim(),
-      userAvatar: (nextUserAvatar || '').trim(),
-      userPersona: (nextUserPersona || '').trim(),
-      inputPlaceholder: (nextPlaceholder || '').trim(),
-      typingText: (nextTypingText || '').trim()
+      userName: (override.nextUserName !== undefined ? override.nextUserName : userName).trim(),
+      userAvatar: (override.nextUserAvatar !== undefined ? override.nextUserAvatar : userAvatar).trim(),
+      userPersona: (override.nextUserPersona !== undefined ? override.nextUserPersona : userPersona).trim(),
+      inputPlaceholder: (override.nextPlaceholder !== undefined ? override.nextPlaceholder : inputPlaceholder).trim(),
+      typingText: (override.nextTypingText !== undefined ? override.nextTypingText : typingText).trim(),
+      typingStyle,
+      isBgDimmed,
+      bgOpacity
     };
 
     try {
@@ -180,7 +168,7 @@ export const ChatSettingsModal = ({
           </button>
         </div>
 
-        {/* 独立 User 专属配置区（独立于此聊天窗） */}
+        {/* 1. 独立 User 名片 */}
         <div className="space-y-3 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold">
@@ -231,19 +219,6 @@ export const ChatSettingsModal = ({
                   style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
                 />
               </div>
-
-              <div>
-                <label className="block text-[10px] opacity-60 mb-1">你的头像 URL</label>
-                <input
-                  type="text"
-                  value={userAvatar}
-                  placeholder="https://..."
-                  onChange={(e) => setUserAvatar(e.target.value)}
-                  onBlur={() => handleSaveUserIdentity()}
-                  className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
-                  style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-                />
-              </div>
             </div>
           </div>
 
@@ -259,37 +234,110 @@ export const ChatSettingsModal = ({
               style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
             />
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div>
-              <label className="block text-[10px] opacity-60 mb-1">自定义输入框提示</label>
-              <input
-                type="text"
-                value={inputPlaceholder}
-                placeholder={`与 ${character?.name || '伴侣'} 倾诉...`}
-                onChange={(e) => setInputPlaceholder(e.target.value)}
-                onBlur={() => handleSaveUserIdentity()}
-                className="w-full px-2.5 py-1.5 rounded-xl border outline-none text-xs"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-              />
-            </div>
+        {/* 2. 正在输入加载动画自选控制区 */}
+        <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="flex items-center justify-between">
+            <span className="font-bold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>正在输入加载动画</span>
+            </span>
+          </div>
 
-            <div>
-              <label className="block text-[10px] opacity-60 mb-1">自定义打字中提示</label>
-              <input
-                type="text"
-                value={typingText}
-                placeholder={`${character?.name || '伴侣'} 正在思考...`}
-                onChange={(e) => setTypingText(e.target.value)}
-                onBlur={() => handleSaveUserIdentity()}
-                className="w-full px-2.5 py-1.5 rounded-xl border outline-none text-xs"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            {[
+              { id: 'default', label: '默认闪烁 Sparkles' },
+              { id: 'phone_call', label: '模拟打电话 Call' },
+              { id: 'typewriter', label: '诗意打字机 Pen' },
+              { id: 'wave_pulse', label: '音波律动 Wave' }
+            ].map((st) => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => {
+                  setTypingStyle(st.id);
+                  db.chats.update(chat.id, { typingStyle: st.id });
+                }}
+                className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-medium transition-all ${
+                  typingStyle === st.id ? 'border-purple-500 font-bold opacity-100' : 'opacity-60 hover:opacity-100'
+                }`}
+                style={{ background: 'var(--bg-main)', borderColor: typingStyle === st.id ? 'var(--accent-color)' : 'var(--card-border)' }}
+              >
+                {st.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* 阶段性多条目事实总结 */}
+        {/* 3. 背景壁纸与淡化设置区 */}
+        <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] opacity-60">BACKGROUND SETTINGS / 背景图</span>
+            <button
+              type="button"
+              onClick={() => {
+                const nextDimmed = !isBgDimmed;
+                setIsBgDimmed(nextDimmed);
+                db.chats.update(chat.id, { isBgDimmed: nextDimmed });
+              }}
+              className="flex items-center gap-1 text-[10px] font-semibold opacity-70 hover:opacity-100"
+            >
+              {isBgDimmed ? <Eye className="w-3 h-3 text-purple-500" /> : <EyeOff className="w-3 h-3 opacity-40" />}
+              <span>{isBgDimmed ? '已开启淡化' : '清晰原图'}</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="w-12 h-12 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all shrink-0"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--divider)' }}
+            >
+              {bgImage ? (
+                <img src={bgImage} alt="Background" className="w-full h-full object-cover" />
+              ) : (
+                <Upload className="w-4 h-4 opacity-40" />
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+
+            <div className="flex-1 space-y-1">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-1.5 rounded-xl border text-center font-medium transition-all"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--divider)', color: 'var(--text-main)' }}
+              >
+                {bgImage ? '更换背景图' : '选择图片上传'}
+              </button>
+            </div>
+          </div>
+
+          {isBgDimmed && (
+            <div className="pt-2 border-t border-white/10 space-y-1">
+              <div className="flex justify-between text-[10px] opacity-60">
+                <span>淡化遮罩透明度</span>
+                <span>{Math.round(bgOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.85"
+                step="0.05"
+                value={bgOpacity}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setBgOpacity(val);
+                  onUpdateBgOpacity(val);
+                }}
+                className="w-full accent-purple-500"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 4. 阶段性多条目事实总结 */}
         <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] opacity-60">TIMELINE SUMMARY / 阶段事实总结</span>
@@ -359,43 +407,6 @@ export const ChatSettingsModal = ({
               ))}
             </div>
           )}
-        </div>
-
-        {/* 背景壁纸配置 */}
-        <div className="space-y-2">
-          <label className="block font-mono opacity-60 text-[10px]">CHAT BACKGROUND / 背景图</label>
-          <div className="flex items-center gap-3">
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-12 h-12 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all"
-              style={{
-                background: 'var(--control-soft-bg)',
-                borderColor: 'var(--divider)'
-              }}
-            >
-              {bgImage ? (
-                <img src={bgImage} alt="Background" className="w-full h-full object-cover" />
-              ) : (
-                <Upload className="w-4 h-4 opacity-40" />
-              )}
-            </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-
-            <div className="flex-1 space-y-1">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-1.5 rounded-xl border text-center font-medium transition-all"
-                style={{
-                  background: 'var(--control-soft-bg)',
-                  borderColor: 'var(--divider)',
-                  color: 'var(--text-main)'
-                }}
-              >
-                {bgImage ? '更换背景图' : '选择图片上传'}
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* 后台音频保活 */}
@@ -476,3 +487,4 @@ export const ChatSettingsModal = ({
 };
 
 export default ChatSettingsModal;
+

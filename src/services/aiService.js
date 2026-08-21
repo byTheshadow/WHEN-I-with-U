@@ -4,6 +4,58 @@ const listeners = new Set();
 const summaryStatusListeners = new Set();
 
 const activeAiRequests = new Set();
+// 基于 Web Audio API 的零依赖消息音效合成器
+export const playMessageSound = (type = 'receive') => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'send') {
+      // 柔和气泡发送音
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(
+        880,
+        ctx.currentTime + 0.08
+      );
+
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + 0.08
+      );
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.08);
+    } else {
+      // 浪漫高雅水滴/金铃接收音
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.06);
+
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + 0.25
+      );
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    }
+  } catch (err) {
+    console.warn('Audio sound play prevented:', err);
+  }
+};
+
 
 const isDocumentVisible = () => {
   if (typeof document === 'undefined') return false;
@@ -76,6 +128,25 @@ export const parseAiResponseToMessages = (text) => {
     if (textBefore) {
       result.push({ type: 'text', content: textBefore, metadata: {} });
     }
+    // 支持使用 ||| 将连续文本拆分成多个气泡
+if (textBefore.includes('|||')) {
+  const bubbleParts = textBefore
+    .split('|||')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  // 删除刚刚加入的整段文本
+  result.pop();
+
+  bubbleParts.forEach((content) => {
+    result.push({
+      type: 'text',
+      content,
+      metadata: {}
+    });
+  });
+}
+
 
     const cardType = match[1].toLowerCase();
     const rawPayload = match[2];
@@ -119,6 +190,25 @@ export const parseAiResponseToMessages = (text) => {
   if (textAfter) {
     result.push({ type: 'text', content: textAfter, metadata: {} });
   }
+  // 支持尾部文本使用 ||| 拆分成多个气泡
+if (textAfter.includes('|||')) {
+  const bubbleParts = textAfter
+    .split('|||')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  // 删除刚刚加入的整段文本
+  result.pop();
+
+  bubbleParts.forEach((content) => {
+    result.push({
+      type: 'text',
+      content,
+      metadata: {}
+    });
+  });
+}
+
 
   if (result.length === 0 && text.trim()) {
     result.push({ type: 'text', content: text.trim(), metadata: {} });
@@ -537,6 +627,11 @@ export const triggerAiResponse = async (chatId) => {
     await db.chats.update(chatId, {
       updatedAt: nowIso
     });
+    // AI 回复成功后播放接收消息音效
+if (!result.error) {
+  playMessageSound('receive');
+}
+
 
     notifyListeners({
       type: 'NEW_MESSAGE',
@@ -1799,5 +1894,6 @@ export default {
   generateSnapshotPostByAi,
   generateSnapshotCommentByAi,
   requestNotificationPermission,
-  triggerSystemNotification
+  triggerSystemNotification,
+  playMessageSound
 };
