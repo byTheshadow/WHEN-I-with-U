@@ -1,25 +1,38 @@
 // public/sw.js
 
-const CACHE_NAME = 'when-i-with-u-v2';
+const CACHE_NAME = 'when-i-with-u-v3';
 
-/**
- * 例如：
- * 本地：      http://localhost:5173/
- * GitHub Pages: https://bytheshadow.github.io/WHEN-I-with-U/
- */
+// 由 Service Worker 的注册 scope 自动确定实际部署路径。
+// 本地示例：       http://localhost:5173/
+// GitHub Pages 示例：https://用户名.github.io/WHEN-I-with-U/
 const APP_SCOPE = self.registration.scope;
-
-const APP_SHELL_URLS = [
-  new URL('./', APP_SCOPE).href,
-  new URL('index.html', APP_SCOPE).href,
-  new URL('manifest.json', APP_SCOPE).href,
-];
+const APP_INDEX_URL = new URL('index.html', APP_SCOPE).href;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL_URLS))
+      .then(async (cache) => {
+        try {
+          // 不使用 cache.addAll：避免任一资源失败导致 SW 整体安装失败。
+          const response = await fetch(APP_INDEX_URL, {
+            cache: 'reload',
+          });
+
+          if (response.ok) {
+            await cache.put(APP_INDEX_URL, response.clone());
+          } else {
+            console.warn(
+              '[SW] index.html 预缓存失败，状态码：',
+              response.status,
+              APP_INDEX_URL
+            );
+          }
+        } catch (error) {
+          // 首次离线打开时可能无法预缓存；不应因此导致 SW 安装失败。
+          console.warn('[SW] index.html 预缓存失败：', error);
+        }
+      })
       .then(() => self.skipWaiting())
   );
 });
@@ -50,22 +63,52 @@ self.addEventListener('fetch', (event) => {
 
   const requestUrl = new URL(event.request.url);
 
-  // 只处理当前站点资源，避免干预第三方 API、AI 请求及跨域资源。
+  // 不接管跨域请求，例如 AI API、第三方图片、CDN 等。
   if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
-  // 页面导航：优先网络，网络不可用时回退到已缓存的应用入口。
+  // 页面路由：网络优先，离线时返回已缓存的 SPA 入口页。
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match(new URL('index.html', APP_SCOPE).href)
-      )
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const responseCopy = response.clone();
+
+            event.waitUntil(
+              caches.open(CACHE_NAME).then((cache) => {
+                return cache.put(APP_INDEX_URL, responseCopy);
+              })
+            );
+          }
+
+          return response;
+        })
+        .catch(async () => {
+          const cachedIndex = await caches.match(APP_INDEX_URL);
+
+          if (cachedIndex) {
+            return cachedIndex;
+          }
+
+          return new Response(
+            '当前处于离线状态，且应用入口尚未缓存。',
+            {
+              status: 503,
+              statusText: 'Offline',
+              headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+              },
+            }
+          );
+        })
     );
+
     return;
   }
 
-  // 静态资源：缓存优先；未命中时走网络，并缓存成功的同源响应。
+  // 静态资源：缓存优先，缓存未命中后请求网络并写入缓存。
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -74,17 +117,19 @@ self.addEventListener('fetch', (event) => {
 
       return fetch(event.request)
         .then((networkResponse) => {
-          const isCacheable =
+          const canCache =
             networkResponse &&
-            networkResponse.status === 200 &&
+            networkResponse.ok &&
             networkResponse.type === 'basic';
 
-          if (isCacheable) {
-            const responseToCache = networkResponse.clone();
+          if (canCache) {
+            const responseCopy = networkResponse.clone();
 
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+            event.waitUntil(
+              caches.open(CACHE_NAME).then((cache) => {
+                return cache.put(event.request, responseCopy);
+              })
+            );
           }
 
           return networkResponse;
@@ -101,10 +146,17 @@ self.addEventListener('sync', (event) => {
   }
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({ type: 'SYNC_OFFLINE_MESSAGES' });
-      });
-    })
+    self.clients
+      .matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      .then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'SYNC_OFFLINE_MESSAGES',
+          });
+        });
+      })
   );
 });

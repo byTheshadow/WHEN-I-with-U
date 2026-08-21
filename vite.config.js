@@ -1,11 +1,14 @@
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default {
+export default defineConfig({
   base: '/WHEN-I-with-U/',
+
   plugins: [react()],
+
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
   },
-};
+});
