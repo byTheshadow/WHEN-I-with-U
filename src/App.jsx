@@ -10,7 +10,7 @@ import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
 import TodoApp from './apps/todos/TodoApp';
 import DiaryApp from './apps/diaries/DiaryApp';
-import TravelApp from './apps/travels/TravelApp'; // ✈️ 引入打卡足迹旅行 Sub-App
+import TravelApp from './apps/travels/TravelApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -27,14 +27,16 @@ export const App = () => {
   }, [activeTheme]);
 
   const openApp = (appId) => {
-  setCurrentApp(appId);
-  if (appId !== 'messages') {
-    setIsInsideChatRoom(false);
-  }
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  });
-};
+    setCurrentApp(appId);
+
+    if (appId !== 'messages') {
+      setIsInsideChatRoom(false);
+    }
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    });
+  };
 
   const shouldDisplayHeader = showTitle && currentApp !== 'settings' && !isInsideChatRoom;
 
@@ -46,10 +48,8 @@ export const App = () => {
         </ErrorBoundary>
       )}
 
-      {/* 全局自定义 Toast 通知系统 */}
       <NotificationToast />
 
-      {/* 全局弥散光背景 */}
       <div
         className="fixed inset-0 -z-10 overflow-hidden pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: 'var(--bg-main)' }}
@@ -68,8 +68,7 @@ export const App = () => {
         />
       </div>
 
-      <main className="relative z-10 mx-auto min-h-screen w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6">
-        {/* 顶部 Main Header */}
+      <main className="relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6">
         {shouldDisplayHeader && (
           <header className="flex items-start justify-between animate-fade-in-up">
             <div>
@@ -136,15 +135,14 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-{currentApp === 'messages' && (
-  <ErrorBoundary>
-    <MessagesApp
-      onBackHub={() => openApp('hub')}
-      onChatRoomStateChange={(inRoom) => setIsInsideChatRoom(inRoom)}
-    />
-  </ErrorBoundary>
-)}
-
+        {currentApp === 'messages' && (
+          <ErrorBoundary>
+            <MessagesApp
+              onBackHub={() => openApp('hub')}
+              onChatRoomStateChange={(inRoom) => setIsInsideChatRoom(inRoom)}
+            />
+          </ErrorBoundary>
+        )}
 
         {['todos', 'planner'].includes(currentApp) && (
           <ErrorBoundary>
@@ -158,14 +156,12 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {/* ✈️ 新增：旅行与打卡足迹 Sub-App 路由渲染 */}
         {['travels', 'travel'].includes(currentApp) && (
           <ErrorBoundary>
             <TravelApp onBackHub={() => openApp('hub')} />
           </ErrorBoundary>
         )}
 
-        {/* 尚未开发的 Sub-App 兜底拦截（把 travels, travel 加入排除列表） */}
         {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel'].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">

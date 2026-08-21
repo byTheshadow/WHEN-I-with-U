@@ -1,142 +1,239 @@
 import React, { useState } from 'react';
-import { Plane, Mail, Clock, Sun, Gift, User, RefreshCw, Sparkles } from 'lucide-react';
+import { Mail, Plane, RefreshCw, MapPin, Clock, Gift, ArrowUpRight } from 'lucide-react';
 
-export const InTransitDashboard = ({ travel, character, postcards = [], onOpenPostcard, onCheckNewPostcard }) => {
+const formatDate = (timestamp) => {
+  if (!timestamp) return '尚未签发';
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(new Date(timestamp));
+};
+
+export const InTransitDashboard = ({
+  travel,
+  character,
+  postcards = [],
+  onOpenPostcard,
+  onCheckNewPostcard
+}) => {
   const [isChecking, setIsChecking] = useState(false);
 
   const handleCheckClick = async () => {
     setIsChecking(true);
+
     try {
-      if (onCheckNewPostcard) await onCheckNewPostcard();
+      await onCheckNewPostcard?.();
     } finally {
       setIsChecking(false);
     }
   };
 
+  const companionName = character?.name || '伴侣';
+  const userName = travel.userPassportName || 'User';
+
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      {/* 拟真漫游手帐状态存根 */}
-      <div 
-        className="p-6 rounded-3xl border shadow-sm space-y-5"
-        style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+    <div className="animate-fade-in-up space-y-8">
+      {/* 展开的航空信笺 */}
+      <section
+        className="relative overflow-hidden border px-5 py-6 shadow-sm"
+        style={{
+          backgroundColor: 'var(--card-bg)',
+          borderColor: 'var(--card-border)',
+          boxShadow: 'var(--card-shadow)'
+        }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: 'var(--divider)' }}>
-          <div className="flex items-center gap-3.5">
-            <div 
-              className="p-3 rounded-2xl border shrink-0"
-              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
+        <div
+          className="absolute inset-x-0 top-0 h-2"
+          style={{
+            background:
+              'repeating-linear-gradient(90deg, var(--accent-color) 0 16px, var(--card-bg) 16px 28px, var(--text-muted) 28px 44px, var(--card-bg) 44px 56px)'
+          }}
+        />
+
+        <div className="mt-3 flex items-start justify-between gap-4">
+          <div>
+            <p
+              className="text-[10px] font-mono tracking-[0.18em]"
+              style={{ color: 'var(--text-muted)' }}
             >
-              <Plane className="w-6 h-6 animate-pulse" style={{ color: 'var(--text-main)' }} />
-            </div>
-            <div>
-              <div className="text-[10px] font-mono tracking-wider opacity-60 uppercase" style={{ color: 'var(--text-sub)' }}>
-                DUAL IN-TRANSIT BOARDING STUB
-              </div>
-              <h2 className="text-xl font-serif font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>
-                {travel.destination} 双人漫游中
-              </h2>
-            </div>
+              OPEN TRAVEL LETTER
+            </p>
+            <h2
+              className="mt-2 font-serif text-2xl font-bold leading-tight"
+              style={{ color: 'var(--text-main)' }}
+            >
+              写给正在
+              <br />
+              {travel.destination || '远方'} 一起漫游的你们
+            </h2>
+          </div>
+
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-dashed"
+            style={{
+              borderColor: 'var(--text-muted)',
+              color: 'var(--text-muted)'
+            }}
+          >
+            <Plane className="h-5 w-5 -rotate-45" />
+          </div>
+        </div>
+
+        <div
+          className="my-6 border-y py-4"
+          style={{ borderColor: 'var(--divider)' }}
+        >
+          <p
+            className="font-serif text-sm leading-7"
+            style={{ color: 'var(--text-sub)' }}
+          >
+            {companionName} 与 {userName} 的行李已经安放妥当。这趟旅程不急着抵达；
+            沿路的光线、偶然绕进的小巷，以及彼此停下来等待对方的片刻，都会被好好收进这封信里。
+          </p>
+        </div>
+
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0 space-y-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{travel.destination || '未命名目的地'}</span>
+            </p>
+            <p className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>{formatDate(travel.startTime || travel.createdAt)} 签发 · {travel.durationHours || 12} 小时</span>
+            </p>
           </div>
 
           <button
+            type="button"
             onClick={handleCheckClick}
             disabled={isChecking}
-            className="px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all shrink-0"
-            style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+            className="shrink-0 rounded-full px-4 py-2.5 text-xs font-bold transition-transform active:scale-95 disabled:opacity-60"
+            style={{
+              backgroundColor: 'var(--accent-color)',
+              color: 'var(--accent-foreground)'
+            }}
           >
-            <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
-            <span>看看有没有明信片？</span>
+            <span className="flex items-center gap-1.5">
+              <RefreshCw className={`h-3.5 w-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+              打开今日邮袋
+            </span>
           </button>
         </div>
+      </section>
 
-        {/* 状态与小插曲胶囊 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          <div 
-            className="p-3.5 rounded-2xl border flex items-center gap-2.5"
-            style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-sub)' }}
-          >
-            <Sun className="w-4 h-4 shrink-0" style={{ color: 'var(--text-main)' }} />
-            <span className="truncate">当地天气：晴朗 · 适合双人漫步</span>
+      {/* 夹在旅行信笺中的明信片 */}
+      <section>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p
+              className="text-[10px] font-mono tracking-[0.16em]"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              FOUND ALONG THE WAY
+            </p>
+            <h3
+              className="mt-1 font-serif text-lg font-bold"
+              style={{ color: 'var(--text-main)' }}
+            >
+              夹在信里的旅行片段
+            </h3>
           </div>
-
-          <div 
-            className="p-3.5 rounded-2xl border flex items-center gap-2.5"
-            style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-sub)' }}
-          >
-            <User className="w-4 h-4 shrink-0" style={{ color: 'var(--text-main)' }} />
-            <span className="truncate">{character?.name || '伴侣'} 微状态：正与你一起逛街角书店</span>
-          </div>
-
-          <div 
-            className="p-3.5 rounded-2xl border flex items-center gap-2.5 font-mono"
-            style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-sub)' }}
-          >
-            <Clock className="w-4 h-4 shrink-0" style={{ color: 'var(--text-main)' }} />
-            <span>漫游时长：{travel.durationHours || 12} 小时</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 漫游明信片展厅 */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold font-serif flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
-            <Mail className="w-4 h-4" />
-            <span>双人漫游手帐明信片与伴手礼 ({postcards.length})</span>
-          </h3>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {postcards.length} 枚
+          </span>
         </div>
 
         {postcards.length === 0 ? (
-          <div 
-            className="py-16 px-6 rounded-3xl border border-dashed text-center space-y-3"
-            style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
+          <div
+            className="mt-4 border border-dashed px-6 py-14 text-center"
+            style={{
+              backgroundColor: 'var(--control-soft-bg)',
+              borderColor: 'var(--card-border)'
+            }}
           >
-            <Sparkles className="w-8 h-8 mx-auto opacity-40" style={{ color: 'var(--text-muted)' }} />
-            <p className="text-xs font-semibold font-serif" style={{ color: 'var(--text-main)' }}>
-              还没有新的明信片
-            </p>
-            <p className="text-[11px] opacity-70 max-w-xs mx-auto leading-relaxed" style={{ color: 'var(--text-sub)' }}>
-              你与伴侣在漫游期间，AI 会根据实时地点与角色人设，为你记录特定景点的浪漫互动与伴手礼…
+            <Mail
+              className="mx-auto h-8 w-8"
+              style={{ color: 'var(--text-muted)' }}
+            />
+            <p className="mt-3 font-serif text-sm font-semibold">邮袋暂时还是空的</p>
+            <p
+              className="mx-auto mt-1 max-w-xs text-xs leading-relaxed"
+              style={{ color: 'var(--text-sub)' }}
+            >
+              你们在路上遇见的风景、人物与小小的收获，会慢慢被寄回这里。
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {postcards.map((card) => (
-              <div
-                key={card.id}
-                onClick={() => onOpenPostcard(card)}
-                className="p-5 rounded-2xl border cursor-pointer hover:shadow-md transition-all flex flex-col justify-between space-y-4"
-                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="font-serif text-sm" style={{ color: 'var(--text-main)' }}>{card.spotName}</span>
-                    <span className="text-[10px] font-mono opacity-60" style={{ color: 'var(--text-muted)' }}>
-                      {new Date(card.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p className="text-xs line-clamp-3 leading-relaxed opacity-85 font-serif tracking-wide" style={{ color: 'var(--text-sub)' }}>
-                    "{card.letterContent}"
-                  </p>
-                </div>
+          <div className="mt-5 space-y-5">
+            {postcards.map((card, index) => {
+              const rotateClass = index % 3 === 0
+                ? 'rotate-[-1deg]'
+                : index % 3 === 1
+                  ? 'rotate-[1deg]'
+                  : 'rotate-0';
 
-                {card.giftItem && (
-                  <div 
-                    className="pt-3 border-t flex items-center gap-2 text-xs font-medium"
-                    style={{ borderColor: 'var(--divider)', color: 'var(--text-main)' }}
-                  >
-                    <Gift className="w-4 h-4 shrink-0" />
-                    <span className="truncate">伴手礼：{card.giftItem}</span>
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => onOpenPostcard(card)}
+                  className={`block w-full border p-4 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${rotateClass}`}
+                  style={{
+                    backgroundColor: 'var(--card-bg)',
+                    borderColor: 'var(--card-border)'
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p
+                        className="font-serif text-base font-bold"
+                        style={{ color: 'var(--text-main)' }}
+                      >
+                        {card.spotName || '旅途片段'}
+                      </p>
+                      <p
+                        className="mt-2 line-clamp-3 text-xs leading-6"
+                        style={{ color: 'var(--text-sub)' }}
+                      >
+                        {card.letterContent}
+                      </p>
+                    </div>
+
+                    <ArrowUpRight
+                      className="mt-1 h-4 w-4 shrink-0"
+                      style={{ color: 'var(--text-muted)' }}
+                    />
                   </div>
-                )}
-              </div>
-            ))}
+
+                  <div
+                    className="mt-4 flex items-center justify-between gap-3 border-t pt-3 text-[10px]"
+                    style={{
+                      borderColor: 'var(--divider)',
+                      color: 'var(--text-muted)'
+                    }}
+                  >
+                    <span>
+                      {new Date(card.timestamp).toLocaleDateString('zh-CN')}
+                    </span>
+
+                    {card.giftItem && (
+                      <span className="flex min-w-0 items-center gap-1.5 truncate">
+                        <Gift className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{card.giftItem}</span>
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 };
 
 export default InTransitDashboard;
-

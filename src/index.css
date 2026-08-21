@@ -18,13 +18,17 @@ body,
 html {
   min-height: 100%;
   background-color: var(--bg-main);
+  scroll-behavior: auto;
 }
 
 body {
   min-height: 100vh;
   overflow-x: hidden;
+  overflow-y: auto;
   background-color: var(--bg-main);
   color: var(--text-main);
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
   font-family:
     Inter,
     "SF Pro Display",
@@ -80,35 +84,4 @@ img {
 :root[data-theme="obsidian-dark"],
 :root[data-theme="cyber-velvet"] {
   color-scheme: dark;
-}
-
-html {
-  min-height: 100%;
-  background-color: var(--bg-main);
-  scroll-behavior: auto;
-}
-
-body {
-  min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
-  font-family:
-    Inter,
-    "SF Pro Display",
-    "SF Pro Text",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  transition:
-    background-color 380ms ease,
-    color 260ms ease;
 }
