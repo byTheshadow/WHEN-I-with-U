@@ -11,14 +11,11 @@ export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
   useEffect(() => {
     const loadCharacters = async () => {
       const list = await db.characters.toArray();
-
       setCharacters(list);
-
       if (list.length > 0) {
         setSelectedCharId(list[0].id.toString());
       }
     };
-
     loadCharacters();
   }, []);
 
@@ -48,6 +45,7 @@ export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
 
     if (!char) return;
 
+    // 关键改变：为新创建的 chat 初始化独享的 User 人设与称呼
     const newChat = {
       characterId: char.id,
       mode,
@@ -56,18 +54,11 @@ export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
         `${char.name} (${mode === 'rp' ? 'RP Mode' : 'Real World'})`,
       updatedAt: new Date().toISOString(),
 
-      // 保持字符串形式，兼容既有消息气泡 className 的使用方式；
-      // 不再使用 Tailwind dark:，统一依赖 themes.css 变量。
-      bubbleStyle: {
-        fontFamily: 'font-sans',
-        fontSize: 'text-xs',
-        userBg:
-          'bg-[var(--accent-color)] text-[var(--accent-foreground)]',
-        aiBg:
-          'bg-[var(--control-soft-bg)] text-[var(--text-main)] border border-[var(--divider)]',
-      },
-
-      typingText: `${char.name} 正在回复...`,
+      userName: char.userName || '',
+      userAvatar: char.userAvatar || '',
+      userPersona: char.userPersona || '',
+      inputPlaceholder: `与 ${char.name} 倾诉...`,
+      typingText: `${char.name} 正在提笔回复...`,
       keepAlive: false,
     };
 

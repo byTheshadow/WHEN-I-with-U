@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { X, Upload, Trash2, Sliders, Edit2, Plus, Check, User } from 'lucide-react';
+import { X, Upload, Trash2, Sliders, Edit2, Plus, Check, User, Sparkles } from 'lucide-react';
 import AudioKeepAlive from './AudioKeepAlive';
 import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
@@ -22,12 +22,15 @@ export const ChatSettingsModal = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // 追加：User 专属昵称与头像配置，任意模式都可使用
+  // 本聊天窗独立拥有的 User 属性
   const [userName, setUserName] = useState(chat?.userName || character?.userName || '');
   const [userAvatar, setUserAvatar] = useState(chat?.userAvatar || character?.userAvatar || '');
+  const [userPersona, setUserPersona] = useState(chat?.userPersona || character?.userPersona || '');
+  const [inputPlaceholder, setInputPlaceholder] = useState(chat?.inputPlaceholder || '');
+  const [typingText, setTypingText] = useState(chat?.typingText || '');
+
   const [isSavingUserIdentity, setIsSavingUserIdentity] = useState(false);
 
-  // 解析并初始化总结条目数组
   const parseSummaryList = (sum) => {
     if (Array.isArray(sum)) return sum;
     if (typeof sum === 'string' && sum.trim()) {
@@ -56,7 +59,6 @@ export const ChatSettingsModal = ({
     reader.readAsDataURL(file);
   };
 
-  // 追加：上传 User 头像
   const handleUserAvatarUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -64,17 +66,13 @@ export const ChatSettingsModal = ({
     const reader = new FileReader();
     reader.onload = () => {
       setUserAvatar(reader.result);
-      handleSaveUserIdentity({
-        nextUserAvatar: reader.result
-      });
+      handleSaveUserIdentity({ nextUserAvatar: reader.result });
     };
     reader.readAsDataURL(file);
-
-    // 允许重复选择同一张图片
     e.target.value = '';
   };
 
-  // 追加：保存 User 昵称和头像到当前 chat，并兼容写入 character
+  // 核心改动：仅更新当前 db.chats 绝不写入 db.characters ，隔离各聊天窗人设
   const handleSaveUserIdentity = async (override = {}) => {
     if (!chat?.id) return;
 
@@ -86,20 +84,29 @@ export const ChatSettingsModal = ({
       ? override.nextUserAvatar
       : userAvatar;
 
+    const nextUserPersona = Object.prototype.hasOwnProperty.call(override, 'nextUserPersona')
+      ? override.nextUserPersona
+      : userPersona;
+
+    const nextPlaceholder = Object.prototype.hasOwnProperty.call(override, 'nextPlaceholder')
+      ? override.nextPlaceholder
+      : inputPlaceholder;
+
+    const nextTypingText = Object.prototype.hasOwnProperty.call(override, 'nextTypingText')
+      ? override.nextTypingText
+      : typingText;
+
     const payload = {
       userName: (nextUserName || '').trim(),
-      userAvatar: (nextUserAvatar || '').trim()
+      userAvatar: (nextUserAvatar || '').trim(),
+      userPersona: (nextUserPersona || '').trim(),
+      inputPlaceholder: (nextPlaceholder || '').trim(),
+      typingText: (nextTypingText || '').trim()
     };
 
     try {
       setIsSavingUserIdentity(true);
-
       await db.chats.update(chat.id, payload);
-
-      // 兼容旧逻辑：如果角色表也存过 userName/userAvatar，则同步更新
-      if (character?.id) {
-        await db.characters.update(character.id, payload);
-      }
 
       if (onUpdatedUserPersona) {
         onUpdatedUserPersona(payload);
@@ -117,7 +124,6 @@ export const ChatSettingsModal = ({
     if (onDeletedChat) onDeletedChat();
   };
 
-  // 总结条目 CRUD 操作 handler
   const handleStartEdit = (entry) => {
     setEditingId(entry.id);
     setEditingText(entry.content);
@@ -155,7 +161,7 @@ export const ChatSettingsModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in-up">
       <div 
-        className="fixed inset-0 backdrop-blur-md bg-white/5 dark:bg-black/5"
+        className="fixed inset-0 backdrop-blur-md bg-black/40"
         onClick={onClose}
       />
 
@@ -167,22 +173,22 @@ export const ChatSettingsModal = ({
           color: 'var(--text-main)'
         }}
       >
-        <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--divider)' }}>
+        <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--divider)' }}>
           <span className="font-bold text-sm">对话空间设置</span>
           <button type="button" onClick={onClose} className="p-1 rounded-full opacity-60 hover:opacity-100">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* 追加：User 专属配置区，不论 RP / 现实 / 其他模式均可配置 */}
+        {/* 独立 User 专属配置区（独立于此聊天窗） */}
         <div className="space-y-3 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold">
               <User className="w-3.5 h-3.5" />
-              <span>你的个人名片</span>
+              <span>本窗你的个人名片 & 人设</span>
             </div>
             <span className="font-mono text-[9px] opacity-45">
-              {isSavingUserIdentity ? 'SAVING...' : 'USER PROFILE'}
+              {isSavingUserIdentity ? 'SAVING...' : 'WINDOW CHAT'}
             </span>
           </div>
 
@@ -190,7 +196,7 @@ export const ChatSettingsModal = ({
             <button
               type="button"
               onClick={() => userAvatarInputRef.current?.click()}
-              className="w-14 h-14 shrink-0 rounded-2xl border flex items-center justify-center overflow-hidden relative transition-all active:scale-95"
+              className="w-12 h-12 shrink-0 rounded-2xl border flex items-center justify-center overflow-hidden relative transition-all active:scale-95"
               style={{
                 background: 'var(--bg-main)',
                 borderColor: 'var(--divider)'
@@ -214,11 +220,11 @@ export const ChatSettingsModal = ({
 
             <div className="flex-1 min-w-0 space-y-2">
               <div>
-                <label className="block text-[10px] opacity-60 mb-1">你的昵称 / 称呼</label>
+                <label className="block text-[10px] opacity-60 mb-1">你在本窗的称呼</label>
                 <input
                   type="text"
                   value={userName}
-                  placeholder="例如：阿泽 / User / 我"
+                  placeholder="例如：阿泽 / 主人 / User"
                   onChange={(e) => setUserName(e.target.value)}
                   onBlur={() => handleSaveUserIdentity()}
                   className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
@@ -227,11 +233,11 @@ export const ChatSettingsModal = ({
               </div>
 
               <div>
-                <label className="block text-[10px] opacity-60 mb-1">你的头像 URL / Base64</label>
+                <label className="block text-[10px] opacity-60 mb-1">你的头像 URL</label>
                 <input
                   type="text"
                   value={userAvatar}
-                  placeholder="https://... 或上传图片自动填入"
+                  placeholder="https://..."
                   onChange={(e) => setUserAvatar(e.target.value)}
                   onBlur={() => handleSaveUserIdentity()}
                   className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs"
@@ -241,49 +247,49 @@ export const ChatSettingsModal = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => userAvatarInputRef.current?.click()}
-              className="flex-1 py-1.5 rounded-xl border text-[10px] font-medium transition-all active:scale-95"
-              style={{
-                background: 'var(--bg-main)',
-                borderColor: 'var(--divider)',
-                color: 'var(--text-main)'
-              }}
-            >
-              {userAvatar ? '更换头像' : '上传头像'}
-            </button>
-
-            {userAvatar && (
-              <button
-                type="button"
-                onClick={() => {
-                  setUserAvatar('');
-                  handleSaveUserIdentity({ nextUserAvatar: '' });
-                }}
-                className="px-3 py-1.5 rounded-xl text-rose-500 bg-rose-500/10 text-[10px] font-semibold transition-all active:scale-95"
-              >
-                移除头像
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => handleSaveUserIdentity()}
-              className="px-3 py-1.5 rounded-xl text-emerald-600 bg-emerald-500/10 text-[10px] font-semibold transition-all active:scale-95 disabled:opacity-50"
-              disabled={isSavingUserIdentity}
-            >
-              保存
-            </button>
+          <div>
+            <label className="block text-[10px] opacity-60 mb-1">本窗你的专属人设 (User Persona)</label>
+            <textarea
+              rows={2}
+              value={userPersona}
+              placeholder="例如：刚下班的程序员 / 喜欢弹吉他的室友..."
+              onChange={(e) => setUserPersona(e.target.value)}
+              onBlur={() => handleSaveUserIdentity()}
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs leading-relaxed"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            />
           </div>
 
-          <p className="text-[10px] opacity-45 leading-relaxed">
-            此配置会保存到当前对话空间，并在有角色数据时同步写入角色的 User 身份字段；适用于任意聊天模式。
-          </p>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label className="block text-[10px] opacity-60 mb-1">自定义输入框提示</label>
+              <input
+                type="text"
+                value={inputPlaceholder}
+                placeholder={`与 ${character?.name || '伴侣'} 倾诉...`}
+                onChange={(e) => setInputPlaceholder(e.target.value)}
+                onBlur={() => handleSaveUserIdentity()}
+                className="w-full px-2.5 py-1.5 rounded-xl border outline-none text-xs"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] opacity-60 mb-1">自定义打字中提示</label>
+              <input
+                type="text"
+                value={typingText}
+                placeholder={`${character?.name || '伴侣'} 正在思考...`}
+                onChange={(e) => setTypingText(e.target.value)}
+                onBlur={() => handleSaveUserIdentity()}
+                className="w-full px-2.5 py-1.5 rounded-xl border outline-none text-xs"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* 阶段性多条目心绪总结管理 */}
+        {/* 阶段性多条目事实总结 */}
         <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] opacity-60">TIMELINE SUMMARY / 阶段事实总结</span>
@@ -293,7 +299,7 @@ export const ChatSettingsModal = ({
               className="flex items-center gap-1 text-[10px] font-semibold text-purple-500 hover:opacity-100"
             >
               <Plus className="w-3 h-3" />
-              <span>添加记录</span>
+              <span>添加条目</span>
             </button>
           </div>
 
@@ -315,13 +321,13 @@ export const ChatSettingsModal = ({
           )}
 
           {summaryList.length === 0 ? (
-            <p className="text-[11px] opacity-50 italic py-1">暂无阶段性总结记录，满 10 轮对话后将自动生成。</p>
+            <p className="text-[11px] opacity-50 italic py-1">暂无阶段性总结记录。</p>
           ) : (
-            <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar pt-1">
+            <div className="space-y-2 max-h-36 overflow-y-auto no-scrollbar pt-1">
               {summaryList.map((item) => (
                 <div key={item.id} className="p-2 rounded-xl border space-y-1 text-[11px]" style={{ background: 'var(--bg-main)', borderColor: 'var(--divider)' }}>
                   <div className="flex items-center justify-between text-[9px] opacity-50 font-mono">
-                    <span>[{item.createdAt}] {item.isAuto ? '(自动生成)' : '(手动添加)'}</span>
+                    <span>[{item.createdAt}]</span>
                     <div className="flex items-center gap-1">
                       {editingId === item.id ? (
                         <button type="button" onClick={() => handleSaveEdit(item.id)} className="text-emerald-500 hover:opacity-100" title="保存">
@@ -355,13 +361,13 @@ export const ChatSettingsModal = ({
           )}
         </div>
 
-        {/* 专属背景图 */}
+        {/* 背景壁纸配置 */}
         <div className="space-y-2">
-          <label className="block font-mono opacity-60 text-[10px]">CHAT BACKGROUND / 背景图设置</label>
+          <label className="block font-mono opacity-60 text-[10px]">CHAT BACKGROUND / 背景图</label>
           <div className="flex items-center gap-3">
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="w-14 h-14 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all"
+              className="w-12 h-12 rounded-2xl border flex items-center justify-center cursor-pointer overflow-hidden relative transition-all"
               style={{
                 background: 'var(--control-soft-bg)',
                 borderColor: 'var(--divider)'
@@ -375,7 +381,7 @@ export const ChatSettingsModal = ({
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
 
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -388,44 +394,17 @@ export const ChatSettingsModal = ({
               >
                 {bgImage ? '更换背景图' : '选择图片上传'}
               </button>
-              {bgImage && (
-                <button
-                  type="button"
-                  onClick={() => onUpdateBgImage('')}
-                  className="w-full py-1 text-rose-500 text-[10px] opacity-80 hover:opacity-100"
-                >
-                  移除背景
-                </button>
-              )}
             </div>
           </div>
-
-          {bgImage && (
-            <div className="space-y-1 pt-1">
-              <div className="flex items-center justify-between text-[10px] opacity-70">
-                <span>背景透明度</span>
-                <span className="font-mono">{Math.round(bgOpacity * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0.05"
-                max="0.8"
-                step="0.05"
-                value={bgOpacity}
-                onChange={(e) => onUpdateBgOpacity(parseFloat(e.target.value))}
-                className="w-full accent-black dark:accent-white cursor-pointer"
-              />
-            </div>
-          )}
         </div>
 
-        {/* 10 分钟+ 后台音频保活 */}
+        {/* 后台音频保活 */}
         <div className="pt-1">
           <AudioKeepAlive isActive={keepAlive} onToggle={onToggleKeepAlive} />
         </div>
 
-        {/* 自定义 CSS 气泡 */}
-        <div className="pt-2 border-t" style={{ borderColor: 'var(--divider)' }}>
+        {/* 气泡样式定制 */}
+        <div>
           <button
             type="button"
             onClick={() => {
@@ -441,21 +420,21 @@ export const ChatSettingsModal = ({
           >
             <div className="flex items-center gap-2">
               <Sliders className="w-3.5 h-3.5 opacity-70" />
-              <span>自定义气泡 CSS 样式</span>
+              <span>定制气泡 CSS 样式</span>
             </div>
             <span className="opacity-40 font-mono text-[10px]">&gt;</span>
           </button>
         </div>
 
-        {/* 危险区域 */}
-        <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--divider)' }}>
+        {/* 危险区 */}
+        <div className="pt-2 space-y-2">
           <button
             type="button"
             onClick={() => setShowClearConfirm(true)}
             className="w-full py-2 rounded-xl bg-rose-500/10 text-rose-600 font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>清空本聊天记录</span>
+            <span>清空本窗消息</span>
           </button>
 
           <button

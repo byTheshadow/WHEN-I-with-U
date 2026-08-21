@@ -114,12 +114,12 @@ db.version(6).stores({
   });
 });
 
-// 🛠️ Version 7: 补齐 messages 表缺失的 chatId 索引，增加多版本与用户人设/头像字段
+// 🛠️ Version 7: 完美修复 messages 表 chatId 索引，chats 独立存储 userPersona/userName/userAvatar/inputPlaceholder/typingText
 db.version(7).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
-  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userName, userAvatar',
-  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText',
   messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
   worldBooks: '++id, type, title, isEnabled',
   homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
@@ -139,5 +139,6 @@ db.version(7).stores({
 });
 
 export default db;
+
 
 

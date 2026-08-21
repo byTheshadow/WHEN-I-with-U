@@ -218,9 +218,9 @@ export const ChatRoom = ({
 
   const currentCss = chat.customCss || defaultCss;
 
-  // 用户头像与昵称优先级
+  // 当前聊天窗独享的 User 头像与昵称
   const activeUserAvatar = chat.userAvatar || character.userAvatar || '';
-  const activeUserName = chat.userName || character.userName || character.userPersona || '你';
+  const activeUserName = chat.userName || character.userName || '你';
 
   return (
     <div
@@ -244,14 +244,17 @@ export const ChatRoom = ({
         />
       )}
 
-      {/* 固定顶部区域 */}
-      <header className="z-20 shrink-0 px-4 pt-3 pb-1 border-b" style={{ borderColor: 'var(--divider)' }}>
+      {/* 顶部按钮控制区：彻底没有横线 border-b */}
+      <header className="z-20 shrink-0 px-4 pt-3 pb-1">
         <div className="flex items-center justify-between pb-1">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1 text-xs font-semibold opacity-75 hover:opacity-100"
-            style={{ color: 'var(--text-main)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold opacity-85 hover:opacity-100 transition-opacity"
+            style={{
+              background: 'var(--control-soft-bg)',
+              color: 'var(--text-main)'
+            }}
           >
             <ArrowLeft className="h-4 w-4" />
             <span>返回列表</span>
@@ -260,7 +263,7 @@ export const ChatRoom = ({
           <button
             type="button"
             onClick={() => setShowChatSettings(true)}
-            className="rounded-full p-1.5 opacity-75 hover:opacity-100"
+            className="rounded-full p-2 opacity-85 hover:opacity-100 transition-opacity"
             style={{
               background: 'var(--control-soft-bg)',
               color: 'var(--text-main)'
@@ -279,7 +282,7 @@ export const ChatRoom = ({
         />
       </header>
 
-      {/* 消息滚动主区域 */}
+      {/* 消息历史滚动容器 */}
       <section
         ref={scrollAreaRef}
         className="min-h-0 flex-1 overflow-y-auto px-4 py-3 no-scrollbar"
@@ -308,10 +311,7 @@ export const ChatRoom = ({
                 key={msg.id}
                 className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
               >
-                {/* 消息发送人名称展示 */}
-                <span className="mb-0.5 text-[9px] font-mono opacity-50 px-1">
-                  {isUser ? activeUserName : character.name}
-                </span>
+                {/* 彻底去除气泡上方的名字展示，保持极简纯净 */}
 
                 {quoted && (
                   <div
@@ -333,7 +333,7 @@ export const ChatRoom = ({
                     isUser ? 'flex-row-reverse' : 'flex-row'
                   }`}
                 >
-                  {/* 头像控制：完全支持自定义 User 头像与伴侣头像 */}
+                  {/* 头像渲染 */}
                   {!isUser ? (
                     character.avatar ? (
                       <img
@@ -366,7 +366,7 @@ export const ChatRoom = ({
                     </div>
                   )}
 
-                  {/* 消息气泡主块 */}
+                  {/* 消息气泡正文 */}
                   <div className="flex flex-col gap-1">
                     {isErrorMsg ? (
                       <div
@@ -379,7 +379,7 @@ export const ChatRoom = ({
                       >
                         <div className="flex items-center gap-1.5 font-bold font-mono text-[11px] text-red-500">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          <span>API 报错代码: {msg.metadata?.errorCode || 'ERROR'}</span>
+                          <span>API 报错: {msg.metadata?.errorCode || 'ERROR'}</span>
                         </div>
                         <p className="text-[11px] opacity-90">{msg.content}</p>
                         <button
@@ -406,7 +406,7 @@ export const ChatRoom = ({
                     )}
                   </div>
 
-                  {/* 操作栏（支持重roll、引用、删除） */}
+                  {/* 悬浮工具与重roll */}
                   <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     {!isUser && (
                       <button
@@ -414,7 +414,7 @@ export const ChatRoom = ({
                         onClick={() => handleRerollMessage(msg.id)}
                         disabled={isAiTyping}
                         className="p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
-                        title="重新生成此条消息 (Re-roll)"
+                        title="重roll此回复"
                       >
                         <RotateCw className="h-3 w-3" />
                       </button>
@@ -440,13 +440,12 @@ export const ChatRoom = ({
                   </div>
                 </div>
 
-                {/* 底部多版本左右切换 + 时间戳 */}
+                {/* 多版本切换与时间戳 */}
                 <div
                   className={`mt-1 flex items-center gap-2 px-9 font-mono text-[9px] opacity-60 ${
                     isUser ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  {/* 多版本左右切换控制器 */}
                   {versions.length > 1 && (
                     <div
                       className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border"
@@ -504,14 +503,19 @@ export const ChatRoom = ({
         </div>
       </section>
 
-      {/* 底部输入框组件：无多余留白 */}
-      <footer className="z-20 shrink-0 p-3 border-t" style={{ borderColor: 'var(--divider)', background: 'var(--bg-main)' }}>
+      {/* 悬浮输入框区：无任何线条 border-t ，柔和悬浮胶囊风 */}
+      <footer
+        className="z-20 shrink-0 px-4 pt-1"
+        style={{
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)'
+        }}
+      >
         {quotedMsg && (
           <div
-            className="mb-2 flex items-center justify-between rounded-xl border-l-2 p-2 text-[10px] shadow-sm"
+            className="mb-2 flex items-center justify-between rounded-2xl p-2 px-3 text-[10px] shadow-md"
             style={{
               background: 'var(--control-soft-bg)',
-              borderColor: 'var(--accent-color)'
+              color: 'var(--text-main)'
             }}
           >
             <div className="truncate pr-2">
@@ -533,10 +537,10 @@ export const ChatRoom = ({
 
         {selectedType !== 'text' && (
           <div
-            className="mb-2 space-y-2 rounded-2xl border p-2.5 text-[11px]"
+            className="mb-2 space-y-2 rounded-2xl p-3 text-[11px] shadow-md"
             style={{
               background: 'var(--control-soft-bg)',
-              borderColor: 'var(--card-border)'
+              color: 'var(--text-main)'
             }}
           >
             <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
@@ -555,7 +559,7 @@ export const ChatRoom = ({
                 placeholder="输入图片的视觉描写细节..."
                 value={inputText}
                 onChange={(event) => setInputText(event.target.value)}
-                className="w-full rounded p-1.5 outline-none"
+                className="w-full rounded-xl p-2 outline-none"
                 style={{
                   background: 'var(--bg-main)',
                   color: 'var(--text-main)'
@@ -574,7 +578,7 @@ export const ChatRoom = ({
                       amount: event.target.value
                     });
                   }}
-                  className="w-1/2 rounded p-1.5 font-mono outline-none"
+                  className="w-1/2 rounded-xl p-2 font-mono outline-none"
                   style={{
                     background: 'var(--bg-main)',
                     color: 'var(--text-main)'
@@ -586,7 +590,7 @@ export const ChatRoom = ({
                   placeholder="心意留言"
                   value={inputText}
                   onChange={(event) => setInputText(event.target.value)}
-                  className="w-1/2 rounded p-1.5 outline-none"
+                  className="w-1/2 rounded-xl p-2 outline-none"
                   style={{
                     background: 'var(--bg-main)',
                     color: 'var(--text-main)'
@@ -597,22 +601,20 @@ export const ChatRoom = ({
           </div>
         )}
 
+        {/* 极致柔和的悬浮输入胶囊，无任何 border */}
         <div
-          className="flex items-center gap-1.5 rounded-full border p-2 shadow-xl backdrop-blur-2xl transition-all"
+          className="flex items-center gap-2 rounded-full px-3 py-2 shadow-2xl backdrop-blur-2xl transition-all duration-300"
           style={{
             background: 'var(--card-bg-gradient)',
-            borderColor: 'var(--card-border)',
-            color: 'var(--text-main)'
+            color: 'var(--text-main)',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)'
           }}
         >
-          <div
-            className="flex items-center gap-1 border-r pr-1.5 opacity-70"
-            style={{ borderColor: 'var(--divider)' }}
-          >
+          <div className="flex items-center gap-1 opacity-80">
             <button
               type="button"
               onClick={() => setSelectedType('image')}
-              className={`rounded-full p-1.5 active:scale-90 ${selectedType === 'image' ? 'opacity-100' : 'opacity-70'}`}
+              className={`rounded-full p-2 transition-all active:scale-90 ${selectedType === 'image' ? 'bg-[var(--control-soft-bg)] opacity-100' : 'hover:opacity-100'}`}
               title="画面描述"
             >
               <Image className="h-4 w-4" />
@@ -621,7 +623,7 @@ export const ChatRoom = ({
             <button
               type="button"
               onClick={() => setSelectedType('voice')}
-              className={`rounded-full p-1.5 active:scale-90 ${selectedType === 'voice' ? 'opacity-100' : 'opacity-70'}`}
+              className={`rounded-full p-2 transition-all active:scale-90 ${selectedType === 'voice' ? 'bg-[var(--control-soft-bg)] opacity-100' : 'hover:opacity-100'}`}
               title="模拟语音"
             >
               <Volume2 className="h-4 w-4" />
@@ -630,7 +632,7 @@ export const ChatRoom = ({
             <button
               type="button"
               onClick={() => setSelectedType('transfer')}
-              className={`rounded-full p-1.5 active:scale-90 ${selectedType === 'transfer' ? 'opacity-100' : 'opacity-70'}`}
+              className={`rounded-full p-2 transition-all active:scale-90 ${selectedType === 'transfer' ? 'bg-[var(--control-soft-bg)] opacity-100' : 'hover:opacity-100'}`}
               title="心意转账"
             >
               <DollarSign className="h-4 w-4" />
@@ -641,7 +643,7 @@ export const ChatRoom = ({
             type="text"
             placeholder={
               selectedType === 'text'
-                ? `与 ${character.name} 倾诉...`
+                ? (chat.inputPlaceholder || `与 ${character.name} 倾诉...`)
                 : `已选 ${selectedType} 模式`
             }
             value={inputText}
@@ -655,11 +657,11 @@ export const ChatRoom = ({
             style={{ color: 'var(--text-main)' }}
           />
 
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={handleSendMessage}
-              className="rounded-full p-2 hover:opacity-90 active:scale-90"
+              className="rounded-full p-2 transition-transform hover:opacity-90 active:scale-90"
               style={{
                 background: 'var(--control-soft-bg)',
                 color: 'var(--text-main)'
@@ -673,7 +675,7 @@ export const ChatRoom = ({
               type="button"
               onClick={handleTriggerAi}
               disabled={isAiTyping}
-              className="flex items-center gap-1 rounded-full px-3 py-2 text-[10px] font-semibold shadow-sm active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[10px] font-semibold shadow-sm transition-transform active:scale-95 disabled:opacity-50"
               style={{
                 background: 'var(--accent-color)',
                 color: 'var(--accent-foreground)'
@@ -715,3 +717,4 @@ export const ChatRoom = ({
 };
 
 export default ChatRoom;
+

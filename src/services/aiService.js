@@ -300,16 +300,22 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
         .join('\n')}`
     : '';
 
-  const userName = chat.userName
-    || character.userName
-    || character.userPersona
-    || '我的亲密伴侣';
+      // 优先使用当前聊天窗独占的用户资料；
+  // 仅当该聊天窗没有填写时，才回退到角色级默认资料。
+  const userName = String(
+    chat.userName || character.userName || '我的亲密伴侣'
+  ).trim();
+
+  const userPersona = String(
+    chat.userPersona || character.userPersona || '陪伴对象'
+  ).trim();
 
   return `你现在正扮演用户专属的伴侣：${character.name}。
 【当前真实世界时间】：${getFormattedRealTime()}
 【角色人设】：${character.bio || ''}
 【补充设定】：${character.extraNotes || ''}
-【用户称呼与人设】：${userName}
+【用户称呼】：${userName}
+【本窗专属 User 人设】：${userPersona}
 【当前交互模式】：
 ${chat.mode === 'rp'
   ? 'RP 剧情沉浸模式：严格遵守世界书背景、剧情逻辑与角色设定。'
