@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Plus, SlidersHorizontal, Camera } from 'lucide-react';
 import db from '../../db';
+import {
+  generateSnapshotPostByAi,
+  generateSnapshotCommentByAi
+} from '../../services/aiService';
 import SnapshotCard from './SnapshotCard';
 import CreateSnapshotModal from './CreateSnapshotModal';
 import SnapshotSettingsModal from './SnapshotSettingsModal';
@@ -25,29 +29,35 @@ export const SnapshotsApp = ({ onBackHub }) => {
     // 启动 AI 自主主动发动态的后台轮询调度器 (支持 isAutoMessageActive 互通)
     const interval = setInterval(async () => {
       try {
-        const activeChars = await db.characters.filter(c => c.isAutoMessageActive === true).toArray();
+        const activeChars = await db.characters
+          .filter((c) => c.isAutoMessageActive === true)
+          .toArray();
+
         if (!activeChars || activeChars.length === 0) return;
 
         // 随机挑选一位开启了主动消息的角色
         const randomChar = activeChars[Math.floor(Math.random() * activeChars.length)];
         const lastPost = await db.snapshots.where('characterId').equals(randomChar.id).last();
-        
-        // 如果距离上一次发帖超过 4 小时 (演示环境设为随机概率触发)
+
+        // 如果距离上一次发帖超过 4 小时
         const now = Date.now();
-        if (!lastPost || (now - lastPost.timestamp > 4 * 60 * 60 * 1000)) {
+        if (!lastPost || now - lastPost.timestamp > 4 * 60 * 60 * 1000) {
+          const generatedPost = await generateSnapshotPostByAi(randomChar.id);
+
           await db.snapshots.add({
             authorType: 'character',
             characterId: randomChar.id,
             authorName: randomChar.name,
             authorAvatar: randomChar.avatar || '',
             mediaUrl: '',
-            imagePrompt: `[视觉描摹: ${randomChar.name} 在日常空间捕捉到的光影]`,
-            content: `记录下这个安静的片段。`,
-            location: '日常空间',
+            imagePrompt: generatedPost.imagePrompt,
+            content: generatedPost.content,
+            location: generatedPost.location,
             likes: 1,
             isLiked: false,
             timestamp: now
           });
+
           loadSnapshots();
         }
       } catch (err) {
@@ -69,7 +79,7 @@ export const SnapshotsApp = ({ onBackHub }) => {
     }
   };
 
-  // 智能无门槛召唤评论 (根据角色库与关系矩阵自动匹配，无需手动选人)
+  // 智能无门槛召唤评论：根据角色库与关系矩阵匹配评论者，并调用 AI 生成评论。
   const handleAutoSummonComment = async (snapshot) => {
     try {
       const characters = await db.characters.toArray();
@@ -77,52 +87,37 @@ export const SnapshotsApp = ({ onBackHub }) => {
       const npcs = savedNpcs?.value || [];
 
       // 剔除发帖者本人
-      const candidateChars = characters.filter(c => c.id !== snapshot.characterId);
-      const candidatePool = [...candidateChars.map(c => ({ type: 'character', data: c })), ...npcs.map(n => ({ type: 'npc', data: n }))];
+      const candidateChars = characters.filter((character) => character.id !== snapshot.characterId);
+      const candidatePool = [
+        ...candidateChars.map((character) => ({ type: 'character', data: character })),
+        ...npcs.map((npc) => ({ type: 'npc', data: npc }))
+      ];
 
-      if (candidatePool.length === 0) {
-        // 如果没有其他角色，由通用 NPC 身份发言
-        await db.snapshotComments.add({
-          snapshotId: snapshot.id,
-          senderType: 'npc',
-          senderName: '街角光影客',
-          senderAvatar: '',
-          content: '照片里抓取的定格时刻真美！',
-          timestamp: Date.now()
-        });
-      } else {
-        // 随机匹配 1 个最合适的角色/NPC 留下互动
-        const picked = candidatePool[Math.floor(Math.random() * candidatePool.length)];
-        let senderName = picked.type === 'character' ? picked.data.name : picked.data.name;
-        let senderAvatar = picked.type === 'character' ? (picked.data.avatar || '') : '';
-        let charId = picked.type === 'character' ? picked.data.id : null;
-        let npcId = picked.type === 'npc' ? picked.data.id : null;
+      // 没有已配置的角色或 NPC 时，也交由 AI 以通用 NPC 身份生成评论。
+      const picked =
+        candidatePool.length > 0
+          ? candidatePool[Math.floor(Math.random() * candidatePool.length)]
+          : {
+              type: 'npc',
+              data: {
+                id: null,
+                name: '街角光影客',
+                roleTag: '路人'
+              }
+            };
 
-        // 根据关系矩阵获取描述
-        let relationNote = '';
-        if (picked.type === 'character' && snapshot.characterId) {
-          const rel = await db.snapshotRelations
-            .where('characterId').equals(snapshot.characterId)
-            .and(r => r.targetCharacterId === picked.data.id)
-            .first();
-          if (rel) relationNote = rel.relation;
-        }
+      const commentText = await generateSnapshotCommentByAi(snapshot, picked);
 
-        const commentText = relationNote
-          ? `作为你的${relationNote}，不得不说这一张拍得挺有味道。`
-          : `记录得真好，照片里的氛围很动人。`;
-
-        await db.snapshotComments.add({
-          snapshotId: snapshot.id,
-          senderType: picked.type,
-          characterId: charId,
-          npcId: npcId,
-          senderName,
-          senderAvatar,
-          content: commentText,
-          timestamp: Date.now()
-        });
-      }
+      await db.snapshotComments.add({
+        snapshotId: snapshot.id,
+        senderType: picked.type,
+        characterId: picked.type === 'character' ? picked.data.id : null,
+        npcId: picked.type === 'npc' ? picked.data.id || null : null,
+        senderName: picked.data.name || '匿名访客',
+        senderAvatar: picked.type === 'character' ? picked.data.avatar || '' : '',
+        content: commentText,
+        timestamp: Date.now()
+      });
 
       loadSnapshots();
     } catch (err) {
@@ -133,11 +128,16 @@ export const SnapshotsApp = ({ onBackHub }) => {
   // 追评多轮机制
   const handleReplyComment = async (snapshot, replyTarget, userReplyText) => {
     if (!replyTarget.characterId) return;
+
     try {
       const char = await db.characters.get(replyTarget.characterId);
       if (!char) return;
 
-      const aiReplyText = `回复 @User: ${userReplyText ? '我也这么觉得，这就是我们生活里的细枝末节呀。' : '很高兴你懂我的感受。'}`;
+      const aiReplyText = `回复 @User: ${
+        userReplyText
+          ? '我也这么觉得，这就是我们生活里的细枝末节呀。'
+          : '很高兴你懂我的感受。'
+      }`;
 
       await db.snapshotComments.add({
         snapshotId: snapshot.id,
@@ -157,13 +157,17 @@ export const SnapshotsApp = ({ onBackHub }) => {
     }
   };
 
-  // 邀约 AI 主动发布动态
+  // 邀约 AI 主动发布动态：调用真实 AI API 生成动态正文、图片提示词及地点。
   const handleInviteAiPost = async (characterId, topicHint, linkedChatId) => {
     try {
       const char = await db.characters.get(characterId);
       if (!char) return;
 
-      const titlePrompt = topicHint || '下班后的温情角落';
+      const generatedPost = await generateSnapshotPostByAi(
+        characterId,
+        topicHint,
+        linkedChatId
+      );
 
       await db.snapshots.add({
         authorType: 'character',
@@ -171,9 +175,9 @@ export const SnapshotsApp = ({ onBackHub }) => {
         authorName: char.name,
         authorAvatar: char.avatar || '',
         mediaUrl: '',
-        imagePrompt: `[视觉描摹: ${char.name} 记录的 ${titlePrompt} 光影]`,
-        content: `今天也想把这份温度分享记录下来。${titlePrompt}`,
-        location: '日常陪伴角落',
+        imagePrompt: generatedPost.imagePrompt,
+        content: generatedPost.content,
+        location: generatedPost.location,
         likes: 1,
         isLiked: false,
         linkedChatId,
@@ -203,6 +207,7 @@ export const SnapshotsApp = ({ onBackHub }) => {
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
+
           <div>
             <h2 className="text-base font-bold tracking-tight" style={{ color: 'var(--text-main)' }}>
               Snapshots 朋友圈
