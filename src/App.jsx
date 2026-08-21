@@ -40,6 +40,10 @@ export const App = () => {
 
   const shouldDisplayHeader = showTitle && currentApp !== 'settings' && !isInsideChatRoom;
 
+  const mainClassName = isInsideChatRoom
+    ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
+    : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
+
   return (
     <ErrorBoundary>
       {showPreloader && (
@@ -68,7 +72,7 @@ export const App = () => {
         />
       </div>
 
-      <main className="relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6">
+      <main className={mainClassName}>
         {shouldDisplayHeader && (
           <header className="flex items-start justify-between animate-fade-in-up">
             <div>
@@ -139,7 +143,7 @@ export const App = () => {
           <ErrorBoundary>
             <MessagesApp
               onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={(inRoom) => setIsInsideChatRoom(inRoom)}
+              onChatRoomStateChange={setIsInsideChatRoom}
             />
           </ErrorBoundary>
         )}
@@ -171,19 +175,21 @@ export const App = () => {
               >
                 {currentApp}
               </h2>
+
               <p
                 className="mt-3 text-xs"
                 style={{ color: 'var(--text-sub)' }}
               >
                 此模块将在后续阶段为您呈现。
               </p>
+
               <button
                 type="button"
                 onClick={() => openApp('hub')}
                 className="mt-6 rounded-full px-5 py-2 text-xs font-semibold transition-transform active:scale-95"
                 style={{
                   color: 'var(--accent-foreground)',
-                  backgroundColor: 'var(--accent-color)',
+                  backgroundColor: 'var(--accent-color)'
                 }}
               >
                 返回主页
@@ -197,3 +203,4 @@ export const App = () => {
 };
 
 export default App;
+
