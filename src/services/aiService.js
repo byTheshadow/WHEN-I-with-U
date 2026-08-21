@@ -213,6 +213,29 @@ if (textAfter.includes('|||')) {
   if (result.length === 0 && text.trim()) {
     result.push({ type: 'text', content: text.trim(), metadata: {} });
   }
+  // 追加支持：AI 可用 ||| 分割连续文本，使其显示为多个独立气泡。
+  // 卡片消息（转账、语音、图片、待办）保持原有逻辑，不受影响。
+  const splitBubbleMessages = result.flatMap((message) => {
+    if (
+      message.type === 'text' &&
+      typeof message.content === 'string' &&
+      message.content.includes('|||')
+    ) {
+      return message.content
+        .split('|||')
+        .map((content) => content.trim())
+        .filter(Boolean)
+        .map((content) => ({
+          ...message,
+          content
+        }));
+    }
+
+    return [message];
+  });
+
+  // 不删除旧数组及旧解析逻辑，仅把处理后的多气泡结果写回原数组。
+  result.splice(0, result.length, ...splitBubbleMessages);
 
   return result;
 };
@@ -428,6 +451,7 @@ ${diaryText}
 - 模拟语音：[VOICE: 语音表达的内容描述]
 - 画面或图片：[IMAGE: 画面细节的视觉描述]
 - 建议待办：[TODO: 待办标题 | 预估提醒时间]
+-如果想发送多条连续气泡消息，请使用 ||| 将不同气泡隔开。
 
 注意：
 - [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
