@@ -233,16 +233,17 @@ export const ChatRoom = ({
       <style>{`.chat-room-container ${currentCss}`}</style>
 
       {chat.bgImage && (
-        <div
-          className="absolute inset-0 -z-10 pointer-events-none transition-all duration-500"
-          style={{
-            backgroundImage: `url(${chat.bgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: chat.bgOpacity ?? 0.3
-          }}
-        />
-      )}
+  <div
+    className="absolute inset-0 -z-10 pointer-events-none"
+    style={{
+      backgroundImage: `url(${chat.bgImage})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    }}
+  />
+)}
+
 
       {/* 顶部按钮控制区：彻底没有横线 border-b */}
       <header className="z-20 shrink-0 px-4 pt-3 pb-1">
