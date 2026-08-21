@@ -1,0 +1,689 @@
+.pebbling-app {
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 24px;
+  color: var(--text-main);
+}
+
+.pebbling-app::before,
+.pebbling-app::after {
+  position: fixed;
+  z-index: -1;
+  width: 240px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  content: '';
+  filter: blur(78px);
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.pebbling-app::before {
+  top: 20%;
+  left: -135px;
+  background: var(--bg-blob-1);
+  animation: pebblingAmbientDrift 14s ease-in-out infinite;
+}
+
+.pebbling-app::after {
+  right: -150px;
+  bottom: 5%;
+  background: var(--bg-blob-2);
+  animation: pebblingAmbientDrift 18s ease-in-out infinite reverse;
+}
+
+.pebbling-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.pebbling-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-size: 12px;
+  transition: transform 240ms ease, background 240ms ease;
+}
+
+.pebbling-back-button:active {
+  transform: scale(0.96);
+}
+
+.pebbling-edition {
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.17em;
+}
+
+.pebbling-intro {
+  max-width: 310px;
+  margin: 0 auto 32px;
+  text-align: center;
+}
+
+.pebbling-intro__eyebrow {
+  margin: 0 0 9px;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.pebbling-intro__title {
+  margin: 0;
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(32px, 9vw, 43px);
+  font-weight: 500;
+  letter-spacing: -0.065em;
+  line-height: 0.95;
+}
+
+.pebbling-intro__title em {
+  opacity: 0.56;
+  font-weight: 400;
+}
+
+.pebbling-intro__copy {
+  margin: 15px 0 0;
+  color: var(--text-sub);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.75;
+}
+
+/* 巢穴扉页 */
+
+.pebble-nest-folio {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 22px;
+  border: 1px solid var(--card-border);
+  border-radius: 34px;
+  background: var(--card-bg-gradient);
+  box-shadow: var(--card-shadow);
+}
+
+.pebble-nest-folio::before,
+.pebble-nest-folio::after {
+  position: absolute;
+  border-radius: 999px;
+  content: '';
+  filter: blur(42px);
+  pointer-events: none;
+}
+
+.pebble-nest-folio::before {
+  top: -68px;
+  right: -48px;
+  width: 180px;
+  height: 180px;
+  background: var(--bg-blob-2);
+  opacity: 0.56;
+}
+
+.pebble-nest-folio::after {
+  bottom: -88px;
+  left: 20%;
+  width: 150px;
+  height: 150px;
+  background: var(--bg-blob-3);
+  opacity: 0.24;
+}
+
+.pebble-nest-folio__inner {
+  position: relative;
+  z-index: 1;
+  padding: 25px 22px 21px;
+}
+
+.pebble-nest-folio__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pebble-nest-folio__identity {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.pebble-nest-avatar {
+  position: relative;
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 20px 25px 18px 24px;
+  background: var(--control-soft-bg);
+  box-shadow: 7px 7px 0 var(--bg-surface-strong);
+  transform: rotate(-4deg);
+}
+
+.pebble-nest-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: rotate(4deg) scale(1.08);
+}
+
+.pebble-nest-avatar svg {
+  color: var(--text-sub);
+}
+
+.pebble-nest-folio__label {
+  margin: 0 0 5px;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
+
+.pebble-nest-folio__name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pebble-nest-folio__quote {
+  max-width: 152px;
+  margin: 3px 0 0;
+  color: var(--text-sub);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.pebble-nest-folio__rule {
+  width: 100%;
+  height: 1px;
+  margin: 24px 0 16px;
+  background: var(--divider);
+  opacity: 0.72;
+}
+
+.pebble-nest-folio__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pebble-nest-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.pebble-nest-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pebble-nest-stat__value {
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.pebble-nest-stat__label {
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pebble-nest-throw {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--accent-color);
+  border-radius: 999px;
+  padding: 11px 14px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform 240ms ease;
+}
+
+.pebble-nest-throw:active {
+  transform: scale(0.96);
+}
+
+.pebble-nest-invite {
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--divider);
+  color: var(--text-sub);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.pebble-nest-invite button {
+  margin-left: 5px;
+  border-bottom: 1px solid var(--text-muted);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+}
+
+/* 巢穴索引 */
+
+.pebble-nest-index {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -4px 31px;
+  padding: 2px 4px 8px;
+  scrollbar-width: none;
+}
+
+.pebble-nest-index::-webkit-scrollbar {
+  display: none;
+}
+
+.pebble-nest-index__item {
+  position: relative;
+  display: flex;
+  width: 86px;
+  min-height: 105px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 18px 18px 24px 18px;
+  padding: 11px;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  text-align: left;
+  transition: transform 440ms ease, background 440ms ease, box-shadow 440ms ease;
+}
+
+.pebble-nest-index__item::before {
+  position: absolute;
+  right: -22px;
+  bottom: -25px;
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  background: var(--bg-blob-1);
+  content: '';
+  filter: blur(18px);
+  opacity: 0.26;
+}
+
+.pebble-nest-index__item.is-active {
+  background: var(--card-bg-gradient);
+  box-shadow: var(--card-shadow);
+  transform: translateY(-6px) rotate(-1deg);
+}
+
+.pebble-nest-index__avatar {
+  position: relative;
+  z-index: 1;
+  width: 27px;
+  height: 27px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 11px;
+  background: var(--bg-surface-strong);
+}
+
+.pebble-nest-index__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pebble-nest-index__name {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pebble-nest-index__count {
+  position: relative;
+  z-index: 1;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+/* 编辑式石头网格 */
+
+.pebbling-section-label {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+
+.pebbling-section-label::after {
+  width: 100%;
+  height: 1px;
+  background: var(--divider);
+  content: '';
+}
+
+.pebbling-field {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.pebble-specimen {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 26px;
+  background: var(--card-bg-gradient);
+  box-shadow: var(--card-shadow);
+  animation: pebbleSpecimenEnter 650ms both;
+}
+
+.pebble-specimen--wide {
+  grid-column: span 2;
+}
+
+.pebble-specimen--tall {
+  min-height: 276px;
+}
+
+.pebble-specimen--compact {
+  min-height: 195px;
+}
+
+.pebble-specimen__ambient {
+  position: absolute;
+  top: -38px;
+  right: -36px;
+  width: 118px;
+  height: 118px;
+  border-radius: 999px;
+  filter: blur(30px);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.pebble-specimen__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  min-height: inherit;
+  flex-direction: column;
+  padding: 18px;
+}
+
+.pebble-specimen__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+}
+
+.pebble-specimen__delete {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+}
+
+.pebble-stone {
+  display: grid;
+  width: 53px;
+  height: 43px;
+  place-items: center;
+  margin: 19px 0 16px;
+  border: 1px solid;
+  color: var(--text-main);
+  transition: transform 700ms ease;
+}
+
+.pebble-specimen:hover .pebble-stone {
+  transform: translateY(-3px) rotate(3deg);
+}
+
+.pebble-stone--stream-pebble {
+  border-radius: 50% 46% 52% 44%;
+}
+
+.pebble-stone--sea-glass {
+  border-radius: 42% 58% 46% 54%;
+  transform: rotate(10deg);
+}
+
+.pebble-stone--amber-fossil {
+  border-radius: 48% 52% 43% 57%;
+}
+
+.pebble-stone--moon-stone {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.pebble-stone--rose-quartz {
+  border-radius: 42% 58% 55% 45%;
+  transform: rotate(-7deg);
+}
+
+.pebble-stone--volcanic-ore {
+  border-radius: 44% 56% 47% 53%;
+}
+
+.pebble-specimen__type {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.pebble-specimen__text {
+  margin: 8px 0 auto;
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 15px;
+  line-height: 1.66;
+}
+
+.pebble-specimen__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.pebble-specimen--pending::after {
+  position: absolute;
+  right: -20%;
+  bottom: -50%;
+  left: -20%;
+  height: 68%;
+  border-radius: 50% 50% 0 0;
+  background: var(--bg-surface-strong);
+  content: '';
+  opacity: 0.46;
+  transform: rotate(-4deg);
+  animation: pebbleTideDrift 9s ease-in-out infinite;
+}
+
+.pebble-specimen--pair {
+  grid-column: span 2;
+}
+
+.pebble-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.pebble-pair__line {
+  position: relative;
+  height: 1px;
+  background: var(--divider);
+}
+
+.pebble-pair__line::after {
+  position: absolute;
+  top: -3px;
+  left: 45%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: var(--card-bg);
+  content: '';
+}
+
+.pebble-pair__side:last-child {
+  text-align: right;
+}
+
+.pebble-pair__side:last-child .pebble-stone {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+.pebble-pair__copy {
+  margin: 8px 0 0;
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+.pebbling-empty {
+  grid-column: span 2;
+  padding: 50px 25px;
+  border: 1px dashed var(--card-border);
+  border-radius: 30px;
+  color: var(--text-sub);
+  text-align: center;
+}
+
+.pebbling-empty svg {
+  margin-bottom: 14px;
+}
+
+.pebbling-empty h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.pebbling-empty p {
+  max-width: 240px;
+  margin: 8px auto 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+@keyframes pebblingAmbientDrift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.92);
+  }
+
+  50% {
+    transform: translate3d(16px, -22px, 0) scale(1.08);
+  }
+}
+
+@keyframes pebbleSpecimenEnter {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(13px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes pebbleTideDrift {
+  0%,
+  100% {
+    transform: translateX(-4%) rotate(-4deg);
+  }
+
+  50% {
+    transform: translateX(5%) rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pebbling-app::before,
+  .pebbling-app::after,
+  .pebble-specimen,
+  .pebble-specimen--pending::after {
+    animation: none;
+  }
+
+  .pebble-specimen:hover .pebble-stone,
+  .pebble-nest-index__item.is-active {
+    transform: none;
+  }
+}

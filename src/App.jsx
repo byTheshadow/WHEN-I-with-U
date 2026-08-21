@@ -216,7 +216,7 @@ export const App = () => {
         {/* PEBBLING 企鹅小石 Sub-App */}
         {currentApp === 'pebbling' && (
           <ErrorBoundary>
-            <PebblingApp onBack={() => setCurrentApp('hub')} />
+            <PebblingApp onBack={() => openApp('hub')} />
           </ErrorBoundary>
         )}
 

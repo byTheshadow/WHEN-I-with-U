@@ -1,237 +1,194 @@
-// src/apps/pebbling/PebblingApp.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Inbox } from 'lucide-react';
 import db from '../../db';
+import ConfirmModal from '../../components/ConfirmModal';
+import NotificationToast from '../../components/NotificationToast';
 import PebbleNestCompass from './PebbleNestCompass';
 import PebblePairCard from './PebblePairCard';
 import ThrowPebbleModal from './ThrowPebbleModal';
-import ConfirmModal from '../../components/ConfirmModal';
-import NotificationToast from '../../components/NotificationToast';
 import {
-  throwPebble,
-  processPendingPebbles,
-  getPebblingsByCharacter,
   aiInitiatePebble,
-  deletePebble
+  deletePebble,
+  getPebblingsByCharacter,
+  processPendingPebbles,
+  throwPebble,
 } from './pebbleService';
-import { Waves, Sparkles, Inbox, ArrowLeft } from 'lucide-react';
+import './pebbling.css';
 
 export default function PebblingApp({ onBack }) {
   const [characters, setCharacters] = useState([]);
   const [activeCharId, setActiveCharId] = useState(null);
   const [pebblings, setPebblings] = useState([]);
   const [countsMap, setCountsMap] = useState({});
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // 删除确认弹窗
+  const [isThrowOpen, setIsThrowOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
-  const [toastMessage, setToastMessage] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
 
-  // 1. 初始化数据
   const loadData = useCallback(async () => {
-    const chars = await db.characters.toArray();
-    setCharacters(chars);
-
-    if (chars.length > 0 && !activeCharId) {
-      setActiveCharId(chars[0].id);
-    }
-
-    // 统计各个角色的石头总数
+    const loadedCharacters = await db.characters.toArray();
     const allPebbles = await db.pebblings.toArray();
-    const map = {};
 
-    allPebbles.forEach((pebble) => {
-      map[pebble.characterId] = (map[pebble.characterId] || 0) + 1;
+    setCharacters(loadedCharacters);
+
+    setActiveCharId((currentId) => {
+      const exists = loadedCharacters.some((character) => character.id === currentId);
+      return exists ? currentId : loadedCharacters[0]?.id || null;
     });
 
-    setCountsMap(map);
+    const nextCounts = allPebbles.reduce((result, pebble) => {
+      result[pebble.characterId] = (result[pebble.characterId] || 0) + 1;
+      return result;
+    }, {});
 
-    if (activeCharId) {
-      const list = await getPebblingsByCharacter(activeCharId);
-      setPebblings(list);
-    }
-  }, [activeCharId]);
+    setCountsMap(nextCounts);
+  }, []);
 
-  // 2. 轮询检查是否有到达时间戳的 pending 小石头
   useEffect(() => {
     loadData();
-
-    const interval = setInterval(async () => {
-      const updated = await processPendingPebbles();
-
-      if (updated > 0) {
-        loadData();
-        setToastMessage('海浪带回了一颗温暖的小石头');
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
   }, [loadData]);
 
-  // 投掷 handler
-  const handleThrow = async (data) => {
-    await throwPebble(data);
+  useEffect(() => {
+    if (!activeCharId) {
+      setPebblings([]);
+      return;
+    }
+
+    getPebblingsByCharacter(activeCharId).then(setPebblings);
+  }, [activeCharId, countsMap]);
+
+  useEffect(() => {
+    const timer = window.setInterval(async () => {
+      const completedCount = await processPendingPebbles();
+
+      if (completedCount > 0) {
+        setToastMessage('潮水带回了一颗温暖的小石头');
+        await loadData();
+      }
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [loadData]);
+
+  const pendingCount = useMemo(
+    () => pebblings.filter((pebble) => pebble.status === 'pending').length,
+    [pebblings]
+  );
+
+  const handleThrow = async (payload) => {
+    await throwPebble(payload);
     setToastMessage('小石头已悄悄落入巢中');
-    loadData();
+    await loadData();
   };
 
-  // 召唤 AI 漫步主动发石头
-  const handleAiInitiate = async (charId) => {
-    setToastMessage('对方正在海滩漫步寻找石头...');
+  const handleAiInitiate = async (characterId) => {
+    setToastMessage('对方正在安静地寻找一颗石头');
 
-    const res = await aiInitiatePebble(charId);
+    const result = await aiInitiatePebble(characterId);
 
-    if (res) {
-      setToastMessage('对方从海滩带回了一颗石头放入巢中');
-      loadData();
+    if (result) {
+      setToastMessage('一颗石头已经被悄悄带回');
+      await loadData();
+    } else {
+      setToastMessage('这次没有找到合适的石头，稍后再试试');
     }
   };
 
-  // 删除处理
-  const handleDeleteConfirm = async () => {
-    if (deleteTargetId) {
-      await deletePebble(deleteTargetId);
-      setDeleteTargetId(null);
-      setToastMessage('记录已悄悄抹去');
-      loadData();
-    }
-  };
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
 
-  const activeChar = characters.find((character) => character.id === activeCharId);
+    await deletePebble(deleteTargetId);
+    setDeleteTargetId(null);
+    setToastMessage('这颗石头已从巢穴中取走');
+    await loadData();
+  };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6">
-      {/* Toast 提示 */}
+    <div className="pebbling-app">
       {toastMessage && (
         <NotificationToast
           message={toastMessage}
-          onClose={() => setToastMessage(null)}
+          onClose={() => setToastMessage('')}
         />
       )}
 
-      {/* 确认删除弹窗 */}
       <ConfirmModal
-        isOpen={!!deleteTargetId}
-        title="确认清理石头"
-        message="确定要把这颗小石头从巢穴中清理掉吗？此操作无法撤销。"
-        onConfirm={handleDeleteConfirm}
+        isOpen={Boolean(deleteTargetId)}
+        title="取走这颗石头"
+        message="确定要将这颗石头从巢穴中取走吗？这段记录不会恢复。"
+        onConfirm={handleDelete}
         onCancel={() => setDeleteTargetId(null)}
       />
 
-      {/* 投掷弹窗 */}
       <ThrowPebbleModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isThrowOpen}
+        onClose={() => setIsThrowOpen(false)}
         characters={characters}
         defaultCharId={activeCharId}
         onThrow={handleThrow}
       />
 
-      {/* 顶部标准导航头 */}
-      <div className="mb-6 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl border transition-all hover:opacity-80 active:scale-95"
-          style={{
-            backgroundColor: 'var(--control-soft-bg)',
-            borderColor: 'var(--card-border)',
-            color: 'var(--text-main)'
-          }}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>返回</span>
+      <div className="pebbling-topline">
+        <button type="button" className="pebbling-back-button" onClick={onBack}>
+          <ArrowLeft size={15} strokeWidth={1.7} />
+          返回
         </button>
 
-        <div className="flex items-center gap-2">
-          <Waves
-            className="w-4 h-4 opacity-70"
-            style={{ color: 'var(--text-main)' }}
-          />
-          <span className="text-xs font-mono tracking-wider opacity-60 uppercase">
-            PEBBLING HUB
-          </span>
-        </div>
+        <span className="pebbling-edition">FIELD NOTES / 001</span>
       </div>
 
-      {/* 标题栏 */}
-      <div className="mb-6 flex flex-col gap-1">
-        <h1
-          className="text-xl font-medium tracking-wide"
-          style={{ color: 'var(--text-main)' }}
-        >
-          PEBBLING · 企鹅小石
+      <section className="pebbling-intro">
+        <p className="pebbling-intro__eyebrow">AN UNHURRIED EXCHANGE</p>
+        <h1 className="pebbling-intro__title">
+          Pebbling <em>with U.</em>
         </h1>
-        <p
-          className="text-xs opacity-70"
-          style={{ color: 'var(--text-sub)' }}
-        >
-          毫无压力的延迟投递，像企鹅把打磨光滑的小石头悄悄衔进对方的巢穴里。
+        <p className="pebbling-intro__copy">
+          那些不必立刻回答，也仍然会被好好收下的事。
         </p>
-      </div>
+      </section>
 
-      {/* 拟物巢穴罗盘控制器 */}
-      <PebbleNestCompass
-        characters={characters}
-        activeCharId={activeCharId}
-        onSelectChar={setActiveCharId}
-        countsMap={countsMap}
-        onOpenThrowModal={() => setIsModalOpen(true)}
-        onAiInitiate={handleAiInitiate}
-      />
+      {characters.length > 0 ? (
+        <>
+          <PebbleNestCompass
+            characters={characters}
+            activeCharId={activeCharId}
+            countsMap={countsMap}
+            pendingCount={pendingCount}
+            onSelectChar={setActiveCharId}
+            onOpenThrowModal={() => setIsThrowOpen(true)}
+            onAiInitiate={handleAiInitiate}
+          />
 
-      {/* 小石头列表 */}
-      <div className="w-full min-h-[300px]">
-        {pebblings.length === 0 ? (
-          <div
-            className="w-full py-16 rounded-2xl border flex flex-col items-center justify-center text-center p-6"
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text-sub)'
-            }}
-          >
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border opacity-60"
-              style={{ borderColor: 'var(--card-border)' }}
-            >
-              <Inbox className="w-6 h-6" />
-            </div>
+          <div className="pebbling-section-label">RECENTLY RESTING IN THIS NEST</div>
 
-            <h3
-              className="text-sm font-medium mb-1"
-              style={{ color: 'var(--text-main)' }}
-            >
-              {activeChar?.name || '此'} 的小巢里还是空的
-            </h3>
-
-            <p className="text-xs max-w-sm mb-4 opacity-75">
-              衔一颗润石或者让对方在海滩漫步，开启一段毫无社交负担的微光陪伴吧。
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-sm"
-              style={{
-                backgroundColor: 'var(--accent-color)',
-                color: 'var(--accent-foreground)'
-              }}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>丢入第一颗小石头</span>
-            </button>
-          </div>
-        ) : (
-          pebblings.map((pebble) => (
-            <PebblePairCard
-              key={pebble.id}
-              pebble={pebble}
-              character={activeChar}
-              onDelete={(id) => setDeleteTargetId(id)}
-            />
-          ))
-        )}
-      </div>
+          <section className="pebbling-field">
+            {pebblings.length > 0 ? (
+              pebblings.map((pebble, index) => (
+                <PebblePairCard
+                  key={pebble.id}
+                  pebble={pebble}
+                  character={characters.find(
+                    (character) => character.id === pebble.characterId
+                  )}
+                  index={index}
+                  onDelete={setDeleteTargetId}
+                />
+              ))
+            ) : (
+              <div className="pebbling-empty">
+                <Inbox size={25} strokeWidth={1.35} />
+                <h3>这个巢穴还留着空白</h3>
+                <p>衔一颗石头回来，或者等对方在漫步时想起你。</p>
+              </div>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="pebbling-empty">
+          <Inbox size={25} strokeWidth={1.35} />
+          <h3>还没有可以安放石头的巢穴</h3>
+          <p>请先在角色资料中创建一位陪伴者，再回来放下第一颗石头。</p>
+        </section>
+      )}
     </div>
   );
 }
