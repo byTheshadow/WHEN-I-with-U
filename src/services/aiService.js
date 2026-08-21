@@ -117,128 +117,144 @@ const getFormattedRealTime = () => {
   return `${dateStr} ${days[now.getDay()]} ${timeStr}`;
 };
 
-export const parseAiResponseToMessages = (text) => {
+export const parseAiResponseToMessages = (text = '') => {
   const result = [];
   const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO):\s*([^\]]+)\]/g;
+
   let lastIndex = 0;
   let match;
 
-  while ((match = pattern.exec(text)) !== null) {
-    const textBefore = text.substring(lastIndex, match.index).trim();
-    if (textBefore) {
-      result.push({ type: 'text', content: textBefore, metadata: {} });
+  /**
+   * 将普通文本拆分为多个独立气泡。
+   *
+   * 约定：
+   * - 使用 ||| 分隔多个气泡
+   * - 空气泡自动忽略
+   * - 不影响卡片消息
+   */
+  const pushTextMessages = (content) => {
+    if (!content || typeof content !== 'string') {
+      return;
     }
-    // 支持使用 ||| 将连续文本拆分成多个气泡
-if (textBefore.includes('|||')) {
-  const bubbleParts = textBefore
-    .split('|||')
-    .map((part) => part.trim())
-    .filter(Boolean);
 
-  // 删除刚刚加入的整段文本
-  result.pop();
+    content
+      .split(/\s*\|\|\|\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .forEach((part) => {
+        result.push({
+          type: 'text',
+          content: part,
+          metadata: {}
+        });
+      });
+  };
 
-  bubbleParts.forEach((content) => {
-    result.push({
-      type: 'text',
-      content,
-      metadata: {}
-    });
-  });
-}
+  while ((match = pattern.exec(text)) !== null) {
+    const textBefore = text
+      .slice(lastIndex, match.index)
+      .trim();
 
+    if (textBefore) {
+      pushTextMessages(textBefore);
+    }
 
     const cardType = match[1].toLowerCase();
-    const rawPayload = match[2];
+    const rawPayload = match[2].trim();
 
     if (cardType === 'transfer') {
       const parts = rawPayload.split('|');
-      const amount = (parts[0] || '520.00').trim();
-      const memo = (parts[1] || '心意转账').trim();
+
       result.push({
         type: 'transfer',
-        content: memo,
-        metadata: { amount }
+        content: (parts[1] || '心意转账').trim(),
+        metadata: {
+          amount: (parts[0] || '520.00').trim()
+        }
       });
     } else if (cardType === 'voice') {
       result.push({
         type: 'voice',
-        content: rawPayload.trim(),
+        content: rawPayload,
         metadata: {}
       });
     } else if (cardType === 'image') {
       result.push({
         type: 'image',
-        content: rawPayload.trim(),
+        content: rawPayload,
         metadata: {}
       });
     } else if (cardType === 'todo') {
       const parts = rawPayload.split('|');
-      const todoTitle = (parts[0] || '待办事项').trim();
-      const todoTime = (parts[1] || '近期').trim();
+
       result.push({
         type: 'todo_proposal',
-        content: todoTitle,
-        metadata: { dueDate: todoTime }
+        content: (parts[0] || '待办事项').trim(),
+        metadata: {
+          dueDate: (parts[1] || '近期').trim()
+        }
       });
     }
 
     lastIndex = pattern.lastIndex;
   }
 
-  const textAfter = text.substring(lastIndex).trim();
+  const textAfter = text
+    .slice(lastIndex)
+    .trim();
+
   if (textAfter) {
-    result.push({ type: 'text', content: textAfter, metadata: {} });
+    pushTextMessages(textAfter);
   }
-  // 支持尾部文本使用 ||| 拆分成多个气泡
-if (textAfter.includes('|||')) {
-  const bubbleParts = textAfter
-    .split('|||')
-    .map((part) => part.trim())
-    .filter(Boolean);
 
-  // 删除刚刚加入的整段文本
-  result.pop();
-
-  bubbleParts.forEach((content) => {
-    result.push({
-      type: 'text',
-      content,
-      metadata: {}
-    });
-  });
-}
-
-
+  // 没有卡片、没有分隔符，但有普通文本时，至少生成一个文本气泡。
   if (result.length === 0 && text.trim()) {
-    result.push({ type: 'text', content: text.trim(), metadata: {} });
+    pushTextMessages(text.trim());
   }
-  // 追加支持：AI 可用 ||| 分割连续文本，使其显示为多个独立气泡。
-  // 卡片消息（转账、语音、图片、待办）保持原有逻辑，不受影响。
-  const splitBubbleMessages = result.flatMap((message) => {
-    if (
-      message.type === 'text' &&
-      typeof message.content === 'string' &&
-      message.content.includes('|||')
-    ) {
-      return message.content
-        .split('|||')
-        .map((content) => content.trim())
-        .filter(Boolean)
-        .map((content) => ({
-          ...message,
-          content
-        }));
-    }
-
-    return [message];
-  });
-
-  // 不删除旧数组及旧解析逻辑，仅把处理后的多气泡结果写回原数组。
-  result.splice(0, result.length, ...splitBubbleMessages);
 
   return result;
 };
+
+const buildHistoryContext = (messages) => {
+  const historyContext = [];
+
+  for (const message of messages) {
+    if (!message || message.type === 'error') {
+      continue;
+    }
+
+    let role;
+
+    if (message.sender === 'user') {
+      role = 'user';
+    } else if (message.sender === 'character') {
+      role = 'assistant';
+    } else {
+      continue;
+    }
+
+    const content = String(message.content || '').trim();
+
+    if (!content) {
+      continue;
+    }
+
+    const previousMessage =
+      historyContext[historyContext.length - 1];
+
+    if (previousMessage && previousMessage.role === role) {
+      previousMessage.content += `|||${content}`;
+    } else {
+      historyContext.push({
+        role,
+        content
+      });
+    }
+  }
+
+  return historyContext;
+};
+
 
 // ==============================
 // AI 统一请求 / 错误处理引擎
@@ -578,14 +594,13 @@ export const triggerAiResponse = async (chatId) => {
       .equals(chatId)
       .sortBy('timestamp');
 
-    // 错误消息不再重新传入模型，避免模型把 API 报错当作对话上下文。
-    const historyContext = recentMsgs
-      .filter((message) => message.type !== 'error')
-      .slice(-15)
-      .map((message) => ({
-        role: message.sender === 'user' ? 'user' : 'assistant',
-        content: message.content || ''
-      }));
+  
+const historyContext = buildHistoryContext(
+  recentMsgs
+    .filter((message) => message.type !== 'error')
+    .slice(-15)
+);
+
 
     const result = await fetchAiCompletion(systemPrompt, historyContext, apiConfig);
     const nowIso = new Date().toISOString();
@@ -735,13 +750,12 @@ export const rerollAiResponse = async (chatId, messageId) => {
       ? allMessages.slice(0, targetIndex)
       : allMessages;
 
-    const historyContext = historyMessages
-      .filter((message) => message.type !== 'error')
-      .slice(-15)
-      .map((message) => ({
-        role: message.sender === 'user' ? 'user' : 'assistant',
-        content: message.content || ''
-      }));
+    const historyContext = buildHistoryContext(
+  historyMessages
+    .filter((message) => message.type !== 'error')
+    .slice(-15)
+);
+
 
     const result = await fetchAiCompletion(systemPrompt, historyContext, apiConfig);
     const nowIso = new Date().toISOString();
