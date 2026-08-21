@@ -3,10 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- 1. 接入 viewport-fit=cover 强制页面扩展至 iOS 留海区与底栏 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- 2. 沉浸式 PWA / 移动端状态栏适配 -->
+    <meta name="theme-color" content="#fcfbf7" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
     <title>WHEN I with U</title>
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-rose-500 selection:text-white min-h-screen">
+  <!-- 3. 移除 bg-slate-950 硬编码，全面交由 App 动态计算的主题背景控制 -->
+  <body class="antialiased min-h-screen selection:bg-stone-300 selection:text-stone-900">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

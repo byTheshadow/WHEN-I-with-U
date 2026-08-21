@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
 import NotificationToast from './components/NotificationToast';
@@ -15,6 +15,14 @@ import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
+// 各主题对应的顶栏/背景 HEX 颜色（用于动态更新 iOS 顶栏 meta 标签）
+const THEME_COLORS = {
+  'mono-mist': '#fcfbf7',
+  'cream-latte': '#f8f5ee',
+  'obsidian-dark': '#121212',
+  'cyber-velvet': '#171321'
+};
+
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
   const [activeTheme, setActiveTheme] = useState('mono-mist');
@@ -23,9 +31,27 @@ export const App = () => {
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
   useEffect(() => {
+    // 1. 设置根元素 CSS 变量主题
     document.documentElement.setAttribute('data-theme', activeTheme);
+    
+    // 2. 动态修改手机原生顶栏/状态栏颜色 (iOS Safari & Android Chrome)
+    const themeColor = THEME_COLORS[activeTheme] || '#fcfbf7';
+    document.body.style.backgroundColor = themeColor;
+
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement('meta');
+      metaThemeColor.name = 'theme-color';
+      document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.setAttribute('content', themeColor);
+
     requestNotificationPermission();
   }, [activeTheme]);
+
+  const handlePreloaderFinish = useCallback(() => {
+    setShowPreloader(false);
+  }, []);
 
   const openApp = (appId) => {
     setCurrentApp(appId);
@@ -49,12 +75,13 @@ export const App = () => {
     <ErrorBoundary>
       {showPreloader && (
         <ErrorBoundary>
-          <Preloader onFinish={() => setShowPreloader(false)} />
+          <Preloader onFinish={handlePreloaderFinish} />
         </ErrorBoundary>
       )}
 
       <NotificationToast />
 
+      {/* 沉浸式全局背景 */}
       <div
         className="fixed inset-0 -z-10 overflow-hidden pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: 'var(--bg-main)' }}
@@ -73,7 +100,13 @@ export const App = () => {
         />
       </div>
 
-      <main className={mainClassName}>
+      <main 
+        className={mainClassName}
+        style={{
+          paddingTop: isInsideChatRoom ? '0' : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+        }}
+      >
         {shouldDisplayHeader && (
           <header className="flex items-start justify-between animate-fade-in-up">
             <div>
@@ -210,5 +243,3 @@ export const App = () => {
 };
 
 export default App;
-
-

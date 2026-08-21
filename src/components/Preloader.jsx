@@ -1,10 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import AstrologyDice from './AstrologyDice';
 import { getRandomInspiration } from '../data/dailyInspirations';
 
 export const Preloader = ({ onFinish }) => {
   const [quote, setQuote] = useState('');
   const [isFading, setIsFading] = useState(false);
+
+  // 使用 ref 锁定 onFinish，防止 App 重渲染导致 useEffect 重置定时器
+  const onFinishRef = useRef(onFinish);
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
 
   useEffect(() => {
     setQuote(getRandomInspiration());
@@ -14,20 +20,27 @@ export const Preloader = ({ onFinish }) => {
     }, 3600);
 
     const finishTimer = window.setTimeout(() => {
-      onFinish?.();
+      onFinishRef.current?.();
     }, 4300);
 
     return () => {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [onFinish]);
+  }, []); // 空依赖数组，确保在手机端只运行一次计时
 
   return (
     <div
-      className={`preloader fixed inset-0 z-50 flex min-h-screen flex-col items-center justify-center overflow-hidden p-6 text-center transition-opacity duration-700 ${
+      onClick={() => onFinishRef.current?.()} // 支持手机端点击快速跳过
+      className={`preloader fixed inset-0 z-50 flex min-h-screen flex-col items-center justify-center overflow-hidden p-6 text-center transition-opacity duration-700 select-none ${
         isFading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
+      style={{
+        backgroundColor: 'var(--bg-main)',
+        color: 'var(--text-main)',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)'
+      }}
     >
       <div className="preloader__ambient-glow" aria-hidden="true" />
 
@@ -51,4 +64,3 @@ export const Preloader = ({ onFinish }) => {
 };
 
 export default Preloader;
-
