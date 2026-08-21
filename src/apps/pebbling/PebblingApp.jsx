@@ -6,16 +6,16 @@ import PebblePairCard from './PebblePairCard';
 import ThrowPebbleModal from './ThrowPebbleModal';
 import ConfirmModal from '../../components/ConfirmModal';
 import NotificationToast from '../../components/NotificationToast';
-import { 
-  throwPebble, 
-  processPendingPebbles, 
-  getPebblingsByCharacter, 
-  aiInitiatePebble, 
-  deletePebble 
+import {
+  throwPebble,
+  processPendingPebbles,
+  getPebblingsByCharacter,
+  aiInitiatePebble,
+  deletePebble
 } from './pebbleService';
-import { Waves, Sparkles, Inbox } from 'lucide-react';
+import { Waves, Sparkles, Inbox, ArrowLeft } from 'lucide-react';
 
-export default function PebblingApp() {
+export default function PebblingApp({ onBack }) {
   const [characters, setCharacters] = useState([]);
   const [activeCharId, setActiveCharId] = useState(null);
   const [pebblings, setPebblings] = useState([]);
@@ -30,6 +30,7 @@ export default function PebblingApp() {
   const loadData = useCallback(async () => {
     const chars = await db.characters.toArray();
     setCharacters(chars);
+
     if (chars.length > 0 && !activeCharId) {
       setActiveCharId(chars[0].id);
     }
@@ -37,9 +38,11 @@ export default function PebblingApp() {
     // 统计各个角色的石头总数
     const allPebbles = await db.pebblings.toArray();
     const map = {};
-    allPebbles.forEach(p => {
-      map[p.characterId] = (map[p.characterId] || 0) + 1;
+
+    allPebbles.forEach((pebble) => {
+      map[pebble.characterId] = (map[pebble.characterId] || 0) + 1;
     });
+
     setCountsMap(map);
 
     if (activeCharId) {
@@ -54,6 +57,7 @@ export default function PebblingApp() {
 
     const interval = setInterval(async () => {
       const updated = await processPendingPebbles();
+
       if (updated > 0) {
         loadData();
         setToastMessage('海浪带回了一颗温暖的小石头');
@@ -73,7 +77,9 @@ export default function PebblingApp() {
   // 召唤 AI 漫步主动发石头
   const handleAiInitiate = async (charId) => {
     setToastMessage('对方正在海滩漫步寻找石头...');
+
     const res = await aiInitiatePebble(charId);
+
     if (res) {
       setToastMessage('对方从海滩带回了一颗石头放入巢中');
       loadData();
@@ -90,15 +96,15 @@ export default function PebblingApp() {
     }
   };
 
-  const activeChar = characters.find(c => c.id === activeCharId);
+  const activeChar = characters.find((character) => character.id === activeCharId);
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-6">
       {/* Toast 提示 */}
       {toastMessage && (
-        <NotificationToast 
-          message={toastMessage} 
-          onClose={() => setToastMessage(null)} 
+        <NotificationToast
+          message={toastMessage}
+          onClose={() => setToastMessage(null)}
         />
       )}
 
@@ -120,15 +126,45 @@ export default function PebblingApp() {
         onThrow={handleThrow}
       />
 
-      {/* 顶部标题区 */}
-      <div className="mb-6 flex flex-col gap-1">
+      {/* 顶部标准导航头 */}
+      <div className="mb-6 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl border transition-all hover:opacity-80 active:scale-95"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>返回</span>
+        </button>
+
         <div className="flex items-center gap-2">
-          <Waves className="w-5 h-5 opacity-80" style={{ color: 'var(--text-main)' }} />
-          <h1 className="text-xl font-medium tracking-wide" style={{ color: 'var(--text-main)' }}>
-            PEBBLING · 企鹅小石
-          </h1>
+          <Waves
+            className="w-4 h-4 opacity-70"
+            style={{ color: 'var(--text-main)' }}
+          />
+          <span className="text-xs font-mono tracking-wider opacity-60 uppercase">
+            PEBBLING HUB
+          </span>
         </div>
-        <p className="text-xs opacity-70" style={{ color: 'var(--text-sub)' }}>
+      </div>
+
+      {/* 标题栏 */}
+      <div className="mb-6 flex flex-col gap-1">
+        <h1
+          className="text-xl font-medium tracking-wide"
+          style={{ color: 'var(--text-main)' }}
+        >
+          PEBBLING · 企鹅小石
+        </h1>
+        <p
+          className="text-xs opacity-70"
+          style={{ color: 'var(--text-sub)' }}
+        >
           毫无压力的延迟投递，像企鹅把打磨光滑的小石头悄悄衔进对方的巢穴里。
         </p>
       </div>
@@ -146,7 +182,7 @@ export default function PebblingApp() {
       {/* 小石头列表 */}
       <div className="w-full min-h-[300px]">
         {pebblings.length === 0 ? (
-          <div 
+          <div
             className="w-full py-16 rounded-2xl border flex flex-col items-center justify-center text-center p-6"
             style={{
               backgroundColor: 'var(--card-bg)',
@@ -154,16 +190,26 @@ export default function PebblingApp() {
               color: 'var(--text-sub)'
             }}
           >
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border opacity-60" style={{ borderColor: 'var(--card-border)' }}>
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border opacity-60"
+              style={{ borderColor: 'var(--card-border)' }}
+            >
               <Inbox className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>
+
+            <h3
+              className="text-sm font-medium mb-1"
+              style={{ color: 'var(--text-main)' }}
+            >
               {activeChar?.name || '此'} 的小巢里还是空的
             </h3>
+
             <p className="text-xs max-w-sm mb-4 opacity-75">
               衔一颗润石或者让对方在海滩漫步，开启一段毫无社交负担的微光陪伴吧。
             </p>
+
             <button
+              type="button"
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-sm"
               style={{
@@ -176,7 +222,7 @@ export default function PebblingApp() {
             </button>
           </div>
         ) : (
-          pebblings.map(pebble => (
+          pebblings.map((pebble) => (
             <PebblePairCard
               key={pebble.id}
               pebble={pebble}

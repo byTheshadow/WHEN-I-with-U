@@ -12,7 +12,7 @@ import TodoApp from './apps/todos/TodoApp';
 import DiaryApp from './apps/diaries/DiaryApp';
 import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
-import PebblingApp from './apps/pebbling/PebblingApp'; // 👈 引入 Pebbling Sub-App
+import PebblingApp from './apps/pebbling/PebblingApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { requestNotificationPermission } from './services/aiService';
 
@@ -34,17 +34,19 @@ export const App = () => {
   useEffect(() => {
     // 1. 设置根元素 CSS 变量主题
     document.documentElement.setAttribute('data-theme', activeTheme);
-    
+
     // 2. 动态修改手机原生顶栏/状态栏颜色 (iOS Safari & Android Chrome)
     const themeColor = THEME_COLORS[activeTheme] || '#fcfbf7';
     document.body.style.backgroundColor = themeColor;
 
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+
     if (!metaThemeColor) {
       metaThemeColor = document.createElement('meta');
       metaThemeColor.name = 'theme-color';
       document.head.appendChild(metaThemeColor);
     }
+
     metaThemeColor.setAttribute('content', themeColor);
 
     requestNotificationPermission();
@@ -66,7 +68,8 @@ export const App = () => {
     });
   };
 
-  const shouldDisplayHeader = showTitle && currentApp !== 'settings' && !isInsideChatRoom;
+  const shouldDisplayHeader =
+    showTitle && currentApp !== 'settings' && !isInsideChatRoom;
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
@@ -101,10 +104,12 @@ export const App = () => {
         />
       </div>
 
-      <main 
+      <main
         className={mainClassName}
         style={{
-          paddingTop: isInsideChatRoom ? '0' : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+          paddingTop: isInsideChatRoom
+            ? '0'
+            : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
           paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))'
         }}
       >
@@ -119,6 +124,7 @@ export const App = () => {
                 <br />
                 <span className="font-normal italic opacity-40">with U.</span>
               </h1>
+
               <div
                 className="mt-3 h-px w-10"
                 style={{ backgroundColor: 'var(--text-main)', opacity: 0.2 }}
@@ -207,14 +213,25 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {/* 👈 挂载全新的 PEBBLING 企鹅小石 Sub-App */}
+        {/* PEBBLING 企鹅小石 Sub-App */}
         {currentApp === 'pebbling' && (
           <ErrorBoundary>
-            <PebblingApp onBackHub={() => openApp('hub')} />
+            <PebblingApp onBack={() => setCurrentApp('hub')} />
           </ErrorBoundary>
         )}
 
-        {!['hub', 'settings', 'messages', 'todos', 'planner', 'diaries', 'travels', 'travel', 'snapshots', 'pebbling'].includes(currentApp) && (
+        {![
+          'hub',
+          'settings',
+          'messages',
+          'todos',
+          'planner',
+          'diaries',
+          'travels',
+          'travel',
+          'snapshots',
+          'pebbling'
+        ].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
@@ -251,3 +268,4 @@ export const App = () => {
 };
 
 export default App;
+
