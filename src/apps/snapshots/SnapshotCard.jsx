@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Heart, MessageSquare, Trash2, MapPin, Sparkles, Send, CornerDownRight, Eye } from 'lucide-react';
+import { Heart, MessageSquare, Trash2, MapPin, Sparkles, Send, CornerDownRight, Eye, X } from 'lucide-react';
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
 
 export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComment }) => {
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState('');
-  const [replyTarget, setReplyTarget] = useState(null); // { id, name }
+  const [replyTarget, setReplyTarget] = useState(null); // { id, name, characterId }
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [showSummonModal, setShowSummonModal] = useState(false);
   const [characters, setCharacters] = useState([]);
@@ -85,7 +85,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
         timestamp: Date.now()
       };
 
-      const newId = await db.snapshotComments.add(commentData);
+      await db.snapshotComments.add(commentData);
       setCommentInput('');
       const currentReplyTarget = replyTarget;
       setReplyTarget(null);
@@ -161,6 +161,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           </div>
 
           <button
+            type="button"
             onClick={() => setIsDeleting(true)}
             className="p-1.5 rounded-full opacity-40 hover:opacity-100 transition-opacity"
             title="彻底删除此动态"
@@ -196,6 +197,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           {/* 图像画面描述浮层微标 */}
           {snapshot.imagePrompt && (
             <button
+              type="button"
               onClick={() => setShowPromptModal(true)}
               className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full text-[10px] font-medium backdrop-blur-md border flex items-center gap-1 opacity-80 hover:opacity-100"
               style={{
@@ -221,6 +223,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
         <div className="flex items-center justify-between pt-1 border-t px-1" style={{ borderColor: 'var(--card-border)' }}>
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={handleToggleLike}
               className="flex items-center gap-1 text-xs font-semibold transition-transform active:scale-90"
               style={{ color: snapshot.isLiked ? 'var(--accent-color)' : 'var(--text-main)' }}
@@ -236,6 +239,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           </div>
 
           <button
+            type="button"
             onClick={() => setShowSummonModal(true)}
             className="px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
             style={{
@@ -268,12 +272,14 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
 
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
                     <button
+                      type="button"
                       onClick={() => setReplyTarget({ id: cm.id, name: cm.senderName, characterId: cm.characterId })}
                       className="text-[10px] underline opacity-70 hover:opacity-100"
                     >
                       回复
                     </button>
                     <button
+                      type="button"
                       onClick={(e) => handleDeleteComment(cm.id, e)}
                       className="p-0.5 opacity-40 hover:opacity-100"
                     >
@@ -324,7 +330,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           <div className="w-full max-w-xs rounded-2xl p-4 border space-y-3" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
             <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--card-border)' }}>
               <h4 className="text-xs font-bold">画面描摹细节</h4>
-              <button onClick={() => setShowPromptModal(false)}><X className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setShowPromptModal(false)}><X className="w-4 h-4" /></button>
             </div>
             <p className="text-xs leading-relaxed opacity-90 font-serif italic">"{snapshot.imagePrompt}"</p>
           </div>
@@ -337,7 +343,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
           <div className="w-full max-w-xs rounded-2xl p-4 border space-y-3" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
             <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--card-border)' }}>
               <h4 className="text-xs font-bold">选择召唤互动者</h4>
-              <button onClick={() => setShowSummonModal(false)}><X className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setShowSummonModal(false)}><X className="w-4 h-4" /></button>
             </div>
 
             <div className="space-y-1.5 max-h-60 overflow-y-auto">
@@ -345,6 +351,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
               {characters.map((c) => (
                 <button
                   key={c.id}
+                  type="button"
                   onClick={() => {
                     setShowSummonModal(false);
                     onSummonComment(snapshot, { type: 'character', data: c });
@@ -363,6 +370,7 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
                   {npcs.map((n) => (
                     <button
                       key={n.id}
+                      type="button"
                       onClick={() => {
                         setShowSummonModal(false);
                         onSummonComment(snapshot, { type: 'npc', data: n });
@@ -399,3 +407,4 @@ export const SnapshotCard = ({ snapshot, onDelete, onSummonComment, onReplyComme
 };
 
 export default SnapshotCard;
+
