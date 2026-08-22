@@ -14,7 +14,12 @@ import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
 import { Settings as SettingsIcon } from 'lucide-react';
-import { requestNotificationPermission } from './services/aiService';
+import {
+  requestNotificationPermission,
+  startAutoMessageScheduler,
+  stopAutoMessageScheduler
+} from './services/aiService';
+
 
 // 各主题对应的顶栏/背景 HEX 颜色（用于动态更新 iOS 顶栏 meta 标签）
 const THEME_COLORS = {
@@ -30,6 +35,23 @@ export const App = () => {
   const [showTitle, setShowTitle] = useState(true);
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
+
+    // 应用挂载时，仅启动一次 AI 主动消息 / 主动日记后台调度器。
+  useEffect(() => {
+    // 若通知权限仍未决定，会尝试申请浏览器通知权限。
+    // 注意：部分手机浏览器只允许在用户点击按钮后申请权限。
+    void requestNotificationPermission();
+
+    // 启动调度器。内部会自行检查：
+    // autoMessage、quietHours、frequency、角色开关及冷却时间。
+    startAutoMessageScheduler();
+
+    // App 卸载时清理定时器，避免开发模式或重复挂载产生多个轮询。
+    return () => {
+      stopAutoMessageScheduler();
+    };
+  }, []);
+
 
   useEffect(() => {
     // 1. 设置根元素 CSS 变量主题
@@ -49,7 +71,7 @@ export const App = () => {
 
     metaThemeColor.setAttribute('content', themeColor);
 
-    requestNotificationPermission();
+  
   }, [activeTheme]);
 
   const handlePreloaderFinish = useCallback(() => {

@@ -4,6 +4,12 @@ const listeners = new Set();
 const summaryStatusListeners = new Set();
 
 const activeAiRequests = new Set();
+// ==========================================
+// 🤖 SettingsPage 联动：主动消息 / 主动日记调度器
+// ==========================================
+let autoMessageSchedulerTimer = null;
+let isAutoMessageTriggering = false;
+
 // 基于 Web Audio API 的零依赖消息音效合成器
 export const playMessageSound = (type = 'receive') => {
   if (typeof window === 'undefined') return;
@@ -707,6 +713,264 @@ ${worldBooksText}
     return null;
   }
 };
+
+// ==========================================
+// 🤖 SettingsPage 联动：AI 主动消息 / 主动日记调度器
+// ==========================================
+
+// 判断当前时间是否处于免打扰时段。
+// 支持跨天：23:00 ~ 08:00；也支持同一天：13:00 ~ 14:00。
+const isInQuietHours = (quietConfig) => {
+  if (!quietConfig || quietConfig.enabled !== true) return false;
+
+  const parseTimeToMinutes = (time, fallback) => {
+    const [hour, minute] = String(time || fallback)
+      .split(':')
+      .map(Number);
+
+    // 设置值异常时使用默认值，避免 NaN 导致判断失效。
+    if (
+      !Number.isInteger(hour) ||
+      !Number.isInteger(minute) ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      const [fallbackHour, fallbackMinute] = fallback.split(':').map(Number);
+      return fallbackHour * 60 + fallbackMinute;
+    }
+
+    return hour * 60 + minute;
+  };
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const startMinutes = parseTimeToMinutes(quietConfig.start, '23:00');
+  const endMinutes = parseTimeToMinutes(quietConfig.end, '08:00');
+
+  // 开始、结束相同：按“全天静音”处理，防止用户被意外打扰。
+  if (startMinutes === endMinutes) return true;
+
+  // 跨天，例如 23:00 到第二天 08:00。
+  if (startMinutes > endMinutes) {
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+  }
+
+  // 非跨天，例如 13:00 到 14:00。
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+};
+
+// 把 settings 表内的 { key, value } 记录转成对象。
+// 例如：[{ key: 'autoMessage', value: true }]
+// 会变成：{ autoMessage: true }
+const getAutoSchedulerSettings = async () => {
+  const allSettings = await db.settings.toArray();
+
+  return allSettings.reduce((settingsMap, item) => {
+    if (item && item.key) {
+      settingsMap[item.key] = item.value;
+    }
+    return settingsMap;
+  }, {});
+};
+
+// 频率使用“随机冷却区间”，而非固定间隔，避免每次总在同一时刻触发：
+// high：2~4 小时
+// moderate：6~8 小时
+// low：12~24 小时
+const getAutoMessageCooldownRange = (frequency) => {
+  const hour = 60 * 60 * 1000;
+
+  switch (frequency) {
+    case 'high':
+      return { min: 2 * hour, max: 4 * hour };
+
+    case 'low':
+      return { min: 12 * hour, max: 24 * hour };
+
+    case 'moderate':
+    default:
+      return { min: 6 * hour, max: 8 * hour };
+  }
+};
+
+const getRandomCooldownMs = (frequency) => {
+  const { min, max } = getAutoMessageCooldownRange(frequency);
+  return Math.floor(min + Math.random() * (max - min));
+};
+
+/**
+ * 检查设置，并在符合条件时触发一次 AI 主动行为。
+ *
+ * 触发行为：
+ * - 65% 概率：角色在主页留下主动随笔；
+ * - 35% 概率：角色主动写一篇日记。
+ *
+ * 两个生成函数内部均已负责：
+ * - 写入 IndexedDB；
+ * - notifyListeners（供 Toast/UI 使用）；
+ * - triggerSystemNotification（浏览器原生通知）。
+ */
+export const checkAndTriggerAutoMessage = async () => {
+  // 防止 setInterval、页面恢复、手动调用等造成并发重复生成。
+  if (isAutoMessageTriggering) return;
+
+  isAutoMessageTriggering = true;
+
+  try {
+    // 1. 获取 SettingsPage 保存的全局设置。
+    const settingMap = await getAutoSchedulerSettings();
+
+    // 2. 全局主动消息开关关闭时，绝不触发。
+    if (settingMap.autoMessage !== true) {
+      return;
+    }
+
+    // 3. 免打扰期间绝不生成，也不显示通知。
+    if (isInQuietHours(settingMap.quietHours)) {
+      console.log('[AutoScheduler] 当前处于免打扰时段，跳过主动触发。');
+      return;
+    }
+
+    // 4. 读取频率和上次成功触发时间。
+    const frequency = settingMap.frequency || 'moderate';
+    const now = Date.now();
+
+    const lastTriggerTimestamp = Number(
+      settingMap.lastAutoMessageTimestamp || 0
+    );
+
+    // 第一次触发时，随机生成并保存本轮冷却时长。
+    // 后续检查始终使用同一个冷却值，避免每 15 分钟随机一次造成不稳定。
+    let cooldownMs = Number(settingMap.autoMessageCooldownMs || 0);
+
+    if (!cooldownMs || cooldownMs < 0) {
+      cooldownMs = getRandomCooldownMs(frequency);
+
+      await db.settings.put({
+        key: 'autoMessageCooldownMs',
+        value: cooldownMs
+      });
+    }
+
+    // 用户在 SettingsPage 修改频率后，应按新频率重新计算下一轮冷却。
+    if (settingMap.autoMessageFrequencyApplied !== frequency) {
+      cooldownMs = getRandomCooldownMs(frequency);
+
+      await db.settings.put({
+        key: 'autoMessageCooldownMs',
+        value: cooldownMs
+      });
+
+      await db.settings.put({
+        key: 'autoMessageFrequencyApplied',
+        value: frequency
+      });
+    }
+
+    // 尚未达到冷却时间，不执行。
+    if (lastTriggerTimestamp > 0 && now - lastTriggerTimestamp < cooldownMs) {
+      return;
+    }
+
+    // 5. 获取允许接收主动消息的角色。
+    // 兼容旧角色数据：字段缺失时，默认认为开启。
+    const activeCharacters = await db.characters
+      .filter((character) => character.isAutoMessageActive !== false)
+      .toArray();
+
+    if (!activeCharacters.length) {
+      console.log('[AutoScheduler] 没有开启主动消息的角色，跳过。');
+      return;
+    }
+
+    // 6. 随机抽取一位角色。
+    const character =
+      activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+
+    // 7. 随机决定“主动发随笔”或“主动写日记”。
+    // 若你希望两种行为各 50%，改为：Math.random() < 0.5
+    const shouldWriteDiary = Math.random() < 0.35;
+
+    let generatedId = null;
+    let actionType = '';
+
+    if (shouldWriteDiary) {
+      actionType = 'diary';
+      generatedId = await generateCompanionProactiveDiary(character.id);
+    } else {
+      actionType = 'homeBoard';
+      generatedId = await generateCharacterHomeBoardMessage(character.id);
+    }
+
+    // 只有确实写入成功后，才更新冷却时间。
+    // 这样 API/数据库失败时，下一次轮询仍可以自动重试。
+    if (generatedId !== null && generatedId !== undefined) {
+      const nextCooldownMs = getRandomCooldownMs(frequency);
+
+      await db.settings.put({
+        key: 'lastAutoMessageTimestamp',
+        value: now
+      });
+
+      await db.settings.put({
+        key: 'autoMessageCooldownMs',
+        value: nextCooldownMs
+      });
+
+      await db.settings.put({
+        key: 'autoMessageFrequencyApplied',
+        value: frequency
+      });
+
+      console.log(
+        `[AutoScheduler] 已触发 ${actionType}：${character.name}；下次最早触发时间约为 ${Math.round(nextCooldownMs / 3600000)} 小时后。`
+      );
+    } else {
+      console.warn(
+        `[AutoScheduler] ${actionType} 生成失败，未更新冷却时间，将在后续轮询中重试。`
+      );
+    }
+  } catch (err) {
+    console.error('[AutoScheduler] 主动任务触发失败：', err);
+  } finally {
+    isAutoMessageTriggering = false;
+  }
+};
+
+/**
+ * 启动后台检查器。
+ * 每 15 分钟检查一次，但真正生成仍严格由频率冷却、开关、静音时段控制。
+ */
+export const startAutoMessageScheduler = () => {
+  // 防止 React 重新渲染或重复挂载后创建多个定时器。
+  if (autoMessageSchedulerTimer) return;
+
+  // 应用启动时检查一次。
+  void checkAndTriggerAutoMessage();
+
+  autoMessageSchedulerTimer = setInterval(() => {
+    void checkAndTriggerAutoMessage();
+  }, 15 * 60 * 1000);
+
+  console.log('[AutoScheduler] AI 主动消息调度器已启动。');
+};
+
+/**
+ * 停止后台检查器。
+ * 通常用于应用卸载、退出登录或测试环境清理。
+ */
+export const stopAutoMessageScheduler = () => {
+  if (!autoMessageSchedulerTimer) return;
+
+  clearInterval(autoMessageSchedulerTimer);
+  autoMessageSchedulerTimer = null;
+
+  console.log('[AutoScheduler] AI 主动消息调度器已停止。');
+};
+
 
 export const triggerAiResponse = async (chatId) => {
   if (!chatId || activeAiRequests.has(chatId)) return;
@@ -2055,6 +2319,7 @@ ${relationInfo}
 };
 
 
+
 export default {
   subscribeAiEvents,
   subscribeSummaryStatus,
@@ -2070,5 +2335,10 @@ export default {
   generateSnapshotCommentByAi,
   requestNotificationPermission,
   triggerSystemNotification,
-  playMessageSound
+  playMessageSound,
+
+  // SettingsPage 联动的主动任务调度器
+  checkAndTriggerAutoMessage,
+  startAutoMessageScheduler,
+  stopAutoMessageScheduler
 };
