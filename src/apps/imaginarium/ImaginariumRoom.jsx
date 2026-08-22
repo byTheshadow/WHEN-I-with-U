@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Sliders, Send, Sparkles, AtSign, Smile, RotateCcw, Quote, Trash2, StopCircle } from 'lucide-react';
-import VoiceCard from '../messages/components/VoiceCard.jsx';
-import StickerPickerModal from '../messages/components/StickerPickerModal.jsx';
+import VoiceCard from '../messages/components/cards/VoiceCard';
+import StickerPickerModal from '../messages/components/StickerPickerModal';
 import ConfirmModal from '../../components/ConfirmModal';
 import ImaginariumSettingsModal from './ImaginariumSettingsModal';
 import {
