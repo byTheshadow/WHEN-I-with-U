@@ -225,12 +225,31 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                           </span>
                         </div>
                         <p className="text-[11px] opacity-60 truncate" style={{ color: 'var(--text-sub)' }}>
-  {typeof chatItem.summary === 'string' && chatItem.summary.trim()
-    ? chatItem.summary 
-    : (Array.isArray(chatItem.summary) && chatItem.summary.length > 0 
-        ? chatItem.summary.join(' ') 
-        : `开启与 ${char?.name || '伴侣'} 的独处时刻`)}
+  {(() => {
+    const s = chatItem.summary;
+    if (!s) return `开启与 ${char?.name || '伴侣'} 的独处时刻`;
+
+    // 1. 如果是纯文本
+    if (typeof s === 'string' && s.trim()) return s;
+
+    // 2. 如果是数组 (阶段性总结条目)
+    if (Array.isArray(s) && s.length > 0) {
+      const lastItem = s[s.length - 1]; // 取最新一条总结
+      if (typeof lastItem === 'string') return lastItem;
+      if (typeof lastItem === 'object' && lastItem !== null) {
+        return lastItem.text || lastItem.content || lastItem.summary || `开启与 ${char?.name || '伴侣'} 的独处时刻`;
+      }
+    }
+
+    // 3. 如果单条总结是个对象
+    if (typeof s === 'object' && s !== null) {
+      return s.text || s.content || s.summary || `开启与 ${char?.name || '伴侣'} 的独处时刻`;
+    }
+
+    return `开启与 ${char?.name || '伴侣'} 的独处时刻`;
+  })()}
 </p>
+
                       </div>
                     </div>
 
