@@ -1,16 +1,22 @@
 import db from '../db';
 
-// 默认预设表情包 (首次使用时自动初始化)
+// 9 款专属预设表情包
 export const DEFAULT_STICKERS = [
-  { name: '摸摸头', url: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=300&auto=format&fit=crop&q=80', category: 'preset' },
-  { name: '抱抱', url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&auto=format&fit=crop&q=80', category: 'preset' },
-  { name: '暗中观察', url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=300&auto=format&fit=crop&q=80', category: 'preset' },
-  { name: '委屈喵喵', url: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=300&auto=format&fit=crop&q=80', category: 'preset' },
+  { name: '心动', url: 'https://u2.fukit.cn/PcyFGX4gq', category: 'preset' },
+  { name: '亲亲你', url: 'https://u2.fukit.cn/7ioPavcc6', category: 'preset' },
+  { name: '无聊', url: 'https://u2.fukit.cn/QsQ3U486T', category: 'preset' },
+  { name: '醒醒', url: 'https://u2.fukit.cn/IFFAjnNe0', category: 'preset' },
+  { name: '我来啦', url: 'https://u2.fukit.cn/JZmOAwvK1', category: 'preset' },
+  { name: '你好我吃一点', url: 'https://u2.fukit.cn/lAig21Rcu', category: 'preset' },
+  { name: '乖宝宝', url: 'https://u2.fukit.cn/0Omv9Oy78', category: 'preset' },
+  { name: '哄哄你', url: 'https://u2.fukit.cn/h09DfAhR2', category: 'preset' },
+  { name: '开心', url: 'https://u2.fukit.cn/vENEKAqtS', category: 'preset' },
 ];
 
 export const initDefaultStickers = async () => {
   try {
     const count = await db.stickers.count();
+    // 如果数据库中没有记录，全量写入这 9 款预设
     if (count === 0) {
       await db.stickers.bulkAdd(
         DEFAULT_STICKERS.map((s) => ({ ...s, createdAt: Date.now() }))

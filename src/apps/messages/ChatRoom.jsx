@@ -34,6 +34,8 @@ import FoodDeliveryCard from './components/cards/FoodDeliveryCard';
 import KinshipCard from './components/cards/KinshipCard';
 import StickerCard from './components/cards/StickerCard';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
+import AudioKeepAlive from './components/AudioKeepAlive';
+
 
 
 export const ChatRoom = ({
@@ -52,6 +54,32 @@ export const ChatRoom = ({
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
+
+    const [showStickerModal, setShowStickerModal] = useState(false);
+
+  const handleSendSticker = async (sticker) => {
+    if (!sticker || !sticker.name || !chat?.id) return;
+
+    const newMsg = {
+      chatId: chat.id,
+      characterId: chat.characterId,
+      sender: 'user',
+      type: 'sticker',
+      content: sticker.name,
+      metadata: {
+        name: sticker.name,
+        url: sticker.url
+      },
+      isRead: true,
+      timestamp: Date.now()
+    };
+
+    await db.messages.add(newMsg);
+    await db.chats.update(chat.id, { updatedAt: Date.now() });
+
+    loadChatData();
+    triggerAiResponse(chat.id);
+  };
 
   const scrollAreaRef = useRef(null);
 
@@ -751,7 +779,16 @@ export const ChatRoom = ({
           }}
         >
           <div className="flex items-center gap-1 opacity-80">
-            <InteractiveMenuPopover onSelectAction={(type) => setSelectedType(type)} />
+           <InteractiveMenuPopover 
+  onSelectAction={(type) => {
+    if (type === 'sticker') {
+      setShowStickerModal(true);
+    } else {
+      setSelectedType(type);
+    }
+  }} 
+/>
+
 
             <button
               type="button"
@@ -781,23 +818,32 @@ export const ChatRoom = ({
             </button>
           </div>
 
-          <input
-            type="text"
-           placeholder={
-  selectedType === 'text'
-    ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
-    : `已选 ${selectedType} 模式`
-}
-            value={inputText}
-            onChange={(event) => setInputText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                handleSendMessage();
-              }
-            }}
-            className="min-w-0 flex-1 bg-transparent px-2 font-sans text-xs outline-none"
-            style={{ color: 'var(--text-main)' }}
-          />
+         <textarea
+  rows={1}
+  value={inputText}
+  onChange={(e) => {
+    setInputText(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+  }}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }}
+  placeholder={
+    selectedType === 'text'
+      ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
+      : `已选 ${selectedType} 模式`
+  }
+  className="w-full bg-transparent outline-none text-xs resize-none max-h-32 overflow-y-auto leading-relaxed"
+  style={{
+    color: 'var(--text-main)',
+    minHeight: '24px'
+  }}
+/>
+
 
           <div className="flex shrink-0 items-center gap-1.5">
             <button
@@ -831,6 +877,8 @@ export const ChatRoom = ({
         </div>
       </footer>
 
+      
+
       {showBubbleCustomizer && (
         <BubbleCustomizer
           currentCss={currentCss}
@@ -854,6 +902,16 @@ export const ChatRoom = ({
           onUpdatedUserPersona={loadChatData}
         />
       )}
+    
+{/* 后台保活组件 */}
+{chat?.keepAlive && <AudioKeepAlive isEnabled={true} />}
+
+      {/* 表情包选择器弹窗 */}
+      <StickerPickerModal
+        isOpen={showStickerModal}
+        onClose={() => setShowStickerModal(false)}
+        onSelectSticker={(sticker) => handleSendSticker(sticker)}
+      />
     </div>
   );
 };
