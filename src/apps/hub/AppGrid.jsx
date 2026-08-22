@@ -68,6 +68,30 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
+        {/* Imaginarium 虚构沙龙 */}
+        <GlassCard
+          delay={delay + 50}
+          onClick={() => onOpenApp('imaginarium')}
+          className="flex flex-col justify-between aspect-square text-left cursor-pointer p-4 group"
+        >
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Sparkles
+              className="w-5 h-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+
+          <div>
+            <h4 className="font-bold text-sm">Imaginarium</h4>
+            <p className="mt-0.5 text-[10px] opacity-50 uppercase tracking-wider">
+              Virtual Salon
+            </p>
+          </div>
+        </GlassCard>
+
         {/* Diaries 日记 */}
         <GlassCard
           delay={delay + 60}
@@ -104,6 +128,8 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </GlassCard>
         </div>
       </div>
+
+
 
       {/* Applications 下方的黑胶保活播放器 */}
       <KeepAlivePlayer delay={delay + 120} />

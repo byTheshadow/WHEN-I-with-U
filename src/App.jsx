@@ -13,6 +13,7 @@ import DiaryApp from './apps/diaries/DiaryApp';
 import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
+import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import {
   requestNotificationPermission,
@@ -241,6 +242,13 @@ export const App = () => {
             <PebblingApp onBack={() => openApp('hub')} />
           </ErrorBoundary>
         )}
+
+        // 在 return 语句中添加路由条件:
+{currentApp === 'imaginarium' && (
+  <ErrorBoundary>
+    <ImaginariumApp onBackHub={() => openApp('hub')} />
+  </ErrorBoundary>
+)}
 
         {![
           'hub',
