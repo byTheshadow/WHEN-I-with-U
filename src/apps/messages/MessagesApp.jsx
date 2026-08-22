@@ -35,12 +35,17 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
     return unsubscribe;
   }, []);
 
-  const loadData = async () => {
-    const chatList = await db.chats.orderBy('updatedAt').reverse().toArray();
-    const charList = await db.characters.toArray();
-    setChats(chatList);
-    setCharacters(charList);
+    const loadData = async () => {
+    try {
+      const chatList = await db.chats.orderBy('updatedAt').reverse().toArray();
+      const charList = await db.characters.toArray();
+      setChats(Array.isArray(chatList) ? chatList : []);
+      setCharacters(Array.isArray(charList) ? charList : []);
+    } catch (err) {
+      console.error('[MessagesApp] loadData failed safely:', err);
+    }
   };
+
 
   const handleOpenChat = (chatId) => {
     setActiveChatId(chatId);
@@ -220,8 +225,12 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                           </span>
                         </div>
                         <p className="text-[11px] opacity-60 truncate" style={{ color: 'var(--text-sub)' }}>
-                          {chatItem.summary ? chatItem.summary : `开启与 ${char?.name || '伴侣'} 的独处时刻`}
-                        </p>
+  {typeof chatItem.summary === 'string' && chatItem.summary.trim()
+    ? chatItem.summary 
+    : (Array.isArray(chatItem.summary) && chatItem.summary.length > 0 
+        ? chatItem.summary.join(' ') 
+        : `开启与 ${char?.name || '伴侣'} 的独处时刻`)}
+</p>
                       </div>
                     </div>
 

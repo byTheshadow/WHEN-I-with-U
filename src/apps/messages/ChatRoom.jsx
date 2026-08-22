@@ -87,20 +87,26 @@ export const ChatRoom = ({
   }, [messages, isAiTyping]);
 
   const loadChatData = async () => {
-    const chatRecord = await db.chats.get(chatId);
-    if (!chatRecord) return;
-    setChat(chatRecord);
+    try {
+      const chatRecord = await db.chats.get(chatId);
+      if (!chatRecord) return;
+      setChat(chatRecord);
 
-    const charRecord = await db.characters.get(chatRecord.characterId);
-    if (charRecord) setCharacter(charRecord);
+      const charRecord = await db.characters.get(chatRecord.characterId);
+      if (charRecord) setCharacter(charRecord);
 
-    const msgList = await db.messages
-      .where('chatId')
-      .equals(chatId)
-      .sortBy('timestamp');
+      const msgList = await db.messages
+        .where('chatId')
+        .equals(chatId)
+        .sortBy('timestamp');
 
-    setMessages(msgList);
+      setMessages(Array.isArray(msgList) ? msgList : []);
+    } catch (err) {
+      console.error('[ChatRoom] loadChatData failed safely:', err);
+    }
   };
+
+
 
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
@@ -342,8 +348,8 @@ export const ChatRoom = ({
                     }}
                   >
                     <span className="block font-bold">
-                      {quoted.sender === 'user' ? activeUserName : character.name}
-                    </span>
+  {quoted.sender === 'user' ? activeUserName : (character?.name || '伴侣')}
+</span>
                     <p className="truncate">{quoted.content}</p>
                   </div>
                 )}
@@ -768,11 +774,11 @@ export const ChatRoom = ({
 
           <input
             type="text"
-            placeholder={
-              selectedType === 'text'
-                ? (chat.inputPlaceholder || `与 ${character.name} 倾诉...`)
-                : `已选 ${selectedType} 模式`
-            }
+           placeholder={
+  selectedType === 'text'
+    ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
+    : `已选 ${selectedType} 模式`
+}
             value={inputText}
             onChange={(event) => setInputText(event.target.value)}
             onKeyDown={(event) => {
