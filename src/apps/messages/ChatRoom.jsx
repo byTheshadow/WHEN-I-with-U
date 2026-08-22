@@ -32,7 +32,9 @@ import ArticleCard from './components/cards/ArticleCard';
 import GiftCard from './components/cards/GiftCard';
 import FoodDeliveryCard from './components/cards/FoodDeliveryCard';
 import KinshipCard from './components/cards/KinshipCard';
+import StickerCard from './components/cards/StickerCard';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
+
 
 export const ChatRoom = ({
   chatId,
@@ -431,6 +433,13 @@ export const ChatRoom = ({
                         {msg.type === 'gift' && <GiftCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
                         {msg.type === 'food' && <FoodDeliveryCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
                         {msg.type === 'kinship' && <KinshipCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
+                        {msg.type === 'sticker' && (
+  <StickerCard
+    metadata={msg.metadata}
+    isUser={msg.sender === 'user'}
+  />
+)}
+
                       </div>
                     )}
                   </div>

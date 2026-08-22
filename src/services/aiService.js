@@ -118,10 +118,12 @@ const getFormattedRealTime = () => {
 };
 
 
-export const parseAiResponseToMessages = (text = '') => {
+export const parseAiResponseToMessages = async (text = '') => {
   const result = [];
-  // 1. 扩充正则匹配，加入 GIFT, FOOD, KINSHIP 标签
-  const pattern = /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP):\s*([^\]]+)\]/g;
+
+  // 支持的 AI 卡片标签
+  const pattern =
+    /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER):\s*([^\]]+)\]/g;
 
   let lastIndex = 0;
   let match;
@@ -158,6 +160,7 @@ export const parseAiResponseToMessages = (text = '') => {
 
     if (cardType === 'transfer') {
       const parts = rawPayload.split('|');
+
       result.push({
         type: 'transfer',
         content: (parts[1] || '心意转账').trim(),
@@ -179,6 +182,7 @@ export const parseAiResponseToMessages = (text = '') => {
       });
     } else if (cardType === 'todo') {
       const parts = rawPayload.split('|');
+
       result.push({
         type: 'todo_proposal',
         content: (parts[0] || '待办事项').trim(),
@@ -187,8 +191,9 @@ export const parseAiResponseToMessages = (text = '') => {
         }
       });
     } else if (cardType === 'gift') {
-      // 礼物卡片解析 [GIFT: 礼物名称 | 寄语 | 金额]
+      // 礼物卡片格式：[GIFT: 礼物名称 | 寄语 | 金额]
       const parts = rawPayload.split('|');
+
       result.push({
         type: 'gift',
         content: (parts[1] || '送出礼物').trim(),
@@ -199,8 +204,9 @@ export const parseAiResponseToMessages = (text = '') => {
         }
       });
     } else if (cardType === 'food') {
-      // 外卖代点卡片解析 [FOOD: 餐品名称 | 商家名称 | 预计时间 | 叮嘱留言]
+      // 外卖卡片格式：[FOOD: 餐品名称 | 商家名称 | 预计时间 | 叮嘱留言]
       const parts = rawPayload.split('|');
+
       result.push({
         type: 'food',
         content: (parts[0] || '外卖美食').trim(),
@@ -212,8 +218,9 @@ export const parseAiResponseToMessages = (text = '') => {
         }
       });
     } else if (cardType === 'kinship') {
-      // 亲属卡解析 [KINSHIP: 额度数字 | 周期 | 赠言]
+      // 亲属卡格式：[KINSHIP: 额度数字 | 周期 | 赠言]
       const parts = rawPayload.split('|');
+
       result.push({
         type: 'kinship',
         content: (parts[2] || '专属亲属卡').trim(),
@@ -223,18 +230,50 @@ export const parseAiResponseToMessages = (text = '') => {
           quote: (parts[2] || '拿去随便刷，我的就是你的。').trim()
         }
       });
+    } else if (cardType === 'sticker') {
+      // 表情包格式：
+      // [STICKER: 表情名称]
+      // 或 [STICKER: 表情名称 | 图片 URL]
+      const parts = rawPayload.split('|');
+
+      const stickerName = (parts[0] || '表情包').trim();
+      let stickerUrl = (parts[1] || '').trim();
+
+      // 如果 AI 只输出表情名称，则从本地表情库中匹配 URL
+      if (!stickerUrl) {
+        const allStickers = await db.stickers.toArray();
+
+        const matched = allStickers.find(
+          (sticker) => sticker.name === stickerName
+        );
+
+        if (matched) {
+          stickerUrl = matched.url || '';
+        }
+      }
+
+      result.push({
+        type: 'sticker',
+        content: stickerName,
+        metadata: {
+          name: stickerName,
+          url: stickerUrl
+        }
+      });
     }
 
     lastIndex = pattern.lastIndex;
   }
 
   const restText = text.slice(lastIndex).trim();
+
   if (restText) {
     pushTextMessages(restText);
   }
 
   return result;
 };
+
 
 const buildHistoryContext = (messages) => {
   const historyContext = [];
@@ -647,7 +686,7 @@ const historyContext = buildHistoryContext(
         errorCode: result.code
       });
     } else {
-      const parsedMessages = parseAiResponseToMessages(result.content);
+      const parsedMessages = await parseAiResponseToMessages(result.content);
 
       const safeParsedMessages = parsedMessages.length > 0
         ? parsedMessages
@@ -808,7 +847,7 @@ export const rerollAiResponse = async (chatId, messageId) => {
         timestamp: nowIso
       };
     } else {
-      const parsed = parseAiResponseToMessages(result.content);
+const parsed = await parseAiResponseToMessages(result.content);
       const firstMessage = parsed[0] || {
         type: 'text',
         content: result.content,
