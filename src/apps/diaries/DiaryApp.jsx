@@ -562,7 +562,7 @@ export const DiaryApp = ({ onBackHub }) => {
         </div>
 
         <p className="text-xs opacity-50 font-serif italic">
-          信封包裹的心绪留痕，每一封信下方嵌入伴侣的深情回执。
+          信封包裹的心绪留痕，每一封信下方嵌入伴侣的回执。
         </p>
       </div>
 
