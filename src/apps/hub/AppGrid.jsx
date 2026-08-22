@@ -1,6 +1,14 @@
 // src/apps/hub/AppGrid.jsx
 import React from 'react';
-import { MessageSquare, BookOpen, Compass, Calendar, Camera, Waves } from 'lucide-react';
+import {
+  MessageSquare,
+  BookOpen,
+  Compass,
+  Calendar,
+  Camera,
+  Waves,
+  Sparkles
+} from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
 
