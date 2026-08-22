@@ -242,8 +242,7 @@ export const App = () => {
             <PebblingApp onBack={() => openApp('hub')} />
           </ErrorBoundary>
         )}
-
-        // 在 return 语句中添加路由条件:
+        
 {currentApp === 'imaginarium' && (
   <ErrorBoundary>
     <ImaginariumApp onBackHub={() => openApp('hub')} />
