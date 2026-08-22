@@ -24,7 +24,8 @@ db.version(2).stores({
   diaries: '++id, characterId, author, content, date',
   travels: '++id, destination, status, timestamp',
   todos: '++id, title, dueDate, isCompleted',
-  settings: 'key, value'
+  settings: 'key, value',
+ stickers: '++id, name, url, category, createdAt'
 });
 
 db.version(3).stores({
