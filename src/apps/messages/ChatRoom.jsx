@@ -34,6 +34,7 @@ import FoodDeliveryCard from './components/cards/FoodDeliveryCard';
 import KinshipCard from './components/cards/KinshipCard';
 import StickerCard from './components/cards/StickerCard';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
+import StickerPickerModal from './components/StickerPickerModal';
 import AudioKeepAlive from './components/AudioKeepAlive';
 
 
