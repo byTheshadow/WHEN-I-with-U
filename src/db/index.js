@@ -25,7 +25,6 @@ db.version(2).stores({
   travels: '++id, destination, status, timestamp',
   todos: '++id, title, dueDate, isCompleted',
   settings: 'key, value',
- stickers: '++id, name, url, category, createdAt'
 });
 
 db.version(3).stores({
@@ -183,6 +182,10 @@ db.version(9).stores({
 
   settings: 'key',
   pebblings: '++id, characterId, status, stoneType, createdAt, respondAt'
+});
+
+db.version(10).stores({
+  stickers: '++id, name, url, category, createdAt'
 });
 
 export default db;
