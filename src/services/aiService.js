@@ -121,9 +121,21 @@ const getFormattedRealTime = () => {
 export const parseAiResponseToMessages = async (text = '') => {
   const result = [];
 
-  // 支持的 AI 卡片标签
+  // 支持的 AI 卡片标签，加入 STICKER
   const pattern =
     /\[(TRANSFER|VOICE|IMAGE|TODO|GIFT|FOOD|KINSHIP|STICKER):\s*([^\]]+)\]/g;
+
+  // 一次性读取本地表情包库，建立「名称 -> URL」映射
+  const allStickers = await db.stickers.toArray();
+
+  const stickerMap = new Map(
+    allStickers
+      .filter((sticker) => sticker?.name)
+      .map((sticker) => [
+        sticker.name.trim(),
+        sticker.url || ''
+      ])
+  );
 
   let lastIndex = 0;
   let match;
@@ -191,7 +203,7 @@ export const parseAiResponseToMessages = async (text = '') => {
         }
       });
     } else if (cardType === 'gift') {
-      // 礼物卡片格式：[GIFT: 礼物名称 | 寄语 | 金额]
+      // 礼物卡片：[GIFT: 礼物名称 | 寄语 | 金额]
       const parts = rawPayload.split('|');
 
       result.push({
@@ -204,7 +216,7 @@ export const parseAiResponseToMessages = async (text = '') => {
         }
       });
     } else if (cardType === 'food') {
-      // 外卖卡片格式：[FOOD: 餐品名称 | 商家名称 | 预计时间 | 叮嘱留言]
+      // 外卖卡片：[FOOD: 餐品名称 | 商家名称 | 预计时间 | 叮嘱留言]
       const parts = rawPayload.split('|');
 
       result.push({
@@ -218,7 +230,7 @@ export const parseAiResponseToMessages = async (text = '') => {
         }
       });
     } else if (cardType === 'kinship') {
-      // 亲属卡格式：[KINSHIP: 额度数字 | 周期 | 赠言]
+      // 亲属卡：[KINSHIP: 额度数字 | 周期 | 赠言]
       const parts = rawPayload.split('|');
 
       result.push({
@@ -231,26 +243,18 @@ export const parseAiResponseToMessages = async (text = '') => {
         }
       });
     } else if (cardType === 'sticker') {
-      // 表情包格式：
-      // [STICKER: 表情名称]
-      // 或 [STICKER: 表情名称 | 图片 URL]
+      // 表情包：[STICKER: 表情包名称]
+      // 也兼容：[STICKER: 表情包名称 | 图片URL]
       const parts = rawPayload.split('|');
 
       const stickerName = (parts[0] || '表情包').trim();
-      let stickerUrl = (parts[1] || '').trim();
 
-      // 如果 AI 只输出表情名称，则从本地表情库中匹配 URL
-      if (!stickerUrl) {
-        const allStickers = await db.stickers.toArray();
-
-        const matched = allStickers.find(
-          (sticker) => sticker.name === stickerName
-        );
-
-        if (matched) {
-          stickerUrl = matched.url || '';
-        }
-      }
+      // 优先使用 AI 显式提供的 URL；
+      // 通常 AI 只提供名称，因此从本地 stickerMap 自动匹配 URL。
+      const stickerUrl =
+        (parts[1] || '').trim() ||
+        stickerMap.get(stickerName) ||
+        '';
 
       result.push({
         type: 'sticker',
@@ -275,6 +279,53 @@ export const parseAiResponseToMessages = async (text = '') => {
 };
 
 
+// 将各种类型的消息转化为 AI 大模型能理解的文本
+const formatMsgContentForPrompt = (msg) => {
+  if (!msg) {
+    return '';
+  }
+
+  if (msg.type === 'sticker') {
+    return `[发送了表情包: ${
+      msg.metadata?.name || msg.content || '表情包'
+    }]`;
+  }
+
+  if (msg.type === 'image') {
+    return `[发送了画面/照片: ${msg.content || ''}]`;
+  }
+
+  if (msg.type === 'voice') {
+    return `[发送了语音: ${msg.content || ''}]`;
+  }
+
+  if (msg.type === 'transfer') {
+    return `[转账: ${
+      msg.metadata?.amount || ''
+    } 元, 留言: ${msg.content || ''}]`;
+  }
+
+  if (msg.type === 'gift') {
+    return `[赠送了礼物: ${
+      msg.metadata?.name || ''
+    }, 寄语: ${msg.content || ''}]`;
+  }
+
+  if (msg.type === 'food') {
+    return `[为你点了外卖: ${
+      msg.metadata?.item || ''
+    }, 叮嘱: ${msg.metadata?.note || ''}]`;
+  }
+
+  if (msg.type === 'kinship') {
+    return `[赠送了亲属卡: ${
+      msg.metadata?.amount || ''
+    }元额度]`;
+  }
+
+  return msg.content || '';
+};
+
 const buildHistoryContext = (messages) => {
   const historyContext = [];
 
@@ -293,7 +344,9 @@ const buildHistoryContext = (messages) => {
       continue;
     }
 
-    const content = String(message.content || '').trim();
+    const content = String(
+      formatMsgContentForPrompt(message)
+    ).trim();
 
     if (!content) {
       continue;
@@ -314,6 +367,7 @@ const buildHistoryContext = (messages) => {
 
   return historyContext;
 };
+
 
 
 // ==============================
@@ -461,6 +515,24 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
     : '';
 
   const allTodos = await db.todos.toArray();
+  // 动态获取当前全站可用的表情包名称
+  const stickers = await db.stickers.toArray();
+
+  const stickerNameList = stickers
+    .map((sticker) => sticker.name)
+    .filter(Boolean)
+    .join('、');
+
+  const stickerInstruction = `
+【表情包交互规范】
+- 你可以根据当前对话的情绪与氛围，主动发送表情包。
+- 发送语法：[STICKER: 表情包名称]
+- 只填写表情包名称，不要填写 URL。
+- 当前全站支持的表情包名称有：${
+    stickerNameList || '摸摸头、抱抱、暗中观察、委屈喵喵'
+  }。
+- 示例：当你想安慰 User 时，可以回复“别难过啦 [STICKER: 摸摸头]”。
+`;
 
   const pendingTodos = allTodos
     .filter((todo) => !todo.isCompleted && (!todo.characterId || todo.characterId === character.id))
@@ -513,6 +585,7 @@ ${worldBooksText}
 ${summaryText}
 ${todoText}
 ${diaryText}
+${stickerInstruction}
 
 【表达准则】：
 - 以亲密、自然、有文学感但不过度堆砌辞藻的方式回应。
@@ -531,6 +604,7 @@ ${diaryText}
 - 赠送礼物：[GIFT: 礼物名称 | 寄语与选礼理由 | 金额(可选)]
 - 代点外卖：[FOOD: 餐饮名称 | 商家名称 | 预计到达时间 | 叮嘱留言]
 - 开通亲属卡：[KINSHIP: 额度数字 | 周期(如:月度) | 卡片赠言]
+- 发送表情包：[STICKER: 表情包名称]
 
 注意：
 - [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
