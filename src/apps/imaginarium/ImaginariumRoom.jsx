@@ -98,7 +98,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
       setMessages((prev) => [...prev, aiMsg]);
       setTargetNpcId(null);
     } catch (err) {
-      alert(err.message || 'AI 响应失败');
+      alert(err.message || 'AI 响应失败，请检查 API Key 配置');
     } finally {
       setIsAiThinking(false);
       setThinkingNpc(null);
@@ -212,18 +212,12 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         />
       )}
 
-      {/* 1. 无实体 Top Bar 底色：悬浮操控 + 7. 独立沙龙名称徽章 + 音乐状态栏 */}
+      {/* 1. 无 Top Bar：极简浮动层 */}
       <div className="z-30 shrink-0 px-3 pt-3 flex flex-col pointer-events-none space-y-1">
         <div className="flex items-center justify-between pointer-events-auto">
           <button type="button" onClick={onBack} className="imaginarium-icon-btn">
             <ArrowLeft className="w-4 h-4" />
           </button>
-
-          {/* 👈 7. 悬浮独立沙龙名称徽章 */}
-          <div className="imaginarium-title-badge px-3 py-1 rounded-full border shadow-sm backdrop-blur-md flex items-center gap-1.5" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-color)] animate-ping" />
-            <span className="font-serif font-bold text-xs truncate max-w-[130px]">{chat.title}</span>
-          </div>
 
           <div className="flex items-center gap-1.5">
             <button
@@ -236,7 +230,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
               }}
             >
               {isFreeDiscussing ? <StopCircle className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              <span>{isFreeDiscussing ? '停止' : '讨论'}</span>
+              <span>{isFreeDiscussing ? '停止' : '自由讨论'}</span>
             </button>
 
             <button
@@ -255,7 +249,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         </div>
       </div>
 
-      {/* 2. 中间消息滚动区域 (独立滑动) */}
+      {/* 2. 中间消息滚动区域 (修复气泡宽度与多余空隙) */}
       <main
         className="flex-1 overflow-y-auto px-4 py-3 space-y-4 relative z-10 scroll-smooth"
         onClick={() => setActiveMsgId(null)}
@@ -281,22 +275,23 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                 )}
               </div>
 
-              <div className={`space-y-1 max-w-[78%] ${isUser ? 'items-end text-right' : 'items-start text-left'}`}>
+              {/* 👈 关键修复：外层 display: flex flex-col 并配合 items-end / items-start 紧凑排列 */}
+              <div className={`flex flex-col max-w-[78%] space-y-1 ${isUser ? 'items-end text-right' : 'items-start text-left'}`}>
                 <div className="px-1 text-[10px] opacity-60 font-serif">{m.senderName}</div>
 
                 {m.quotedSummary && (
-                  <div className="imaginarium-quote-block">
+                  <div className="imaginarium-quote-block max-w-full">
                     {m.quotedSummary}
                   </div>
                 )}
 
-                {/* 气泡本体 */}
+                {/* 👈 关键修复：w-fit max-w-full 使气泡长度完全随字数自动紧贴收缩 */}
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveMsgId(isSelected ? null : m.id);
                   }}
-                  className={`p-3 text-xs leading-relaxed cursor-pointer transition-all active:scale-[0.99] relative ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}
+                  className={`p-3 text-xs leading-relaxed cursor-pointer transition-all active:scale-[0.99] w-fit max-w-full text-left break-words ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}
                 >
                   {m.type === 'sticker' ? (
                     <img src={m.content} alt="贴纸" className="max-w-[120px] rounded-xl" />
@@ -307,8 +302,8 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                   )}
                 </div>
 
-                {/* 👈 4. 时间戳与已读标记：彻底移出气泡，显示在气泡下方 */}
-                <div className={`flex items-center gap-1.5 px-1 pt-0.5 text-[9px] opacity-50 font-mono ${isUser ? 'justify-end' : 'justify-start'}`}>
+                {/* 时间戳与已读标记：彻底在气泡下方对齐 */}
+                <div className={`flex items-center gap-1 px-1 pt-0.5 text-[9px] opacity-50 font-mono ${isUser ? 'justify-end' : 'justify-start'}`}>
                   <span>{formatTimestamp(m.timestamp)}</span>
                   {isUser && <CheckCheck className="w-3 h-3 text-emerald-400" />}
                 </div>
@@ -359,7 +354,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
           );
         })}
 
-        {/* 打字中指示器 */}
+        {/* 打字指示器 */}
         {isAiThinking && (
           <div className="py-2 flex items-center justify-start">
             <ImaginariumCuteTypingIndicator
@@ -374,7 +369,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         <div ref={bottomRef} />
       </main>
 
-      {/* 3. 👈 5. 悬浮单行单层 Dock 输入条 */}
+      {/* 3. 悬浮单行 Dock 输入框 */}
       <footer className="shrink-0 z-30 px-3 pb-3 pt-1">
         <div className="max-w-[440px] mx-auto space-y-2">
           {quotedMessage && (
@@ -404,12 +399,11 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
             </div>
           )}
 
-          {/* 单行横向胶囊 Dock */}
+          {/* 单行横向整齐 Dock */}
           <div
             className="flex items-center gap-1.5 p-1.5 rounded-full border shadow-xl backdrop-blur-xl transition-all"
             style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
           >
-            {/* 左侧功能按钮组 */}
             <div className="flex items-center gap-1 pl-1">
               <button type="button" onClick={() => setShowStickers(true)} className="imaginarium-icon-btn p-2">
                 <Smile className="w-3.5 h-3.5" />
@@ -428,7 +422,6 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
               </button>
             </div>
 
-            {/* 中间自适应输入域 */}
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -438,7 +431,6 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
               rows={1}
             />
 
-            {/* 右侧发送与 AI 召唤组 */}
             <div className="flex items-center gap-1 pr-1">
               <button
                 type="button"

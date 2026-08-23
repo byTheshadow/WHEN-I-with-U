@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, User, Users, Palette, Trash2, Plus, Check, Edit2, BookOpen, Upload, Wand2, Ticket, MessageSquare } from 'lucide-react';
+import { X, Sparkles, User, Users, Palette, Trash2, Plus, Check, Edit2, BookOpen, Upload, Wand2, Ticket, MessageSquare, Cat, Heart, Zap } from 'lucide-react';
 import {
   getImaginariumSummaries,
   generateSummaryForChat,
@@ -162,23 +162,23 @@ export const ImaginariumSettingsModal = ({
         onClick={onClose}
       />
 
-      {/* 小票票根主体 (Salon Receipt) */}
+      {/* 清理了虚线边框的优雅弹窗主体 */}
       <div
-        className="relative w-full max-w-sm p-5 shadow-2xl z-10 space-y-4 max-h-[85dvh] flex flex-col border-t-4 border-b-4 border-dashed rounded-3xl"
+        className="relative w-full max-w-sm p-5 shadow-2xl z-10 space-y-4 max-h-[85dvh] flex flex-col rounded-3xl border"
         style={{
           backgroundColor: 'var(--card-bg)',
           borderColor: 'var(--card-border)',
           color: 'var(--text-main)'
         }}
       >
-        {/* 票根头部印迹 */}
+        {/* 头部导航 */}
         <div className="flex items-center justify-between border-b pb-2.5" style={{ borderColor: 'var(--card-border)' }}>
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-full border border-dashed" style={{ borderColor: 'var(--card-border)' }}>
+            <div className="p-1.5 rounded-full border" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}>
               <Ticket className="w-4 h-4 text-[var(--accent-color)]" />
             </div>
             <div>
-              <h3 className="font-serif font-bold text-xs tracking-wider uppercase">Salon Ticket Manifest</h3>
+              <h3 className="font-serif font-bold text-xs tracking-wider uppercase">Salon Settings</h3>
               <span className="text-[9px] font-mono opacity-50 block">REF: #{chat.id || '001'}</span>
             </div>
           </div>
@@ -187,7 +187,7 @@ export const ImaginariumSettingsModal = ({
           </button>
         </div>
 
-        {/* Card Tab 菜单 */}
+        {/* Tab 导航 */}
         <div className="grid grid-cols-4 gap-1 p-1 rounded-xl shrink-0" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
           <button
             type="button"
@@ -223,7 +223,7 @@ export const ImaginariumSettingsModal = ({
           </button>
         </div>
 
-        {/* 内容 Card 区 */}
+        {/* 内容区 */}
         <div className="flex-1 overflow-y-auto pr-1 space-y-3 text-xs">
           {activeTab === 'settings' && (
             <div className="space-y-3">
@@ -238,28 +238,32 @@ export const ImaginariumSettingsModal = ({
                 />
               </div>
 
-              {/* 👈 可爱打字指示器样式切换 */}
+              {/* 零 Emoji 打字指示器选择 */}
               <div className="p-3 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
                 <div className="flex items-center justify-between font-bold opacity-70 text-[11px]">
                   <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" /> 打字指示器风格</span>
                 </div>
                 <div className="grid grid-cols-4 gap-1 pt-1 text-[10px]">
                   {[
-                    { id: 'paw', label: '🐱 猫爪' },
-                    { id: 'sparkle', label: '✨ 星光' },
-                    { id: 'jelly', label: '💖 柔粉' },
-                    { id: 'gem', label: '⚡ 晶石' }
-                  ].map((st) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => setTypingStyle(st.id)}
-                      className={`py-1.5 rounded-lg border font-medium text-center transition-all ${typingStyle === st.id ? 'border-[var(--accent-color)] font-bold shadow-sm' : 'opacity-60'}`}
-                      style={{ backgroundColor: typingStyle === st.id ? 'var(--card-bg)' : 'transparent', borderColor: 'var(--card-border)' }}
-                    >
-                      {st.label}
-                    </button>
-                  ))}
+                    { id: 'paw', label: '猫爪', icon: Cat },
+                    { id: 'sparkle', label: '星光', icon: Sparkles },
+                    { id: 'jelly', label: '柔粉', icon: Heart },
+                    { id: 'gem', label: '晶石', icon: Zap }
+                  ].map((st) => {
+                    const IconComp = st.icon;
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setTypingStyle(st.id)}
+                        className={`py-1.5 rounded-lg border font-medium flex items-center justify-center gap-1 transition-all ${typingStyle === st.id ? 'border-[var(--accent-color)] font-bold shadow-sm' : 'opacity-60'}`}
+                        style={{ backgroundColor: typingStyle === st.id ? 'var(--card-bg)' : 'transparent', borderColor: 'var(--card-border)' }}
+                      >
+                        <IconComp className="w-3 h-3" />
+                        <span>{st.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -485,18 +489,15 @@ export const ImaginariumSettingsModal = ({
           )}
         </div>
 
-        {/* 票根底部伪条形码 */}
-        <div className="shrink-0 pt-2 border-t space-y-2" style={{ borderColor: 'var(--card-border)' }}>
-          <div className="flex justify-center opacity-30 tracking-widest font-mono text-[8px]">
-            ||| | |||| | ||| || |||| | ||
-          </div>
+        {/* 彻底移除了条形码并保持干净的底部 */}
+        <div className="shrink-0 pt-2 border-t" style={{ borderColor: 'var(--card-border)' }}>
           <button
             type="button"
             onClick={handleSaveAll}
             className="w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md"
             style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
           >
-            <Check className="w-4 h-4" /> 盖章并保存票根
+            <Check className="w-4 h-4" /> 保存并应用设置
           </button>
         </div>
       </div>
