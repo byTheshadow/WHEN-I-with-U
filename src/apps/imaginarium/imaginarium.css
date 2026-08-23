@@ -1,4 +1,4 @@
-/* 虚构沙龙 (Imaginarium) 专属沉浸排版 & 全量 Theme CSS 绑定 */
+/* 虚构沙龙 (Imaginarium) 沉浸排版 & 全量 Theme CSS 绑定 */
 
 .imaginarium-container {
   min-height: 100dvh;
@@ -9,7 +9,7 @@
   overflow-x: hidden;
 }
 
-/* 背景遮罩 */
+/* 沉浸背景遮罩 */
 .imaginarium-bg-overlay {
   position: absolute;
   inset: 0;
@@ -20,17 +20,18 @@
   transition: opacity 0.5s ease;
 }
 
-/* 顶部状态栏居中开关按钮 */
+/* 顶部状态栏居中音乐切换按钮 */
 .imaginarium-banner-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 26px;
-  border-radius: 13px;
+  width: 36px;
+  height: 24px;
+  border-radius: 12px;
   background-color: var(--card-bg);
   color: var(--text-main);
   border: 1px solid var(--card-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -49,45 +50,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem;
+  padding: 0.45rem;
   border-radius: 9999px;
   background-color: var(--card-bg);
   color: var(--text-main);
   border: 1px solid var(--card-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   transition: transform 0.15s ease, background-color 0.2s ease;
 }
 
 .imaginarium-icon-btn:active {
-  transform: scale(0.93);
+  transform: scale(0.92);
 }
 
 .imaginarium-icon-btn:hover {
   background-color: var(--control-soft-hover);
-}
-
-/* 悬浮 Dock 多行文本域 */
-.imaginarium-textarea {
-  width: 100%;
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--text-main);
-  max-height: 100px;
-  min-height: 34px;
-  padding: 0.25rem 0.25rem;
-  overflow-y: auto;
-}
-
-.imaginarium-textarea::-webkit-scrollbar {
-  width: 4px;
-}
-.imaginarium-textarea::-webkit-scrollbar-thumb {
-  background-color: var(--card-border);
-  border-radius: 4px;
 }
 
 /* 引用切片 */
@@ -106,7 +83,7 @@
   background-color: var(--accent-color);
   color: var(--accent-foreground);
   border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .imaginarium-bubble-ai {
@@ -115,35 +92,4 @@
   border: 1px solid var(--card-border);
   border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
   box-shadow: var(--card-shadow);
-}
-
-/* 拟物小票 / 剧场票根 Modal 样式 (Salon Receipt) */
-.imaginarium-receipt-card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--card-border);
-  color: var(--text-main);
-  border-radius: 1.5rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  position: relative;
-}
-
-/* 小票上下锯齿伪元素撕口 */
-.imaginarium-receipt-card::before,
-.imaginarium-receipt-card::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background-size: 12px 6px;
-}
-
-.imaginarium-receipt-card::before {
-  top: -6px;
-  background-image: radial-gradient(circle at 6px -3px, transparent 6px, var(--card-bg) 6px);
-}
-
-.imaginarium-receipt-card::after {
-  bottom: -6px;
-  background-image: radial-gradient(circle at 6px 9px, transparent 6px, var(--card-bg) 6px);
 }

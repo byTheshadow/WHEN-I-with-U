@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, User, Users, Palette, Trash2, Plus, Check, Edit2, BookOpen, Upload, Wand2, Ticket } from 'lucide-react';
+import { X, Sparkles, User, Users, Palette, Trash2, Plus, Check, Edit2, BookOpen, Upload, Wand2, Ticket, MessageSquare } from 'lucide-react';
 import {
   getImaginariumSummaries,
   generateSummaryForChat,
@@ -39,6 +39,7 @@ export const ImaginariumSettingsModal = ({
   const [bgImage, setBgImage] = useState('');
   const [bgOpacity, setBgOpacity] = useState(0.3);
   const [customCss, setCustomCss] = useState('');
+  const [typingStyle, setTypingStyle] = useState('paw');
 
   const [userName, setUserName] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
@@ -59,6 +60,7 @@ export const ImaginariumSettingsModal = ({
       setBgImage(chat.bgImage || '');
       setBgOpacity(chat.bgOpacity ?? 0.3);
       setCustomCss(chat.customCss || '');
+      setTypingStyle(chat.typingStyle || 'paw');
       setUserName(chat.userName || '我');
       setUserAvatar(chat.userAvatar || '');
       setUserPersona(chat.userPersona || '');
@@ -94,6 +96,7 @@ export const ImaginariumSettingsModal = ({
       bgImage,
       bgOpacity: Number(bgOpacity),
       customCss,
+      typingStyle,
       userName,
       userAvatar,
       userPersona,
@@ -159,15 +162,24 @@ export const ImaginariumSettingsModal = ({
         onClick={onClose}
       />
 
-      {/* 拟物小票 / 剧场票根容器 */}
-      <div className="imaginarium-receipt-card relative w-full max-w-sm p-6 shadow-2xl z-10 space-y-4 max-h-[85dvh] flex flex-col">
-        {/* 票根顶部撕脱口线条 */}
-        <div className="flex items-center justify-between border-b-2 border-dashed pb-3" style={{ borderColor: 'var(--card-border)' }}>
+      {/* 小票票根主体 (Salon Receipt) */}
+      <div
+        className="relative w-full max-w-sm p-5 shadow-2xl z-10 space-y-4 max-h-[85dvh] flex flex-col border-t-4 border-b-4 border-dashed rounded-3xl"
+        style={{
+          backgroundColor: 'var(--card-bg)',
+          borderColor: 'var(--card-border)',
+          color: 'var(--text-main)'
+        }}
+      >
+        {/* 票根头部印迹 */}
+        <div className="flex items-center justify-between border-b pb-2.5" style={{ borderColor: 'var(--card-border)' }}>
           <div className="flex items-center gap-2">
-            <Ticket className="w-4 h-4 rotate-45 opacity-70" />
+            <div className="p-1.5 rounded-full border border-dashed" style={{ borderColor: 'var(--card-border)' }}>
+              <Ticket className="w-4 h-4 text-[var(--accent-color)]" />
+            </div>
             <div>
-              <h3 className="font-serif font-bold text-xs uppercase tracking-widest">Salon Ticket</h3>
-              <span className="text-[9px] opacity-40 font-mono block">NO. #{chat.id || '001'}</span>
+              <h3 className="font-serif font-bold text-xs tracking-wider uppercase">Salon Ticket Manifest</h3>
+              <span className="text-[9px] font-mono opacity-50 block">REF: #{chat.id || '001'}</span>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1 opacity-60 hover:opacity-100">
@@ -175,7 +187,7 @@ export const ImaginariumSettingsModal = ({
           </button>
         </div>
 
-        {/* 拟物 Card Tab 菜单 */}
+        {/* Card Tab 菜单 */}
         <div className="grid grid-cols-4 gap-1 p-1 rounded-xl shrink-0" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
           <button
             type="button"
@@ -183,7 +195,7 @@ export const ImaginariumSettingsModal = ({
             className={`py-1.5 rounded-lg text-[10px] font-bold transition-all flex flex-col items-center gap-0.5 ${activeTab === 'settings' ? 'shadow-sm' : 'opacity-60'}`}
             style={{ backgroundColor: activeTab === 'settings' ? 'var(--card-bg)' : 'transparent' }}
           >
-            <Palette className="w-3.5 h-3.5" /> 预设/背景
+            <Palette className="w-3.5 h-3.5" /> 美化/打字
           </button>
           <button
             type="button"
@@ -211,8 +223,8 @@ export const ImaginariumSettingsModal = ({
           </button>
         </div>
 
-        {/* 小票内部可滑动内容区域 */}
-        <div className="flex-1 overflow-y-auto pr-1 space-y-3 text-xs font-serif">
+        {/* 内容 Card 区 */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-3 text-xs">
           {activeTab === 'settings' && (
             <div className="space-y-3">
               <div className="p-3 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
@@ -221,16 +233,41 @@ export const ImaginariumSettingsModal = ({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-2 rounded-lg border outline-none text-xs font-sans"
+                  className="w-full p-2 rounded-lg border outline-none text-xs"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
+              </div>
+
+              {/* 👈 可爱打字指示器样式切换 */}
+              <div className="p-3 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+                <div className="flex items-center justify-between font-bold opacity-70 text-[11px]">
+                  <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" /> 打字指示器风格</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1 pt-1 text-[10px]">
+                  {[
+                    { id: 'paw', label: '🐱 猫爪' },
+                    { id: 'sparkle', label: '✨ 星光' },
+                    { id: 'jelly', label: '💖 柔粉' },
+                    { id: 'gem', label: '⚡ 晶石' }
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setTypingStyle(st.id)}
+                      className={`py-1.5 rounded-lg border font-medium text-center transition-all ${typingStyle === st.id ? 'border-[var(--accent-color)] font-bold shadow-sm' : 'opacity-60'}`}
+                      style={{ backgroundColor: typingStyle === st.id ? 'var(--card-bg)' : 'transparent', borderColor: 'var(--card-border)' }}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="p-3 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
                 <div className="flex items-center justify-between">
                   <label className="font-bold opacity-70 text-[11px]">背景图片 (Base64 / URL)</label>
                   <label className="text-[10px] font-bold px-2 py-0.5 rounded-lg border cursor-pointer flex items-center gap-1" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-                    <Upload className="w-3 h-3" /> 选择本地
+                    <Upload className="w-3 h-3" /> 本地上传
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageFileUpload(e, setBgImage)} />
                   </label>
                 </div>
@@ -239,10 +276,10 @@ export const ImaginariumSettingsModal = ({
                   value={bgImage}
                   onChange={(e) => setBgImage(e.target.value)}
                   placeholder="https://..."
-                  className="w-full p-2 rounded-lg border outline-none text-xs font-sans"
+                  className="w-full p-2 rounded-lg border outline-none text-xs"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
-                <div className="flex items-center justify-between pt-1 font-sans">
+                <div className="flex items-center justify-between pt-1">
                   <span className="opacity-60 text-[10px]">背景透明度: {bgOpacity}</span>
                   <input
                     type="range"
@@ -251,16 +288,16 @@ export const ImaginariumSettingsModal = ({
                     step="0.05"
                     value={bgOpacity}
                     onChange={(e) => setBgOpacity(e.target.value)}
-                    className="w-28 accent-[var(--accent-color)]"
+                    className="w-28"
                   />
                 </div>
               </div>
 
               <div className="p-3 rounded-xl border space-y-2" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
                 <div className="flex items-center gap-1 font-bold opacity-70 text-[11px]">
-                  <Wand2 className="w-3.5 h-3.5" /> 预设主题美化
+                  <Wand2 className="w-3.5 h-3.5" /> 气泡 CSS 预设
                 </div>
-                <div className="grid grid-cols-2 gap-1.5 pt-1 font-sans">
+                <div className="grid grid-cols-2 gap-1.5 pt-1">
                   {CSS_PRESETS.map((preset, idx) => (
                     <button
                       key={idx}
@@ -277,7 +314,7 @@ export const ImaginariumSettingsModal = ({
                   rows={2}
                   value={customCss}
                   onChange={(e) => setCustomCss(e.target.value)}
-                  placeholder="自定义 CSS 样式规则..."
+                  placeholder="自定义 CSS 规则..."
                   className="w-full p-2 rounded-lg border outline-none font-mono text-[10px] mt-1"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
@@ -289,7 +326,7 @@ export const ImaginariumSettingsModal = ({
                 className="w-full py-2 rounded-xl border text-rose-500 font-bold flex items-center justify-center gap-1"
                 style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
               >
-                <Trash2 className="w-3.5 h-3.5" /> 解散本沙龙
+                <Trash2 className="w-3.5 h-3.5" /> 解散沙龙
               </button>
             </div>
           )}
@@ -302,7 +339,7 @@ export const ImaginariumSettingsModal = ({
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
-                  className="w-full p-2 rounded-lg border outline-none font-sans"
+                  className="w-full p-2 rounded-lg border outline-none"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
               </div>
@@ -320,18 +357,18 @@ export const ImaginariumSettingsModal = ({
                   value={userAvatar}
                   onChange={(e) => setUserAvatar(e.target.value)}
                   placeholder="https://..."
-                  className="w-full p-2 rounded-lg border outline-none font-sans"
+                  className="w-full p-2 rounded-lg border outline-none"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
               </div>
 
               <div>
-                <label className="font-bold opacity-70 block mb-1 text-[11px]">人设设定</label>
+                <label className="font-bold opacity-70 block mb-1 text-[11px]">人在本群人设描述</label>
                 <textarea
                   rows={3}
                   value={userPersona}
                   onChange={(e) => setUserPersona(e.target.value)}
-                  className="w-full p-2 rounded-lg border outline-none font-sans"
+                  className="w-full p-2 rounded-lg border outline-none"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
               </div>
@@ -366,7 +403,7 @@ export const ImaginariumSettingsModal = ({
                   placeholder="角色姓名 *"
                   value={memberForm.name}
                   onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
-                  className="w-full p-2 rounded-lg border outline-none font-sans"
+                  className="w-full p-2 rounded-lg border outline-none"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                   required
                 />
@@ -376,7 +413,7 @@ export const ImaginariumSettingsModal = ({
                     placeholder="头像 URL"
                     value={memberForm.avatar}
                     onChange={(e) => setMemberForm({ ...memberForm, avatar: e.target.value })}
-                    className="flex-1 p-2 rounded-lg border outline-none font-sans"
+                    className="flex-1 p-2 rounded-lg border outline-none"
                     style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                   />
                   <label className="p-2 rounded-lg border cursor-pointer shrink-0" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
@@ -389,10 +426,10 @@ export const ImaginariumSettingsModal = ({
                   placeholder="角色人设描述"
                   value={memberForm.bio}
                   onChange={(e) => setMemberForm({ ...memberForm, bio: e.target.value })}
-                  className="w-full p-2 rounded-lg border outline-none font-sans"
+                  className="w-full p-2 rounded-lg border outline-none"
                   style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 />
-                <button type="submit" className="w-full py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 font-sans" style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}>
+                <button type="submit" className="w-full py-1.5 rounded-lg font-bold flex items-center justify-center gap-1" style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}>
                   <Plus className="w-3.5 h-3.5" /> 保存成员
                 </button>
               </form>
@@ -405,7 +442,7 @@ export const ImaginariumSettingsModal = ({
                 type="button"
                 disabled={isGeneratingSummary}
                 onClick={handleGenerateSummary}
-                className="w-full py-2 rounded-xl font-bold flex items-center justify-center gap-1.5 font-sans"
+                className="w-full py-2 rounded-xl font-bold flex items-center justify-center gap-1.5"
                 style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -421,10 +458,10 @@ export const ImaginariumSettingsModal = ({
                           rows={3}
                           value={editingSummaryText}
                           onChange={(e) => setEditingSummaryText(e.target.value)}
-                          className="w-full p-2 rounded-lg border outline-none text-xs font-sans"
+                          className="w-full p-2 rounded-lg border outline-none text-xs"
                           style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                         />
-                        <div className="flex gap-2 font-sans">
+                        <div className="flex gap-2">
                           <button type="button" onClick={() => handleSaveSummaryEdit(s.id)} className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px]">保存</button>
                           <button type="button" onClick={() => setEditingSummaryId(null)} className="px-2.5 py-1 rounded-lg opacity-60 text-[10px]">取消</button>
                         </div>
@@ -434,7 +471,7 @@ export const ImaginariumSettingsModal = ({
                         <p className="leading-relaxed opacity-90">{s.content}</p>
                         <div className="flex items-center justify-between pt-1 border-t opacity-50 text-[9px] font-mono" style={{ borderColor: 'var(--card-border)' }}>
                           <span>{new Date(s.createdAt).toLocaleString()}</span>
-                          <div className="flex gap-2 font-sans">
+                          <div className="flex gap-2">
                             <button type="button" onClick={() => { setEditingSummaryId(s.id); setEditingSummaryText(s.content); }}>编辑</button>
                             <button type="button" onClick={() => handleDeleteSummaryItem(s.id)} className="text-rose-500">删除</button>
                           </div>
@@ -448,7 +485,7 @@ export const ImaginariumSettingsModal = ({
           )}
         </div>
 
-        {/* 票根底部伪条形码装饰与保存 */}
+        {/* 票根底部伪条形码 */}
         <div className="shrink-0 pt-2 border-t space-y-2" style={{ borderColor: 'var(--card-border)' }}>
           <div className="flex justify-center opacity-30 tracking-widest font-mono text-[8px]">
             ||| | |||| | ||| || |||| | ||
