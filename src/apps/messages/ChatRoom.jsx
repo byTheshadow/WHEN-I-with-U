@@ -904,8 +904,10 @@ export const ChatRoom = ({
         />
       )}
     
-{/* 后台保活组件 */}
-{chat?.keepAlive && <AudioKeepAlive isEnabled={true} />}
+{/* 后台音频保活逻辑，不渲染可见界面 */}
+<AudioKeepAlive isActive={Boolean(chat?.keepAlive)} />
+
+
 
       {/* 表情包选择器弹窗 */}
       <StickerPickerModal

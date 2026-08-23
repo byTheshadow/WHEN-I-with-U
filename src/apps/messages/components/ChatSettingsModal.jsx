@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import AudioKeepAlive from './AudioKeepAlive';
 import ConfirmModal from '../../../components/ConfirmModal';
 import db from '../../../db';
 
@@ -577,10 +576,40 @@ export const ChatSettingsModal = ({
           )}
         </div>
 
-        {/* 后台音频保活 */}
-        <div className="pt-1">
-          <AudioKeepAlive isActive={keepAlive} onToggle={onToggleKeepAlive} />
-        </div>
+       {/* 后台音频保活设置 */}
+<div
+  className="pt-1 rounded-2xl border p-3"
+  style={{
+    background: 'var(--control-soft-bg)',
+    borderColor: 'var(--card-border)',
+    color: 'var(--text-main)',
+  }}
+>
+  <div className="flex items-center justify-between gap-4">
+    <div className="min-w-0">
+      <p className="text-xs font-medium">
+        尝试维持后台活跃
+      </p>
+
+      <p
+        className="mt-1 text-[10px] leading-relaxed"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        移动端浏览器仍可能因系统省电策略暂停后台任务。
+      </p>
+    </div>
+
+    <input
+      type="checkbox"
+      checked={keepAlive}
+      onChange={(event) => onToggleKeepAlive(event.target.checked)}
+      className="h-4 w-4 shrink-0 cursor-pointer"
+      style={{ accentColor: 'var(--accent-color)' }}
+      aria-label="尝试维持后台活跃"
+    />
+  </div>
+</div>
+
 
         {/* 气泡样式定制 */}
         <div>
