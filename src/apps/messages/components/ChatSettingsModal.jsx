@@ -76,24 +76,21 @@ export const ChatSettingsModal = ({
 
   const bgImage = chat?.bgImage || '';
   const keepAlive = chat?.keepAlive ?? false;
-  const handleToggleKeepAliveChange = (nextValue) => {
-  onToggleKeepAlive(nextValue);
-
-  triggerGlobalToast({
-    title: nextValue ? '已开启保活' : '已关闭保活',
-    content: nextValue
-      ? '正在尝试维持音频通道。'
-      : '后台音频保活已停止。',
-    iconType: 'bell',
-    duration: 2600,
-  });
-};
-
 
   const handleToggleKeepAliveChange = (nextValue) => {
-  onToggleKeepAlive(nextValue);
-  setKeepAliveNotice(nextValue ? '已开启保活' : '已关闭保活');
-};
+    onToggleKeepAlive(nextValue);
+
+    triggerGlobalToast({
+      title: nextValue ? '已开启保活' : '已关闭保活',
+      content: nextValue
+        ? '正在尝试维持音频通道。'
+        : '后台音频保活已停止。',
+      iconType: 'bell',
+      duration: 2600,
+    });
+  };
+
+
 
 
 
@@ -603,7 +600,7 @@ export const ChatSettingsModal = ({
 
        {/* 后台音频保活设置 */}
       
-      {/* 后台音频保活设置 */}
+    {/* 后台音频保活设置 */}
 <div
   className="flex items-center justify-between gap-4 rounded-2xl border p-3"
   style={{
@@ -614,7 +611,6 @@ export const ChatSettingsModal = ({
 >
   <div className="min-w-0">
     <p className="text-xs font-medium">尝试维持后台活跃</p>
-
     <p
       className="mt-1 text-[10px] leading-relaxed"
       style={{ color: 'var(--text-muted)' }}
