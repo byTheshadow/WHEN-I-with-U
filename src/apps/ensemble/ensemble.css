@@ -3,13 +3,7 @@
   font-family: inherit;
 }
 
-/* 消息气泡悬浮渐显操作菜单 */
-.ensemble-msg-card .ensemble-msg-actions {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  transform: translateY(4px);
-}
+
 
 .ensemble-msg-card:hover .ensemble-msg-actions,
 .ensemble-msg-card:focus-within .ensemble-msg-actions,
