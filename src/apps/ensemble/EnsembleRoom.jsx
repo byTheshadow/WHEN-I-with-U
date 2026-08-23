@@ -1,5 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Sliders, Send, Sparkles, Smile, Image as ImageIcon, Cat } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ChevronLeft,
+  Sliders,
+  Send,
+  Sparkles,
+  Smile,
+  Image as ImageIcon,
+  Cat
+} from 'lucide-react';
 import db from '../../db';
 import { generateEnsembleAiResponse } from './ensembleService';
 import { EnsembleUserSelector } from './components/EnsembleUserSelector';
@@ -8,18 +16,20 @@ import { EnsembleSettingsModal } from './components/EnsembleSettingsModal';
 import { EnsembleImagePromptModal } from './components/EnsembleImagePromptModal';
 import StickerPickerModal from '../messages/components/StickerPickerModal';
 
-export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
+export const EnsembleRoom = ({
+  chatId,
+  onBack,
+  onChatRoomStateChange
+}) => {
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [quotedMessage, setQuotedMessage] = useState(null);
 
-  // User 视角
   const [userIdentities, setUserIdentities] = useState([]);
   const [currentIdentityId, setCurrentIdentityId] = useState('');
 
-  // Modal 控制
   const [showSettings, setShowSettings] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showImagePromptModal, setShowImagePromptModal] = useState(false);
@@ -28,147 +38,327 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
   const textareaRef = useRef(null);
 
   useEffect(() => {
-    onChatRoomStateChange(true);
-    loadRoomData();
-    return () => onChatRoomStateChange(false);
+    onChatRoomStateChange?.(true);
+    void loadRoomData();
+
+    return () => {
+      onChatRoomStateChange?.(false);
+    };
   }, [chatId]);
 
   const loadRoomData = async () => {
     const chatDoc = await db.ensembleChats.get(chatId);
+
     if (!chatDoc) return;
+
+    const identities =
+      chatDoc.userIdentities?.length > 0
+        ? chatDoc.userIdentities
+        : [
+            {
+              id: 'u_default',
+              name: '我',
+              avatar: '',
+              persona: '主视角'
+            }
+          ];
+
     setChat(chatDoc);
-
-    const identities = chatDoc.userIdentities || [{ id: 'u_default', name: '我', persona: '主视角' }];
     setUserIdentities(identities);
-    setCurrentIdentityId(chatDoc.currentIdentityId || identities[0].id);
+    setCurrentIdentityId(
+      chatDoc.currentIdentityId || identities[0]?.id || 'u_default'
+    );
 
-    loadMessages();
+    await loadMessages();
   };
 
   const loadMessages = async () => {
-    const msgs = await db.ensembleMessages
+    const records = await db.ensembleMessages
       .where('chatId')
       .equals(chatId)
       .sortBy('timestamp');
 
-    const msgMap = new Map(msgs.map(m => [m.id, m]));
-    const enriched = msgs.map(m => (m.quotedMessageId ? { ...m, quotedMessage: msgMap.get(m.quotedMessageId) } : m));
+    const messageMap = new Map(records.map((item) => [item.id, item]));
 
-    setMessages(enriched);
-    scrollToBottom();
-  };
+    const enrichedMessages = records.map((item) => ({
+      ...item,
+      quotedMessage: item.quotedMessageId
+        ? messageMap.get(item.quotedMessageId) || null
+        : null
+    }));
 
-  const scrollToBottom = () => {
+    setMessages(enrichedMessages);
+
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end'
+      });
     });
   };
 
-  const handleInputTextChange = (e) => {
-    setInputText(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
-    }
+  const getCurrentIdentity = () => {
+    return (
+      userIdentities.find((item) => item.id === currentIdentityId) ||
+      userIdentities[0] || {
+        id: 'u_default',
+        name: '我',
+        avatar: '',
+        persona: '主视角'
+      }
+    );
   };
 
-  const handleSendMessage = async (e) => {
-    if (e) e.preventDefault();
-    if (!inputText.trim()) return;
+  const persistUserIdentities = async (
+    nextIdentities,
+    nextCurrentIdentityId = currentIdentityId
+  ) => {
+    setUserIdentities(nextIdentities);
+    setCurrentIdentityId(nextCurrentIdentityId);
 
-    const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
+    await db.ensembleChats.update(chatId, {
+      userIdentities: nextIdentities,
+      currentIdentityId: nextCurrentIdentityId,
+      updatedAt: Date.now()
+    });
 
-    await db.ensembleMessages.add({
+    setChat((previous) =>
+      previous
+        ? {
+            ...previous,
+            userIdentities: nextIdentities,
+            currentIdentityId: nextCurrentIdentityId
+          }
+        : previous
+    );
+  };
+
+  const handleInputTextChange = (event) => {
+    setInputText(event.target.value);
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+  };
+
+  const writeUserMessage = async ({
+    type = 'text',
+    content = '',
+    metadata = {}
+  }) => {
+    const identity = getCurrentIdentity();
+
+    const message = {
       chatId,
-      senderId: currentIdent.id,
-      senderName: currentIdent.name,
-      senderAvatar: currentIdent.avatar || '',
+      senderId: identity.id,
+      senderName: identity.name || '我',
+      senderAvatar: identity.avatar || '',
       senderType: 'user',
-      type: 'text',
-      content: inputText.trim(),
-      quotedMessageId: quotedMessage ? quotedMessage.id : null,
+      type,
+      content,
+      metadata,
+      quotedMessageId: quotedMessage?.id || null,
+      isRead: true,
       timestamp: Date.now()
+    };
+
+    const messageId = await db.ensembleMessages.add(message);
+
+    await db.ensembleChats.update(chatId, {
+      updatedAt: Date.now()
+    });
+
+    setQuotedMessage(null);
+
+    return {
+      ...message,
+      id: messageId
+    };
+  };
+
+  const handleSendMessage = async (event) => {
+    event?.preventDefault();
+
+    const content = inputText.trim();
+    if (!content) return;
+
+    await writeUserMessage({
+      type: 'text',
+      content,
+      metadata: {}
     });
 
     setInputText('');
-    setQuotedMessage(null);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    loadMessages();
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    await loadMessages();
   };
 
-  const handleTriggerAi = async (targetCharId = null) => {
+  const handleTriggerAi = async (targetCharacterId = null) => {
+    if (isAiThinking) return;
+
     setIsAiThinking(true);
+
     try {
-      await generateEnsembleAiResponse(chatId, { targetCharacterId: targetCharId });
-      await loadMessages();
-    } catch (err) {
-      console.error('AI 生成出错:', err);
+      await generateEnsembleAiResponse(chatId, {
+        targetCharacterId
+      });
+
+      await loadRoomData();
+    } catch (error) {
+      console.error('Ensemble AI generation failed:', error);
     } finally {
       setIsAiThinking(false);
     }
   };
 
-  // 发送表情包 (StickerCard 格式)
-  const handleSelectSticker = async (stickerUrl) => {
-    const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
-    await db.ensembleMessages.add({
-      chatId,
-      senderId: currentIdent.id,
-      senderName: currentIdent.name,
-      senderAvatar: currentIdent.avatar || '',
-      senderType: 'user',
+  /*
+   * StickerPickerModal 回传的是完整 sticker 对象：
+   * {
+   *   id,
+   *   name,
+   *   url,
+   *   category,
+   *   createdAt
+   * }
+   *
+   * StickerCard 读取 metadata.url 与 metadata.name，
+   * 所以必须按这个协议存储。
+   */
+  const handleSelectSticker = async (sticker) => {
+    if (!sticker?.url) {
+      console.warn('Sticker selection is invalid:', sticker);
+      return;
+    }
+
+    await writeUserMessage({
       type: 'sticker',
-      content: stickerUrl,
-      metadata: { url: stickerUrl, name: '表情包' },
-      timestamp: Date.now()
+      content: '',
+      metadata: {
+        url: sticker.url,
+        name: sticker.name || '表情包',
+        stickerId: sticker.id ?? null,
+        category: sticker.category || 'default'
+      }
     });
+
     setShowStickerPicker(false);
-    loadMessages();
+    await loadMessages();
   };
 
-  // 发送 3D 图片叙事卡
+  /*
+   * 图片按钮不上传真实图片。
+   * 它发送项目既有 ImageCard 所使用的图片叙事卡：
+   * - content: 正面简述
+   * - metadata.description: 翻面细节
+   */
   const handleSendImageNarrativeCard = async (cardData) => {
-    const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
-    await db.ensembleMessages.add({
-      chatId,
-      senderId: currentIdent.id,
-      senderName: currentIdent.name,
-      senderAvatar: currentIdent.avatar || '',
-      senderType: 'user',
+    if (!cardData?.content?.trim()) return;
+
+    await writeUserMessage({
       type: 'image',
-      content: cardData.content,
-      metadata: cardData.metadata,
-      timestamp: Date.now()
+      content: cardData.content.trim(),
+      metadata: {
+        description:
+          cardData.metadata?.description?.trim() ||
+          '静谧的画面细节停留在此刻。'
+      }
     });
-    loadMessages();
+
+    setShowImagePromptModal(false);
+    await loadMessages();
+  };
+
+  const handleQuoteMessage = (message) => {
+    setQuotedMessage(message);
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    await db.ensembleMessages.delete(messageId);
+
+    if (quotedMessage?.id === messageId) {
+      setQuotedMessage(null);
+    }
+
+    await loadMessages();
+  };
+
+  const handleRegenerateMessage = async (message) => {
+    if (!message || message.senderType === 'user') return;
+
+    await db.ensembleMessages.delete(message.id);
+    await loadMessages();
+
+    await handleTriggerAi(message.characterId || message.senderId);
+  };
+
+  const handleAddTemporaryIdentity = async (identity) => {
+    const nextIdentities = [...userIdentities, identity];
+    await persistUserIdentities(nextIdentities, identity.id);
+  };
+
+  const handleUpdateIdentity = async (identityId, patch) => {
+    const nextIdentities = userIdentities.map((identity) =>
+      identity.id === identityId
+        ? {
+            ...identity,
+            ...patch
+          }
+        : identity
+    );
+
+    await persistUserIdentities(nextIdentities);
+  };
+
+  const handleSelectIdentity = async (identityId) => {
+    await persistUserIdentities(userIdentities, identityId);
   };
 
   if (!chat) return null;
 
   return (
-    <div className="ensemble-container relative flex flex-col h-[100dvh] w-full overflow-hidden">
-      {/* 背景透出遮罩 */}
+    <div className="ensemble-container relative flex h-[100dvh] w-full flex-col overflow-hidden">
       {chat.bgImage && (
         <div
-          className="absolute inset-0 z-0 bg-cover bg-center pointer-events-none transition-opacity duration-700"
-          style={{ backgroundImage: `url(${chat.bgImage})`, opacity: chat.bgOpacity ?? 0.2 }}
+          className="pointer-events-none absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-700"
+          style={{
+            backgroundImage: `url(${chat.bgImage})`,
+            opacity: chat.bgOpacity ?? 0.2
+          }}
         />
       )}
 
-      {/* 无 Top Bar 浮动操控胶囊 */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
+      <div className="pointer-events-none absolute left-3 right-3 top-3 z-30 flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="pointer-events-auto p-2.5 rounded-full shadow-md backdrop-blur-md transition-transform active:scale-95 border"
-          style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+          aria-label="返回群聊列表"
+          className="pointer-events-auto rounded-full border p-2.5 shadow-md backdrop-blur-md transition-transform active:scale-95"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" />
         </button>
 
         <div
-          className="pointer-events-auto px-3.5 py-1 rounded-full text-xs font-semibold shadow-sm backdrop-blur-md border truncate max-w-[180px]"
-          style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+          className="max-w-[180px] truncate rounded-full border px-3.5 py-1 text-xs font-semibold shadow-sm backdrop-blur-md"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
         >
           {chat.title}
         </div>
@@ -176,79 +366,109 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
         <button
           type="button"
           onClick={() => setShowSettings(true)}
-          className="pointer-events-auto p-2.5 rounded-full shadow-md backdrop-blur-md transition-transform active:scale-95 border"
-          style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+          aria-label="打开群聊档案"
+          className="pointer-events-auto rounded-full border p-2.5 shadow-md backdrop-blur-md transition-transform active:scale-95"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+            color: 'var(--text-main)'
+          }}
         >
-          <Sliders className="w-4 h-4" />
+          <Sliders className="h-4 w-4" />
         </button>
       </div>
 
-      {/* 消息透出主面板 */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-3 pt-14 pb-4 no-scrollbar">
-        {messages.map((msg) => (
+      <section className="relative z-10 flex-1 overflow-y-auto px-3 pb-4 pt-14 no-scrollbar">
+        {messages.map((message) => (
           <EnsembleMessageItem
-            key={msg.id}
-            msg={msg}
-            onQuote={(m) => setQuotedMessage(m)}
-            onRegenerate={() => handleTriggerAi(msg.characterId)}
-            onDelete={async (id) => {
-              await db.ensembleMessages.delete(id);
-              loadMessages();
-            }}
-            onSummonChar={(charId) => handleTriggerAi(charId)}
+            key={message.id}
+            msg={message}
+            onQuote={handleQuoteMessage}
+            onRegenerate={handleRegenerateMessage}
+            onDelete={handleDeleteMessage}
+            onSummonChar={handleTriggerAi}
           />
         ))}
 
-        {/* 打字指示器 */}
         {isAiThinking && (
-          <div className="flex items-center gap-2 my-3 px-3 py-2 rounded-2xl w-fit text-xs backdrop-blur-md border shadow-sm animate-pulse" style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}>
-            <Cat className="w-3.5 h-3.5 animate-bounce" />
-            <span>AI 角色正在交替推演演绎...</span>
+          <div
+            className="my-3 flex w-fit items-center gap-2 rounded-2xl border px-3 py-2 text-xs shadow-sm backdrop-blur-md"
+            style={{
+              backgroundColor: 'var(--control-soft-bg)',
+              borderColor: 'var(--card-border)',
+              color: 'var(--text-main)'
+            }}
+          >
+            <Cat className="h-3.5 w-3.5 animate-bounce" />
+            <span>角色正在组织下一段回应</span>
           </div>
         )}
 
         <div ref={messagesEndRef} />
-      </div>
+      </section>
 
-      {/* 悬浮 Dock 输入容器 */}
-      <div className="relative z-20 w-full px-3 pb-3 pt-1">
+      <section className="relative z-20 w-full px-3 pb-3 pt-1">
         <EnsembleUserSelector
           userIdentities={userIdentities}
           currentIdentityId={currentIdentityId}
-          onSelectIdentity={(id) => setCurrentIdentityId(id)}
-          onAddTempIdentity={(newIdent) => setUserIdentities([...userIdentities, newIdent])}
-          onUpdateIdentity={(id, updated) => setUserIdentities(userIdentities.map(u => u.id === id ? { ...u, ...updated } : u))}
+          onSelectIdentity={handleSelectIdentity}
+          onAddTempIdentity={handleAddTemporaryIdentity}
+          onUpdateIdentity={handleUpdateIdentity}
         />
 
         {quotedMessage && (
-          <div className="flex items-center justify-between px-3 py-1 mb-1.5 rounded-xl text-xs backdrop-blur-md border" style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--modal-border)' }}>
-            <span className="truncate opacity-80">引用 {quotedMessage.senderName}: {quotedMessage.content}</span>
-            <button type="button" onClick={() => setQuotedMessage(null)} className="text-xs opacity-50">取消</button>
+          <div
+            className="mb-1.5 flex items-center justify-between gap-2 rounded-xl border px-3 py-1.5 text-xs backdrop-blur-md"
+            style={{
+              backgroundColor: 'var(--modal-bg)',
+              borderColor: 'var(--modal-border)',
+              color: 'var(--text-main)'
+            }}
+          >
+            <span className="min-w-0 truncate opacity-80">
+              引用 {quotedMessage.senderName || '消息'}：
+              {quotedMessage.type === 'text'
+                ? quotedMessage.content
+                : '媒体消息'}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setQuotedMessage(null)}
+              className="shrink-0 text-[10px]"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              取消
+            </button>
           </div>
         )}
 
         <form
           onSubmit={handleSendMessage}
-          className="flex items-end gap-1.5 p-2 rounded-3xl backdrop-blur-xl shadow-xl border"
-          style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--modal-border)' }}
+          className="flex items-end gap-1.5 rounded-3xl border p-2 shadow-xl backdrop-blur-xl"
+          style={{
+            backgroundColor: 'var(--modal-bg)',
+            borderColor: 'var(--modal-border)'
+          }}
         >
           <button
             type="button"
             onClick={() => setShowStickerPicker(true)}
-            className="p-2 rounded-full opacity-70 hover:opacity-100 transition-transform active:scale-95 shrink-0"
+            aria-label="打开表情包库"
+            className="shrink-0 rounded-full p-2 transition-transform active:scale-95"
             style={{ color: 'var(--text-main)' }}
           >
-            <Smile className="w-4 h-4" />
+            <Smile className="h-4 w-4" />
           </button>
 
-          {/* 唤起图片叙事卡 Modal */}
           <button
             type="button"
             onClick={() => setShowImagePromptModal(true)}
-            className="p-2 rounded-full opacity-70 hover:opacity-100 transition-transform active:scale-95 shrink-0"
+            aria-label="发送图片叙事卡"
+            className="shrink-0 rounded-full p-2 transition-transform active:scale-95"
             style={{ color: 'var(--text-main)' }}
           >
-            <ImageIcon className="w-4 h-4" />
+            <ImageIcon className="h-4 w-4" />
           </button>
 
           <textarea
@@ -257,31 +477,52 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
             value={inputText}
             onChange={handleInputTextChange}
             placeholder="输入对话或动作描述..."
-            className="ensemble-textarea-scroll flex-1 px-3 py-1.5 text-xs outline-none bg-transparent resize-none max-h-32"
+            className="ensemble-textarea-scroll max-h-32 flex-1 resize-none bg-transparent px-3 py-1.5 text-xs outline-none"
             style={{ color: 'var(--text-main)' }}
           />
 
           <button
             type="submit"
             disabled={!inputText.trim()}
-            className="p-2.5 rounded-full transition-transform active:scale-95 disabled:opacity-30 shrink-0 shadow-sm"
-            style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+            aria-label="发送消息"
+            className="shrink-0 rounded-full p-2.5 shadow-sm transition-transform active:scale-95 disabled:opacity-30"
+            style={{
+              backgroundColor: 'var(--accent-color)',
+              color: 'var(--accent-foreground)'
+            }}
           >
-            <Send className="w-3.5 h-3.5" />
+            <Send className="h-3.5 w-3.5" />
           </button>
 
           <button
             type="button"
             onClick={() => handleTriggerAi()}
             disabled={isAiThinking}
-            title="触发 AI 多角色应答"
-            className="p-2.5 rounded-full transition-transform active:scale-95 shrink-0 border shadow-sm"
-            style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            aria-label="触发角色回应"
+            className="shrink-0 rounded-full border p-2.5 shadow-sm transition-transform active:scale-95 disabled:opacity-40"
+            style={{
+              backgroundColor: 'var(--control-soft-bg)',
+              borderColor: 'var(--card-border)',
+              color: 'var(--text-main)'
+            }}
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="h-3.5 w-3.5" />
           </button>
         </form>
-      </div>
+      </section>
+
+      <StickerPickerModal
+        isOpen={showStickerPicker}
+        onClose={() => setShowStickerPicker(false)}
+        onSelectSticker={handleSelectSticker}
+      />
+
+      {showImagePromptModal && (
+        <EnsembleImagePromptModal
+          onClose={() => setShowImagePromptModal(false)}
+          onSubmit={handleSendImageNarrativeCard}
+        />
+      )}
 
       {showSettings && (
         <EnsembleSettingsModal
@@ -290,20 +531,8 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
           onUpdated={loadRoomData}
         />
       )}
-
-      {showStickerPicker && (
-        <StickerPickerModal
-          onClose={() => setShowStickerPicker(false)}
-          onSelectSticker={handleSelectSticker}
-        />
-      )}
-
-      {showImagePromptModal && (
-        <EnsembleImagePromptModal
-          onClose={() => setShowImagePromptModal(false)}
-          onSubmit={handleSendImageNarrativeCard}
-        />
-      )}
     </div>
   );
 };
+
+export default EnsembleRoom;
