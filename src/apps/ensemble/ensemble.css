@@ -1,46 +1,77 @@
-/* 羁绊大群 (The Ensemble) 专属 CSS */
+/* 羁绊群像 (The Ensemble) 独立 CSS - 100dvh 无 TopBar 沉浸审美 */
+
 .ensemble-room-container {
-  font-family: inherit;
-  background-color: var(--bg-main);
+  height: 100dvh;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 消息卡片上 hover / active-tap 浮现操作按钮 */
-.ensemble-msg-card .ensemble-msg-actions {
+/* 消息气泡悬浮渐显操作按钮 (IG 短信感) */
+.ensemble-msg-item {
+  position: relative;
+}
+
+.ensemble-msg-item .ensemble-msg-actions {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  transform: translateY(4px) scale(0.95);
 }
 
-.ensemble-msg-card:hover .ensemble-msg-actions,
-.ensemble-msg-card.active-tap .ensemble-msg-actions {
+.ensemble-msg-item:hover .ensemble-msg-actions,
+.ensemble-msg-item:focus-within .ensemble-msg-actions,
+.ensemble-msg-item.active-tap .ensemble-msg-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
-/* 3D 翻面卡片全局支持 */
+/* 悬浮单行 Dock 输入框 */
+.ensemble-dock-container {
+  margin: 0.5rem;
+  border-radius: 1.5rem;
+  background: var(--modal-overlay);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+}
+
+/* 自适应多行 Textarea 滚动条 */
+.ensemble-textarea-input {
+  width: 100%;
+  resize: none;
+  min-height: 36px;
+  max-height: 120px;
+  overflow-y: auto;
+  background: transparent;
+  outline: none;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--text-main);
+}
+
+.ensemble-textarea-input::-webkit-scrollbar {
+  width: 4px;
+}
+.ensemble-textarea-input::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 4px;
+}
+
+/* 3D 卡片翻转必备 */
 .perspective-1000 {
   perspective: 1000px;
 }
-
 .transform-style-3d {
   transform-style: preserve-3d;
 }
-
 .backface-hidden {
   backface-visibility: hidden;
 }
-
 .rotate-y-180 {
   transform: rotateY(180deg);
-}
-
-/* 自适应滚动条 */
-.thin-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.thin-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--divider);
-  border-radius: 4px;
 }

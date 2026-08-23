@@ -1,28 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Sliders, Send, Sparkles, Smile, Image, BookOpen } from 'lucide-react';
+import { Send, Sparkles, Image, Smile } from 'lucide-react';
 import db from '../../db';
 import { generateEnsembleAiResponse, generateEnsembleSummary } from './ensembleService';
-import { EnsembleTypingIndicator } from './components/EnsembleTypingIndicator';
+import { EnsembleHeaderFloating } from './components/EnsembleHeaderFloating';
+import { EnsembleUserSelector } from './components/EnsembleUserSelector';
 import { EnsembleMessageItem } from './components/EnsembleMessageItem';
+import { EnsembleCuteTypingIndicator } from './components/EnsembleCuteTypingIndicator';
 import { EnsembleSettingsModal } from './components/EnsembleSettingsModal';
 import StickerPickerModal from '../messages/components/StickerPickerModal';
-import './ensemble.css';
 
 export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [typingState, setTypingState] = useState({ isTyping: false, characterName: '' });
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const [typingCharName, setTypingCharName] = useState('');
   const [quotedMessage, setQuotedMessage] = useState(null);
 
-  // User 身份
+  // 多 User 身份
   const [userIdentities, setUserIdentities] = useState([]);
   const [currentIdentityId, setCurrentIdentityId] = useState('');
 
   // 弹窗
   const [showSettings, setShowSettings] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
-  const [showDrawerInfo, setShowDrawerInfo] = useState(false);
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -37,26 +38,42 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
     const chatDoc = await db.ensembleChats.get(chatId);
     if (!chatDoc) return;
     setChat(chatDoc);
-    const identities = chatDoc.userIdentities || [{ id: 'u_default', name: '我', persona: '主视角' }];
+
+    const identities = chatDoc.userIdentities || [
+      { id: 'u_default', name: '我', persona: '主视角' }
+    ];
     setUserIdentities(identities);
     setCurrentIdentityId(chatDoc.currentIdentityId || identities[0].id);
+
     loadMessages();
   };
 
   const loadMessages = async () => {
-    const msgs = await db.ensembleMessages.where('chatId').equals(chatId).sortBy('timestamp');
+    const msgs = await db.ensembleMessages
+      .where('chatId')
+      .equals(chatId)
+      .sortBy('timestamp');
+
     const msgMap = new Map(msgs.map(m => [m.id, m]));
-    const enriched = msgs.map(m => m.quotedMessageId ? { ...m, quotedMessage: msgMap.get(m.quotedMessageId) } : m);
+    const enriched = msgs.map(m => {
+      if (m.quotedMessageId) {
+        return { ...m, quotedMessage: msgMap.get(m.quotedMessageId) };
+      }
+      return m;
+    });
+
     setMessages(enriched);
     scrollToBottom();
   };
 
   const scrollToBottom = () => {
-    requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }));
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    });
   };
 
-  // textarea 自动自增高 (最高 120px，超过后内部自滚动)
-  const handleTextareaInput = (e) => {
+  // Textarea 自适应高度调整
+  const handleTextareaChange = (e) => {
     setInputText(e.target.value);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -64,13 +81,14 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
     }
   };
 
-  // 发送 User 消息
+  // 发送用户纯文本消息
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
     if (!inputText.trim()) return;
 
     const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
-    await db.ensembleMessages.add({
+
+    const newMsg = {
       chatId,
       senderId: currentIdent.id,
       senderName: currentIdent.name,
@@ -80,24 +98,26 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
       content: inputText.trim(),
       quotedMessageId: quotedMessage ? quotedMessage.id : null,
       timestamp: Date.now()
-    });
+    };
 
+    await db.ensembleMessages.add(newMsg);
     setInputText('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setQuotedMessage(null);
-    loadMessages();
+    await loadMessages();
   };
 
-  // 触发 AI
-  const handleTriggerAi = async (targetCharName = null) => {
+  // 触发 AI 应答
+  const handleTriggerAi = async (targetCharId = null) => {
+    setIsAiThinking(true);
+    setTypingCharName('AI 角色群像');
     try {
-      await generateEnsembleAiResponse(chatId, { targetCharacterName }, (status) => {
-        setTypingState(status);
-        scrollToBottom();
-      });
-      loadMessages();
+      await generateEnsembleAiResponse(chatId, { targetCharacterId });
+      await loadMessages();
     } catch (err) {
-      console.error('AI 回复失败', err);
+      console.error('AI 生成失败', err);
+    } finally {
+      setIsAiThinking(false);
     }
   };
 
@@ -112,18 +132,41 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
       senderType: 'user',
       type: 'sticker',
       content: stickerObj.url || '',
-      metadata: { name: stickerObj.name || '表情包', url: stickerObj.url },
+      metadata: { url: stickerObj.url, name: stickerObj.name || '表情包' },
       timestamp: Date.now()
     });
     setShowStickerPicker(false);
     loadMessages();
   };
 
+  // 发送图片叙事卡
+  const handleUploadImage = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
+      await db.ensembleMessages.add({
+        chatId,
+        senderId: currentIdent.id,
+        senderName: currentIdent.name,
+        senderAvatar: currentIdent.avatar || '',
+        senderType: 'user',
+        type: 'image',
+        content: '一张现场画卷照片',
+        metadata: { description: '画卷细节描写被静止在镜头里...', url: evt.target.result },
+        timestamp: Date.now()
+      });
+      loadMessages();
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (!chat) return null;
 
   return (
-    <div className="ensemble-room-container relative flex flex-col h-[100dvh] w-full overflow-hidden">
-      {/* 透出背景 */}
+    <div className="ensemble-room-container" style={{ backgroundColor: 'var(--bg-main)' }}>
+      {/* 沉浸半透明背景图 */}
       {chat.bgImage && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center pointer-events-none transition-opacity"
@@ -131,154 +174,123 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
         />
       )}
 
-      {/* 彻底没有 Top Bar！顶部仅放置带独立底色的悬浮按钮 */}
-      <div className="relative z-30 flex items-center justify-between p-3 pointer-events-auto">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-2.5 rounded-full shadow-md transition-transform active:scale-95"
-          style={{ backgroundColor: 'var(--control-soft-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
+      {/* 悬浮顶栏 */}
+      <EnsembleHeaderFloating
+        chat={chat}
+        onBack={onBack}
+        onOpenSettings={() => setShowSettings(true)}
+        onTriggerSummary={() => generateEnsembleSummary(chatId)}
+      />
 
-        {/* 居中浮动气泡按钮：点击查看场景档案 */}
-        <button
-          type="button"
-          onClick={() => setShowDrawerInfo(!showDrawerInfo)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-md text-xs font-semibold transition-transform active:scale-95"
-          style={{ backgroundColor: 'var(--control-soft-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
-        >
-          <BookOpen className="w-3.5 h-3.5 opacity-70" />
-          <span>{chat.title}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowSettings(true)}
-          className="p-2.5 rounded-full shadow-md transition-transform active:scale-95"
-          style={{ backgroundColor: 'var(--control-soft-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
-        >
-          <Sliders className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* 展开的场景与概览浮层 */}
-      {showDrawerInfo && (
-        <div className="relative z-30 mx-3 p-3 rounded-2xl shadow-xl text-xs space-y-2 animate-fade-in" style={{ backgroundColor: 'var(--modal-bg)', border: '1px solid var(--modal-border)', color: 'var(--text-main)' }}>
-          <p className="opacity-80 italic">{chat.scenePrompt || '未设定环境'}</p>
-          <div className="flex justify-end border-t pt-2" style={{ borderColor: 'var(--divider)' }}>
-            <button
-              type="button"
-              onClick={() => {
-                generateEnsembleSummary(chatId, 'manual');
-                setShowDrawerInfo(false);
-              }}
-              className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-semibold"
-              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-            >
-              <Sparkles className="w-3 h-3" />
-              手动记录当前剧情总结
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 唯一滑动主轴 */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-3 py-2 thin-scrollbar">
+      {/* 消息滚动区 */}
+      <div className="relative z-10 flex-1 overflow-y-auto px-3.5 py-2 no-scrollbar">
         {messages.map((msg) => (
           <EnsembleMessageItem
             key={msg.id}
             msg={msg}
             onQuote={(m) => setQuotedMessage(m)}
-            onRegenerate={async (m) => {
-              await db.ensembleMessages.delete(m.id);
-              handleTriggerAi(m.senderName);
+            onRegenerate={(m) => {
+              db.ensembleMessages.delete(m.id).then(() => handleTriggerAi(m.characterId));
             }}
-            onDelete={async (id) => {
-              await db.ensembleMessages.delete(id);
-              loadMessages();
-            }}
-            onSummonChar={(charName) => handleTriggerAi(charName)}
+            onDelete={(id) => db.ensembleMessages.delete(id).then(loadMessages)}
+            onSummonChar={(charId) => handleTriggerAi(charId)}
           />
         ))}
 
-        {/* 矢量打字指示器 */}
-        {typingState.isTyping && <EnsembleTypingIndicator characterName={typingState.characterName} />}
+        {/* 矢量零 Emoji 打字指示器 */}
+        {isAiThinking && <EnsembleCuteTypingIndicator charName={typingCharName} styleType="paw" />}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 悬浮 Dock 输入控制框 (与边缘保持距离，带独立滚动条) */}
-      <div className="relative z-20 m-3 p-2.5 rounded-3xl shadow-xl space-y-2 backdrop-blur-md" style={{ backgroundColor: 'var(--modal-overlay)', border: '1px solid var(--modal-border)' }}>
-        {/* User 视角选择胶囊 */}
-        <div className="flex items-center gap-1 overflow-x-auto thin-scrollbar pb-1">
-          {userIdentities.map((u) => (
+      {/* 悬浮 Dock 输入容器 */}
+      <div className="relative z-20 w-full p-2">
+        {/* 多 User 身份切换胶囊 */}
+        <EnsembleUserSelector
+          userIdentities={userIdentities}
+          currentIdentityId={currentIdentityId}
+          onSelectIdentity={(id) => setCurrentIdentityId(id)}
+          onAddTempIdentity={(newIdent) => setUserIdentities([...userIdentities, newIdent])}
+        />
+
+        <div className="ensemble-dock-container p-2 space-y-1">
+          {quotedMessage && (
+            <div className="flex items-center justify-between px-3 py-1 rounded-lg text-[10px] opacity-75" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
+              <span className="truncate">引用 {quotedMessage.senderName}: {quotedMessage.content}</span>
+              <button type="button" onClick={() => setQuotedMessage(null)} className="opacity-60">取消</button>
+            </div>
+          )}
+
+          <form onSubmit={handleSendMessage} className="flex items-end gap-2">
             <button
-              key={u.id}
               type="button"
-              onClick={() => setCurrentIdentityId(u.id)}
-              className={`px-3 py-0.5 rounded-full text-[10px] transition-all shrink-0 ${currentIdentityId === u.id ? 'font-semibold shadow-sm' : 'opacity-60'}`}
-              style={{
-                backgroundColor: currentIdentityId === u.id ? 'var(--accent-color)' : 'var(--control-soft-bg)',
-                color: currentIdentityId === u.id ? 'var(--accent-foreground)' : 'var(--text-main)'
-              }}
+              onClick={() => setShowStickerPicker(true)}
+              className="p-2 rounded-full opacity-70 hover:opacity-100 transition-transform active:scale-95 shrink-0"
+              style={{ color: 'var(--text-main)' }}
             >
-              视角: {u.name}
+              <Smile className="w-4 h-4" />
             </button>
-          ))}
+
+            <label className="p-2 rounded-full opacity-70 hover:opacity-100 transition-transform active:scale-95 shrink-0 cursor-pointer" style={{ color: 'var(--text-main)' }}>
+              <Image className="w-4 h-4" />
+              <input type="file" accept="image/*" onChange={handleUploadImage} className="hidden" />
+            </label>
+
+            {/* 自适应高度 Textarea 输入框 */}
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={inputText}
+              onChange={handleTextareaChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="发送消息..."
+              className="ensemble-textarea-input py-2 px-1"
+            />
+
+            {/* 纯发送 */}
+            <button
+              type="submit"
+              disabled={!inputText.trim()}
+              className="p-2.5 rounded-full transition-transform active:scale-95 disabled:opacity-30 shrink-0"
+              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+
+            {/* 独立触发 AI */}
+            <button
+              type="button"
+              onClick={() => handleTriggerAi()}
+              disabled={isAiThinking}
+              title="触发 AI 群像发言"
+              className="p-2.5 rounded-full transition-transform active:scale-95 shrink-0 border shadow-sm"
+              style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+            </button>
+          </form>
         </div>
-
-        {/* 悬浮单行 Dock 输入 */}
-        <form onSubmit={handleSendMessage} className="flex items-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => setShowStickerPicker(true)}
-            className="p-2 rounded-full opacity-70 hover:opacity-100"
-            style={{ color: 'var(--text-main)' }}
-          >
-            <Smile className="w-4.5 h-4.5" />
-          </button>
-
-          {/* 可自动增高并滚动的 textarea */}
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={inputText}
-            onChange={handleTextareaInput}
-            placeholder="撰写对话或描写..."
-            className="flex-1 px-3 py-2 rounded-2xl text-xs outline-none resize-none thin-scrollbar"
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text-main)',
-              maxHeight: '120px'
-            }}
-          />
-
-          {/* 纯发送 */}
-          <button
-            type="submit"
-            disabled={!inputText.trim()}
-            className="p-2.5 rounded-full transition-transform active:scale-95 disabled:opacity-40"
-            style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
-
-          {/* 独立 AI 触发 */}
-          <button
-            type="button"
-            onClick={() => handleTriggerAi()}
-            className="p-2.5 rounded-full transition-transform active:scale-95 shadow-sm"
-            style={{ backgroundColor: 'var(--control-soft-bg)', color: 'var(--text-main)', border: '1px solid var(--card-border)' }}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-          </button>
-        </form>
       </div>
 
-      {showSettings && <EnsembleSettingsModal chatId={chatId} onClose={() => setShowSettings(false)} onUpdated={loadRoomData} />}
-      {showStickerPicker && <StickerPickerModal onClose={() => setShowStickerPicker(false)} onSelectSticker={handleSelectSticker} />}
+      {showSettings && (
+        <EnsembleSettingsModal
+          chatId={chatId}
+          onClose={() => setShowSettings(false)}
+          onUpdated={loadRoomData}
+        />
+      )}
+
+      {showStickerPicker && (
+        <StickerPickerModal
+          onClose={() => setShowStickerPicker(false)}
+          onSelectSticker={handleSelectSticker}
+        />
+      )}
     </div>
   );
 };

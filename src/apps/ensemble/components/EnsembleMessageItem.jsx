@@ -22,11 +22,11 @@ export const EnsembleMessageItem = ({
   return (
     <div
       onClick={() => setIsTapped(!isTapped)}
-      className={`ensemble-msg-card relative flex flex-col my-3 transition-all ${
+      className={`ensemble-msg-item group relative flex flex-col my-3 transition-all ${
         isUser ? 'items-end' : 'items-start'
       } ${isTapped ? 'active-tap' : ''}`}
     >
-      {/* 消息发件者说明 */}
+      {/* 发件人/身份标签 */}
       <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] opacity-60">
         {!isUser && msg.senderAvatar && (
           <img src={msg.senderAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
@@ -37,7 +37,7 @@ export const EnsembleMessageItem = ({
         )}
       </div>
 
-      {/* 被引用的上游消息卡 */}
+      {/* 被引用的上条消息简述 */}
       {msg.quotedMessage && (
         <div
           className="max-w-[85%] text-[10px] px-2.5 py-1 mb-1 rounded-lg border-l-2 opacity-75 truncate"
@@ -52,9 +52,9 @@ export const EnsembleMessageItem = ({
         </div>
       )}
 
-      {/* 消息本体与浮动操作按钮 */}
+      {/* 消息本体与悬浮快捷按钮 */}
       <div className="relative max-w-[85%]">
-        {/* 悬浮 / 点击才浮现的操作栏 */}
+        {/* 悬浮/点击才浮现的操作栏 (彻底避免干扰 UI) */}
         <div
           className={`ensemble-msg-actions absolute -top-8 ${
             isUser ? 'right-0' : 'left-0'
@@ -89,64 +89,59 @@ export const EnsembleMessageItem = ({
           <button
             type="button"
             onClick={() => onDelete(msg.id)}
-            title="删除"
+            title="删除消息"
             className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-red-500 opacity-80 hover:opacity-100"
           >
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
 
-        {/* 消息分级渲染 */}
+        {/* 根据消息类型精准对接标准组件 */}
         {msg.type === 'text' && (
           <div
-            className={`w-fit max-w-full text-left break-words px-3.5 py-2.5 text-xs leading-relaxed transition-shadow shadow-sm rounded-2xl ${
-              isUser
-                ? 'rounded-br-sm'
-                : 'rounded-bl-sm border'
+            className={`w-fit max-w-full text-left break-words px-3.5 py-2.5 text-xs leading-relaxed transition-shadow shadow-sm ${
+              isUser ? 'ensemble-bubble-user' : 'ensemble-bubble-char'
             }`}
-            style={{
-              backgroundColor: isUser ? 'var(--accent-color)' : 'var(--bg-surface-strong)',
-              color: isUser ? 'var(--accent-foreground)' : 'var(--text-main)',
-              borderColor: isUser ? 'transparent' : 'var(--card-border)'
-            }}
           >
             <p className="whitespace-pre-wrap">{msg.content}</p>
           </div>
         )}
 
-        {/* 表情包组件 */}
+        {/* 真正的 StickerCard 对接 */}
         {msg.type === 'sticker' && (
           <StickerCard metadata={msg.metadata || { url: msg.content }} isUser={isUser} />
         )}
 
-        {/* 3D 翻面图片叙事卡 */}
+        {/* 真正的 ImageCard (支持 3D 翻面查看画面叙事) 对接 */}
         {msg.type === 'image' && (
           <ImageCard content={msg.content} metadata={msg.metadata || { description: msg.content }} />
         )}
 
-        {/* 音波柱伪语音卡片 */}
+        {/* 真正的 VoiceCard 对接 */}
         {msg.type === 'voice' && (
-          <VoiceCard content={msg.content} metadata={msg.metadata || { duration: "0'05\"" }} />
+          <VoiceCard content={msg.content} metadata={msg.metadata} />
         )}
       </div>
 
-      {/* AI 消息底部的单独召唤标签 */}
+      {/* 快捷召唤指定 AI 角色继续回应 */}
       {!isUser && onSummonChar && (
-        <button
-          type="button"
-          onClick={() => onSummonChar(msg.senderName)}
-          className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] opacity-60 hover:opacity-100 transition-opacity"
-          style={{
-            backgroundColor: 'var(--control-soft-bg)',
-            color: 'var(--text-sub)'
-          }}
-        >
-          <Sparkles className="w-2.5 h-2.5" />
-          <span>召唤回应</span>
-        </button>
+        <div className="mt-1 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onSummonChar(msg.characterId)}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] opacity-60 hover:opacity-100 transition-opacity"
+            style={{
+              backgroundColor: 'var(--control-soft-bg)',
+              color: 'var(--text-sub)'
+            }}
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            <span>召唤其接话</span>
+          </button>
+        </div>
       )}
 
-      {/* 时间戳与已读双钩下置 */}
+      {/* 时间戳与已读标记：彻底置于气泡正下方 */}
       <div
         className={`flex items-center gap-1 mt-1 text-[9px] font-mono opacity-50 px-1 ${
           isUser ? 'justify-end' : 'justify-start'
