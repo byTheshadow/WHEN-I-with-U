@@ -5,12 +5,11 @@ import ImaginariumRoom from './ImaginariumRoom';
 import { getImaginariumChats, createImaginariumChat } from './imaginariumService';
 import './imaginarium.css';
 
-export const ImaginariumApp = ({ onBackHub }) => {
+export const ImaginariumApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // 建群新建表单
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [initialNpcName, setInitialNpcName] = useState('');
@@ -18,6 +17,13 @@ export const ImaginariumApp = ({ onBackHub }) => {
   useEffect(() => {
     loadChats();
   }, []);
+
+  // 状态同步给外层 App
+  useEffect(() => {
+    if (onChatRoomStateChange) {
+      onChatRoomStateChange(Boolean(activeChatId));
+    }
+  }, [activeChatId, onChatRoomStateChange]);
 
   const loadChats = async () => {
     const list = await getImaginariumChats();
@@ -60,7 +66,6 @@ export const ImaginariumApp = ({ onBackHub }) => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
-      {/* 头部沉浸控制 */}
       <header className="flex items-center justify-between">
         <button
           type="button"
@@ -85,12 +90,11 @@ export const ImaginariumApp = ({ onBackHub }) => {
         </button>
       </header>
 
-      {/* 列表区 */}
       <div className="space-y-3">
         {chats.length === 0 ? (
           <GlassCard className="p-8 text-center space-y-3">
             <Compass className="w-8 h-8 opacity-40 mx-auto" />
-            <p className="text-xs opacity-70">尚无虚构沙龙，点击右上角新建一个专属的奇幻手稿吧。</p>
+            <p className="text-xs opacity-70">尚无虚构沙龙，点击右上角新建一个专属的手稿吧。</p>
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
@@ -119,7 +123,6 @@ export const ImaginariumApp = ({ onBackHub }) => {
         )}
       </div>
 
-      {/* 新建沙龙弹窗 */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="fixed inset-0" style={{ backgroundColor: 'var(--modal-overlay)' }} onClick={() => setShowCreateModal(false)} />

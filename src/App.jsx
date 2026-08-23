@@ -242,12 +242,16 @@ export const App = () => {
             <PebblingApp onBack={() => openApp('hub')} />
           </ErrorBoundary>
         )}
-        
+
 {currentApp === 'imaginarium' && (
   <ErrorBoundary>
-    <ImaginariumApp onBackHub={() => openApp('hub')} />
+    <ImaginariumApp
+      onBackHub={() => openApp('hub')}
+      onChatRoomStateChange={setIsInsideChatRoom}
+    />
   </ErrorBoundary>
 )}
+
 
         {![
           'hub',
@@ -259,7 +263,8 @@ export const App = () => {
           'travels',
           'travel',
           'snapshots',
-          'pebbling'
+          'pebbling',
+          'imaginarium'
         ].includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
