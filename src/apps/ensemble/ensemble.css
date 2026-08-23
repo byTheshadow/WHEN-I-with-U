@@ -1,9 +1,10 @@
 /* 羁绊大群 (The Ensemble) 专属 CSS */
-.ensemble-container {
+.ensemble-room-container {
   font-family: inherit;
+  background-color: var(--bg-main);
 }
 
-/* 消息气泡悬浮渐显操作菜单 */
+/* 消息卡片上 hover / active-tap 浮现操作按钮 */
 .ensemble-msg-card .ensemble-msg-actions {
   opacity: 0;
   pointer-events: none;
@@ -12,23 +13,34 @@
 }
 
 .ensemble-msg-card:hover .ensemble-msg-actions,
-.ensemble-msg-card:focus-within .ensemble-msg-actions,
 .ensemble-msg-card.active-tap .ensemble-msg-actions {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
 }
 
-/* 气泡美化与自适应 */
-.ensemble-bubble-user {
-  background-color: var(--accent-color);
-  color: var(--accent-foreground);
-  border-radius: 18px 18px 4px 18px;
+/* 3D 翻面卡片全局支持 */
+.perspective-1000 {
+  perspective: 1000px;
 }
 
-.ensemble-bubble-char {
-  background-color: var(--bg-surface-strong);
-  color: var(--text-main);
-  border-radius: 18px 18px 18px 4px;
-  border: 1px solid var(--card-border);
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* 自适应滚动条 */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--divider);
+  border-radius: 4px;
 }

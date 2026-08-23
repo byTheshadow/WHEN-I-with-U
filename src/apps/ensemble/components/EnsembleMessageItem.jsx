@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCheck, RotateCw, Quote, Trash2, Sparkles } from 'lucide-react';
+import StickerCard from '../../messages/components/cards/StickerCard';
+import ImageCard from '../../messages/components/cards/ImageCard';
 import VoiceCard from '../../messages/components/cards/VoiceCard';
 
 export const EnsembleMessageItem = ({
@@ -20,11 +22,11 @@ export const EnsembleMessageItem = ({
   return (
     <div
       onClick={() => setIsTapped(!isTapped)}
-      className={`ensemble-msg-card group relative flex flex-col my-3 transition-all ${
+      className={`ensemble-msg-card relative flex flex-col my-3 transition-all ${
         isUser ? 'items-end' : 'items-start'
       } ${isTapped ? 'active-tap' : ''}`}
     >
-      {/* 身份/角色发件人名称 */}
+      {/* 消息发件者说明 */}
       <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] opacity-60">
         {!isUser && msg.senderAvatar && (
           <img src={msg.senderAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
@@ -35,7 +37,7 @@ export const EnsembleMessageItem = ({
         )}
       </div>
 
-      {/* 引用来源卡片 */}
+      {/* 被引用的上游消息卡 */}
       {msg.quotedMessage && (
         <div
           className="max-w-[85%] text-[10px] px-2.5 py-1 mb-1 rounded-lg border-l-2 opacity-75 truncate"
@@ -50,9 +52,9 @@ export const EnsembleMessageItem = ({
         </div>
       )}
 
-      {/* 消息本体容器 */}
+      {/* 消息本体与浮动操作按钮 */}
       <div className="relative max-w-[85%]">
-        {/* 悬浮/点击才浮现的操作栏 */}
+        {/* 悬浮 / 点击才浮现的操作栏 */}
         <div
           className={`ensemble-msg-actions absolute -top-8 ${
             isUser ? 'right-0' : 'left-0'
@@ -94,47 +96,57 @@ export const EnsembleMessageItem = ({
           </button>
         </div>
 
-        {/* 气泡类型分发 */}
-        <div
-          className={`w-fit max-w-full text-left break-words px-3.5 py-2.5 text-xs leading-relaxed transition-shadow shadow-sm ${
-            isUser ? 'ensemble-bubble-user' : 'ensemble-bubble-char'
-          }`}
-        >
-          {msg.type === 'text' && <p className="whitespace-pre-wrap">{msg.content}</p>}
-
-          {msg.type === 'sticker' && (
-            <img src={msg.content} alt="sticker" className="max-w-[140px] max-h-[140px] rounded-lg object-contain" />
-          )}
-
-          {msg.type === 'image' && (
-            <img src={msg.content} alt="upload" className="max-w-[200px] max-h-[220px] rounded-xl object-cover" />
-          )}
-
-          {msg.type === 'voice' && (
-            <VoiceCard content={msg.content} metadata={msg.metadata} />
-          )}
-        </div>
-      </div>
-
-      {/* 快捷召唤回应（针对 AI 角色消息底部） */}
-      {!isUser && onSummonChar && (
-        <div className="mt-1 flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onSummonChar(msg.characterId)}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] opacity-60 hover:opacity-100 transition-opacity"
+        {/* 消息分级渲染 */}
+        {msg.type === 'text' && (
+          <div
+            className={`w-fit max-w-full text-left break-words px-3.5 py-2.5 text-xs leading-relaxed transition-shadow shadow-sm rounded-2xl ${
+              isUser
+                ? 'rounded-br-sm'
+                : 'rounded-bl-sm border'
+            }`}
             style={{
-              backgroundColor: 'var(--control-soft-bg)',
-              color: 'var(--text-sub)'
+              backgroundColor: isUser ? 'var(--accent-color)' : 'var(--bg-surface-strong)',
+              color: isUser ? 'var(--accent-foreground)' : 'var(--text-main)',
+              borderColor: isUser ? 'transparent' : 'var(--card-border)'
             }}
           >
-            <Sparkles className="w-2.5 h-2.5" />
-            <span>召唤回应</span>
-          </button>
-        </div>
+            <p className="whitespace-pre-wrap">{msg.content}</p>
+          </div>
+        )}
+
+        {/* 表情包组件 */}
+        {msg.type === 'sticker' && (
+          <StickerCard metadata={msg.metadata || { url: msg.content }} isUser={isUser} />
+        )}
+
+        {/* 3D 翻面图片叙事卡 */}
+        {msg.type === 'image' && (
+          <ImageCard content={msg.content} metadata={msg.metadata || { description: msg.content }} />
+        )}
+
+        {/* 音波柱伪语音卡片 */}
+        {msg.type === 'voice' && (
+          <VoiceCard content={msg.content} metadata={msg.metadata || { duration: "0'05\"" }} />
+        )}
+      </div>
+
+      {/* AI 消息底部的单独召唤标签 */}
+      {!isUser && onSummonChar && (
+        <button
+          type="button"
+          onClick={() => onSummonChar(msg.senderName)}
+          className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] opacity-60 hover:opacity-100 transition-opacity"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+            color: 'var(--text-sub)'
+          }}
+        >
+          <Sparkles className="w-2.5 h-2.5" />
+          <span>召唤回应</span>
+        </button>
       )}
 
-      {/* 时间戳与已读标记：彻底移出气泡，完美置于正下方 */}
+      {/* 时间戳与已读双钩下置 */}
       <div
         className={`flex items-center gap-1 mt-1 text-[9px] font-mono opacity-50 px-1 ${
           isUser ? 'justify-end' : 'justify-start'
