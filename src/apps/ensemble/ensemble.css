@@ -1,0 +1,34 @@
+/* 羁绊大群 (The Ensemble) 专属 CSS */
+.ensemble-container {
+  font-family: inherit;
+}
+
+/* 消息气泡悬浮渐显操作菜单 */
+.ensemble-msg-card .ensemble-msg-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
+}
+
+.ensemble-msg-card:hover .ensemble-msg-actions,
+.ensemble-msg-card:focus-within .ensemble-msg-actions,
+.ensemble-msg-card.active-tap .ensemble-msg-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* 气泡美化与自适应 */
+.ensemble-bubble-user {
+  background-color: var(--accent-color);
+  color: var(--accent-foreground);
+  border-radius: 18px 18px 4px 18px;
+}
+
+.ensemble-bubble-char {
+  background-color: var(--bg-surface-strong);
+  color: var(--text-main);
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid var(--card-border);
+}

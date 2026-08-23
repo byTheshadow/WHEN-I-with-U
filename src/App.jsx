@@ -14,6 +14,7 @@ import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
 import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
+import EnsembleApp from './apps/ensemble/EnsembleApp';
 import { Settings as SettingsIcon } from 'lucide-react';
 import {
   requestNotificationPermission,
@@ -21,14 +22,29 @@ import {
   stopAutoMessageScheduler
 } from './services/aiService';
 
-
-// 各主题对应的顶栏/背景 HEX 颜色（用于动态更新 iOS 顶栏 meta 标签）
 const THEME_COLORS = {
   'mono-mist': '#fcfbf7',
   'cream-latte': '#f8f5ee',
   'obsidian-dark': '#121212',
   'cyber-velvet': '#171321'
 };
+
+const CHAT_APPS = ['messages', 'imaginarium', 'ensemble'];
+
+const REGISTERED_APPS = [
+  'hub',
+  'settings',
+  'messages',
+  'todos',
+  'planner',
+  'diaries',
+  'travels',
+  'travel',
+  'snapshots',
+  'pebbling',
+  'imaginarium',
+  'ensemble'
+];
 
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
@@ -37,32 +53,25 @@ export const App = () => {
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
-    // 应用挂载时，仅启动一次 AI 主动消息 / 主动日记后台调度器。
   useEffect(() => {
-    // 若通知权限仍未决定，会尝试申请浏览器通知权限。
-    // 注意：部分手机浏览器只允许在用户点击按钮后申请权限。
     void requestNotificationPermission();
 
-    // 启动调度器。内部会自行检查：
-    // autoMessage、quietHours、frequency、角色开关及冷却时间。
     startAutoMessageScheduler();
 
-    // App 卸载时清理定时器，避免开发模式或重复挂载产生多个轮询。
     return () => {
       stopAutoMessageScheduler();
     };
   }, []);
 
-
   useEffect(() => {
-    // 1. 设置根元素 CSS 变量主题
     document.documentElement.setAttribute('data-theme', activeTheme);
 
-    // 2. 动态修改手机原生顶栏/状态栏颜色 (iOS Safari & Android Chrome)
     const themeColor = THEME_COLORS[activeTheme] || '#fcfbf7';
     document.body.style.backgroundColor = themeColor;
 
-    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    let metaThemeColor = document.querySelector(
+      'meta[name="theme-color"]'
+    );
 
     if (!metaThemeColor) {
       metaThemeColor = document.createElement('meta');
@@ -71,25 +80,23 @@ export const App = () => {
     }
 
     metaThemeColor.setAttribute('content', themeColor);
-
-  
   }, [activeTheme]);
 
   const handlePreloaderFinish = useCallback(() => {
     setShowPreloader(false);
   }, []);
 
-  const openApp = (appId) => {
+  const openApp = useCallback((appId) => {
     setCurrentApp(appId);
 
-    if (appId !== 'messages') {
+    if (!CHAT_APPS.includes(appId)) {
       setIsInsideChatRoom(false);
     }
 
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: 'auto' });
     });
-  };
+  }, []);
 
   const shouldDisplayHeader =
     showTitle && currentApp !== 'settings' && !isInsideChatRoom;
@@ -108,7 +115,6 @@ export const App = () => {
 
       <NotificationToast />
 
-      {/* 沉浸式全局背景 */}
       <div
         className="fixed inset-0 -z-10 overflow-hidden pointer-events-none transition-colors duration-700"
         style={{ backgroundColor: 'var(--bg-main)' }}
@@ -117,29 +123,29 @@ export const App = () => {
           className="absolute -top-32 -left-32 h-[25rem] w-[25rem] rounded-full blur-[115px] transition-colors duration-700"
           style={{ backgroundColor: 'var(--bg-blob-1)' }}
         />
+
         <div
           className="absolute top-[28%] -right-40 h-[28rem] w-[28rem] rounded-full blur-[130px] transition-colors duration-700"
           style={{ backgroundColor: 'var(--bg-blob-2)' }}
         />
+
         <div
           className="absolute -bottom-48 left-[10%] h-[25rem] w-[25rem] rounded-full blur-[135px] transition-colors duration-700"
           style={{ backgroundColor: 'var(--bg-blob-3)' }}
         />
       </div>
 
-     
-<main
-  className={mainClassName}
-  style={{
-    paddingTop: isInsideChatRoom
-      ? '0'
-      : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
-    paddingBottom: isInsideChatRoom
-      ? '0' // 👈 关键修复：进入聊天室时清除 5rem 的底部 Padding，防止挤压布局！
-      : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
-  }}
->
-
+      <main
+        className={mainClassName}
+        style={{
+          paddingTop: isInsideChatRoom
+            ? '0'
+            : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+          paddingBottom: isInsideChatRoom
+            ? '0'
+            : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+        }}
+      >
         {shouldDisplayHeader && (
           <header className="flex items-start justify-between animate-fade-in-up">
             <div>
@@ -154,7 +160,10 @@ export const App = () => {
 
               <div
                 className="mt-3 h-px w-10"
-                style={{ backgroundColor: 'var(--text-main)', opacity: 0.2 }}
+                style={{
+                  backgroundColor: 'var(--text-main)',
+                  opacity: 0.2
+                }}
               />
             </div>
 
@@ -163,7 +172,7 @@ export const App = () => {
               onClick={() => openApp('settings')}
               title="Settings"
               aria-label="Open settings"
-              className="ml-auto rounded-full p-2.5 transition-transform active:scale-95 shadow-sm"
+              className="ml-auto rounded-full p-2.5 shadow-sm transition-transform active:scale-95"
               style={{
                 color: 'var(--accent-foreground)',
                 backgroundColor: 'var(--accent-color)',
@@ -240,36 +249,31 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {/* PEBBLING 企鹅小石 Sub-App */}
         {currentApp === 'pebbling' && (
           <ErrorBoundary>
             <PebblingApp onBack={() => openApp('hub')} />
           </ErrorBoundary>
         )}
 
-{currentApp === 'imaginarium' && (
-  <ErrorBoundary>
-    <ImaginariumApp
-      onBackHub={() => openApp('hub')}
-      onChatRoomStateChange={setIsInsideChatRoom}
-    />
-  </ErrorBoundary>
-)}
+        {currentApp === 'imaginarium' && (
+          <ErrorBoundary>
+            <ImaginariumApp
+              onBackHub={() => openApp('hub')}
+              onChatRoomStateChange={setIsInsideChatRoom}
+            />
+          </ErrorBoundary>
+        )}
 
+        {currentApp === 'ensemble' && (
+          <ErrorBoundary>
+            <EnsembleApp
+              onBackHub={() => openApp('hub')}
+              onChatRoomStateChange={setIsInsideChatRoom}
+            />
+          </ErrorBoundary>
+        )}
 
-        {![
-          'hub',
-          'settings',
-          'messages',
-          'todos',
-          'planner',
-          'diaries',
-          'travels',
-          'travel',
-          'snapshots',
-          'pebbling',
-          'imaginarium'
-        ].includes(currentApp) && (
+        {!REGISTERED_APPS.includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2

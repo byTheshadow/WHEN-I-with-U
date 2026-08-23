@@ -1,0 +1,148 @@
+import React, { useState } from 'react';
+import { CheckCheck, RotateCw, Quote, Trash2, Sparkles } from 'lucide-react';
+import VoiceCard from '../../messages/components/cards/VoiceCard';
+
+export const EnsembleMessageItem = ({
+  msg,
+  onQuote,
+  onRegenerate,
+  onDelete,
+  onSummonChar
+}) => {
+  const [isTapped, setIsTapped] = useState(false);
+  const isUser = msg.senderType === 'user';
+
+  const timeStr = new Date(msg.timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return (
+    <div
+      onClick={() => setIsTapped(!isTapped)}
+      className={`ensemble-msg-card group relative flex flex-col my-3 transition-all ${
+        isUser ? 'items-end' : 'items-start'
+      } ${isTapped ? 'active-tap' : ''}`}
+    >
+      {/* 身份/角色发件人名称 */}
+      <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] opacity-60">
+        {!isUser && msg.senderAvatar && (
+          <img src={msg.senderAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+        )}
+        <span>{msg.senderName}</span>
+        {isUser && msg.senderAvatar && (
+          <img src={msg.senderAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+        )}
+      </div>
+
+      {/* 引用来源卡片 */}
+      {msg.quotedMessage && (
+        <div
+          className="max-w-[85%] text-[10px] px-2.5 py-1 mb-1 rounded-lg border-l-2 opacity-75 truncate"
+          style={{
+            backgroundColor: 'var(--control-soft-bg)',
+            borderColor: 'var(--accent-color)',
+            color: 'var(--text-sub)'
+          }}
+        >
+          <span className="font-semibold mr-1">{msg.quotedMessage.senderName}:</span>
+          {msg.quotedMessage.content}
+        </div>
+      )}
+
+      {/* 消息本体容器 */}
+      <div className="relative max-w-[85%]">
+        {/* 悬浮/点击才浮现的操作栏 */}
+        <div
+          className={`ensemble-msg-actions absolute -top-8 ${
+            isUser ? 'right-0' : 'left-0'
+          } z-20 flex items-center gap-1 px-2 py-1 rounded-full shadow-md text-xs backdrop-blur-md`}
+          style={{
+            backgroundColor: 'var(--modal-bg)',
+            border: '1px solid var(--modal-border)',
+            color: 'var(--text-main)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => onQuote(msg)}
+            title="引用消息"
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            <Quote className="w-3 h-3 opacity-70" />
+          </button>
+
+          {!isUser && onRegenerate && (
+            <button
+              type="button"
+              onClick={() => onRegenerate(msg)}
+              title="重 roll 生成"
+              className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              <RotateCw className="w-3 h-3 opacity-70" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onDelete(msg.id)}
+            title="删除"
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-red-500 opacity-80 hover:opacity-100"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* 气泡类型分发 */}
+        <div
+          className={`w-fit max-w-full text-left break-words px-3.5 py-2.5 text-xs leading-relaxed transition-shadow shadow-sm ${
+            isUser ? 'ensemble-bubble-user' : 'ensemble-bubble-char'
+          }`}
+        >
+          {msg.type === 'text' && <p className="whitespace-pre-wrap">{msg.content}</p>}
+
+          {msg.type === 'sticker' && (
+            <img src={msg.content} alt="sticker" className="max-w-[140px] max-h-[140px] rounded-lg object-contain" />
+          )}
+
+          {msg.type === 'image' && (
+            <img src={msg.content} alt="upload" className="max-w-[200px] max-h-[220px] rounded-xl object-cover" />
+          )}
+
+          {msg.type === 'voice' && (
+            <VoiceCard content={msg.content} metadata={msg.metadata} />
+          )}
+        </div>
+      </div>
+
+      {/* 快捷召唤回应（针对 AI 角色消息底部） */}
+      {!isUser && onSummonChar && (
+        <div className="mt-1 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onSummonChar(msg.characterId)}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] opacity-60 hover:opacity-100 transition-opacity"
+            style={{
+              backgroundColor: 'var(--control-soft-bg)',
+              color: 'var(--text-sub)'
+            }}
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            <span>召唤回应</span>
+          </button>
+        </div>
+      )}
+
+      {/* 时间戳与已读标记：彻底移出气泡，完美置于正下方 */}
+      <div
+        className={`flex items-center gap-1 mt-1 text-[9px] font-mono opacity-50 px-1 ${
+          isUser ? 'justify-end' : 'justify-start'
+        }`}
+      >
+        <span>{timeStr}</span>
+        {isUser && <CheckCheck className="w-3 h-3 text-current" />}
+      </div>
+    </div>
+  );
+};

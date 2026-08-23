@@ -7,7 +7,8 @@ import {
   Calendar,
   Camera,
   Waves,
-  Sparkles
+  Sparkles,
+  Users
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
@@ -15,26 +16,27 @@ import KeepAlivePlayer from './KeepAlivePlayer';
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   return (
     <div className="space-y-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-widest opacity-40 px-2">
+      <h3 className="px-2 text-[11px] font-semibold uppercase tracking-widest opacity-40">
         Applications
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* 顶部 Hero 核心入口: Messages */}
         <GlassCard
           delay={delay}
           tone="ink"
           onClick={() => onOpenApp('messages')}
-          className="col-span-2 flex items-center justify-between group cursor-pointer p-4"
+          className="group col-span-2 flex cursor-pointer items-center justify-between p-4"
         >
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-black/10 dark:bg-white/10 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 opacity-90 text-[var(--text-on-ink)]" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/10 dark:bg-white/10">
+              <MessageSquare className="h-5 w-5 text-[var(--text-on-ink)] opacity-90" />
             </div>
+
             <div className="text-left">
-              <h4 className="font-bold text-sm text-[var(--text-on-ink)]">
+              <h4 className="text-sm font-bold text-[var(--text-on-ink)]">
                 Messages
               </h4>
+
               <p className="mt-0.5 text-[11px] text-[var(--text-on-ink-muted)]">
                 Continue the conversation
               </p>
@@ -42,104 +44,122 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* 👈 重构：Snapshots 方形画廊卡 */}
         <GlassCard
           delay={delay + 25}
           onClick={() => onOpenApp('snapshots')}
-          className="flex flex-col justify-between aspect-square text-left cursor-pointer p-4 group"
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
-          <div className="w-10 h-10 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
-            <Camera className="w-5 h-5 opacity-90 text-[var(--text-main)]" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
+            <Camera className="h-5 w-5 text-[var(--text-main)] opacity-90" />
           </div>
+
           <div>
-            <h4 className="font-bold text-sm">Snapshots</h4>
-            <p className="mt-0.5 text-[10px] opacity-50 uppercase tracking-wider">
+            <h4 className="text-sm font-bold">Snapshots</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
               Polaroid Feed
             </p>
           </div>
         </GlassCard>
 
-        {/* 👈 重构：Pebbling 企鹅小石 方形拟物卡 (与 Snapshots 优雅并排) */}
         <GlassCard
           delay={delay + 40}
           onClick={() => onOpenApp('pebbling')}
-          className="flex flex-col justify-between aspect-square text-left cursor-pointer p-4 group"
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
-          <div className="w-10 h-10 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-center">
-            <Waves className="w-5 h-5 opacity-90 text-[var(--text-main)]" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
+            <Waves className="h-5 w-5 text-[var(--text-main)] opacity-90" />
           </div>
+
           <div>
-            <h4 className="font-bold text-sm">Pebbling</h4>
-            <p className="mt-0.5 text-[10px] opacity-50 uppercase tracking-wider">
+            <h4 className="text-sm font-bold">Pebbling</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
               Nest Exchange
             </p>
           </div>
         </GlassCard>
 
-        {/* Imaginarium 虚构沙龙 */}
         <GlassCard
           delay={delay + 50}
           onClick={() => onOpenApp('imaginarium')}
-          className="flex flex-col justify-between aspect-square text-left cursor-pointer p-4 group"
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
             <Sparkles
-              className="w-5 h-5 opacity-90"
+              className="h-5 w-5 opacity-90"
               style={{ color: 'var(--text-main)' }}
             />
           </div>
 
           <div>
-            <h4 className="font-bold text-sm">Imaginarium</h4>
-            <p className="mt-0.5 text-[10px] opacity-50 uppercase tracking-wider">
+            <h4 className="text-sm font-bold">Imaginarium</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
               Virtual Salon
             </p>
           </div>
         </GlassCard>
 
-        {/* Diaries 日记 */}
         <GlassCard
           delay={delay + 60}
-          onClick={() => onOpenApp('diaries')}
-          className="flex flex-col justify-between aspect-square text-left cursor-pointer p-4"
+          onClick={() => onOpenApp('ensemble')}
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
-          <BookOpen className="w-6 h-6 opacity-80" />
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Users
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+
           <div>
-            <h4 className="font-bold text-sm">Diaries</h4>
-            <p className="text-[10px] opacity-40 uppercase tracking-wider mt-0.5">
+            <h4 className="text-sm font-bold">The Ensemble</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+              Bonded Group
+            </p>
+          </div>
+        </GlassCard>
+
+        <GlassCard
+          delay={delay + 70}
+          onClick={() => onOpenApp('diaries')}
+          className="flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+        >
+          <BookOpen className="h-6 w-6 opacity-80" />
+
+          <div>
+            <h4 className="text-sm font-bold">Diaries</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
               Sync Memories
             </p>
           </div>
         </GlassCard>
 
-        {/* 右侧垂直拼合：Travel & Planner */}
         <div className="flex flex-col gap-4">
           <GlassCard
             delay={delay + 80}
             onClick={() => onOpenApp('travel')}
-            className="flex-1 flex items-center gap-3 p-4 text-left cursor-pointer"
+            className="flex flex-1 cursor-pointer items-center gap-3 p-4 text-left"
           >
-            <Compass className="w-5 h-5 opacity-80" />
-            <h4 className="font-bold text-sm">Travel</h4>
+            <Compass className="h-5 w-5 opacity-80" />
+            <h4 className="text-sm font-bold">Travel</h4>
           </GlassCard>
 
           <GlassCard
             delay={delay + 100}
             onClick={() => onOpenApp('planner')}
-            className="flex-1 flex items-center gap-3 p-4 text-left cursor-pointer"
+            className="flex flex-1 cursor-pointer items-center gap-3 p-4 text-left"
           >
-            <Calendar className="w-5 h-5 opacity-80" />
-            <h4 className="font-bold text-sm">Planner</h4>
+            <Calendar className="h-5 w-5 opacity-80" />
+            <h4 className="text-sm font-bold">Planner</h4>
           </GlassCard>
         </div>
       </div>
 
-
-
-      {/* Applications 下方的黑胶保活播放器 */}
       <KeepAlivePlayer delay={delay + 120} />
     </div>
   );
