@@ -22,6 +22,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
   const [targetNpcId, setTargetNpcId] = useState(null);
 
   const [quotedMessage, setQuotedMessage] = useState(null);
+  const [activeMsgId, setActiveMsgId] = useState(null); // 👈 手机端点击选中的消息 ID
 
   const [showSettings, setShowSettings] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
@@ -31,7 +32,6 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
 
   const [isFreeDiscussing, setIsFreeDiscussing] = useState(false);
   const freeDiscussCancelRef = useRef(false);
-
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   const bottomRef = useRef(null);
@@ -177,7 +177,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
   };
 
   return (
-    <div className="imaginarium-chat-room flex flex-col h-[100dvh] w-full relative overflow-hidden select-none">
+    <div className="imaginarium-chat-room flex flex-col h-full w-full relative overflow-hidden select-none">
       {chat.customCss && <style>{chat.customCss}</style>}
 
       {chat.bgImage && (
@@ -190,13 +190,12 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         />
       )}
 
-      {/* 1. 顶部固定 Header (包含聊天名) */}
-      <header className="flex-none z-30 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
+      {/* 1. 顶部 Header (固定) */}
+      <header className="shrink-0 z-30 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
         <button type="button" onClick={onBack} className="imaginarium-icon-btn">
           <ArrowLeft className="w-4 h-4" />
         </button>
 
-        {/* 顶部中央沙龙名称 */}
         <div className="text-center truncate mx-2 max-w-[180px]">
           <h3 className="font-serif font-bold text-xs truncate tracking-wide">{chat.title}</h3>
           <span className="text-[9px] opacity-40 uppercase tracking-widest block">Salon</span>
@@ -226,16 +225,20 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         </div>
       </header>
 
-      {/* 2. 中间唯一滑动区域 (Message Stream) */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3 relative z-10 scroll-smooth">
+      {/* 2. 中间消息滚动区域 (独立 overflow-y-auto) */}
+      <main
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 relative z-10 scroll-smooth"
+        onClick={() => setActiveMsgId(null)} // 点击空白处收起操作栏
+      >
         {messages.map((m) => {
           const isUser = m.senderType === 'user';
+          const isSelected = activeMsgId === m.id;
 
           return (
             <div
               key={m.id}
               id={`msg-${m.id}`}
-              className={`flex items-start gap-2.5 animate-fade-in-up ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`group flex items-start gap-2.5 animate-fade-in-up ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <div
                 className="w-8 h-8 rounded-full overflow-hidden shrink-0 font-bold text-xs flex items-center justify-center shadow-sm"
@@ -257,7 +260,14 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                   </div>
                 )}
 
-                <div className={`p-3 text-xs leading-relaxed ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}>
+                {/* 气泡本体：点击可切换选中显示工具栏 */}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMsgId(isSelected ? null : m.id);
+                  }}
+                  className={`p-3 text-xs leading-relaxed cursor-pointer transition-transform active:scale-[0.99] ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}
+                >
                   {m.type === 'sticker' ? (
                     <img src={m.content} alt="贴纸" className="max-w-[120px] rounded-xl" />
                   ) : m.type === 'voice' ? (
@@ -267,18 +277,44 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                   )}
                 </div>
 
-                <div className={`flex items-center gap-2 pt-0.5 px-1 text-[10px] opacity-40 hover:opacity-100 ${isUser ? 'justify-end' : 'justify-start'}`}>
-                  <button type="button" onClick={() => setQuotedMessage(m)} className="hover:underline flex items-center gap-0.5">
+                {/* 👈 操作工具栏：默认隐藏，hover 或点击选中时才渐显 */}
+                <div
+                  className={`flex items-center gap-2 pt-0.5 px-1 text-[10px] transition-all duration-200 ${
+                    isSelected ? 'opacity-90 max-h-6' : 'opacity-0 max-h-0 overflow-hidden group-hover:opacity-90 group-hover:max-h-6'
+                  } ${isUser ? 'justify-end' : 'justify-start'}`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQuotedMessage(m);
+                    }}
+                    className="hover:underline flex items-center gap-0.5 opacity-70 hover:opacity-100"
+                  >
                     <Quote className="w-3 h-3" /> 引用
                   </button>
 
                   {!isUser && (
-                    <button type="button" onClick={() => handleRegenerate(m)} className="hover:underline flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRegenerate(m);
+                      }}
+                      className="hover:underline flex items-center gap-0.5 opacity-70 hover:opacity-100"
+                    >
                       <RotateCcw className="w-3 h-3" /> 重roll
                     </button>
                   )}
 
-                  <button type="button" onClick={() => setDeletingMsgId(m.id)} className="hover:underline text-rose-500 flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingMsgId(m.id);
+                    }}
+                    className="hover:underline text-rose-500 flex items-center gap-0.5 opacity-70 hover:opacity-100"
+                  >
                     <Trash2 className="w-3 h-3" /> 删除
                   </button>
                 </div>
@@ -296,8 +332,8 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         <div ref={bottomRef} />
       </main>
 
-      {/* 3. 底部固定 Dock 输入栏 */}
-      <footer className="flex-none z-30 px-3 pb-3 pt-1 border-t" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
+      {/* 3. 底部 Dock 输入栏 (固定) */}
+      <footer className="shrink-0 z-30 px-3 pb-3 pt-1 border-t" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
         <div className="imaginarium-dock max-w-[420px] mx-auto p-2.5 rounded-[1.8rem] border shadow-lg backdrop-blur-xl space-y-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
           {quotedMessage && (
             <div className="flex items-center justify-between p-2 rounded-xl text-xs bg-black/5 dark:bg-white/5 border border-dashed">

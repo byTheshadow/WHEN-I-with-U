@@ -127,15 +127,19 @@ export const App = () => {
         />
       </div>
 
-      <main
-        className={mainClassName}
-        style={{
-          paddingTop: isInsideChatRoom
-            ? '0'
-            : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
-          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))'
-        }}
-      >
+     
+<main
+  className={mainClassName}
+  style={{
+    paddingTop: isInsideChatRoom
+      ? '0'
+      : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+    paddingBottom: isInsideChatRoom
+      ? '0' // 👈 关键修复：进入聊天室时清除 5rem 的底部 Padding，防止挤压布局！
+      : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+  }}
+>
+
         {shouldDisplayHeader && (
           <header className="flex items-start justify-between animate-fade-in-up">
             <div>
