@@ -1,19 +1,28 @@
 import db from '../../db';
 
+// 获取全局 API 配置 (读取 db.settings 中 key="apiConfig" 的记录)
 export const getApiConfig = async () => {
-  const settingDoc = await db.settings.get('apiConfig');
-  if (!settingDoc || !settingDoc.value) {
-    throw new Error('未配置 API Key，请前往设置配置');
+  try {
+    const settingDoc = await db.settings.get('apiConfig');
+    if (!settingDoc || !settingDoc.value) {
+      throw new Error('未配置 API Key，请前往全局设置页面配置');
+    }
+    const { baseUrl, apiKey, model } = settingDoc.value;
+    if (!apiKey) {
+      throw new Error('API Key 为空，请前往设置页面配置');
+    }
+    return {
+      baseUrl: baseUrl || 'https://api.openai.com/v1',
+      apiKey,
+      model: model || 'gpt-4o'
+    };
+  } catch (err) {
+    console.error('getApiConfig Error:', err);
+    throw err;
   }
-  const { baseUrl, apiKey, model } = settingDoc.value;
-  if (!apiKey) throw new Error('API Key 为空');
-  return {
-    baseUrl: baseUrl || 'https://api.openai.com/v1',
-    apiKey,
-    model: model || 'gpt-4o'
-  };
 };
 
+// 通用 AI API 调用
 export const callAiAPI = async (messages, options = {}) => {
   const { baseUrl, apiKey, model } = await getApiConfig();
   const cleanBase = baseUrl.replace(/\/+$/, '');
@@ -44,86 +53,100 @@ export const callAiAPI = async (messages, options = {}) => {
   return data.choices?.[0]?.message?.content || '';
 };
 
-// 拼接多角色 + 本群独占角色 + 方向性关系 + 全量历史总结 Prompt
-export const buildEnsembleSystemPrompt = async (chat) => {
+// 拼装多角色系统 Prompt
+export const buildEnsembleSystemPrompt = async (chat, targetCharacterId = null) => {
   // 1. 全局角色
-  const selectedCharIds = chat.selectedCharacterIds || [];
-  const globalChars = await db.characters.where('id').anyOf(selectedCharIds).toArray();
-  
-  // 2. 本群独占角色
+  const globalIds = chat.selectedCharacterIds || [];
+  const globalChars = globalIds.length > 0
+    ? await db.characters.where('id').anyOf(globalIds).toArray()
+    : [];
+
+  // 2. 本群专属角色
   const localChars = chat.localCharacters || [];
 
+  // 合并全部出场 AI 角色 (最多 8 位)
   const allMembers = [
-    ...globalChars.map(c => ({ id: `global_${c.id}`, rawId: c.id, name: c.name, bio: c.bio, isLocal: false })),
-    ...localChars.map(c => ({ id: c.id, rawId: c.id, name: c.name, bio: c.bio, isLocal: true }))
-  ];
+    ...globalChars.map(c => ({
+      id: `global_${c.id}`,
+      rawId: c.id,
+      name: c.name,
+      bio: c.bio || '无',
+      extraNotes: (chat.characterOverrides?.[c.id]?.notes) || c.extraNotes || '遵循原人设'
+    })),
+    ...localChars.map(c => ({
+      id: `local_${c.id}`,
+      rawId: c.id,
+      name: c.name,
+      bio: c.bio || '本群专属角色',
+      extraNotes: c.extraNotes || '无'
+    }))
+  ].slice(0, 8);
 
-  // 关系矩阵
-  const relations = chat.relationsMatrix || [];
-  const relationText = relations.length > 0
-    ? relations.map(r => `- 【${r.sourceName}】对【${r.targetName}】的关系看法: ${r.relation}`).join('\n')
-    : '暂未特别指定方向性关系，按常识与性格自然互动。';
+  const memberPrompt = allMembers.map(m => 
+    `- 【角色 ID: ${m.id} | 名称: ${m.name}】
+  人设基底: ${m.bio}
+  当前场景行为规则/补充: ${m.extraNotes}`
+  ).join('\n\n');
 
-  // 场景与补充
-  const overrides = chat.characterOverrides || {};
-  const charDetails = allMembers.map(c => {
-    const ov = overrides[c.rawId] || {};
-    return `- 【角色名称】: ${c.name}
-  【性格/人设】: ${c.bio || '无'}
-  【本群特别设定】: ${ov.notes || '无'}`;
-  }).join('\n\n');
+  // 3. 关系矩阵
+  const relations = chat.relations || [];
+  const relationPrompt = relations.length > 0
+    ? relations.map(r => `- [${r.sourceName}] 对 [${r.targetName}] 的看法/关系: ${r.relation}`).join('\n')
+    : '角色间维持自然的朋友/同伴关系';
 
-  // User 身份
+  // 4. User 多身份列表
   const userIdentities = chat.userIdentities || [];
-  const userDetails = userIdentities.map(u => 
-    `- 【User 身份】"${u.name}" (人设: ${u.persona || '视角用户'})`
+  const userPrompt = userIdentities.map(u => 
+    `- 【User视角身份: ${u.name}】 人设/立场: ${u.persona || '普通视角'}`
   ).join('\n');
 
-  // 全量历史总结 (全部有效)
+  // 5. 历史有效总结 (全部保留且持续有效)
   const summaries = await db.ensembleSummaries.where('chatId').equals(chat.id).toArray();
-  const summaryText = summaries.length > 0
-    ? summaries.map((s, idx) => `[剧情阶段 ${idx + 1} (${s.source === 'manual' ? '手动记录' : '自动生成'})]: ${s.summaryText}\n[关系变化]: ${s.relationChangesText}`).join('\n\n')
-    : '暂无历史总结记录';
+  const summaryPrompt = summaries.length > 0
+    ? summaries.map((s, idx) => `[剧情阶段 ${idx + 1} 总结]: ${s.summaryText}\n[关系演变]: ${s.relationChangesText}`).join('\n\n')
+    : '无历史剧情总结';
 
-  return `你是一个具有沉浸物化审美与极佳戏剧感的多角色大群 AI 引擎。
-你正处于羁绊群聊【${chat.title}】中。
+  return `你是一个擅长多角色群像戏剧演绎的顶级 AI 剧场导演。
+你正处于羁绊大群【${chat.title}】中。
 
-【场景环境 (Scene Prompt)】:
-${chat.scenePrompt || '无特殊环境，角色在群聊中自然互动'}
+【当前大群场景/环境设定 (Scene Prompt)】:
+${chat.scenePrompt || '大家在惬意、自然的沉浸空间里聊天'}
 
-【出场 AI 角色列表】:
-${charDetails}
+【群内参与的 AI 角色档案 (上限 8 位)】:
+${memberPrompt}
 
-【方向性关系认知矩阵】:
-${relationText}
+【定向角色关系矩阵】:
+${relationPrompt}
 
-【当前存在的 User 视角身份】:
-${userDetails}
+【场景内可能出现的 User 视角身份】:
+${userPrompt}
 
-【全量历史剧情与关系总结 (均有效)】:
-${summaryText}
+【截至目前的全部历史剧情与关系总结 (持续生效)】:
+${summaryPrompt}
 
-【绝对规则】:
-1. 绝对严禁 Emoji 表情！图标由 Lucide 矢量图标承担。
-2. 保持深刻的角色沉浸度，切勿破壁。
-3. 必须输出合法的 JSON 格式，其中 \`responses\` 数组最多可包含 10 条连续的 AI 角色回应，格式如下：
-{
-  "responses": [
-    {
-      "senderName": "角色名字",
-      "content": "角色回复内容",
-      "type": "text"
-    }
-  ]
-}
-4. 你可以自决由 1 个或多个角色轮流接话（单次最多 10 条），形成连贯剧情流。`;
+【核心输出规则】:
+1. 绝对严禁包含任何 Emoji 表情！
+2. 保持极致的沉浸感与角色性格鲜明性。
+3. 必须输出合法的 JSON 格式，其中包含 \`responses\` 数组。
+   格式样例：
+   {
+     "responses": [
+       {
+         "characterId": "角色ID(如 global_1 或 local_172...)",
+         "characterName": "角色名字",
+         "content": "发出的对话或动作描写",
+         "typingStyle": "paw" // 可选: "paw" | "sparkle" | "jelly" | "gem"
+       }
+     ]
+   }
+4. 一次请求中，由你根据剧情走向自决由 1 个或多个适合的角色接话回应。单次链式回复最多产生 10 条角色消息。如果指定了【召唤角色】，该角色必须优先发言。`;
 };
 
-// 执行 AI 链式生成
-export const generateEnsembleAiResponse = async (chatId, options = {}, onTypingUpdate) => {
-  const { targetCharacterName = null } = options;
+// 触发 AI 生成回复
+export const generateEnsembleAiResponse = async (chatId, options = {}) => {
+  const { targetCharacterId = null, onTypingStart } = options;
   const chat = await db.ensembleChats.get(chatId);
-  if (!chat) throw new Error('大群不存在');
+  if (!chat) throw new Error('找不到大群数据');
 
   const historyMsgs = await db.ensembleMessages
     .where('chatId')
@@ -133,13 +156,13 @@ export const generateEnsembleAiResponse = async (chatId, options = {}, onTypingU
     .toArray();
   historyMsgs.reverse();
 
-  const systemPrompt = await buildEnsembleSystemPrompt(chat);
+  const systemPrompt = await buildEnsembleSystemPrompt(chat, targetCharacterId);
 
   const formattedHistory = historyMsgs.map((m) => {
-    const prefix = m.senderType === 'user' ? `[User:${m.senderName}]` : `[AI:${m.senderName}]`;
-    if (m.type === 'sticker') return `${prefix}: [发送了表情包: ${m.metadata?.name || 'Sticker'}]`;
-    if (m.type === 'image') return `${prefix}: [发送了图片叙事卡: "${m.content}"]`;
-    if (m.type === 'voice') return `${prefix}: [发送了语音: "${m.content}"]`;
+    const prefix = m.senderType === 'user' ? `[User:${m.senderName}]` : `[AI角色:${m.senderName}]`;
+    if (m.type === 'sticker') return `${prefix}: [发送了表情包: ${m.metadata?.name || '表情'}]`;
+    if (m.type === 'image') return `${prefix}: [发送了图片: ${m.content}]`;
+    if (m.type === 'voice') return `${prefix}: [发送了语音: ${m.content}]`;
     return `${prefix}: ${m.content}`;
   });
 
@@ -148,14 +171,12 @@ export const generateEnsembleAiResponse = async (chatId, options = {}, onTypingU
     ...formattedHistory.map(h => ({ role: 'user', content: h }))
   ];
 
-  if (targetCharacterName) {
+  if (targetCharacterId) {
     promptMessages.push({
       role: 'user',
-      content: `[系统指令]: 请让角色【${targetCharacterName}】优先发言回应。`
+      content: `[系统指令]: 请强制让角色 ID 为【${targetCharacterId}】的角色优先做出回应。`
     });
   }
-
-  if (onTypingUpdate) onTypingUpdate({ isTyping: true, characterName: targetCharacterName || '角色们' });
 
   const rawResult = await callAiAPI(promptMessages, { jsonMode: true });
 
@@ -169,22 +190,22 @@ export const generateEnsembleAiResponse = async (chatId, options = {}, onTypingU
 
   const generatedMessages = [];
   if (Array.isArray(parsed.responses)) {
-    // 限制单次最高 10 条
-    const sliceResponses = parsed.responses.slice(0, 10);
-    
-    for (const item of sliceResponses) {
-      if (!item.content || !item.senderName) continue;
+    // 限制单次链式回复最多 10 条
+    const responsesList = parsed.responses.slice(0, 10);
 
-      if (onTypingUpdate) onTypingUpdate({ isTyping: true, characterName: item.senderName });
-      
+    for (const item of responsesList) {
+      if (!item.content) continue;
+
+      // 过滤 Emoji
       const cleanContent = item.content.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
 
       const newMsg = {
         chatId,
-        senderId: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        senderName: item.senderName,
-        senderAvatar: '',
+        senderId: item.characterId || `char_${Date.now()}`,
+        senderName: item.characterName || 'AI角色',
+        senderAvatar: item.avatar || '',
         senderType: 'character',
+        characterId: item.characterId,
         type: 'text',
         content: cleanContent,
         metadata: {},
@@ -195,37 +216,37 @@ export const generateEnsembleAiResponse = async (chatId, options = {}, onTypingU
       const insertedId = await db.ensembleMessages.add(newMsg);
       newMsg.id = insertedId;
       generatedMessages.push(newMsg);
-      
-      // 短暂延迟产生轮流说话打字节奏
-      await new Promise(r => setTimeout(r, 400));
     }
   }
 
-  // 累积完成一次 AI 链式回复
+  // 更新链式回复计数器与活跃时间
   const newChainCount = (chat.aiChainCount || 0) + 1;
-  const summaryFreq = chat.autoSummaryFrequency || 5;
+  const autoFreq = chat.summaryFrequencyRounds || 5;
 
   await db.ensembleChats.update(chatId, {
     aiChainCount: newChainCount,
     updatedAt: Date.now()
   });
 
-  // 判断是否达到了总结频率
-  if (newChainCount % summaryFreq === 0) {
-    await generateEnsembleSummary(chatId, 'auto');
+  // 达到规定的链式轮数后，自动触发总结
+  if (newChainCount % autoFreq === 0) {
+    void generateEnsembleSummary(chatId);
   }
-
-  if (onTypingUpdate) onTypingUpdate({ isTyping: false, characterName: '' });
 
   return generatedMessages;
 };
 
-// 剧情与关系总结 (可手动触发或自动触发)
-export const generateEnsembleSummary = async (chatId, source = 'manual') => {
+// 自动/手动生成剧情与关系总结 (默认追加，全量有效)
+export const generateEnsembleSummary = async (chatId) => {
   const chat = await db.ensembleChats.get(chatId);
   if (!chat) return;
 
-  const msgs = await db.ensembleMessages.where('chatId').equals(chatId).reverse().limit(35).toArray();
+  const msgs = await db.ensembleMessages
+    .where('chatId')
+    .equals(chatId)
+    .reverse()
+    .limit(40)
+    .toArray();
   msgs.reverse();
 
   if (msgs.length < 4) return;
@@ -235,28 +256,27 @@ export const generateEnsembleSummary = async (chatId, source = 'manual') => {
   const prompt = [
     {
       role: 'system',
-      content: `总结以下大群对话的阶段性剧情发展与角色关系演化。
-零 Emoji！请以 JSON 格式输出：
+      content: `你是一个剧场剧情记录员。请总结以下群聊对话的主要剧情发展以及角色之间关系的变化（如有）。
+绝对零 Emoji！请以 JSON 格式输出：
 {
-  "summaryText": "关键剧情发展...",
-  "relationChangesText": "角色之间的互动与关系微妙变迁..."
+  "summaryText": "关键剧情发展总结...",
+  "relationChangesText": "角色之间的互动与关系微妙变化..."
 }`
     },
     { role: 'user', content: conversationText }
   ];
 
-  const raw = await callAiAPI(prompt, { jsonMode: true });
   try {
+    const raw = await callAiAPI(prompt, { jsonMode: true });
     const data = JSON.parse(raw);
     await db.ensembleSummaries.add({
       chatId,
-      summaryText: data.summaryText || '无重大变化',
-      relationChangesText: data.relationChangesText || '关系保持现状',
-      source, // 'auto' | 'manual'
+      summaryText: data.summaryText || '剧情顺畅推进中',
+      relationChangesText: data.relationChangesText || '关系保持稳定',
       createdAt: Date.now(),
       updatedAt: Date.now()
     });
   } catch (e) {
-    console.error('总结生成解析失败', e);
+    console.error('自动总结生成失败', e);
   }
 };

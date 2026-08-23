@@ -1,77 +1,87 @@
-/* 羁绊群像 (The Ensemble) 独立 CSS - 100dvh 无 TopBar 沉浸审美 */
-
-.ensemble-room-container {
-  height: 100dvh;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+/* 羁绊大群 (The Ensemble) 专属 CSS */
+.ensemble-container {
+  font-family: inherit;
 }
 
-/* 消息气泡悬浮渐显操作按钮 (IG 短信感) */
-.ensemble-msg-item {
-  position: relative;
-}
-
-.ensemble-msg-item .ensemble-msg-actions {
+/* 消息气泡悬浮渐显操作菜单 */
+.ensemble-msg-card .ensemble-msg-actions {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  transform: translateY(4px) scale(0.95);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
 }
 
-.ensemble-msg-item:hover .ensemble-msg-actions,
-.ensemble-msg-item:focus-within .ensemble-msg-actions,
-.ensemble-msg-item.active-tap .ensemble-msg-actions {
+.ensemble-msg-card:hover .ensemble-msg-actions,
+.ensemble-msg-card:focus-within .ensemble-msg-actions,
+.ensemble-msg-card.active-tap .ensemble-msg-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 
-/* 悬浮单行 Dock 输入框 */
-.ensemble-dock-container {
-  margin: 0.5rem;
-  border-radius: 1.5rem;
-  background: var(--modal-overlay);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--card-shadow);
+/* 气泡美化与自适应 */
+.ensemble-bubble-user {
+  background-color: var(--accent-color);
+  color: var(--accent-foreground);
+  border-radius: 18px 18px 4px 18px;
 }
 
-/* 自适应多行 Textarea 滚动条 */
-.ensemble-textarea-input {
-  width: 100%;
-  resize: none;
-  min-height: 36px;
-  max-height: 120px;
-  overflow-y: auto;
-  background: transparent;
-  outline: none;
-  font-size: 0.8125rem;
-  line-height: 1.35;
+.ensemble-bubble-char {
+  background-color: var(--bg-surface-strong);
   color: var(--text-main);
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid var(--card-border);
+}
+/* 羁绊大群 (The Ensemble) 独立视觉与悬浮 UI */
+.ensemble-container {
+  font-family: inherit;
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
 }
 
-.ensemble-textarea-input::-webkit-scrollbar {
+/* 消息气泡上的隐匿操作按钮 */
+.ensemble-msg-card .ensemble-msg-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
+}
+
+.ensemble-msg-card:hover .ensemble-msg-actions,
+.ensemble-msg-card:focus-within .ensemble-msg-actions,
+.ensemble-msg-card.active-tap .ensemble-msg-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* 自适应 Textarea 无痕内部滚动条 */
+.ensemble-textarea-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--card-border) transparent;
+}
+
+.ensemble-textarea-scroll::-webkit-scrollbar {
   width: 4px;
 }
-.ensemble-textarea-input::-webkit-scrollbar-thumb {
-  background: var(--card-border);
+
+.ensemble-textarea-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--card-border);
   border-radius: 4px;
 }
 
-/* 3D 卡片翻转必备 */
-.perspective-1000 {
-  perspective: 1000px;
+/* 消息气泡样式 */
+.ensemble-bubble-user {
+  background-color: var(--accent-color);
+  color: var(--accent-foreground);
+  border-radius: 18px 18px 4px 18px;
 }
-.transform-style-3d {
-  transform-style: preserve-3d;
-}
-.backface-hidden {
-  backface-visibility: hidden;
-}
-.rotate-y-180 {
-  transform: rotateY(180deg);
+
+.ensemble-bubble-char {
+  background-color: var(--bg-surface-strong);
+  color: var(--text-main);
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid var(--card-border);
 }

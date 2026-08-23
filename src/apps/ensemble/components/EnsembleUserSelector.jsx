@@ -1,41 +1,73 @@
 import React, { useState } from 'react';
-import { User, Plus, Check, Zap } from 'lucide-react';
+import { User, Plus, Check, Zap, Edit3, Image as ImageIcon } from 'lucide-react';
 
 export const EnsembleUserSelector = ({
   userIdentities = [],
   currentIdentityId,
   onSelectIdentity,
-  onAddTempIdentity
+  onAddTempIdentity,
+  onUpdateIdentity
 }) => {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [tempName, setTempName] = useState('');
-  const [tempPersona, setTempPersona] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [name, setName] = useState('');
+  const [persona, setPersona] = useState('');
+  const [avatar, setAvatar] = useState('');
 
-  const currentIdentity = userIdentities.find((u) => u.id === currentIdentityId) || userIdentities[0];
+  const openCreateModal = () => {
+    setEditingItem(null);
+    setName('');
+    setPersona('');
+    setAvatar('');
+    setShowModal(true);
+  };
 
-  const handleCreateTemp = (e) => {
+  const openEditModal = (item, e) => {
+    e.stopPropagation();
+    setEditingItem(item);
+    setName(item.name || '');
+    setPersona(item.persona || '');
+    setAvatar(item.avatar || '');
+    setShowModal(true);
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => setAvatar(evt.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!tempName.trim()) return;
-    const newId = `temp_${Date.now()}`;
-    const newIdentity = {
-      id: newId,
-      name: tempName.trim(),
-      avatar: '',
-      persona: tempPersona.trim() || '临时扮演角色',
-      isTemp: true
-    };
-    onAddTempIdentity(newIdentity);
-    onSelectIdentity(newId);
-    setTempName('');
-    setTempPersona('');
-    setShowAddModal(false);
+    if (!name.trim()) return;
+
+    if (editingItem) {
+      onUpdateIdentity(editingItem.id, {
+        name: name.trim(),
+        persona: persona.trim(),
+        avatar
+      });
+    } else {
+      const newId = `temp_${Date.now()}`;
+      onAddTempIdentity({
+        id: newId,
+        name: name.trim(),
+        persona: persona.trim() || '临时视角身份',
+        avatar,
+        isTemp: true
+      });
+      onSelectIdentity(newId);
+    }
+    setShowModal(false);
   };
 
   return (
     <div className="relative mb-2 flex items-center justify-between px-1">
-      {/* 身份胶囊选择轴 */}
+      {/* 身份视角独立悬浮胶囊栏 */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 max-w-full">
-        <span className="text-[10px] font-medium tracking-wider uppercase opacity-40 shrink-0 flex items-center gap-1 mr-1">
+        <span className="text-[10px] font-medium uppercase opacity-40 shrink-0 flex items-center gap-1 mr-1">
           <User className="w-3 h-3" />
           视角:
         </span>
@@ -43,19 +75,16 @@ export const EnsembleUserSelector = ({
         {userIdentities.map((item) => {
           const isActive = item.id === currentIdentityId;
           return (
-            <button
+            <div
               key={item.id}
-              type="button"
               onClick={() => onSelectIdentity(item.id)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 active:scale-95 ${
-                isActive
-                  ? 'shadow-sm'
-                  : 'opacity-70 hover:opacity-100'
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all shrink-0 cursor-pointer active:scale-95 border ${
+                isActive ? 'shadow-sm' : 'opacity-70 hover:opacity-100'
               }`}
               style={{
                 backgroundColor: isActive ? 'var(--accent-color)' : 'var(--control-soft-bg)',
                 color: isActive ? 'var(--accent-foreground)' : 'var(--text-main)',
-                border: isActive ? '1px solid transparent' : '1px solid var(--card-border)'
+                borderColor: isActive ? 'transparent' : 'var(--card-border)'
               }}
             >
               {item.avatar ? (
@@ -67,14 +96,20 @@ export const EnsembleUserSelector = ({
               )}
               <span>{item.name}</span>
               {item.isTemp && <span className="text-[9px] opacity-60 font-mono">(临时)</span>}
-              {isActive && <Check className="w-3 h-3 ml-0.5" />}
-            </button>
+              <button
+                type="button"
+                onClick={(e) => openEditModal(item, e)}
+                className="p-0.5 opacity-40 hover:opacity-100"
+              >
+                <Edit3 className="w-2.5 h-2.5" />
+              </button>
+            </div>
           );
         })}
 
         <button
           type="button"
-          onClick={() => setShowAddModal(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-transform active:scale-95 shrink-0 opacity-70 hover:opacity-100"
           style={{
             backgroundColor: 'var(--control-soft-bg)',
@@ -83,12 +118,12 @@ export const EnsembleUserSelector = ({
           }}
         >
           <Plus className="w-3 h-3" />
-          <span>临时身份</span>
+          <span>临时视角</span>
         </button>
       </div>
 
-      {/* 极简新增临时身份弹窗 */}
-      {showAddModal && (
+      {/* 视角卡配置 / 新增 Modal */}
+      {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
           <div
             className="w-full max-w-xs rounded-2xl p-4 space-y-3 shadow-xl animate-scale-up"
@@ -101,60 +136,63 @@ export const EnsembleUserSelector = ({
             <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--divider)' }}>
               <div className="flex items-center gap-1.5 text-xs font-semibold">
                 <Zap className="w-3.5 h-3.5" />
-                切换临时身份视角
+                {editingItem ? '编辑视角身份' : '新增临时视角'}
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="text-xs opacity-50 hover:opacity-100"
-              >
+              <button type="button" onClick={() => setShowModal(false)} className="text-xs opacity-50 hover:opacity-100">
                 取消
               </button>
             </div>
 
-            <form onSubmit={handleCreateTemp} className="space-y-2.5">
+            <form onSubmit={handleSubmit} className="space-y-2.5">
               <div>
-                <label className="text-[10px] block opacity-60 mb-1">身份名称 (如: 旁白 / 咖啡师)</label>
+                <label className="text-[10px] block opacity-60 mb-1">身份名称</label>
                 <input
                   type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  placeholder="例如: 旁白"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="例如: 旁白 / 侦探"
                   className="w-full px-3 py-1.5 rounded-lg text-xs border outline-none"
-                  style={{
-                    backgroundColor: 'var(--bg-surface)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-main)'
-                  }}
-                  autoFocus
+                  style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] block opacity-60 mb-1">临时人设 / 视角描摹 (选填)</label>
-                <input
-                  type="text"
-                  value={tempPersona}
-                  onChange={(e) => setTempPersona(e.target.value)}
-                  placeholder="例如: 冷眼旁观历史发展的第三方"
-                  className="w-full px-3 py-1.5 rounded-lg text-xs border outline-none"
-                  style={{
-                    backgroundColor: 'var(--bg-surface)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-main)'
-                  }}
+                <label className="text-[10px] block opacity-60 mb-1">身份头像 (URL 或 本地图片)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={avatar}
+                    onChange={(e) => setAvatar(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 px-3 py-1.5 rounded-lg text-xs border outline-none"
+                    style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
+                  />
+                  <label className="p-2 rounded-lg border cursor-pointer opacity-70 hover:opacity-100" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] block opacity-60 mb-1">人设描述 / 视角立场</label>
+                <textarea
+                  rows={2}
+                  value={persona}
+                  onChange={(e) => setPersona(e.target.value)}
+                  placeholder="例如: 冷静记录事件走向的第三视角..."
+                  className="w-full px-3 py-1.5 rounded-lg text-xs border outline-none resize-none"
+                  style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 rounded-xl text-xs font-semibold transition-transform active:scale-95 mt-1"
-                style={{
-                  backgroundColor: 'var(--accent-color)',
-                  color: 'var(--accent-foreground)'
-                }}
+                className="w-full py-2 rounded-xl text-xs font-semibold active:scale-95 transition-transform mt-1"
+                style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
               >
-                切入该身份视角
+                保存视角
               </button>
             </form>
           </div>
@@ -163,3 +201,4 @@ export const EnsembleUserSelector = ({
     </div>
   );
 };
+

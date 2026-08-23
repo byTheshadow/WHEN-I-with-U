@@ -22,11 +22,11 @@ export const EnsembleMessageItem = ({
   return (
     <div
       onClick={() => setIsTapped(!isTapped)}
-      className={`ensemble-msg-item group relative flex flex-col my-3 transition-all ${
+      className={`ensemble-msg-card group relative flex flex-col my-3 transition-all ${
         isUser ? 'items-end' : 'items-start'
       } ${isTapped ? 'active-tap' : ''}`}
     >
-      {/* 发件人/身份标签 */}
+      {/* 身份/角色发件人名称 */}
       <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] opacity-60">
         {!isUser && msg.senderAvatar && (
           <img src={msg.senderAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
@@ -37,7 +37,7 @@ export const EnsembleMessageItem = ({
         )}
       </div>
 
-      {/* 被引用的上条消息简述 */}
+      {/* 引用来源卡片 */}
       {msg.quotedMessage && (
         <div
           className="max-w-[85%] text-[10px] px-2.5 py-1 mb-1 rounded-lg border-l-2 opacity-75 truncate"
@@ -52,9 +52,9 @@ export const EnsembleMessageItem = ({
         </div>
       )}
 
-      {/* 消息本体与悬浮快捷按钮 */}
+      {/* 消息本体容器 */}
       <div className="relative max-w-[85%]">
-        {/* 悬浮/点击才浮现的操作栏 (彻底避免干扰 UI) */}
+        {/* 悬浮/点击浮现的操作栏 */}
         <div
           className={`ensemble-msg-actions absolute -top-8 ${
             isUser ? 'right-0' : 'left-0'
@@ -89,14 +89,14 @@ export const EnsembleMessageItem = ({
           <button
             type="button"
             onClick={() => onDelete(msg.id)}
-            title="删除消息"
+            title="删除"
             className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-red-500 opacity-80 hover:opacity-100"
           >
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
 
-        {/* 根据消息类型精准对接标准组件 */}
+        {/* 消息分发 */}
         {msg.type === 'text' && (
           <div
             className={`w-fit max-w-full text-left break-words px-3.5 py-2.5 text-xs leading-relaxed transition-shadow shadow-sm ${
@@ -107,23 +107,20 @@ export const EnsembleMessageItem = ({
           </div>
         )}
 
-        {/* 真正的 StickerCard 对接 */}
         {msg.type === 'sticker' && (
           <StickerCard metadata={msg.metadata || { url: msg.content }} isUser={isUser} />
         )}
 
-        {/* 真正的 ImageCard (支持 3D 翻面查看画面叙事) 对接 */}
         {msg.type === 'image' && (
           <ImageCard content={msg.content} metadata={msg.metadata || { description: msg.content }} />
         )}
 
-        {/* 真正的 VoiceCard 对接 */}
         {msg.type === 'voice' && (
-          <VoiceCard content={msg.content} metadata={msg.metadata} />
+          <VoiceCard content={msg.content} metadata={msg.metadata || {}} />
         )}
       </div>
 
-      {/* 快捷召唤指定 AI 角色继续回应 */}
+      {/* 快捷召唤回应（针对 AI 角色消息底部） */}
       {!isUser && onSummonChar && (
         <div className="mt-1 flex items-center gap-1">
           <button
@@ -136,12 +133,12 @@ export const EnsembleMessageItem = ({
             }}
           >
             <Sparkles className="w-2.5 h-2.5" />
-            <span>召唤其接话</span>
+            <span>召唤回应</span>
           </button>
         </div>
       )}
 
-      {/* 时间戳与已读标记：彻底置于气泡正下方 */}
+      {/* 时间戳与已读标记 */}
       <div
         className={`flex items-center gap-1 mt-1 text-[9px] font-mono opacity-50 px-1 ${
           isUser ? 'justify-end' : 'justify-start'
