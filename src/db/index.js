@@ -215,7 +215,6 @@ db.version(11).stores({
   imaginariumSummaries: '++id, chatId, createdAt'
 });
 
-// 🛠️ Version 12: 羁绊大群 (The Ensemble) 独立表
 db.version(12).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -229,18 +228,21 @@ db.version(12).stores({
   travels: '++id, characterId, status',
   travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
   travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
   snapshots: '++id, characterId, createdAt, linkedChatId',
   snapshotComments: '++id, snapshotId, characterId, createdAt',
   snapshotRelations: '++id, characterId, targetCharacterId, relation',
   snapshotSettings: 'key, value',
+
   settings: 'key',
   pebblings: '++id, characterId, status, stoneType, createdAt, respondAt',
   stickers: '++id, name, url, category, createdAt',
+
   imaginariumChats: '++id, title, createdAt, updatedAt',
   imaginariumMessages: '++id, chatId, senderId, timestamp',
   imaginariumSummaries: '++id, chatId, createdAt',
 
-  // 👈 羁绊大群 (The Ensemble)
+  // 👈 羁绊大群 (The Ensemble) 专属表
   ensembleChats: '++id, title, createdAt, updatedAt',
   ensembleMessages: '++id, chatId, senderId, timestamp',
   ensembleSummaries: '++id, chatId, createdAt'
