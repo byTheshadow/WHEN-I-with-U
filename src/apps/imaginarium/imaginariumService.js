@@ -3,36 +3,47 @@ import db from '../../db';
 /**
  * 安全接入 API 调用（适配各种环境导出）
  */
+/**
+ * 与全局 Settings 中 apiConfig 配置兼容的 AI 调用引擎。
+ *
+ * settings 表记录结构：
+ * {
+ *   key: 'apiConfig',
+ *   value: {
+ *     baseUrl: 'https://...',
+ *     apiKey: 'sk-...',
+ *     model: 'gpt-4o'
+ *   }
+ * }
+ */
 const callAiAPI = async (systemPrompt, messagesHistory) => {
   try {
-    // 优先尝试读取 settings 中的自定义 API 配置
-    const settings = await db.settings.toArray();
-    const configMap = {};
-    settings.forEach((s) => {
-      configMap[s.key] = s.value;
-    });
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
 
-    const apiKey = configMap.api_key || configMap.apiKey;
-    const baseUrl = (configMap.api_base_url || configMap.apiBaseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
-    const model = configMap.api_model || configMap.model || 'gpt-4o-mini';
-
-    if (!apiKey) {
-      throw new Error('未配置 API Key，请先前往主页 Settings 页面配置 API 秘钥');
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+      throw new Error('请先在系统 Settings 页面配置有效的 API Base URL 与 API Key。');
     }
 
+    const baseUrl = String(apiConfig.baseUrl).replace(/\/+$/, '');
+    const model = apiConfig.model || 'gpt-3.5-turbo';
+
     const formattedMessages = [
-      { role: 'system', content: systemPrompt },
-      ...messagesHistory.map((m) => ({
-        role: m.senderType === 'user' ? 'user' : 'assistant',
-        content: `[${m.senderName}]: ${m.content}`
+      {
+        role: 'system',
+        content: systemPrompt
+      },
+      ...messagesHistory.map((message) => ({
+        role: message.senderType === 'user' ? 'user' : 'assistant',
+        content: `[${message.senderName}]: ${message.content}`
       }))
     ];
 
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiConfig.apiKey}`
       },
       body: JSON.stringify({
         model,
@@ -41,19 +52,25 @@ const callAiAPI = async (systemPrompt, messagesHistory) => {
       })
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`API 响应错误 (${res.status}): ${errText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 响应错误 (${response.status}): ${errorText}`);
     }
 
-    const data = await res.json();
+    const data = await response.json();
     const resultText = data.choices?.[0]?.message?.content || '';
+
+    if (!resultText.trim()) {
+      throw new Error('API 未返回有效的文本内容。');
+    }
+
     return resultText.trim();
-  } catch (err) {
-    console.error('Imaginarium AI Call Error:', err);
-    throw err;
+  } catch (error) {
+    console.error('Imaginarium AI Call Error:', error);
+    throw error;
   }
 };
+
 
 /**
  * 格式化多角色与总结的 System Prompt
