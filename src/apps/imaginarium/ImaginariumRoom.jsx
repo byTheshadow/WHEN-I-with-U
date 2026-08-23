@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Sliders, Send, Sparkles, AtSign, Smile, RotateCcw, Quote, Trash2, StopCircle } from 'lucide-react';
+import { ArrowLeft, Sliders, Send, Sparkles, AtSign, Smile, RotateCcw, Quote, Trash2, StopCircle, CheckCheck, Check } from 'lucide-react';
 import VoiceCard from '../messages/components/cards/VoiceCard';
 import StickerPickerModal from '../messages/components/StickerPickerModal';
 import ConfirmModal from '../../components/ConfirmModal';
 import ImaginariumSettingsModal from './ImaginariumSettingsModal';
+import ImaginariumHeaderBanner from './components/ImaginariumHeaderBanner';
+import ImaginariumCuteTypingIndicator from './components/ImaginariumCuteTypingIndicator';
+
 import {
   getImaginariumChatById,
   getImaginariumMessages,
@@ -22,7 +25,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
   const [targetNpcId, setTargetNpcId] = useState(null);
 
   const [quotedMessage, setQuotedMessage] = useState(null);
-  const [activeMsgId, setActiveMsgId] = useState(null); // 👈 手机端点击选中的消息 ID
+  const [activeMsgId, setActiveMsgId] = useState(null);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
@@ -33,6 +36,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
   const [isFreeDiscussing, setIsFreeDiscussing] = useState(false);
   const freeDiscussCancelRef = useRef(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [thinkingNpc, setThinkingNpc] = useState(null);
 
   const bottomRef = useRef(null);
 
@@ -52,6 +56,12 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
   };
 
   if (!chat) return null;
+
+  const formatTimestamp = (ts) => {
+    if (!ts) return '';
+    const date = new Date(ts);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
 
   const handleSendMessageOnly = async () => {
     if (!inputText.trim()) return;
@@ -77,9 +87,13 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
 
   const handleSummonAI = async (npcIdOverride = null) => {
     if (isAiThinking) return;
+    const activeTargetId = npcIdOverride || targetNpcId;
+    const targetMember = chat.members?.find((m) => m.id === activeTargetId);
+
     setIsAiThinking(true);
+    setThinkingNpc(targetMember || null);
+
     try {
-      const activeTargetId = npcIdOverride || targetNpcId;
       const aiMsg = await triggerImaginariumAI(chatId, activeTargetId);
       setMessages((prev) => [...prev, aiMsg]);
       setTargetNpcId(null);
@@ -87,6 +101,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
       alert(err.message || 'AI 响应失败');
     } finally {
       setIsAiThinking(false);
+      setThinkingNpc(null);
     }
   };
 
@@ -180,6 +195,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
     <div className="imaginarium-chat-room flex flex-col h-full w-full relative overflow-hidden select-none">
       {chat.customCss && <style>{chat.customCss}</style>}
 
+      {/* 沉浸图像背景遮罩 */}
       {chat.bgImage && (
         <div
           className="imaginarium-bg-overlay"
@@ -190,45 +206,47 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
         />
       )}
 
-      {/* 1. 顶部 Header (固定) */}
-      <header className="shrink-0 z-30 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
-        <button type="button" onClick={onBack} className="imaginarium-icon-btn">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-
-        <div className="text-center truncate mx-2 max-w-[180px]">
-          <h3 className="font-serif font-bold text-xs truncate tracking-wide">{chat.title}</h3>
-          <span className="text-[9px] opacity-40 uppercase tracking-widest block">Salon</span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={handleStartFreeDiscussion}
-            className="imaginarium-icon-btn text-[11px] font-bold px-2.5 py-1 gap-1"
-            style={{
-              backgroundColor: isFreeDiscussing ? 'var(--accent-color)' : 'var(--control-soft-bg)',
-              color: isFreeDiscussing ? 'var(--accent-foreground)' : 'var(--text-main)'
-            }}
-          >
-            {isFreeDiscussing ? <StopCircle className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            <span>{isFreeDiscussing ? '停止' : '自由讨论'}</span>
+      {/* 1. 无实体 Top Bar 底色：浮动导航与状态栏集成 */}
+      <div className="z-30 shrink-0 px-3 pt-3 flex flex-col pointer-events-none">
+        <div className="flex items-center justify-between pointer-events-auto">
+          <button type="button" onClick={onBack} className="imaginarium-icon-btn">
+            <ArrowLeft className="w-4 h-4" />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowSettings(true)}
-            className="imaginarium-icon-btn"
-          >
-            <Sliders className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleStartFreeDiscussion}
+              className="imaginarium-icon-btn text-[11px] font-bold px-3 py-1.5 gap-1"
+              style={{
+                backgroundColor: isFreeDiscussing ? 'var(--accent-color)' : 'var(--control-soft-bg)',
+                color: isFreeDiscussing ? 'var(--accent-foreground)' : 'var(--text-main)'
+              }}
+            >
+              {isFreeDiscussing ? <StopCircle className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>{isFreeDiscussing ? '停止' : '自由讨论'}</span>
+            </button>
 
-      {/* 2. 中间消息滚动区域 (独立 overflow-y-auto) */}
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="imaginarium-icon-btn"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 可折叠状态栏抽屉 */}
+        <div className="pointer-events-auto mt-1">
+          <ImaginariumHeaderBanner chat={chat} onUpdateChatInfo={(updated) => setChat(updated)} />
+        </div>
+      </div>
+
+      {/* 2. 中间消息滚动区域 (独立滑动) */}
       <main
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 relative z-10 scroll-smooth"
-        onClick={() => setActiveMsgId(null)} // 点击空白处收起操作栏
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 relative z-10 scroll-smooth"
+        onClick={() => setActiveMsgId(null)}
       >
         {messages.map((m) => {
           const isUser = m.senderType === 'user';
@@ -241,8 +259,8 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
               className={`group flex items-start gap-2.5 animate-fade-in-up ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <div
-                className="w-8 h-8 rounded-full overflow-hidden shrink-0 font-bold text-xs flex items-center justify-center shadow-sm"
-                style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+                className="w-8 h-8 rounded-full overflow-hidden shrink-0 font-bold text-xs flex items-center justify-center shadow-sm border"
+                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
               >
                 {m.senderAvatar ? (
                   <img src={m.senderAvatar} alt={m.senderName} className="w-full h-full object-cover" />
@@ -252,7 +270,9 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
               </div>
 
               <div className={`space-y-1 max-w-[78%] ${isUser ? 'items-end text-right' : 'items-start text-left'}`}>
-                <div className="text-[10px] opacity-60 px-1 font-serif">{m.senderName}</div>
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[10px] opacity-60 font-serif">{m.senderName}</span>
+                </div>
 
                 {m.quotedSummary && (
                   <div className="imaginarium-quote-block">
@@ -260,13 +280,13 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                   </div>
                 )}
 
-                {/* 气泡本体：点击可切换选中显示工具栏 */}
+                {/* 气泡本体与时间戳/已读标记 */}
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveMsgId(isSelected ? null : m.id);
                   }}
-                  className={`p-3 text-xs leading-relaxed cursor-pointer transition-transform active:scale-[0.99] ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}
+                  className={`p-3 text-xs leading-relaxed cursor-pointer transition-all active:scale-[0.99] relative group ${isUser ? 'imaginarium-bubble-user' : 'imaginarium-bubble-ai'}`}
                 >
                   {m.type === 'sticker' ? (
                     <img src={m.content} alt="贴纸" className="max-w-[120px] rounded-xl" />
@@ -275,9 +295,17 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
                   ) : (
                     m.content
                   )}
+
+                  {/* 气泡底部微小时间戳与已读打钩图标 */}
+                  <div className={`flex items-center gap-1 pt-1 text-[9px] opacity-50 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    <span className="font-mono">{formatTimestamp(m.timestamp)}</span>
+                    {isUser && (
+                      <CheckCheck className="w-3 h-3 text-emerald-400" />
+                    )}
+                  </div>
                 </div>
 
-                {/* 👈 操作工具栏：默认隐藏，hover 或点击选中时才渐显 */}
+                {/* 浮动操作栏 (引用、重roll、删除) */}
                 <div
                   className={`flex items-center gap-2 pt-0.5 px-1 text-[10px] transition-all duration-200 ${
                     isSelected ? 'opacity-90 max-h-6' : 'opacity-0 max-h-0 overflow-hidden group-hover:opacity-90 group-hover:max-h-6'
@@ -323,9 +351,13 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
           );
         })}
 
+        {/* 成员打字中指示器 */}
         {isAiThinking && (
-          <div className="flex items-center gap-2 text-xs opacity-50 font-serif italic py-2 animate-pulse">
-            <Sparkles className="w-3.5 h-3.5 animate-spin" /> 沙龙成员正在沉思接话...
+          <div className="py-2 flex items-center justify-start">
+            <ImaginariumCuteTypingIndicator
+              activeSpeakerName={thinkingNpc?.name}
+              activeSpeakerAvatar={thinkingNpc?.avatar}
+            />
           </div>
         )}
 
@@ -333,8 +365,8 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
       </main>
 
       {/* 3. 底部 Dock 输入栏 (固定) */}
-      <footer className="shrink-0 z-30 px-3 pb-3 pt-1 border-t" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-main)' }}>
-        <div className="imaginarium-dock max-w-[420px] mx-auto p-2.5 rounded-[1.8rem] border shadow-lg backdrop-blur-xl space-y-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+      <footer className="shrink-0 z-30 px-3 pb-3 pt-1">
+        <div className="imaginarium-dock max-w-[420px] mx-auto p-2.5 rounded-[1.8rem] border shadow-xl backdrop-blur-xl space-y-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
           {quotedMessage && (
             <div className="flex items-center justify-between p-2 rounded-xl text-xs bg-black/5 dark:bg-white/5 border border-dashed">
               <span className="truncate opacity-80">引用 [{quotedMessage.senderName}]: {quotedMessage.content}</span>
@@ -426,7 +458,7 @@ export const ImaginariumRoom = ({ chatId, onBack }) => {
 
       <ConfirmModal
         isOpen={Boolean(deletingMsgId)}
-        title="删除此气泡"
+        title="删除气泡"
         message="是否彻底移除这条气泡消息？"
         onConfirm={handleConfirmDeleteMsg}
         onCancel={() => setDeletingMsgId(null)}
