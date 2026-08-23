@@ -7,12 +7,15 @@ import {
   Database,
   Download,
   HardDrive,
+  Heart,
   ImageOff,
   Key,
   Moon,
+  Music,
   Palette,
+  Plus,
   RefreshCw,
-  RotateCcw,
+  Save,
   Sliders,
   Trash2,
   Upload,
@@ -21,6 +24,12 @@ import {
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
+import {
+  getLockscreenQuotes,
+  saveLockscreenQuotes,
+  startLockscreenCompanion,
+  stopLockscreenCompanion,
+} from '../../services/lockscreenService';
 
 const TABLE_NAMES = [
   'profile',
@@ -57,7 +66,10 @@ const readBlobAsDataUrl = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-const dataUrlToBlob = async (dataUrl, fallbackType = 'application/octet-stream') => {
+const dataUrlToBlob = async (
+  dataUrl,
+  fallbackType = 'application/octet-stream',
+) => {
   const response = await fetch(dataUrl);
   const blob = await response.blob();
 
@@ -128,8 +140,8 @@ const isValidBackup = (backup) => {
   if (backup.format !== BACKUP_FORMAT) return false;
   if (!backup.data || typeof backup.data !== 'object') return false;
 
-  return TABLE_NAMES.every(
-    (tableName) => Array.isArray(backup.data[tableName]),
+  return TABLE_NAMES.every((tableName) =>
+    Array.isArray(backup.data[tableName]),
   );
 };
 
@@ -141,6 +153,10 @@ export const SettingsPage = ({
   onToggleTitle,
 }) => {
   const importInputRef = useRef(null);
+  const saveToastTimerRef = useRef(null);
+
+  const [draftTheme, setDraftTheme] = useState(currentTheme);
+  const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
 
   const [autoMessage, setAutoMessage] = useState(false);
   const [frequency, setFrequency] = useState('moderate');
@@ -149,11 +165,17 @@ export const SettingsPage = ({
     start: '23:00',
     end: '08:00',
   });
+
   const [apiConfig, setApiConfig] = useState({
     baseUrl: '',
     apiKey: '',
     model: '',
   });
+
+  const [lockscreenQuotes, setLockscreenQuotes] = useState([]);
+  const [newQuoteInput, setNewQuoteInput] = useState('');
+  const [isCompanionActive, setIsCompanionActive] = useState(false);
+
   const [models, setModels] = useState([]);
   const [apiStatus, setApiStatus] = useState('idle');
   const [storageInfo, setStorageInfo] = useState({
@@ -161,10 +183,18 @@ export const SettingsPage = ({
     usage: 0,
     quota: 0,
   });
+
   const [dataStatus, setDataStatus] = useState({
     type: 'idle',
     message: '',
   });
+
+  const [saveStatus, setSaveStatus] = useState({
+    type: 'idle',
+    message: '',
+  });
+
+  const [isSaving, setIsSaving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingImport, setPendingImport] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -189,6 +219,7 @@ export const SettingsPage = ({
       });
     } catch (error) {
       console.error('Unable to estimate storage usage:', error);
+
       setStorageInfo({
         supported: false,
         usage: 0,
@@ -197,22 +228,23 @@ export const SettingsPage = ({
     }
   };
 
-  const saveSetting = async (key, value) => {
-    try {
-      await db.settings.put({ key, value });
-    } catch (error) {
-      console.error(`Unable to save setting: ${key}`, error);
-    }
-  };
-
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const savedSettings = await db.settings.toArray();
+
         const settingMap = savedSettings.reduce((result, item) => {
           result[item.key] = item.value;
           return result;
         }, {});
+
+        if (typeof settingMap.theme === 'string') {
+          setDraftTheme(settingMap.theme);
+        }
+
+        if (typeof settingMap.showTitle === 'boolean') {
+          setDraftShowTitle(settingMap.showTitle);
+        }
 
         if (typeof settingMap.autoMessage === 'boolean') {
           setAutoMessage(settingMap.autoMessage);
@@ -222,19 +254,28 @@ export const SettingsPage = ({
           setFrequency(settingMap.frequency);
         }
 
-        if (settingMap.quietHours && typeof settingMap.quietHours === 'object') {
+        if (
+          settingMap.quietHours &&
+          typeof settingMap.quietHours === 'object'
+        ) {
           setQuietHours((previous) => ({
             ...previous,
             ...settingMap.quietHours,
           }));
         }
 
-        if (settingMap.apiConfig && typeof settingMap.apiConfig === 'object') {
+        if (
+          settingMap.apiConfig &&
+          typeof settingMap.apiConfig === 'object'
+        ) {
           setApiConfig((previous) => ({
             ...previous,
             ...settingMap.apiConfig,
           }));
         }
+
+        const quotes = await getLockscreenQuotes();
+        setLockscreenQuotes(quotes);
       } catch (error) {
         console.error('Unable to load settings:', error);
       }
@@ -242,36 +283,135 @@ export const SettingsPage = ({
 
     loadSettings();
     updateStorageEstimate();
+
+    return () => {
+      if (saveToastTimerRef.current) {
+        clearTimeout(saveToastTimerRef.current);
+      }
+    };
   }, []);
 
-  const handleThemeChange = (themeId) => {
-    onChangeTheme(themeId);
-    saveSetting('theme', themeId);
+  const hasUnsavedChanges =
+    draftTheme !== currentTheme ||
+    draftShowTitle !== showTitle ||
+    autoMessage !== false ||
+    frequency !== 'moderate' ||
+    apiConfig.baseUrl !== '' ||
+    apiConfig.apiKey !== '' ||
+    apiConfig.model !== '';
+
+  const showSaveResult = (type, message) => {
+    setSaveStatus({ type, message });
+
+    if (saveToastTimerRef.current) {
+      clearTimeout(saveToastTimerRef.current);
+    }
+
+    saveToastTimerRef.current = setTimeout(() => {
+      setSaveStatus({ type: 'idle', message: '' });
+    }, 2500);
   };
 
-  const handleTitleChange = (isVisible) => {
-    onToggleTitle(isVisible);
-    saveSetting('showTitle', isVisible);
+  const handleAddQuote = () => {
+    const quote = newQuoteInput.trim();
+
+    if (!quote) return;
+
+    if (quote.length > 120) {
+      showSaveResult('error', '单条锁屏台词请控制在 120 个字符以内。');
+      return;
+    }
+
+    if (lockscreenQuotes.includes(quote)) {
+      showSaveResult('error', '这条锁屏台词已存在。');
+      return;
+    }
+
+    setLockscreenQuotes((previous) => [...previous, quote]);
+    setNewQuoteInput('');
   };
 
-  const handleAutoMessageChange = (isEnabled) => {
-    setAutoMessage(isEnabled);
-    saveSetting('autoMessage', isEnabled);
+  const handleEditQuote = (index, value) => {
+    setLockscreenQuotes((previous) =>
+      previous.map((quote, quoteIndex) =>
+        quoteIndex === index ? value.slice(0, 120) : quote,
+      ),
+    );
   };
 
-  const handleFrequencyChange = (value) => {
-    setFrequency(value);
-    saveSetting('frequency', value);
+  const handleDeleteQuote = (index) => {
+    setLockscreenQuotes((previous) =>
+      previous.filter((_, quoteIndex) => quoteIndex !== index),
+    );
   };
 
-  const handleQuietHoursChange = (nextValue) => {
-    setQuietHours(nextValue);
-    saveSetting('quietHours', nextValue);
+  const handleToggleCompanion = async () => {
+    try {
+      if (isCompanionActive) {
+        stopLockscreenCompanion();
+        setIsCompanionActive(false);
+        showSaveResult('success', '锁屏陪伴已关闭。');
+        return;
+      }
+
+      const character = await db.characters
+        .filter((item) => item.isNpc !== true)
+        .first();
+
+      const started = await startLockscreenCompanion(character || null);
+
+      if (started) {
+        setIsCompanionActive(true);
+        showSaveResult(
+          'success',
+          '锁屏陪伴已开启。请保持音频播放，系统才可能展示媒体卡片。',
+        );
+      } else {
+        showSaveResult(
+          'error',
+          '无法启动锁屏陪伴。请在手机浏览器中通过点击按钮授权播放。',
+        );
+      }
+    } catch (error) {
+      console.error('Unable to toggle lockscreen companion:', error);
+      showSaveResult('error', '锁屏陪伴启动失败，请稍后重试。');
+    }
   };
 
-  const handleApiConfigChange = (nextValue) => {
-    setApiConfig(nextValue);
-    saveSetting('apiConfig', nextValue);
+  const handleSaveAll = async () => {
+    setIsSaving(true);
+
+    try {
+      const cleanQuotes = lockscreenQuotes
+        .map((quote) => quote.trim())
+        .filter(Boolean)
+        .filter((quote, index, array) => array.indexOf(quote) === index);
+
+      await db.transaction('rw', db.settings, async () => {
+        await db.settings.bulkPut([
+          { key: 'theme', value: draftTheme },
+          { key: 'showTitle', value: draftShowTitle },
+          { key: 'autoMessage', value: autoMessage },
+          { key: 'frequency', value: frequency },
+          { key: 'quietHours', value: quietHours },
+          { key: 'apiConfig', value: apiConfig },
+        ]);
+      });
+
+      await saveLockscreenQuotes(cleanQuotes);
+
+      // 主题和首页标题属于 App 层状态，保存后同步应用。
+      onChangeTheme(draftTheme);
+      onToggleTitle(draftShowTitle);
+
+      setLockscreenQuotes(cleanQuotes);
+      showSaveResult('success', '设置已成功保存到本地。');
+    } catch (error) {
+      console.error('Unable to save settings:', error);
+      showSaveResult('error', '保存失败，请检查浏览器本地存储权限。');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const testApiConnection = async () => {
@@ -284,6 +424,7 @@ export const SettingsPage = ({
 
     try {
       const baseUrl = apiConfig.baseUrl.trim().replace(/\/$/, '');
+
       const response = await fetch(`${baseUrl}/models`, {
         headers: apiConfig.apiKey
           ? { Authorization: `Bearer ${apiConfig.apiKey}` }
@@ -295,21 +436,23 @@ export const SettingsPage = ({
       }
 
       const responseData = await response.json();
+
       const modelList = Array.isArray(responseData.data)
         ? responseData.data
-          .map((model) => model?.id)
-          .filter((modelId) => typeof modelId === 'string' && modelId.length > 0)
+            .map((model) => model?.id)
+            .filter(
+              (modelId) =>
+                typeof modelId === 'string' && modelId.length > 0,
+            )
         : [];
 
       setModels(modelList);
 
-      const nextConfig = {
-        ...apiConfig,
-        model: apiConfig.model || modelList[0] || '',
-      };
+      setApiConfig((previous) => ({
+        ...previous,
+        model: previous.model || modelList[0] || '',
+      }));
 
-      setApiConfig(nextConfig);
-      saveSetting('apiConfig', nextConfig);
       setApiStatus('success');
     } catch (error) {
       console.error('API connection failed:', error);
@@ -356,6 +499,7 @@ export const SettingsPage = ({
       document.body.appendChild(downloadLink);
       downloadLink.click();
       downloadLink.remove();
+
       URL.revokeObjectURL(downloadUrl);
 
       setDataStatus({
@@ -364,6 +508,7 @@ export const SettingsPage = ({
       });
     } catch (error) {
       console.error('Database export failed:', error);
+
       setDataStatus({
         type: 'error',
         message: '导出失败。请检查浏览器存储权限后重试。',
@@ -390,6 +535,7 @@ export const SettingsPage = ({
       }
 
       setPendingImport(backup);
+
       setConfirmDialog({
         type: 'import',
         title: '恢复本地备份',
@@ -400,6 +546,7 @@ export const SettingsPage = ({
       });
     } catch (error) {
       console.error('Backup import validation failed:', error);
+
       setDataStatus({
         type: 'error',
         message: '文件无法识别。请选择由本项目导出的有效 JSON 备份。',
@@ -418,7 +565,9 @@ export const SettingsPage = ({
 
       for (const tableName of TABLE_NAMES) {
         restoredData[tableName] = await Promise.all(
-          pendingImport.data[tableName].map((record) => restoreBackupValue(record)),
+          pendingImport.data[tableName].map((record) =>
+            restoreBackupValue(record),
+          ),
         );
       }
 
@@ -447,6 +596,7 @@ export const SettingsPage = ({
       });
     } catch (error) {
       console.error('Database import failed:', error);
+
       setDataStatus({
         type: 'error',
         message: '恢复失败。当前数据未完成更新，请重新检查备份文件。',
@@ -482,6 +632,7 @@ export const SettingsPage = ({
       });
     } catch (error) {
       console.error('Image cleanup failed:', error);
+
       setDataStatus({
         type: 'error',
         message: '图片清理失败，请稍后重试。',
@@ -496,6 +647,9 @@ export const SettingsPage = ({
     setConfirmDialog(null);
 
     try {
+      stopLockscreenCompanion();
+      setIsCompanionActive(false);
+
       await db.transaction(
         'rw',
         TABLE_NAMES.map((tableName) => db.table(tableName)),
@@ -518,6 +672,7 @@ export const SettingsPage = ({
       });
     } catch (error) {
       console.error('Factory reset failed:', error);
+
       setDataStatus({
         type: 'error',
         message: '清空失败，请稍后重试。',
@@ -533,9 +688,10 @@ export const SettingsPage = ({
     if (confirmDialog?.type === 'factory-reset') factoryReset();
   };
 
-  const storagePercent = storageInfo.quota > 0
-    ? Math.min((storageInfo.usage / storageInfo.quota) * 100, 100)
-    : 0;
+  const storagePercent =
+    storageInfo.quota > 0
+      ? Math.min((storageInfo.usage / storageInfo.quota) * 100, 100)
+      : 0;
 
   return (
     <div className="space-y-6 animate-fade-in-up pb-12">
@@ -548,7 +704,10 @@ export const SettingsPage = ({
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Hub</span>
         </button>
-        <span className="font-mono text-xs opacity-40">SYSTEM / SETTINGS</span>
+
+        <span className="font-mono text-xs opacity-40">
+          SYSTEM / SETTINGS
+        </span>
       </div>
 
       <GlassCard className="space-y-4 text-left">
@@ -567,9 +726,9 @@ export const SettingsPage = ({
             <button
               key={theme.id}
               type="button"
-              onClick={() => handleThemeChange(theme.id)}
+              onClick={() => setDraftTheme(theme.id)}
               className={`rounded-xl border p-3 text-left transition-all ${
-                currentTheme === theme.id
+                draftTheme === theme.id
                   ? 'border-black bg-black/5 font-semibold dark:border-white dark:bg-white/10'
                   : 'border-white/10 opacity-70 hover:opacity-100'
               }`}
@@ -580,11 +739,11 @@ export const SettingsPage = ({
         </div>
 
         <div className="flex items-center justify-between border-t border-white/10 pt-2 text-xs">
-          <span>显示主页 "WHEN I WITH U" 标题</span>
+          <span>显示主页 “WHEN I WITH U” 标题</span>
           <input
             type="checkbox"
-            checked={showTitle}
-            onChange={(event) => handleTitleChange(event.target.checked)}
+            checked={draftShowTitle}
+            onChange={(event) => setDraftShowTitle(event.target.checked)}
             className="h-4 w-4 accent-black dark:accent-white"
           />
         </div>
@@ -597,11 +756,11 @@ export const SettingsPage = ({
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span>允许角色主动发送动态 / 留言</span>
+          <span>允许角色主动发送动态 / 留言 / 日记</span>
           <input
             type="checkbox"
             checked={autoMessage}
-            onChange={(event) => handleAutoMessageChange(event.target.checked)}
+            onChange={(event) => setAutoMessage(event.target.checked)}
             className="h-4 w-4 accent-black dark:accent-white"
           />
         </div>
@@ -612,15 +771,15 @@ export const SettingsPage = ({
               <label className="mb-1 block opacity-60">
                 主动触发频率 (Humanized Schedule)
               </label>
+
               <select
                 value={frequency}
-                onChange={(event) => handleFrequencyChange(event.target.value)}
+                onChange={(event) => setFrequency(event.target.value)}
                 className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
               >
-                <option value="gentle">轻柔陪伴 (Gentle)</option>
-                <option value="moderate">适度问候 (Moderate)</option>
-                <option value="occasional">偶尔来信 (Occasional)</option>
-                <option value="pause">暂停主动消息 (Paused)</option>
+                <option value="high">高频：约每 2 ～ 4 小时</option>
+                <option value="moderate">中频：约每 6 ～ 8 小时</option>
+                <option value="low">低频：约每 12 ～ 24 小时</option>
               </select>
             </div>
 
@@ -628,16 +787,19 @@ export const SettingsPage = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Moon className="h-3.5 w-3.5 opacity-70" />
-                  <span className="font-medium">安静勿扰时段 (Quiet Hours)</span>
+                  <span className="font-medium">
+                    安静勿扰时段 (Quiet Hours)
+                  </span>
                 </div>
+
                 <input
                   type="checkbox"
                   checked={quietHours.enabled}
                   onChange={(event) =>
-                    handleQuietHoursChange({
-                      ...quietHours,
+                    setQuietHours((previous) => ({
+                      ...previous,
                       enabled: event.target.checked,
-                    })
+                    }))
                   }
                 />
               </div>
@@ -648,22 +810,24 @@ export const SettingsPage = ({
                     type="time"
                     value={quietHours.start}
                     onChange={(event) =>
-                      handleQuietHoursChange({
-                        ...quietHours,
+                      setQuietHours((previous) => ({
+                        ...previous,
                         start: event.target.value,
-                      })
+                      }))
                     }
                     className="rounded bg-black/5 px-2 py-1 outline-none dark:bg-white/10"
                   />
+
                   <span>to</span>
+
                   <input
                     type="time"
                     value={quietHours.end}
                     onChange={(event) =>
-                      handleQuietHoursChange({
-                        ...quietHours,
+                      setQuietHours((previous) => ({
+                        ...previous,
                         end: event.target.value,
-                      })
+                      }))
                     }
                     className="rounded bg-black/5 px-2 py-1 outline-none dark:bg-white/10"
                   />
@@ -672,6 +836,98 @@ export const SettingsPage = ({
             </div>
           </div>
         )}
+      </GlassCard>
+
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <Heart className="h-4 w-4 text-rose-500" />
+            <span>锁屏陪伴与角色台词</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleToggleCompanion}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-transform active:scale-95 ${
+              isCompanionActive
+                ? 'bg-rose-500 text-white'
+                : 'bg-black/10 dark:bg-white/10'
+            }`}
+          >
+            <Music className="h-3.5 w-3.5" />
+            <span>{isCompanionActive ? '关闭陪伴' : '开启陪伴'}</span>
+          </button>
+        </div>
+
+        <p className="text-xs leading-5 opacity-60">
+          开启后，浏览器可尝试在锁屏媒体卡片显示角色名称、头像与短台词。
+          不同手机系统对网页锁屏卡片支持不同，无法保证显示完整长文本。
+        </p>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newQuoteInput}
+            maxLength={120}
+            placeholder="添加一条想在锁屏上看到的话……"
+            onChange={(event) => setNewQuoteInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                handleAddQuote();
+              }
+            }}
+            className="min-w-0 flex-1 rounded-xl bg-black/5 px-3 py-2 text-xs outline-none dark:bg-white/10"
+          />
+
+          <button
+            type="button"
+            onClick={handleAddQuote}
+            className="flex items-center justify-center rounded-xl bg-black px-3 text-white transition-transform active:scale-95 dark:bg-white dark:text-black"
+            aria-label="添加锁屏台词"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          {lockscreenQuotes.length === 0 ? (
+            <p className="rounded-xl bg-black/5 px-3 py-3 text-xs opacity-60 dark:bg-white/5">
+              暂无自定义台词。添加后点击页面底部“保存设置”即可保存。
+            </p>
+          ) : (
+            lockscreenQuotes.map((quote, index) => (
+              <div
+                key={`${quote}-${index}`}
+                className="flex items-center gap-2 rounded-xl bg-black/5 p-2 dark:bg-white/5"
+              >
+                <input
+                  type="text"
+                  value={quote}
+                  maxLength={120}
+                  onChange={(event) =>
+                    handleEditQuote(index, event.target.value)
+                  }
+                  className="min-w-0 flex-1 bg-transparent px-1 text-xs outline-none"
+                  aria-label={`编辑第 ${index + 1} 条锁屏台词`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteQuote(index)}
+                  className="rounded-lg p-2 text-rose-500 opacity-70 transition-opacity hover:opacity-100"
+                  aria-label={`删除第 ${index + 1} 条锁屏台词`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <p className="text-[11px] opacity-45">
+          台词修改不会自动保存；请点击页面底部的“保存设置”确认写入本地。
+        </p>
       </GlassCard>
 
       <GlassCard className="space-y-4 text-left">
@@ -688,10 +944,10 @@ export const SettingsPage = ({
               placeholder="https://api.openai.com/v1"
               value={apiConfig.baseUrl}
               onChange={(event) =>
-                handleApiConfigChange({
-                  ...apiConfig,
+                setApiConfig((previous) => ({
+                  ...previous,
                   baseUrl: event.target.value,
-                })
+                }))
               }
               className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
             />
@@ -704,10 +960,10 @@ export const SettingsPage = ({
               placeholder="sk-..."
               value={apiConfig.apiKey}
               onChange={(event) =>
-                handleApiConfigChange({
-                  ...apiConfig,
+                setApiConfig((previous) => ({
+                  ...previous,
                   apiKey: event.target.value,
-                })
+                }))
               }
               className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
             />
@@ -727,12 +983,14 @@ export const SettingsPage = ({
             {apiStatus === 'testing' && (
               <RefreshCw className="h-4 w-4 animate-spin opacity-50" />
             )}
+
             {apiStatus === 'success' && (
               <span className="flex items-center gap-1 text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" />
                 Connected
               </span>
             )}
+
             {apiStatus === 'error' && (
               <span className="flex items-center gap-1 text-rose-600">
                 <XCircle className="h-4 w-4" />
@@ -744,13 +1002,14 @@ export const SettingsPage = ({
           {models.length > 0 && (
             <div>
               <label className="mb-1 block opacity-60">Select Model</label>
+
               <select
                 value={apiConfig.model}
                 onChange={(event) =>
-                  handleApiConfigChange({
-                    ...apiConfig,
+                  setApiConfig((previous) => ({
+                    ...previous,
                     model: event.target.value,
-                  })
+                  }))
                 }
                 className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
               >
@@ -775,6 +1034,7 @@ export const SettingsPage = ({
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <HardDrive className="h-4 w-4 opacity-70" />
+
               <div>
                 <p className="text-xs font-medium">本地存储空间</p>
                 <p className="mt-1 text-[11px] opacity-60">
@@ -899,9 +1159,44 @@ export const SettingsPage = ({
         )}
       </GlassCard>
 
-      <div className="space-y-2 pt-4 text-center text-xs opacity-40">
+      <div className="sticky bottom-3 z-20 pt-2">
+        <button
+          type="button"
+          onClick={handleSaveAll}
+          disabled={isSaving}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-4 text-sm font-semibold text-white shadow-xl transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black"
+        >
+          {isSaving ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+
+          <span>{isSaving ? '正在保存…' : '保存设置'}</span>
+        </button>
+      </div>
+
+      <div className="space-y-2 pt-2 text-center text-xs opacity-40">
         <p className="font-mono">by shadow</p>
       </div>
+
+      {saveStatus.message && (
+        <div
+          className={`fixed left-1/2 top-10 z-[60] flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center gap-2 rounded-2xl px-4 py-3 text-xs font-medium shadow-2xl ${
+            saveStatus.type === 'error'
+              ? 'bg-rose-600 text-white'
+              : 'bg-emerald-600 text-white'
+          }`}
+        >
+          {saveStatus.type === 'error' ? (
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+          )}
+
+          <span>{saveStatus.message}</span>
+        </div>
+      )}
 
       {confirmDialog && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-4 backdrop-blur-sm sm:items-center sm:justify-center">
@@ -939,7 +1234,10 @@ export const SettingsPage = ({
               </button>
             </div>
 
-            <h2 id="settings-confirm-title" className="mt-5 text-base font-bold">
+            <h2
+              id="settings-confirm-title"
+              className="mt-5 text-base font-bold"
+            >
               {confirmDialog.title}
             </h2>
 
@@ -979,3 +1277,4 @@ export const SettingsPage = ({
 };
 
 export default SettingsPage;
+

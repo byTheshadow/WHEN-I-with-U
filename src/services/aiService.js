@@ -1,4 +1,6 @@
 import db from '../db';
+import { updateLockscreenMediaSession } from './lockscreenService';
+
 
 const listeners = new Set();
 const summaryStatusListeners = new Set();
@@ -906,33 +908,50 @@ export const checkAndTriggerAutoMessage = async () => {
     }
 
     // 只有确实写入成功后，才更新冷却时间。
-    // 这样 API/数据库失败时，下一次轮询仍可以自动重试。
-    if (generatedId !== null && generatedId !== undefined) {
-      const nextCooldownMs = getRandomCooldownMs(frequency);
+// 这样 API/数据库失败时，下一次轮询仍可以自动重试。
+if (generatedId !== null && generatedId !== undefined) {
+  // 更新锁屏卡片。
+  // 即使锁屏功能未开启、浏览器不支持或更新失败，
+  // 也不能影响日记/动态已经生成成功后的冷却时间更新。
+  try {
+    await updateLockscreenMediaSession(
+      character.name,
+      `最新${actionType === 'diary' ? '日记' : '动态'}: 已更新`
+    );
+  } catch (err) {
+    console.warn(
+      '[Lockscreen] 更新锁屏卡片失败，但不影响主动日记/动态的生成：',
+      err
+    );
+  }
 
-      await db.settings.put({
-        key: 'lastAutoMessageTimestamp',
-        value: now
-      });
+  // 原来已有的冷却更新逻辑：保持不变。
+  const nextCooldownMs = getRandomCooldownMs(frequency);
 
-      await db.settings.put({
-        key: 'autoMessageCooldownMs',
-        value: nextCooldownMs
-      });
+  await db.settings.put({
+    key: 'lastAutoMessageTimestamp',
+    value: now
+  });
 
-      await db.settings.put({
-        key: 'autoMessageFrequencyApplied',
-        value: frequency
-      });
+  await db.settings.put({
+    key: 'autoMessageCooldownMs',
+    value: nextCooldownMs
+  });
 
-      console.log(
-        `[AutoScheduler] 已触发 ${actionType}：${character.name}；下次最早触发时间约为 ${Math.round(nextCooldownMs / 3600000)} 小时后。`
-      );
-    } else {
-      console.warn(
-        `[AutoScheduler] ${actionType} 生成失败，未更新冷却时间，将在后续轮询中重试。`
-      );
-    }
+  await db.settings.put({
+    key: 'autoMessageFrequencyApplied',
+    value: frequency
+  });
+
+  console.log(
+    `[AutoScheduler] 已触发 ${actionType}：${character.name}；下次最早触发时间约为 ${Math.round(nextCooldownMs / 3600000)} 小时后。`
+  );
+} else {
+  console.warn(
+    `[AutoScheduler] ${actionType} 生成失败，未更新冷却时间，将在后续轮询中重试。`
+  );
+}
+
   } catch (err) {
     console.error('[AutoScheduler] 主动任务触发失败：', err);
   } finally {
