@@ -280,12 +280,8 @@ db.version(13).stores({
   // 👈 羁绊大群 (The Ensemble) 专属表
   ensembleChats: '++id, title, createdAt, updatedAt',
   ensembleMessages: '++id, chatId, senderId, timestamp',
-  ensembleSummaries: '++id, chatId, createdAt'
-
-  // 1. 给 travels 重新加上 createdAt 索引
+  ensembleSummaries: '++id, chatId, createdAt',
   travels: '++id, characterId, status, createdAt',
-
-  // 2. 如果前端实在无法修改，必须通过 timestamp 查 snapshots，则把 timestamp 加回索引
   snapshots: '++id, characterId, createdAt, linkedChatId, timestamp', 
 });
 
