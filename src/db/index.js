@@ -215,6 +215,7 @@ db.version(11).stores({
   imaginariumSummaries: '++id, chatId, createdAt'
 });
 
+// 🛠️ Version 12: 羁绊大群 (The Ensemble) 逻辑表定义
 db.version(12).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',

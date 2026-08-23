@@ -65,7 +65,7 @@ export const EnsembleUserSelector = ({
 
   return (
     <div className="relative mb-2 flex items-center justify-between px-1">
-      {/* 身份视角独立悬浮胶囊栏 */}
+      {/* 视角切换胶囊链 */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 max-w-full">
         <span className="text-[10px] font-medium uppercase opacity-40 shrink-0 flex items-center gap-1 mr-1">
           <User className="w-3 h-3" />
@@ -122,7 +122,7 @@ export const EnsembleUserSelector = ({
         </button>
       </div>
 
-      {/* 视角卡配置 / 新增 Modal */}
+      {/* 视角身份编辑 Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
           <div
@@ -136,7 +136,7 @@ export const EnsembleUserSelector = ({
             <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--divider)' }}>
               <div className="flex items-center gap-1.5 text-xs font-semibold">
                 <Zap className="w-3.5 h-3.5" />
-                {editingItem ? '编辑视角身份' : '新增临时视角'}
+                {editingItem ? '编辑 User 视角身份' : '新增临时视角'}
               </div>
               <button type="button" onClick={() => setShowModal(false)} className="text-xs opacity-50 hover:opacity-100">
                 取消
@@ -151,14 +151,14 @@ export const EnsembleUserSelector = ({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例如: 旁白 / 侦探"
+                  placeholder="例如: 我 / 旁白"
                   className="w-full px-3 py-1.5 rounded-lg text-xs border outline-none"
                   style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] block opacity-60 mb-1">身份头像 (URL 或 本地图片)</label>
+                <label className="text-[10px] block opacity-60 mb-1">身份头像 (URL 或 上传图片)</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -181,7 +181,7 @@ export const EnsembleUserSelector = ({
                   rows={2}
                   value={persona}
                   onChange={(e) => setPersona(e.target.value)}
-                  placeholder="例如: 冷静记录事件走向的第三视角..."
+                  placeholder="例如: 观察全局发展的第三视角..."
                   className="w-full px-3 py-1.5 rounded-lg text-xs border outline-none resize-none"
                   style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }}
                 />

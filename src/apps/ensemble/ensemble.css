@@ -85,39 +85,58 @@
   border-radius: 18px 18px 18px 4px;
   border: 1px solid var(--card-border);
 }
-/* 羁绊大群 (The Ensemble) 极致透明与沉浸样式 */
+
+/* 羁绊大群 (The Ensemble) 专属沉浸 UI 样式 */
 .ensemble-container {
+  font-family: inherit;
   position: relative;
   width: 100%;
   height: 100dvh;
   overflow: hidden;
-  background-color: transparent !important; /* 彻底透出 App 全局弥散背景 */
+  background-color: transparent;
 }
 
-/* 操作按钮默认 100% 隐藏，仅 hover 或点击激活时浮现 */
-.ensemble-msg-actions {
+/* 操作条默认隐匿，仅在 hover 或点击 (.active-tap) 时浮现 */
+.ensemble-msg-card .ensemble-msg-actions {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(6px) scale(0.95);
-  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
 }
 
 .ensemble-msg-card:hover .ensemble-msg-actions,
+.ensemble-msg-card:focus-within .ensemble-msg-actions,
 .ensemble-msg-card.active-tap .ensemble-msg-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 
-/* 消息框 textarea 增高滚动 */
-.ensemble-textarea {
+/* 自适应 Textarea 无痕内部滚动条 */
+.ensemble-textarea-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--card-border) transparent;
 }
-.ensemble-textarea::-webkit-scrollbar {
-  width: 3px;
+
+.ensemble-textarea-scroll::-webkit-scrollbar {
+  width: 4px;
 }
-.ensemble-textarea::-webkit-scrollbar-thumb {
+
+.ensemble-textarea-scroll::-webkit-scrollbar-thumb {
   background-color: var(--card-border);
-  border-radius: 3px;
+  border-radius: 4px;
+}
+
+/* 消息气泡美化与极佳自适应 */
+.ensemble-bubble-user {
+  background-color: var(--accent-color);
+  color: var(--accent-foreground);
+  border-radius: 18px 18px 4px 18px;
+}
+
+.ensemble-bubble-char {
+  background-color: var(--bg-surface-strong);
+  color: var(--text-main);
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid var(--card-border);
 }

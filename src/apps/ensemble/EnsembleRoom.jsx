@@ -5,6 +5,7 @@ import { generateEnsembleAiResponse } from './ensembleService';
 import { EnsembleUserSelector } from './components/EnsembleUserSelector';
 import { EnsembleMessageItem } from './components/EnsembleMessageItem';
 import { EnsembleSettingsModal } from './components/EnsembleSettingsModal';
+import { EnsembleImagePromptModal } from './components/EnsembleImagePromptModal';
 import StickerPickerModal from '../messages/components/StickerPickerModal';
 
 export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
@@ -18,14 +19,10 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
   const [userIdentities, setUserIdentities] = useState([]);
   const [currentIdentityId, setCurrentIdentityId] = useState('');
 
-  // 弹窗控制
+  // Modal 控制
   const [showSettings, setShowSettings] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
-  const [showImageCardModal, setShowImageCardModal] = useState(false);
-
-  // 图片叙事卡 Modal 输入
-  const [imageCardFront, setImageCardFront] = useState('');
-  const [imageCardBack, setImageCardBack] = useState('');
+  const [showImagePromptModal, setShowImagePromptModal] = useState(false);
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -37,13 +34,13 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
   }, [chatId]);
 
   const loadRoomData = async () => {
-    const doc = await db.ensembleChats.get(chatId);
-    if (!doc) return;
-    setChat(doc);
+    const chatDoc = await db.ensembleChats.get(chatId);
+    if (!chatDoc) return;
+    setChat(chatDoc);
 
-    const identities = doc.userIdentities || [{ id: 'u_default', name: '我', persona: '主视角' }];
+    const identities = chatDoc.userIdentities || [{ id: 'u_default', name: '我', persona: '主视角' }];
     setUserIdentities(identities);
-    setCurrentIdentityId(doc.currentIdentityId || identities[0].id);
+    setCurrentIdentityId(chatDoc.currentIdentityId || identities[0].id);
 
     loadMessages();
   };
@@ -54,8 +51,8 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
       .equals(chatId)
       .sortBy('timestamp');
 
-    const msgMap = new Map(msgs.map((m) => [m.id, m]));
-    const enriched = msgs.map((m) => (m.quotedMessageId ? { ...m, quotedMessage: msgMap.get(m.quotedMessageId) } : m));
+    const msgMap = new Map(msgs.map(m => [m.id, m]));
+    const enriched = msgs.map(m => (m.quotedMessageId ? { ...m, quotedMessage: msgMap.get(m.quotedMessageId) } : m));
 
     setMessages(enriched);
     scrollToBottom();
@@ -75,12 +72,11 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
     }
   };
 
-  // 发送纯消息
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
     if (!inputText.trim()) return;
 
-    const currentIdent = userIdentities.find((u) => u.id === currentIdentityId) || userIdentities[0];
+    const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
 
     await db.ensembleMessages.add({
       chatId,
@@ -100,38 +96,21 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
     loadMessages();
   };
 
-  // 发送图片叙事卡 (ImageCard 3D 翻面)
-  const handleCreateImageCard = async (e) => {
-    e.preventDefault();
-    if (!imageCardFront.trim()) return;
-
-    const currentIdent = userIdentities.find((u) => u.id === currentIdentityId) || userIdentities[0];
-
-    await db.ensembleMessages.add({
-      chatId,
-      senderId: currentIdent.id,
-      senderName: currentIdent.name,
-      senderAvatar: currentIdent.avatar || '',
-      senderType: 'user',
-      type: 'image',
-      content: imageCardFront.trim(),
-      metadata: { description: imageCardBack.trim() || '镜头定格在这一刻的细腻微光。' },
-      timestamp: Date.now()
-    });
-
-    setImageCardFront('');
-    setImageCardBack('');
-    setShowImageCardModal(false);
-    loadMessages();
+  const handleTriggerAi = async (targetCharId = null) => {
+    setIsAiThinking(true);
+    try {
+      await generateEnsembleAiResponse(chatId, { targetCharacterId: targetCharId });
+      await loadMessages();
+    } catch (err) {
+      console.error('AI 生成出错:', err);
+    } finally {
+      setIsAiThinking(false);
+    }
   };
 
-  // 发送表情包
-  const handleSelectSticker = async (sticker) => {
-    const stickerUrl = typeof sticker === 'string' ? sticker : sticker.url;
-    const stickerName = typeof sticker === 'string' ? '表情包' : sticker.name || '表情包';
-
-    const currentIdent = userIdentities.find((u) => u.id === currentIdentityId) || userIdentities[0];
-
+  // 发送表情包 (StickerCard 格式)
+  const handleSelectSticker = async (stickerUrl) => {
+    const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
     await db.ensembleMessages.add({
       chatId,
       senderId: currentIdent.id,
@@ -140,32 +119,35 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
       senderType: 'user',
       type: 'sticker',
       content: stickerUrl,
-      metadata: { url: stickerUrl, name: stickerName },
+      metadata: { url: stickerUrl, name: '表情包' },
       timestamp: Date.now()
     });
-
     setShowStickerPicker(false);
     loadMessages();
   };
 
-  // 触发 AI
-  const handleTriggerAi = async (targetCharId = null) => {
-    setIsAiThinking(true);
-    try {
-      await generateEnsembleAiResponse(chatId, { targetCharacterId: targetCharId });
-      await loadMessages();
-    } catch (err) {
-      console.error('AI 异常', err);
-    } finally {
-      setIsAiThinking(false);
-    }
+  // 发送 3D 图片叙事卡
+  const handleSendImageNarrativeCard = async (cardData) => {
+    const currentIdent = userIdentities.find(u => u.id === currentIdentityId) || userIdentities[0];
+    await db.ensembleMessages.add({
+      chatId,
+      senderId: currentIdent.id,
+      senderName: currentIdent.name,
+      senderAvatar: currentIdent.avatar || '',
+      senderType: 'user',
+      type: 'image',
+      content: cardData.content,
+      metadata: cardData.metadata,
+      timestamp: Date.now()
+    });
+    loadMessages();
   };
 
   if (!chat) return null;
 
   return (
-    <div className="ensemble-container relative flex flex-col h-[100dvh] w-full overflow-hidden" style={{ backgroundColor: 'transparent' }}>
-      {/* 沉浸背景图 */}
+    <div className="ensemble-container relative flex flex-col h-[100dvh] w-full overflow-hidden">
+      {/* 背景透出遮罩 */}
       {chat.bgImage && (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center pointer-events-none transition-opacity duration-700"
@@ -173,20 +155,20 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
         />
       )}
 
-      {/* 浮动顶端手柄 (No Top Bar) */}
+      {/* 无 Top Bar 浮动操控胶囊 */}
       <div className="absolute top-3 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
         <button
           type="button"
           onClick={onBack}
-          className="pointer-events-auto p-2.5 rounded-full shadow-lg backdrop-blur-xl transition-transform active:scale-95 border"
-          style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--modal-border)', color: 'var(--text-main)' }}
+          className="pointer-events-auto p-2.5 rounded-full shadow-md backdrop-blur-md transition-transform active:scale-95 border"
+          style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
         <div
-          className="pointer-events-auto px-3.5 py-1 rounded-full text-xs font-semibold shadow-md backdrop-blur-xl border truncate max-w-[180px]"
-          style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--modal-border)', color: 'var(--text-main)' }}
+          className="pointer-events-auto px-3.5 py-1 rounded-full text-xs font-semibold shadow-sm backdrop-blur-md border truncate max-w-[180px]"
+          style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
         >
           {chat.title}
         </div>
@@ -194,14 +176,14 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
         <button
           type="button"
           onClick={() => setShowSettings(true)}
-          className="pointer-events-auto p-2.5 rounded-full shadow-lg backdrop-blur-xl transition-transform active:scale-95 border"
-          style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--modal-border)', color: 'var(--text-main)' }}
+          className="pointer-events-auto p-2.5 rounded-full shadow-md backdrop-blur-md transition-transform active:scale-95 border"
+          style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
         >
           <Sliders className="w-4 h-4" />
         </button>
       </div>
 
-      {/* 消息滚动流 */}
+      {/* 消息透出主面板 */}
       <div className="relative z-10 flex-1 overflow-y-auto px-3 pt-14 pb-4 no-scrollbar">
         {messages.map((msg) => (
           <EnsembleMessageItem
@@ -228,14 +210,14 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 底部 Dock */}
+      {/* 悬浮 Dock 输入容器 */}
       <div className="relative z-20 w-full px-3 pb-3 pt-1">
         <EnsembleUserSelector
           userIdentities={userIdentities}
           currentIdentityId={currentIdentityId}
           onSelectIdentity={(id) => setCurrentIdentityId(id)}
           onAddTempIdentity={(newIdent) => setUserIdentities([...userIdentities, newIdent])}
-          onUpdateIdentity={(id, updated) => setUserIdentities(userIdentities.map((u) => (u.id === id ? { ...u, ...updated } : u)))}
+          onUpdateIdentity={(id, updated) => setUserIdentities(userIdentities.map(u => u.id === id ? { ...u, ...updated } : u))}
         />
 
         {quotedMessage && (
@@ -259,9 +241,10 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
             <Smile className="w-4 h-4" />
           </button>
 
+          {/* 唤起图片叙事卡 Modal */}
           <button
             type="button"
-            onClick={() => setShowImageCardModal(true)}
+            onClick={() => setShowImagePromptModal(true)}
             className="p-2 rounded-full opacity-70 hover:opacity-100 transition-transform active:scale-95 shrink-0"
             style={{ color: 'var(--text-main)' }}
           >
@@ -274,7 +257,7 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
             value={inputText}
             onChange={handleInputTextChange}
             placeholder="输入对话或动作描述..."
-            className="ensemble-textarea flex-1 px-3 py-1.5 text-xs outline-none bg-transparent resize-none max-h-32"
+            className="ensemble-textarea-scroll flex-1 px-3 py-1.5 text-xs outline-none bg-transparent resize-none max-h-32"
             style={{ color: 'var(--text-main)' }}
           />
 
@@ -291,7 +274,7 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
             type="button"
             onClick={() => handleTriggerAi()}
             disabled={isAiThinking}
-            title="触发 AI 多角色链式应答"
+            title="触发 AI 多角色应答"
             className="p-2.5 rounded-full transition-transform active:scale-95 shrink-0 border shadow-sm"
             style={{ backgroundColor: 'var(--control-soft-bg)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
           >
@@ -299,27 +282,6 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
           </button>
         </form>
       </div>
-
-      {/* 画面描摹 ImageCard 生成 Modal */}
-      {showImageCardModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <form onSubmit={handleCreateImageCard} className="w-full max-w-xs rounded-2xl p-4 space-y-3 border" style={{ backgroundColor: 'var(--modal-bg)', borderColor: 'var(--modal-border)', color: 'var(--text-main)' }}>
-            <h4 className="font-semibold text-xs border-b pb-2">生成 3D 画卷描摹卡 (ImageCard)</h4>
-            <div>
-              <label className="text-[10px] block opacity-60 mb-1">正面短句 / 画面概括</label>
-              <input type="text" required placeholder="例如: 积雨街角处的伞影" value={imageCardFront} onChange={(e) => setImageCardFront(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border text-xs outline-none" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }} />
-            </div>
-            <div>
-              <label className="text-[10px] block opacity-60 mb-1">翻面细节 / 细致描摹 (背面)</label>
-              <textarea rows={3} placeholder="路灯落在积水中，伞沿遮住了来人的半张脸..." value={imageCardBack} onChange={(e) => setImageCardBack(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border text-xs outline-none resize-none" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--card-border)' }} />
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setShowImageCardModal(false)} className="px-3 py-1 text-xs opacity-60">取消</button>
-              <button type="submit" className="px-4 py-1 rounded-lg text-xs font-semibold" style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}>插入画卷卡</button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {showSettings && (
         <EnsembleSettingsModal
@@ -333,6 +295,13 @@ export const EnsembleRoom = ({ chatId, onBack, onChatRoomStateChange }) => {
         <StickerPickerModal
           onClose={() => setShowStickerPicker(false)}
           onSelectSticker={handleSelectSticker}
+        />
+      )}
+
+      {showImagePromptModal && (
+        <EnsembleImagePromptModal
+          onClose={() => setShowImagePromptModal(false)}
+          onSubmit={handleSendImageNarrativeCard}
         />
       )}
     </div>
