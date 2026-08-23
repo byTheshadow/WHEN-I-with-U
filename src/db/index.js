@@ -249,6 +249,46 @@ db.version(12).stores({
   ensembleSummaries: '++id, chatId, createdAt'
 });
 
+// 🛠️ 新增 Version 13
+db.version(13).stores({
+  profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText, typingStyle, isBgDimmed, soundEnabled',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+  travels: '++id, characterId, status',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt',
+  stickers: '++id, name, url, category, createdAt',
+
+  imaginariumChats: '++id, title, createdAt, updatedAt',
+  imaginariumMessages: '++id, chatId, senderId, timestamp',
+  imaginariumSummaries: '++id, chatId, createdAt',
+
+  // 👈 羁绊大群 (The Ensemble) 专属表
+  ensembleChats: '++id, title, createdAt, updatedAt',
+  ensembleMessages: '++id, chatId, senderId, timestamp',
+  ensembleSummaries: '++id, chatId, createdAt'
+
+  // 1. 给 travels 重新加上 createdAt 索引
+  travels: '++id, characterId, status, createdAt',
+
+  // 2. 如果前端实在无法修改，必须通过 timestamp 查 snapshots，则把 timestamp 加回索引
+  snapshots: '++id, characterId, createdAt, linkedChatId, timestamp', 
+});
+
 export default db;
 
 
