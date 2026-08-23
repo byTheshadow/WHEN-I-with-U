@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   X,
   Upload,
@@ -69,9 +69,27 @@ export const ChatSettingsModal = ({
   const [editingText, setEditingText] = useState('');
   const [newSummaryText, setNewSummaryText] = useState('');
   const [showAddBox, setShowAddBox] = useState(false);
+const [keepAliveNotice, setKeepAliveNotice] = useState('');
+
 
   const bgImage = chat?.bgImage || '';
   const keepAlive = chat?.keepAlive ?? false;
+
+  const handleToggleKeepAliveChange = (nextValue) => {
+  onToggleKeepAlive(nextValue);
+  setKeepAliveNotice(nextValue ? '已开启保活' : '已关闭保活');
+};
+
+useEffect(() => {
+  if (!keepAliveNotice) return undefined;
+
+  const timer = window.setTimeout(() => {
+    setKeepAliveNotice('');
+  }, 2200);
+
+  return () => window.clearTimeout(timer);
+}, [keepAliveNotice]);
+
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -577,15 +595,31 @@ export const ChatSettingsModal = ({
         </div>
 
        {/* 后台音频保活设置 */}
-<div
-  className="pt-1 rounded-2xl border p-3"
-  style={{
-    background: 'var(--control-soft-bg)',
-    borderColor: 'var(--card-border)',
-    color: 'var(--text-main)',
-  }}
->
-  <div className="flex items-center justify-between gap-4">
+       {/* 后台音频保活设置 */}
+<div className="pt-1 space-y-2">
+  {keepAliveNotice && (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center rounded-2xl border px-3 py-2 text-xs animate-fade-in-down"
+      style={{
+        background: 'var(--control-soft-bg)',
+        borderColor: 'var(--card-border)',
+        color: 'var(--text-main)',
+      }}
+    >
+      {keepAliveNotice}
+    </div>
+  )}
+
+  <div
+    className="flex items-center justify-between gap-4 rounded-2xl border p-3"
+    style={{
+      background: 'var(--control-soft-bg)',
+      borderColor: 'var(--card-border)',
+      color: 'var(--text-main)',
+    }}
+  >
     <div className="min-w-0">
       <p className="text-xs font-medium">
         尝试维持后台活跃
@@ -595,20 +629,25 @@ export const ChatSettingsModal = ({
         className="mt-1 text-[10px] leading-relaxed"
         style={{ color: 'var(--text-muted)' }}
       >
-        移动端浏览器仍可能因系统省电策略暂停后台任务。
+        开启后将尝试维持音频通道。移动端浏览器仍可能因系统省电策略暂停后台任务。
       </p>
     </div>
 
     <input
       type="checkbox"
       checked={keepAlive}
-      onChange={(event) => onToggleKeepAlive(event.target.checked)}
+      onChange={(event) => {
+        handleToggleKeepAliveChange(event.target.checked);
+      }}
       className="h-4 w-4 shrink-0 cursor-pointer"
-      style={{ accentColor: 'var(--accent-color)' }}
+      style={{
+        accentColor: 'var(--accent-color)',
+      }}
       aria-label="尝试维持后台活跃"
     />
   </div>
 </div>
+
 
 
         {/* 气泡样式定制 */}
