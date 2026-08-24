@@ -32,17 +32,15 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
 
   const loadRoom = useCallback(async () => {
     const data = await getHabitatById(Number(habitatId));
-    if (data) {
-      setHabitat(data);
-      if (data.moisture < 35) {
-        setStatusMessage('WARN: MOISTURE DEFIENCY');
+          if (data.moisture < 35) {
+        setStatusMessage('状态提醒：当前水分不足');
       } else if (data.nutrients < 35) {
-        setStatusMessage('WARN: NUTRIENTS DEFIENCY');
+        setStatusMessage('状态提醒：当前养分不足');
       } else if (data.sanitation < 35) {
-        setStatusMessage('WARN: DEPOSIT DETECTED');
+        setStatusMessage('状态提醒：生态舱需要清洁');
       } else {
-        setStatusMessage('SYSTEM: LIFEFORM RUNNING STABLE');
-      }
+        setStatusMessage('生命体状态稳定');
+      
     }
     const logList = await getLogs(Number(habitatId));
     setLogs(logList);
@@ -68,12 +66,13 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
       setTimeout(() => setSprayActive(false), 1200);
     }
 
-    const actionTextMap = {
-      feed: 'INJECTING NUTRIENTS (+30)',
-      water: 'SPRAYING DEW MIST (+30)',
-      clean: 'PURGING SURFACE DUST (+30)',
-      play: 'COMMENCING STIMULATE (+15 BOND)'
+       const actionTextMap = {
+      feed: isAnimal ? '正在投喂，饱腹感上升' : '正在施肥，养分正在渗入土壤',
+      water: isAnimal ? '正在喷洒水雾，环境湿度上升' : '正在浇水，根系正在吸收水分',
+      clean: '正在擦拭生态舱，洁净度上升',
+      play: isAnimal ? '正在陪伴玩耍，羁绊正在加深' : '正在轻轻抚育，羁绊正在加深'
     };
+
     
     setInteractionText(actionTextMap[actionType]);
     setTimeout(() => setInteractionText(null), 1500);
@@ -209,29 +208,43 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden font-mono text-[var(--text-main)]">
-      {/* 顶部监视面板 Header */}
-      <div className="p-4 border-b shrink-0 flex items-center justify-between" style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--bg-surface)' }}>
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded border px-2.5 py-1 transition-transform active:scale-95 text-xs font-semibold"
-          style={{
-            borderColor: 'var(--card-border)',
-            backgroundColor: 'var(--control-soft-bg)'
-          }}
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          EXIT
-        </button>
-
-        <div className="text-right flex flex-col items-end">
-          <span className="text-[10px] font-bold tracking-widest opacity-80">SYS_ID: HAB_00{habitat.id}</span>
-          <span className="text-[9px] opacity-40">VER: 3.1.2-STABLE</span>
-        </div>
-      </div>
-
+   
       {/* 核心拟物化电子屏区 */}
-      <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
+      <div className="relative flex-1 overflow-hidden flex flex-col p-4 space-y-4">
+        <div className="absolute left-4 top-4 z-10">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-9 w-9 items-center justify-center rounded-full border transition-transform active:scale-95"
+            style={{
+              color: 'var(--text-main)',
+              borderColor: 'var(--card-border)',
+              backgroundColor: 'var(--bg-surface)'
+            }}
+            title="返回温室"
+            aria-label="返回温室"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="absolute right-4 top-4 z-10">
+          <button
+            type="button"
+            onClick={() => setShowEditModal(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border transition-transform active:scale-95"
+            style={{
+              color: 'var(--text-main)',
+              borderColor: 'var(--card-border)',
+              backgroundColor: 'var(--bg-surface)'
+            }}
+            title="编辑生命档案"
+            aria-label="编辑生命档案"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
+
         {/* 系统监视状态面板 */}
         <div className="border px-3 py-2 rounded flex justify-between items-center text-[10px] uppercase font-semibold" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}>
           <span className="flex items-center gap-1">
@@ -252,11 +265,19 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
           }}
         >
           {/* 反馈信息弹幕 */}
-          {interactionText && (
-            <div className="absolute top-4 px-3 py-1 text-[10px] border border-dashed rounded bg-black/80 text-green-400 font-bold animate-bounce tracking-widest">
+                    {interactionText && (
+            <div
+              className="absolute top-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-dashed px-3 py-1 text-[10px] font-semibold animate-bounce"
+              style={{
+                color: 'var(--accent-foreground)',
+                backgroundColor: 'var(--accent-color)',
+                borderColor: 'var(--card-border)'
+              }}
+            >
               {interactionText}
             </div>
           )}
+
 
           {/* 拟物圆形视网膜舱 */}
           <div className="relative w-36 h-36 flex items-center justify-center rounded-full border shadow-inner" style={{ borderColor: 'var(--card-border)' }}>
