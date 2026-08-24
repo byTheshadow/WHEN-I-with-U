@@ -14,14 +14,15 @@ export const STARTUP_ANIMATIONS = [
     status: 'ACTIVE',
     isAvailable: true
   },
-  {
-    id: 'vinyl',
-    title: 'Vinyl Groove',
-    description: 'Headphones connect. The stylus drops. A private frequency begins.',
-    archiveDescription: 'Music archive startup sequence',
-    status: 'DRAFT',
-    isAvailable: false
-  },
+ {
+  id: 'vinyl',
+  title: 'Vinyl Groove',
+  description: 'Headphones connect. The stylus drops. A private frequency begins.',
+  archiveDescription: 'Music archive startup sequence',
+  status: 'READY',
+  isAvailable: true
+},
+
   {
     id: 'polaroid',
     title: 'Polaroid Development',
