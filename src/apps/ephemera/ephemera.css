@@ -1,133 +1,1252 @@
 /* src/apps/ephemera/ephemera.css */
-@import url('https://fonts.googleapis.com/css2?family=Courier+Prime&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
 
-/* 字体变量绑定 */
-.ephemera-serif {
-  font-family: 'Playfair Display', Georgia, Cambria, serif;
+.ep-app {
+  min-height: 100%;
+  padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1rem calc(7rem + env(safe-area-inset-bottom, 0px));
+  color: var(--text-main);
 }
 
-.ephemera-mono {
-  font-family: 'Courier Prime', Courier, monospace;
+.ep-app,
+.ep-cast-modal {
+  font-family: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
 }
 
-/* 3D 翻转容器 */
-.ephemera-perspective {
+.ep-app-header,
+.ep-card-actions,
+.ep-cast-head,
+.ep-cast-foot,
+.ep-notice,
+.ep-ai-section > div,
+.ep-receipt-editor-row {
+  display: flex;
+  align-items: center;
+}
+
+.ep-app-header {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ep-app-heading {
+  min-width: 0;
+  text-align: center;
+}
+
+.ep-app-heading span,
+.ep-cast-head span,
+.ep-live-preview > span,
+.ep-empty-state > span {
+  display: block;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
+}
+
+.ep-app-heading h2 {
+  margin: 0.25rem 0 0;
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.ep-exit-button,
+.ep-new-button,
+.ep-floating-create,
+.ep-empty-state button,
+.ep-cast-foot button,
+.ep-card-actions > button,
+.ep-export-menu > button {
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+
+.ep-exit-button:active,
+.ep-new-button:active,
+.ep-floating-create:active,
+.ep-empty-state button:active,
+.ep-cast-foot button:active,
+.ep-card-actions > button:active,
+.ep-export-menu > button:active {
+  transform: scale(0.95);
+}
+
+.ep-exit-button,
+.ep-new-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.ep-new-button {
+  color: var(--accent-foreground);
+  background: var(--accent-color);
+}
+
+.ep-app-intro {
+  max-width: 20rem;
+  margin: 1.5rem auto 1.75rem;
+  color: var(--text-sub);
+  font-size: 0.72rem;
+  line-height: 1.9;
+  text-align: center;
+}
+
+.ep-notice {
+  justify-content: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.9rem;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  font-size: 0.68rem;
+}
+
+.ep-notice button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.62rem;
+}
+
+.ep-card-list {
+  display: grid;
+  gap: 2rem;
+}
+
+.ep-card-shell {
+  position: relative;
+  padding-bottom: 2.5rem;
+}
+
+.ep-flip-stage {
+  cursor: pointer;
   perspective: 1200px;
 }
 
-.ephemera-card-inner {
+.ep-flip-inner {
   position: relative;
-  width: 100%;
-  height: 290px;
+  min-height: 19rem;
   transform-style: preserve-3d;
-  transition: transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 620ms cubic-bezier(0.22, 0.8, 0.22, 1);
 }
 
-.ephemera-card-inner.is-flipped {
+.ep-flip-stage.is-flipped .ep-flip-inner {
   transform: rotateY(180deg);
 }
 
-.ephemera-card-front,
-.ephemera-card-back {
+.ep-flip-face {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  border-radius: 8px;
-  box-shadow: var(--card-shadow);
-  border: 1px solid var(--card-border);
-  background: var(--card-bg);
-  overflow: hidden;
 }
 
-.ephemera-card-back {
+.ep-flip-back {
   transform: rotateY(180deg);
-  background: var(--card-bg);
 }
 
-/* 🎫 模板 A: 戏剧电影票 */
-.ticket-notch-left,
-.ticket-notch-right {
+.ep-export-node {
+  width: 100%;
+  height: 100%;
+}
+
+.ep-card-actions {
   position: absolute;
-  width: 16px;
-  height: 16px;
-  background-color: var(--bg-main);
+  right: 0.2rem;
+  bottom: 0;
+  z-index: 4;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.ep-card-actions > button,
+.ep-export-menu > button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  place-items: center;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  box-shadow: var(--card-shadow);
+}
+
+.ep-export-menu {
+  position: relative;
+}
+
+.ep-export-options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  display: grid;
+  min-width: 5.7rem;
+  padding: 0.3rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.25rem);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.ep-export-menu:hover .ep-export-options,
+.ep-export-menu:focus-within .ep-export-options {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.ep-export-options button {
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-family: "Noto Serif SC", serif;
+  font-size: 0.65rem;
+  text-align: left;
+}
+
+.ep-export-options button:hover {
+  background: var(--control-soft-bg);
+}
+
+.ep-empty-state {
+  display: grid;
+  min-height: 17rem;
+  padding: 2rem;
+  border: 1px dashed var(--card-border);
+  border-radius: 1.35rem;
+  place-items: center;
+  background: var(--card-bg);
+  text-align: center;
+}
+
+.ep-empty-state p {
+  max-width: 14rem;
+  margin: 0.8rem 0 1.2rem;
+  color: var(--text-sub);
+  font-size: 0.75rem;
+  line-height: 1.9;
+}
+
+.ep-empty-state button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 0.7rem;
+}
+
+.ep-floating-create {
+  position: fixed;
+  z-index: 20;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  box-shadow: var(--card-shadow);
+  font-size: 0.72rem;
+  font-weight: 600;
+  transform: translateX(-50%);
+}
+
+/* Shared back page */
+
+.ep-back-paper {
+  display: flex;
+  min-height: 19rem;
+  flex-direction: column;
+  padding: 1.4rem;
+  border: 1px solid var(--card-border);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1.7rem,
+      var(--divider) 1.75rem
+    ),
+    var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+
+.ep-back-head,
+.ep-back-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.ep-back-head {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--divider);
+}
+
+.ep-back-message {
+  margin: auto 0;
+  color: var(--text-sub);
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.2rem;
+  font-style: italic;
+  line-height: 1.8;
+}
+
+.ep-back-foot {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--divider);
+}
+
+/* Theatre ticket */
+
+.ep-theatre-ticket {
+  position: relative;
+  display: grid;
+  min-height: 19rem;
+  grid-template-columns: minmax(0, 1fr) 6.55rem;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1.7rem,
+      var(--divider) 1.75rem
+    ),
+    var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+
+.ep-theatre-ticket::before,
+.ep-theatre-ticket::after {
+  position: absolute;
+  z-index: 2;
+  right: 5.85rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  content: "";
   border-radius: 50%;
-  top: 72%;
-  transform: translateY(-50%);
-  z-index: 10;
+  background: var(--bg-main);
 }
 
-.ticket-notch-left {
-  left: -9px;
-  border-right: 1px solid var(--card-border);
+.ep-theatre-ticket::before {
+  top: -0.68rem;
 }
 
-.ticket-notch-right {
-  right: -9px;
-  border-left: 1px solid var(--card-border);
+.ep-theatre-ticket::after {
+  bottom: -0.68rem;
 }
 
-.ticket-barcode-line {
-  display: inline-block;
-  height: 24px;
-  background-color: var(--text-main);
-  opacity: 0.85;
+.ep-ticket-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 1.2rem 1.05rem 1rem;
 }
 
-/* 🧾 模板 B: 收据小票 */
-.receipt-paper {
+.ep-ticket-topline,
+.ep-ticket-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.45rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.ep-ticket-rule {
+  height: 1px;
+  margin: 0.75rem 0 0.95rem;
+  background: var(--divider);
+}
+
+.ep-ticket-title {
+  margin: 0;
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.92;
+}
+
+.ep-ticket-subtitle {
+  margin: 0.55rem 0 0;
+  color: var(--text-sub);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.07em;
+}
+
+.ep-ticket-description {
+  margin: auto 0 0.85rem;
+  color: var(--text-sub);
+  font-size: 0.68rem;
+  line-height: 1.85;
+}
+
+.ep-ticket-meta {
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--divider);
+}
+
+.ep-ticket-meta div {
+  min-width: 0;
+}
+
+.ep-ticket-meta span,
+.ep-ticket-meta strong {
+  display: block;
+}
+
+.ep-ticket-meta span {
+  margin-bottom: 0.25rem;
+  font-size: 0.42rem;
+  color: var(--text-muted);
+}
+
+.ep-ticket-meta strong {
+  overflow: hidden;
+  color: var(--text-sub);
+  font-size: 0.5rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ep-ticket-stub {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem 0.75rem 0.85rem;
+  border-left: 1px dashed var(--divider);
+  background: var(--control-soft-bg);
+}
+
+.ep-ticket-stub::before,
+.ep-ticket-stub::after {
+  position: absolute;
+  left: -0.42rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  content: "";
+  border-radius: 50%;
+  background: var(--bg-main);
+}
+
+.ep-ticket-stub::before {
+  top: 3.2rem;
+}
+
+.ep-ticket-stub::after {
+  bottom: 3.2rem;
+}
+
+.ep-ticket-admit {
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.48rem;
+  letter-spacing: 0.2em;
+  writing-mode: vertical-rl;
+}
+
+.ep-ticket-seat {
+  display: block;
+  color: var(--text-main);
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.35rem;
+  line-height: 0.95;
+  white-space: pre-line;
+}
+
+.ep-ticket-stub p {
+  margin: 0.5rem 0 0;
+  color: var(--text-sub);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.45rem;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+.ep-barcode {
+  display: flex;
+  height: 1.6rem;
+  align-items: stretch;
+  gap: 1px;
+}
+
+.ep-barcode i {
+  flex: 1;
+  background: var(--text-main);
+}
+
+.ep-barcode i:nth-child(2n) {
+  flex: 0.5;
+}
+
+.ep-barcode i:nth-child(3n) {
+  flex: 1.5;
+}
+
+.ep-barcode i:nth-child(5n) {
+  flex: 0.35;
+}
+
+/* Receipt */
+
+.ep-receipt {
+  width: min(100%, 18rem);
+  min-height: 23rem;
+  margin: 0 auto;
+  padding: 1.45rem 1.3rem 1.6rem;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1.3rem,
+      var(--divider) 1.35rem
+    ),
+    var(--card-bg);
+  box-shadow: var(--card-shadow);
   clip-path: polygon(
-    0% 4px, 4% 0px, 8% 4px, 12% 0px, 16% 4px, 20% 0px, 24% 4px, 28% 0px, 32% 4px, 36% 0px, 40% 4px, 44% 0px, 48% 4px, 52% 0px, 56% 4px, 60% 0px, 64% 4px, 68% 0px, 72% 4px, 76% 0px, 80% 4px, 84% 0px, 88% 4px, 92% 0px, 96% 4px, 100% 0px,
-    100% calc(100% - 4px), 96% 100%, 92% calc(100% - 4px), 88% 100%, 84% calc(100% - 4px), 80% 100%, 76% calc(100% - 4px), 72% 100%, 68% calc(100% - 4px), 64% 100%, 60% calc(100% - 4px), 56% 100%, 52% calc(100% - 4px), 48% 100%, 44% calc(100% - 4px), 40% 100%, 36% calc(100% - 4px), 32% 100%, 28% calc(100% - 4px), 24% 100%, 20% calc(100% - 4px), 16% 100%, 12% calc(100% - 4px), 8% 100%, 4% calc(100% - 4px), 0% 100%
+    0 0.42rem,
+    0.35rem 0,
+    0.7rem 0.42rem,
+    1.05rem 0,
+    1.4rem 0.42rem,
+    1.75rem 0,
+    2.1rem 0.42rem,
+    2.45rem 0,
+    2.8rem 0.42rem,
+    3.15rem 0,
+    3.5rem 0.42rem,
+    3.85rem 0,
+    4.2rem 0.42rem,
+    4.55rem 0,
+    4.9rem 0.42rem,
+    5.25rem 0,
+    5.6rem 0.42rem,
+    5.95rem 0,
+    6.3rem 0.42rem,
+    6.65rem 0,
+    7rem 0.42rem,
+    7.35rem 0,
+    7.7rem 0.42rem,
+    8.05rem 0,
+    8.4rem 0.42rem,
+    8.75rem 0,
+    9.1rem 0.42rem,
+    9.45rem 0,
+    9.8rem 0.42rem,
+    10.15rem 0,
+    10.5rem 0.42rem,
+    10.85rem 0,
+    11.2rem 0.42rem,
+    11.55rem 0,
+    11.9rem 0.42rem,
+    12.25rem 0,
+    12.6rem 0.42rem,
+    12.95rem 0,
+    13.3rem 0.42rem,
+    13.65rem 0,
+    14rem 0.42rem,
+    14.35rem 0,
+    14.7rem 0.42rem,
+    15.05rem 0,
+    15.4rem 0.42rem,
+    15.75rem 0,
+    16.1rem 0.42rem,
+    16.45rem 0,
+    16.8rem 0.42rem,
+    17.15rem 0,
+    17.5rem 0.42rem,
+    17.85rem 0,
+    100% 0.42rem,
+    100% calc(100% - 0.42rem),
+    17.85rem 100%,
+    17.5rem calc(100% - 0.42rem),
+    17.15rem 100%,
+    16.8rem calc(100% - 0.42rem),
+    16.45rem 100%,
+    16.1rem calc(100% - 0.42rem),
+    15.75rem 100%,
+    15.4rem calc(100% - 0.42rem),
+    15.05rem 100%,
+    14.7rem calc(100% - 0.42rem),
+    14.35rem 100%,
+    14rem calc(100% - 0.42rem),
+    13.65rem 100%,
+    13.3rem calc(100% - 0.42rem),
+    12.95rem 100%,
+    12.6rem calc(100% - 0.42rem),
+    12.25rem 100%,
+    11.9rem calc(100% - 0.42rem),
+    11.55rem 100%,
+    11.2rem calc(100% - 0.42rem),
+    10.85rem 100%,
+    10.5rem calc(100% - 0.42rem),
+    10.15rem 100%,
+    9.8rem calc(100% - 0.42rem),
+    9.45rem 100%,
+    9.1rem calc(100% - 0.42rem),
+    8.75rem 100%,
+    8.4rem calc(100% - 0.42rem),
+    8.05rem 100%,
+    7.7rem calc(100% - 0.42rem),
+    7.35rem 100%,
+    7rem calc(100% - 0.42rem),
+    6.65rem 100%,
+    6.3rem calc(100% - 0.42rem),
+    5.95rem 100%,
+    5.6rem calc(100% - 0.42rem),
+    5.25rem 100%,
+    4.9rem calc(100% - 0.42rem),
+    4.55rem 100%,
+    4.2rem calc(100% - 0.42rem),
+    3.85rem 100%,
+    3.5rem calc(100% - 0.42rem),
+    3.15rem 100%,
+    2.8rem calc(100% - 0.42rem),
+    2.45rem 100%,
+    2.1rem calc(100% - 0.42rem),
+    1.75rem 100%,
+    1.4rem calc(100% - 0.42rem),
+    1.05rem 100%,
+    0.7rem calc(100% - 0.42rem),
+    0.35rem 100%,
+    0 calc(100% - 0.42rem)
   );
 }
 
-/* 📅 模板 C: 古旧账册 */
-.ledger-double-border {
-  border: 3px double var(--card-border);
+.ep-receipt-head {
+  text-align: center;
 }
 
-.vintage-stamp {
-  border: 2px dashed var(--accent-color);
-  color: var(--accent-color);
-  opacity: 0.65;
-  border-radius: 50%;
-  transform: rotate(-12deg);
-  font-family: 'Playfair Display', Georgia, serif;
+.ep-receipt-head h3,
+.ep-receipt-head p,
+.ep-receipt-title,
+.ep-receipt-note,
+.ep-receipt-foot {
+  margin: 0;
 }
 
-/* 🔖 模板 D: 书签 */
-.bookmark-hole {
-  width: 12px;
-  height: 12px;
-  background-color: var(--bg-main);
+.ep-receipt-head h3 {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+
+.ep-receipt-head p,
+.ep-receipt-foot {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.45rem;
+  letter-spacing: 0.04em;
+  line-height: 1.65;
+}
+
+.ep-receipt-divider {
+  margin: 1rem 0 0.75rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.5rem;
+  white-space: nowrap;
+}
+
+.ep-receipt-title {
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  text-align: center;
+}
+
+.ep-receipt-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.ep-receipt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-family: "IBM Plex Mono", "Noto Serif SC", monospace;
+  font-size: 0.6rem;
+}
+
+.ep-receipt-row-name {
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ep-receipt-row-name::after {
+  position: absolute;
+  right: 0;
+  bottom: 0.15rem;
+  width: 100%;
+  height: 1px;
+  content: "";
+  background-image: radial-gradient(circle, var(--text-muted) 0.65px, transparent 0.8px);
+  background-repeat: repeat-x;
+  background-size: 0.25rem 1px;
+  opacity: 0.6;
+}
+
+.ep-receipt-row-name span {
+  position: relative;
+  z-index: 1;
+  padding-right: 0.2rem;
+  background: var(--card-bg);
+}
+
+.ep-receipt-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed var(--divider);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.ep-receipt-note {
+  margin-top: 1rem;
+  color: var(--text-sub);
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.ep-receipt-foot {
+  margin-top: 0.8rem;
+  text-align: center;
+}
+
+/* Ledger */
+
+.ep-ledger {
+  position: relative;
+  min-height: 19rem;
+  padding: 1.2rem;
+  border: 1px solid var(--card-border);
+  background:
+    linear-gradient(90deg, transparent 0, transparent 2rem, var(--divider) 2.05rem, transparent 2.1rem),
+    repeating-linear-gradient(0deg, var(--card-bg), var(--card-bg) 1.75rem, var(--divider) 1.8rem);
+  box-shadow: var(--card-shadow);
+}
+
+.ep-ledger::before {
+  position: absolute;
+  inset: 0.4rem;
+  pointer-events: none;
+  content: "";
+  border: 1px solid var(--divider);
+}
+
+.ep-ledger-head,
+.ep-ledger-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-left: 0.85rem;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+}
+
+.ep-ledger-status {
+  padding: 0.22rem 0.3rem;
+  border: 1px solid var(--divider);
+  color: var(--text-sub);
+}
+
+.ep-ledger-title {
+  position: relative;
+  z-index: 1;
+  margin: 1.15rem 0 0.9rem 0.85rem;
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.95rem;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.ep-ledger-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-left: 0.85rem;
+  border-top: 1px solid var(--divider);
+  border-left: 1px solid var(--divider);
+}
+
+.ep-ledger-field {
+  min-height: 3.8rem;
+  padding: 0.55rem 0.6rem;
+  border-right: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
+}
+
+.ep-ledger-wide {
+  grid-column: 1 / -1;
+  min-height: 6.5rem;
+}
+
+.ep-ledger-field > span {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.42rem;
+  letter-spacing: 0.1em;
+}
+
+.ep-ledger-field p {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 0.62rem;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.ep-ledger-foot {
+  margin-top: 0.75rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--divider);
+}
+
+/* Bookmark */
+
+.ep-bookmark {
+  display: flex;
+  width: min(100%, 13.5rem);
+  min-height: 19rem;
+  margin: 0 auto;
+  flex-direction: column;
+  padding: 0.7rem 1rem 1rem;
+  border: 1px solid var(--card-border);
+  background:
+    linear-gradient(135deg, transparent 0, var(--control-soft-bg) 100%),
+    var(--card-bg);
+  box-shadow: var(--card-shadow);
+}
+
+.ep-bookmark-top {
+  width: 100%;
+}
+
+.ep-bookmark-hole {
+  width: 0.72rem;
+  height: 0.72rem;
+  margin: 0 auto;
   border: 1px solid var(--card-border);
   border-radius: 50%;
+  background: var(--bg-main);
+}
+
+.ep-bookmark-tassel {
+  width: 1px;
+  height: 2rem;
   margin: 0 auto;
+  background: var(--accent-color);
+  opacity: 0.55;
+}
+
+.ep-bookmark-quote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto 0;
+  color: var(--text-main);
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.55rem;
+  font-style: italic;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ep-bookmark-quote p {
+  margin: 0;
+}
+
+.ep-bookmark-foot {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--divider);
+  text-align: center;
+}
+
+.ep-bookmark-foot strong,
+.ep-bookmark-foot span {
+  display: block;
+}
+
+.ep-bookmark-foot strong {
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 0.95rem;
+}
+
+.ep-bookmark-foot span {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.45rem;
+}
+
+/* Editor */
+
+.ep-modal-layer {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  display: grid;
+  padding: 0.75rem;
+  place-items: center;
+}
+
+.ep-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: var(--modal-overlay);
+  backdrop-filter: blur(10px);
+}
+
+.ep-cast-modal {
   position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 28rem);
+  max-height: calc(100dvh - 1.5rem);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--modal-border);
+  border-radius: 1.5rem;
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
 }
 
-.bookmark-tassel {
-  width: 2px;
-  height: 25px;
-  background-color: var(--accent-color);
-  opacity: 0.5;
-  margin: 0 auto;
-  position: relative;
-  top: -1px;
+.ep-cast-head,
+.ep-cast-foot {
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--divider);
 }
 
-/* 打字动画 */
-@keyframes typing-effect {
-  from { opacity: 0.3; }
-  to { opacity: 1; }
+.ep-cast-head h3 {
+  margin: 0.2rem 0 0;
+  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-size: 1.3rem;
 }
 
-.typing-dot {
-  animation: typing-effect 0.8s infinite alternate;
+.ep-cast-head > button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  place-items: center;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  cursor: pointer;
 }
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.ep-cast-scroll {
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.ep-live-preview {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.ep-live-preview .ep-theatre-ticket,
+.ep-live-preview .ep-ledger,
+.ep-live-preview .ep-bookmark,
+.ep-live-preview .ep-receipt {
+  transform: scale(0.9);
+  transform-origin: top center;
+  margin-bottom: -1.7rem;
+}
+
+.ep-form-section {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.ep-template-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+}
+
+.ep-template-picker button {
+  min-height: 2.1rem;
+  padding: 0.35rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.65rem;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 0.62rem;
+}
+
+.ep-template-picker button.is-active {
+  border-color: var(--accent-color);
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.ep-template-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ep-form-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ep-form-field > span,
+.ep-receipt-editor > span,
+.ep-ai-section > div > span {
+  color: var(--text-sub);
+  font-size: 0.63rem;
+  font-weight: 600;
+}
+
+.ep-form-field input,
+.ep-form-field textarea,
+.ep-form-field select,
+.ep-receipt-editor-row input,
+.ep-ai-section textarea {
+  width: 100%;
+  border: 1px solid var(--card-border);
+  border-radius: 0.7rem;
+  outline: none;
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-family: "Noto Serif SC", serif;
+  font-size: 0.72rem;
+  line-height: 1.65;
+}
+
+.ep-form-field input,
+.ep-form-field select,
+.ep-receipt-editor-row input {
+  min-height: 2.4rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.ep-form-field textarea,
+.ep-ai-section textarea {
+  min-height: 5.5rem;
+  padding: 0.6rem 0.65rem;
+  resize: vertical;
+}
+
+.ep-form-field input:focus,
+.ep-form-field textarea:focus,
+.ep-form-field select:focus,
+.ep-receipt-editor-row input:focus,
+.ep-ai-section textarea:focus {
+  border-color: var(--accent-color);
+}
+
+.ep-receipt-editor {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--card-border);
+  border-radius: 0.85rem;
+  background: var(--bg-surface);
+}
+
+.ep-receipt-editor-row {
+  gap: 0.35rem;
+}
+
+.ep-receipt-editor-row input:first-child {
+  flex: 1.2;
+}
+
+.ep-receipt-editor-row input:nth-child(2) {
+  flex: 0.8;
+}
+
+.ep-receipt-editor-row button,
+.ep-text-action {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.6rem;
+}
+
+.ep-text-action {
+  justify-self: start;
+  padding: 0.25rem 0;
+  color: var(--text-sub);
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.ep-ai-section {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.9rem;
+  background: var(--bg-surface);
+}
+
+.ep-ai-section > div {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ep-ai-section > div button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 0.58rem;
+}
+
+.ep-ai-section > div button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.ep-form-error {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 0.67rem;
+  line-height: 1.65;
+}
+
+.ep-cast-foot {
+  justify-content: flex-end;
+  gap: 0.6rem;
+  border-top: 1px solid var(--divider);
+  border-bottom: 0;
+}
+
+.ep-cast-foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.7rem;
+  background: var(--card-bg);
+  color: var(--text-sub);
+  font-size: 0.68rem;
+}
+
+.ep-cast-foot button:last-child {
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.ep-cast-foot button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.ep-spin {
+  animation: ep-spin 900ms linear infinite;
+}
+
+@keyframes ep-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 350px) {
+  .ep-theatre-ticket {
+    grid-template-columns: minmax(0, 1fr) 5.3rem;
+  }
+
+  .ep-theatre-ticket::before,
+  .ep-theatre-ticket::after {
+    right: 4.6rem;
+  }
+
+  .ep-ticket-title {
+    font-size: 1.65rem;
+  }
+
+  .ep-ticket-main {
+    padding: 1rem 0.8rem 0.85rem;
+  }
+
+  .ep-ticket-stub {
+    padding: 0.85rem 0.55rem;
+  }
+
+  .ep-ticket-meta {
+    gap: 0.25rem;
+  }
+
+  .ep-ticket-meta strong {
+    max-width: 3.2rem;
+  }
+}
