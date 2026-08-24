@@ -1,152 +1,259 @@
 // src/apps/hub/PreloaderSelector.jsx
-import React, { useState, useEffect } from 'react';
+
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ChevronDown,
+  CircleDot,
+  Disc3,
+  Image,
+  Layers3,
+  LockKeyhole,
+  Mail,
+  Sparkles
+} from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
-import { Eye, HelpCircle, Sparkles, Camera, Disc, Mail, Layers } from 'lucide-react';
-import Preloader from '../../components/Preloader';
+import {
+  DEFAULT_STARTUP_ANIMATION_ID,
+  getStartupAnimationById,
+  isAvailableStartupAnimation,
+  STARTUP_ANIMATIONS,
+  STARTUP_ANIMATION_SETTING_KEY,
+  STARTUP_ANIMATION_STORAGE_KEY
+} from '../../config/startupAnimations';
+import './preloader-selector.css';
 
-const ANIMATION_OPTIONS = [
-  { id: 'astrology', name: 'Astrology Dice', icon: Sparkles, desc: 'Aligning cosmic paths' },
-  { id: 'polaroid', name: 'Polaroid Grain', icon: Camera, desc: 'Analog chemical develop' },
-  { id: 'vinyl', name: 'Vinyl Groove', icon: Disc, desc: 'Mechanical retro warmth' },
-  { id: 'letter', name: 'Airmail Seal', icon: Mail, desc: 'StAMP of wanderlust thoughts' },
-  { id: 'pebble', name: 'Pebble Stack', icon: Layers, desc: 'Quiet physical balance' }
-];
+const ICON_MAP = {
+  astrology: Sparkles,
+  vinyl: Disc3,
+  polaroid: Image,
+  letter: Mail,
+  pebble: Layers3
+};
 
-export const PreloaderSelector = ({ delay = 150 }) => {
-  const [currentType, setCurrentType] = useState('astrology');
-  const [isPreviewing, setIsPreviewing] = useState(false);
+const readStoredAnimationId = () => {
+  try {
+    return window.localStorage.getItem(STARTUP_ANIMATION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
 
-  // 初始化加载配置
+const saveAnimationIdToStorage = (animationId) => {
+  try {
+    window.localStorage.setItem(STARTUP_ANIMATION_STORAGE_KEY, animationId);
+  } catch {
+    // localStorage 不可用时，仍会尝试写入 Dexie。
+  }
+};
+
+export const PreloaderSelector = ({ delay = 0 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedId, setSelectedId] = useState(
+    DEFAULT_STARTUP_ANIMATION_ID
+  );
+  const [saveState, setSaveState] = useState('idle');
+
+  const selectedAnimation = useMemo(() => {
+    return getStartupAnimationById(selectedId);
+  }, [selectedId]);
+
   useEffect(() => {
-    const initSetting = async () => {
-      // 1. 优先快读 localStorage
-      const localValue = localStorage.getItem('preloader_type');
-      if (localValue) {
-        setCurrentType(localValue);
-      }
-      
-      // 2. 异步同步 db.settings
-      try {
-        const dbSetting = await db.settings.get('preloaderConfig');
-        if (dbSetting?.value?.type) {
-          setCurrentType(dbSetting.value.type);
-          if (localValue !== dbSetting.value.type) {
-            localStorage.setItem('preloader_type', dbSetting.value.type);
-          }
+    let isMounted = true;
+
+    const loadStartupPreference = async () => {
+      const storedId = readStoredAnimationId();
+
+      if (storedId && isAvailableStartupAnimation(storedId)) {
+        if (isMounted) {
+          setSelectedId(storedId);
         }
-      } catch (err) {
-        console.warn('Failed to load preloader from Dexie:', err);
+        return;
+      }
+
+      try {
+        const setting = await db.settings.get(STARTUP_ANIMATION_SETTING_KEY);
+        const databaseId = setting?.value?.type;
+
+        if (!isAvailableStartupAnimation(databaseId)) {
+          return;
+        }
+
+        saveAnimationIdToStorage(databaseId);
+
+        if (isMounted) {
+          setSelectedId(databaseId);
+        }
+      } catch (error) {
+        console.warn('Unable to read startup animation preference.', error);
       }
     };
-    initSetting();
+
+    loadStartupPreference();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // 写入配置
-  const handleSelect = async (type) => {
-    setCurrentType(type);
-    localStorage.setItem('preloader_type', type);
+  const handleSelect = async (animation) => {
+    if (!animation.isAvailable || animation.id === selectedId) {
+      return;
+    }
+
+    setSelectedId(animation.id);
+    setSaveState('saving');
+    saveAnimationIdToStorage(animation.id);
+
     try {
       await db.settings.put({
-        key: 'preloaderConfig',
-        value: { type }
+        key: STARTUP_ANIMATION_SETTING_KEY,
+        value: {
+          type: animation.id,
+          updatedAt: Date.now()
+        }
       });
-    } catch (err) {
-      console.error('Failed to save preloader config to Dexie:', err);
+
+      setSaveState('saved');
+    } catch (error) {
+      console.error('Unable to save startup animation preference.', error);
+      setSaveState('error');
     }
   };
 
-  return (
-    <>
-      <GlassCard
-        delay={delay}
-        className="flex flex-col p-4 text-left relative overflow-hidden transition-all duration-300"
-        style={{
-          border: '1px solid var(--card-border)',
-          backgroundColor: 'var(--card-bg)'
-        }}
-      >
-        {/* 顶部修饰线与标签 (营造手帐/杂志风排版) */}
-        <div className="flex items-center justify-between border-b border-solid border-[var(--divider)] pb-2 mb-3">
-          <div className="flex flex-col">
-            <span className="text-[9px] uppercase tracking-widest text-[var(--text-muted)] font-bold">
-              Aesthetic Calibration
-            </span>
-            <h4 className="text-xs font-bold text-[var(--text-main)]">
-              BOOT SCREEN ATMOSPHERE
-            </h4>
-          </div>
-          <button
-            onClick={() => setIsPreviewing(true)}
-            className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md hover:bg-[var(--control-soft-hover)] text-[var(--text-sub)] transition-colors border border-solid border-[var(--divider)]"
-            title="Preview current animation"
-          >
-            <Eye className="h-3 w-3" />
-            <span>PREVIEW</span>
-          </button>
-        </div>
+  const getOptionState = (animation) => {
+    if (animation.id === selectedId) {
+      return 'ACTIVE';
+    }
 
-        {/* 动画选择排版 */}
-        <div className="space-y-1.5">
-          {ANIMATION_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const isSelected = currentType === opt.id;
-            return (
-              <button
-                key={opt.id}
-                onClick={() => handleSelect(opt.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-all duration-200 ${
-                  isSelected
-                    ? 'bg-[var(--control-soft-bg)] border border-solid border-[var(--text-muted)]/20'
-                    : 'hover:bg-[var(--control-soft-hover)] border border-transparent'
+    return animation.status;
+  };
+
+  return (
+    <GlassCard
+      delay={delay}
+      className={`preloader-selector ${
+        isExpanded ? 'preloader-selector--expanded' : ''
+      }`}
+    >
+      <button
+        type="button"
+        className="preloader-selector__toggle"
+        onClick={() => setIsExpanded((current) => !current)}
+        aria-expanded={isExpanded}
+        aria-controls="startup-animation-archive"
+      >
+        <span className="preloader-selector__edition">No. 01</span>
+
+        <span className="preloader-selector__toggle-copy">
+          <span className="preloader-selector__eyebrow">
+            STARTUP ATMOSPHERE ARCHIVE
+          </span>
+
+          <span className="preloader-selector__title-row">
+            <span className="preloader-selector__title">
+              {selectedAnimation.title}
+            </span>
+
+            <span className="preloader-selector__active-tag">ACTIVE</span>
+          </span>
+
+          <span className="preloader-selector__description">
+            {selectedAnimation.description}
+          </span>
+        </span>
+
+        <span className="preloader-selector__toggle-control" aria-hidden="true">
+          <ChevronDown size={15} strokeWidth={1.8} />
+        </span>
+      </button>
+
+      <div
+        id="startup-animation-archive"
+        className="preloader-selector__panel"
+      >
+        <div className="preloader-selector__panel-inner">
+          <div className="preloader-selector__content">
+            <div className="preloader-selector__heading">
+              <h4>SELECT A STARTING SCENE</h4>
+
+              <p>
+                THE CHOICE IS SAVED
+                <br />
+                FOR YOUR NEXT ARRIVAL
+              </p>
+            </div>
+
+            <div className="preloader-selector__options">
+              {STARTUP_ANIMATIONS.map((animation) => {
+                const Icon = ICON_MAP[animation.id] || CircleDot;
+                const isSelected = animation.id === selectedId;
+                const isLocked = !animation.isAvailable;
+
+                return (
+                  <button
+                    key={animation.id}
+                    type="button"
+                    disabled={isLocked}
+                    onClick={() => handleSelect(animation)}
+                    className={`preloader-selector__option ${
+                      isSelected ? 'preloader-selector__option--selected' : ''
+                    } ${
+                      isLocked ? 'preloader-selector__option--locked' : ''
+                    }`}
+                  >
+                    <span className="preloader-selector__option-marker">
+                      {isLocked ? (
+                        <LockKeyhole size={14} strokeWidth={1.6} />
+                      ) : (
+                        <Icon size={16} strokeWidth={1.55} />
+                      )}
+                    </span>
+
+                    <span className="preloader-selector__option-copy">
+                      <span className="preloader-selector__option-name">
+                        {animation.title}
+                      </span>
+
+                      <span className="preloader-selector__option-description">
+                        {animation.archiveDescription}
+                      </span>
+                    </span>
+
+                    <span className="preloader-selector__option-state">
+                      {getOptionState(animation)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="preloader-selector__footer">
+              <p>
+                YOUR SELECTED SCENE WILL APPEAR
+                <br />
+                THE NEXT TIME THE APP OPENS.
+              </p>
+
+              <span
+                className={`preloader-selector__save-state ${
+                  saveState === 'error'
+                    ? 'preloader-selector__save-state--error'
+                    : ''
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`h-3.5 w-3.5 transition-transform duration-300 ${
-                      isSelected ? 'scale-110 text-[var(--accent-color)] opacity-100' : 'opacity-40 text-[var(--text-main)]'
-                    }`}
-                  />
-                  <div>
-                    <p className={`text-[11px] font-medium leading-none ${
-                      isSelected ? 'text-[var(--text-main)] font-semibold' : 'text-[var(--text-sub)]'
-                    }`}>
-                      {opt.name}
-                    </p>
-                    <p className="text-[9px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider font-light">
-                      {opt.desc}
-                    </p>
-                  </div>
-                </div>
-
-                {/* 指示符：纯文字物理刻度感 */}
-                {isSelected && (
-                  <span className="text-[8px] tracking-wider text-[var(--accent-color)] font-bold px-1.5 py-0.5 border border-solid border-[var(--accent-color)]/20 rounded">
-                    ACTIVE
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                {saveState === 'saving' && 'SAVING'}
+                {saveState === 'saved' && 'SAVED'}
+                {saveState === 'error' && 'NOT SAVED'}
+                {saveState === 'idle' && 'LOCAL ARCHIVE'}
+              </span>
+            </div>
+          </div>
         </div>
-
-        {/* 底部杂志感注脚 */}
-        <div className="mt-3 pt-2 border-t border-dashed border-[var(--divider)] flex justify-between items-center text-[9px] text-[var(--text-muted)] tracking-wider">
-          <span>ATMOSPHERE SELECTOR v1.0</span>
-          <span>WHEN I WITH U</span>
-        </div>
-      </GlassCard>
-
-      {/* 实时预览挂载 */}
-      {isPreviewing && (
-        <Preloader
-          isPreview={true}
-          previewType={currentType}
-          onFinish={() => setIsPreviewing(false)}
-        />
-      )}
-    </>
+      </div>
+    </GlassCard>
   );
 };
 
 export default PreloaderSelector;
+

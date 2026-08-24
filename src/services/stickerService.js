@@ -11,7 +11,14 @@ export const DEFAULT_STICKERS = [
   { name: '乖宝宝', url: 'https://u2.fukit.cn/0Omv9Oy78', category: 'preset' },
   { name: '哄哄你', url: 'https://u2.fukit.cn/h09DfAhR2', category: 'preset' },
   { name: '开心', url: 'https://u2.fukit.cn/vENEKAqtS', category: 'preset' },
+  { name: '喝酒咕噜噜', url: 'https://u2.fukit.cn/ZIscxjpk1', category: 'preset' },
+  { name: '嗅嗅你', url: 'https://u2.fukit.cn/VjCrvNu26', category: 'preset' },
+  { name: '有点生气', url: 'https://u2.fukit.cn/PacUkxYj8', category: 'preset' },
+  { name: '超心动', url: 'https://u2.fukit.cn/mSVQW0LeA', category: 'preset' },
+  { name: '你好可爱', url: 'https://u2.fukit.cn/RQmg53mU9', category: 'preset' },
+  { name: '哭了', url: 'https://u2.fukit.cn/sBcqPCOgz', category: 'preset' },
 ];
+
 
 export const initDefaultStickers = async () => {
   try {
