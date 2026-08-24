@@ -193,7 +193,14 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
     );
   }
 
+  // 👈 在这里补齐 isAnimal 和 labels 变量的定义
   const isAnimal = habitat.type === 'animal';
+  const labels = {
+    feed: isAnimal ? '喂食' : '施肥',
+    water: isAnimal ? '喷雾' : '浇水',
+    clean: '擦拭',
+    play: isAnimal ? '玩耍' : '抚育'
+  };
 
   // 筛选日志
   const userActions = logs.filter(l => l.logType === 'user_action');
