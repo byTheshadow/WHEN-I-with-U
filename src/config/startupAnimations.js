@@ -28,8 +28,8 @@ export const STARTUP_ANIMATIONS = [
     title: 'Polaroid Development',
     description: 'A memory gradually develops from the quiet grain.',
     archiveDescription: 'Reserved for future development',
-    status: 'SOON',
-    isAvailable: false
+     isAvailable: true,
+  status: 'READY'
   },
   {
     id: 'letter',
