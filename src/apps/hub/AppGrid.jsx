@@ -1,4 +1,4 @@
-// src/apps/hub/AppGrid.jsx
+// src/apps/hub/AppGrid.jsx 
 import React, { useEffect, useState } from 'react';
 import {
   MessageSquare,
@@ -8,14 +8,14 @@ import {
   Camera,
   Waves,
   Sparkles,
-  Users
+  Users,
+  Leaf,
+  Ticket // 👈 引入票根图标
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
 import PreloaderSelector from './PreloaderSelector';
-import { Leaf } from 'lucide-react';
 import db from '../../db';
-
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   const [habitatCount, setHabitatCount] = useState(0);
@@ -26,7 +26,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
     const loadHabitatCount = async () => {
       try {
         const count = await db.habitats.count();
-
         if (isMounted) {
           setHabitatCount(count);
         }
@@ -36,20 +35,19 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
     };
 
     void loadHabitatCount();
-
     return () => {
       isMounted = false;
     };
   }, []);
 
   return (
-
     <div className="space-y-3">
       <h3 className="px-2 text-[11px] font-semibold uppercase tracking-widest opacity-40">
         Applications
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
+        {/* Row 1: Messages (col-span-2) */}
         <GlassCard
           delay={delay}
           tone="ink"
@@ -60,12 +58,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/10 dark:bg-white/10">
               <MessageSquare className="h-5 w-5 text-[var(--text-on-ink)] opacity-90" />
             </div>
-
             <div className="text-left">
               <h4 className="text-sm font-bold text-[var(--text-on-ink)]">
                 Messages
               </h4>
-
               <p className="mt-0.5 text-[11px] text-[var(--text-on-ink-muted)]">
                 Continue the conversation
               </p>
@@ -73,6 +69,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
+        {/* Row 2 */}
         <GlassCard
           delay={delay + 25}
           onClick={() => onOpenApp('snapshots')}
@@ -81,7 +78,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
             <Camera className="h-5 w-5 text-[var(--text-main)] opacity-90" />
           </div>
-
           <div>
             <h4 className="text-sm font-bold">Snapshots</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -98,7 +94,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
             <Waves className="h-5 w-5 text-[var(--text-main)] opacity-90" />
           </div>
-
           <div>
             <h4 className="text-sm font-bold">Pebbling</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -107,6 +102,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
+        {/* Row 3 */}
         <GlassCard
           delay={delay + 50}
           onClick={() => onOpenApp('imaginarium')}
@@ -121,7 +117,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               style={{ color: 'var(--text-main)' }}
             />
           </div>
-
           <div>
             <h4 className="text-sm font-bold">Imaginarium</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -144,7 +139,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               style={{ color: 'var(--text-main)' }}
             />
           </div>
-
           <div>
             <h4 className="text-sm font-bold">The Ensemble</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -153,7 +147,8 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-                <GlassCard
+        {/* Row 4 */}
+        <GlassCard
           delay={delay + 70}
           onClick={() => onOpenApp('habitat')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
@@ -167,7 +162,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               style={{ color: 'var(--text-main)' }}
             />
           </div>
-
           <div>
             <h4 className="text-sm font-bold">Living Habitat</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -178,18 +172,44 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-
         <GlassCard
-          delay={delay + 70}
+          delay={delay + 75}
           onClick={() => onOpenApp('diaries')}
           className="flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
-          <BookOpen className="h-6 w-6 opacity-80" />
-
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <BookOpen className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+          </div>
           <div>
             <h4 className="text-sm font-bold">Diaries</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
               Sync Memories
+            </p>
+          </div>
+        </GlassCard>
+
+        {/* Row 5: Ephemera (Left) & Travel/Planner Column (Right) -> 完美闭合对称 */}
+        <GlassCard
+          delay={delay + 90}
+          onClick={() => onOpenApp('ephemera')}
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+        >
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Ticket
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold">Ephemera</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+              Time Tickets
             </p>
           </div>
         </GlassCard>
@@ -212,8 +232,6 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <Calendar className="h-5 w-5 opacity-80" />
             <h4 className="text-sm font-bold">Planner</h4>
           </GlassCard>
-
-          
         </div>
       </div>
 

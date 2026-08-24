@@ -16,6 +16,7 @@ import PebblingApp from './apps/pebbling/PebblingApp';
 import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
+import EphemeraApp from './apps/ephemera/EphemeraApp';
 
 import { Settings as SettingsIcon } from 'lucide-react';
 import {
@@ -47,7 +48,8 @@ const REGISTERED_APPS = [
   'pebbling',
   'imaginarium',
   'ensemble',
-   'habitat'
+   'habitat',
+   'ephemera' 
 ];
 
 export const App = () => {
