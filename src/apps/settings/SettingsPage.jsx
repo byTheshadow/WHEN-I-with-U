@@ -23,6 +23,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
+import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
+
 import db from '../../db';
 import {
   getLockscreenQuotes,
@@ -836,10 +838,13 @@ export const SettingsPage = ({
             </div>
           </div>
         )}
-      </GlassCard>
+           </GlassCard>
+
+      <DailyOfferingSettings />
 
       <GlassCard className="space-y-4 text-left">
         <div className="flex items-center justify-between gap-3">
+
           <div className="flex items-center gap-2 text-sm font-bold">
             <Heart className="h-4 w-4 text-rose-500" />
             <span>锁屏陪伴与角色台词</span>

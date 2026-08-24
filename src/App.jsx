@@ -17,6 +17,9 @@ import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
 import EphemeraApp from './apps/ephemera/EphemeraApp';
+import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
+import './apps/daily-offering/daily-offering.css';
+
 
 import { Settings as SettingsIcon } from 'lucide-react';
 import {
@@ -190,25 +193,28 @@ export const App = () => {
           </header>
         )}
 
-        {currentApp === 'hub' && (
-          <>
-            <ErrorBoundary>
-              <ProfileHeader delay={100} />
-            </ErrorBoundary>
+       {currentApp === 'hub' && (
+  <DailyOfferingHubGate
+    onOpenSettings={() => openApp('settings')}
+  >
+    <ErrorBoundary>
+      <ProfileHeader delay={100} />
+    </ErrorBoundary>
 
-            <ErrorBoundary>
-              <PinnedGallery delay={200} />
-            </ErrorBoundary>
+    <ErrorBoundary>
+      <PinnedGallery delay={200} />
+    </ErrorBoundary>
 
-            <ErrorBoundary>
-              <QuickBoard delay={300} />
-            </ErrorBoundary>
+    <ErrorBoundary>
+      <QuickBoard delay={300} />
+    </ErrorBoundary>
 
-            <ErrorBoundary>
-              <AppGrid delay={400} onOpenApp={openApp} />
-            </ErrorBoundary>
-          </>
-        )}
+    <ErrorBoundary>
+      <AppGrid delay={400} onOpenApp={openApp} />
+    </ErrorBoundary>
+  </DailyOfferingHubGate>
+)}
+
 
         {currentApp === 'settings' && (
           <ErrorBoundary>
