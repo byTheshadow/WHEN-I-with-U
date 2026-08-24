@@ -15,7 +15,7 @@ import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
 import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';,
-import HabitatApp from './apps/habitat/HabitatApp';
+import HabitatApp from './apps/habitat/HabitatApp';,
 
 import { Settings as SettingsIcon } from 'lucide-react';
 import {
