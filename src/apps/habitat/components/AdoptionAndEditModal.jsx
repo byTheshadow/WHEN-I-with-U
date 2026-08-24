@@ -21,7 +21,7 @@ const PRESETS = [
     id: 'preset_kitten',
     name: '阳光小猫',
     type: 'animal',
-    persona: '一团由阳光和小纸屑构成的顽皮小猫。性格极其热情而话多，总是精力旺盛地想和一切事物玩耍，害怕孤独，被抚摸时会发出暖洋洋的嘟囔声。',
+    persona: '一团由阳光和小纸屑构成的顽皮小猫。性格极其热情且有些顽皮，总是精力旺盛地想和一切事物玩耍，害怕孤独，被抚摸时会发出暖洋洋的呼噜声。',
     avatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f9e4b7"/><circle cx="50" cy="50" r="28" fill="%23e8a353"/><path d="M30 35 L 42 42 L 35 50 Z" fill="%23e8a353"/><path d="M70 35 L 58 42 L 65 50 Z" fill="%23e8a353"/><circle cx="43" cy="48" r="3" fill="%232d1e0d"/><circle cx="57" cy="48" r="3" fill="%232d1e0d"/><path d="M47 55 Q 50 57 53 55" stroke="%232d1e0d" stroke-width="2" fill="none"/></svg>'
   }
 ];
@@ -42,7 +42,7 @@ export const AdoptionAndEditModal = ({ habitat, onClose, onSave }) => {
       const list = await db.characters.toArray();
       setCharacters(list);
     };
-    loadCharacters();
+    void loadCharacters();
   }, []);
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export const AdoptionAndEditModal = ({ habitat, onClose, onSave }) => {
     if (presetId === 'custom') {
       setName('自定义生命体');
       setType('animal');
-      setPersona('安静的数字生命，喜欢在角落静静感受你的陪伴。');
+      setPersona('安静的数字生命，喜欢在角落感受你的陪伴和照料。');
       setAvatar('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23eee"/><circle cx="50" cy="50" r="20" fill="%23ccc"/></svg>');
     } else {
       const preset = PRESETS.find(p => p.id === presetId);
@@ -104,7 +104,7 @@ export const AdoptionAndEditModal = ({ habitat, onClose, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div 
-        className="w-full max-w-[380px] overflow-hidden rounded-2xl border transition-all duration-300"
+        className="w-full max-w-[380px] overflow-hidden rounded-2xl border transition-all duration-300 shadow-xl"
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderColor: 'var(--card-border)',

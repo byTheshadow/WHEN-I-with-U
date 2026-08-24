@@ -16,6 +16,30 @@ export const getHabitatApiConfig = async () => {
 };
 
 /**
+ * 从接口动态拉取可用模型列表
+ */
+export const fetchAvailableModels = async (baseUrl, apiKey) => {
+  if (!apiKey) return [];
+  const cleanUrl = `${baseUrl.replace(/\/$/, '')}/models`;
+  const response = await fetch(cleanUrl, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('无法连接 API 获取模型列表');
+  }
+
+  const data = await response.json();
+  if (data && Array.isArray(data.data)) {
+    return data.data.map(m => m.id);
+  }
+  return [];
+};
+
+/**
  * 底层通用 LLM 呼叫接口
  */
 const callLLM = async (systemPrompt, userPrompt) => {
@@ -84,10 +108,10 @@ export const getHabitatActionFeedback = async (habitat, actionType) => {
   } catch (error) {
     console.error('获取照料反馈失败，启用预设降级文案:', error);
     const fallbacks = {
-      feed: ['肚子里暖烘烘的，养分在缓缓扩散。', '感觉有了新的生命力。'],
-      water: ['空气润泽起来了，每一个触角/叶片都在舒张。', '谢谢你带来的湿润微风。'],
-      clean: ['外面的世界明亮起来了，能清晰地看见你的轮廓。', '干净的感觉真好。'],
-      play: ['有你陪着，连瓶子里的时光都流动得快了一些。', '和你交流让我觉得很安心。']
+      feed: ['吸饱了落下的微小颗粒，感觉浑身有了暖意。', '养分在缓缓扩散，感觉舒适了一些。'],
+      water: ['空气润泽起来了，每一个角落都在发生细微的呼吸。', '谢谢你带来的这阵湿润微风。'],
+      clean: ['外面的视线明亮起来了，能清晰地看见你的轮廓了。', '干净的感觉让呼吸更顺畅。'],
+      play: ['有你隔着玻璃陪我，连瓶子里的时光都流动得快了一些。', '和你交流让我觉得很安心。']
     };
     const list = fallbacks[actionType] || ['瓶里泛起了一圈微弱的涟漪。'];
     return list[Math.floor(Math.random() * list.length)];
@@ -119,7 +143,7 @@ ${logCtx}`;
     return await callLLM(systemPrompt, userMsg);
   } catch (error) {
     console.error('聊天失败，使用默认反馈:', error);
-    return '静静地看着你，吐出了一个气泡。';
+    return '静静地看着你，在玻璃外壁上留下了一圈雾气。';
   }
 };
 
@@ -144,6 +168,6 @@ export const generateGuardianJointCare = async (habitat, character) => {
     return await callLLM(systemPrompt, userPrompt);
   } catch (error) {
     console.error('守护者照料生成失败:', error);
-    return `我顺便来看了看它，帮它调整了瓶子里的环境。它看起来状态还不错，希望它能健康成长。`;
+    return `我顺便来看了看它，帮它调整了瓶子里的环境。它看起来状态还不错。`;
   }
 };

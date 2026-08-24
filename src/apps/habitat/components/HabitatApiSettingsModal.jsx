@@ -1,26 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sliders } from 'lucide-react';
+import { X, Sliders, RefreshCw, Loader } from 'lucide-react';
 import db from '../../../db';
+import { fetchAvailableModels } from '../habitatAiService';
+
+const DEFAULT_FALLBACK_MODELS = [
+  'gpt-4o',
+  'gpt-4o-mini',
+  'gpt-3.5-turbo',
+  'claude-3-5-sonnet',
+  'gemini-1.5-pro'
+];
 
 export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
-  const [baseUrl, setBaseUrl] = useState('');
+  const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('gpt-4o');
+  
+  const [modelList, setModelList] = useState(DEFAULT_FALLBACK_MODELS);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   useEffect(() => {
     const loadConfig = async () => {
       const configRecord = await db.settings.get('habitatApiConfig');
       if (configRecord && configRecord.value) {
-        setBaseUrl(configRecord.value.baseUrl || '');
+        setBaseUrl(configRecord.value.baseUrl || 'https://api.openai.com/v1');
         setApiKey(configRecord.value.apiKey || '');
-        setModel(configRecord.value.model || '');
-      } else {
-        setBaseUrl('https://api.openai.com/v1');
-        setModel('gpt-4o');
+        setModel(configRecord.value.model || 'gpt-4o');
+        
+        if (configRecord.value.apiKey) {
+          void loadModelsFromApi(configRecord.value.baseUrl, configRecord.value.apiKey, configRecord.value.model);
+        }
       }
     };
-    loadConfig();
+    void loadConfig();
   }, []);
+
+  const loadModelsFromApi = async (url, key, currentModel) => {
+    if (!key) return;
+    setIsLoadingModels(true);
+    setApiError('');
+    try {
+      const models = await fetchAvailableModels(url, key);
+      if (models.length > 0) {
+        setModelList(models);
+        // 如果当前保存的模型不在获取到的列表中，且当前模型有效，追加至列表
+        if (currentModel && !models.includes(currentModel)) {
+          setModelList(prev => [currentModel, ...prev]);
+        }
+      }
+    } catch (err) {
+      console.error('拉取模型失败:', err);
+      setApiError('无法连接 API，已启用预设降级列表。');
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
+  const handleFetchModels = () => {
+    void loadModelsFromApi(baseUrl, apiKey, model);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,7 +75,7 @@ export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div 
-        className="w-full max-w-[340px] rounded-2xl border transition-all duration-300"
+        className="w-full max-w-[340px] rounded-2xl border transition-all duration-300 shadow-xl"
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderColor: 'var(--card-border)',
@@ -96,22 +135,47 @@ export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: 'var(--text-sub)' }}>
-              模型 (Model)
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="gpt-4o"
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: 'var(--text-sub)' }}>
+                模型 (Model)
+              </label>
+              {apiKey && (
+                <button
+                  type="button"
+                  onClick={handleFetchModels}
+                  disabled={isLoadingModels}
+                  className="text-[9px] font-semibold flex items-center gap-1 hover:opacity-80 active:scale-95"
+                  style={{ color: 'var(--accent-color)' }}
+                >
+                  {isLoadingModels ? (
+                    <Loader className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  获取可用模型
+                </button>
+              )}
+            </div>
+            
+            <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none"
+              className="w-full rounded-lg border px-2 py-1.5 text-xs focus:outline-none"
               style={{
                 backgroundColor: 'var(--bg-main)',
                 borderColor: 'var(--card-border)',
                 color: 'var(--text-main)'
               }}
-            />
+            >
+              {modelList.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            {apiError && (
+              <span className="text-[9px] block leading-tight mt-1" style={{ color: 'var(--text-muted)' }}>
+                {apiError}
+              </span>
+            )}
           </div>
 
           <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--divider)' }}>

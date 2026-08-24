@@ -1,5 +1,5 @@
 import db from '../../db';
-import { getHabitatActionFeedback, generateGuardianJointCare } from './habitatAiService';
+import { getHabitatActionFeedback, generateGuardianJointCare, chatWithHabitat } from './habitatAiService';
 
 // 衰减率配置 (每小时扣减值)
 const DECAY_RATES = {
@@ -15,7 +15,6 @@ const applyTimeDecay = async (habitat) => {
   const lastDecayed = habitat.lastDecayedAt || habitat.createdAt || now;
   const hoursElapsed = (now - lastDecayed) / 3600000;
   
-  // 15分钟以内不重复扣减，以防频繁读写
   if (hoursElapsed < 0.25) {
     return habitat;
   }
@@ -57,7 +56,7 @@ export const getHabitatById = async (id) => {
 export const saveHabitat = async (habitat) => {
   const toSave = { ...habitat };
   if (toSave.id === null || toSave.id === undefined) {
-    delete toSave.id;
+    delete toSave.id; // 清理 Dexie 必须的自增主键空字段
     toSave.createdAt = Date.now();
     toSave.lastCaredAt = Date.now();
     toSave.lastDecayedAt = Date.now();
@@ -109,7 +108,6 @@ export const performUserCare = async (habitatId, actionType) => {
     valBond += 5;
   } else if (actionType === 'play') {
     valBond += 15;
-    // 互动会有轻微数值消耗
     valMoisture = Math.max(0, valMoisture - 5);
     valNutrients = Math.max(0, valNutrients - 5);
   }
@@ -134,7 +132,7 @@ export const performUserCare = async (habitatId, actionType) => {
     play: isAnimal ? '玩耍' : '剪枝抚育'
   };
   
-  // 先写入用户交互日志
+  // 1. 写入用户操作日志
   const logId = await db.habitatLogs.add({
     habitatId: Number(habitatId),
     logType: 'user_action',
@@ -145,7 +143,7 @@ export const performUserCare = async (habitatId, actionType) => {
     timestamp: Date.now()
   });
   
-  // 异步加载小生命的即时语言吐槽/感谢
+  // 2. 异步生成小生命对该动作的即时吐槽/感谢，覆盖操作日志的内容
   try {
     const feedback = await getHabitatActionFeedback(updatedHabitat, actionType);
     await db.habitatLogs.update(logId, { content: feedback });
@@ -157,7 +155,7 @@ export const performUserCare = async (habitatId, actionType) => {
   if (habitat.guardianCharacterId && Math.random() < 0.3) {
     setTimeout(() => {
       triggerGuardianCare(habitatId);
-    }, 2000);
+    }, 2500);
   }
   
   return updatedHabitat;
@@ -198,4 +196,40 @@ export const triggerGuardianCare = async (habitatId) => {
   } catch (err) {
     console.error(err);
   }
+};
+
+/**
+ * 重 Roll 对话消息或照料反馈
+ */
+export const rerollMessage = async (habitatId, logId) => {
+  const log = await db.habitatLogs.get(Number(logId));
+  if (!log) return null;
+
+  const habitat = await db.habitats.get(Number(habitatId));
+  if (!habitat) return null;
+
+  let newContent = '';
+
+  if (log.actionType === 'chat') {
+    // 聊天重 Roll：获取该时间戳之前的所有交互日志作为上下文
+    const allLogs = await db.habitatLogs
+      .where('habitatId')
+      .equals(Number(habitatId))
+      .sortBy('timestamp');
+
+    const previousLogs = allLogs
+      .filter(l => l.timestamp < log.timestamp)
+      .slice(-5);
+
+    newContent = await chatWithHabitat(habitat, log.content, previousLogs);
+  } else {
+    // 照料动作反馈重 Roll
+    newContent = await getHabitatActionFeedback(habitat, log.actionType);
+  }
+
+  if (newContent) {
+    await db.habitatLogs.update(Number(logId), { content: newContent });
+    return newContent;
+  }
+  return null;
 };
