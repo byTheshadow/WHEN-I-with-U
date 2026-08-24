@@ -313,20 +313,29 @@ export const prepareTodayDailyOffering = async () => {
 
   try {
     resolvedOffering = await resolveOfferingMedia(decision, imageEntries);
-  } catch (error) {
+    } catch (error) {
     console.warn('Daily offering media lookup failed:', error);
+
     resolvedOffering = {
       ...decision,
-      media: {
-        kind: decision.mediaType,
-        source: 'fallback',
-        imageUrl: '',
-        description: decision.image?.query || '',
-        attribution: null,
-        track: null
-      }
+      media: decision.mediaType === 'music'
+        ? {
+            kind: 'music',
+            source: 'fallback',
+            requestedTitle: decision.music?.title || '一段旋律',
+            requestedArtist: decision.music?.artist || '未署名的演奏者',
+            track: null
+          }
+        : {
+            kind: 'image',
+            source: 'fallback',
+            imageUrl: '',
+            description: decision.image?.query || '',
+            attribution: null
+          }
     };
   }
+
 
   const date = getLocalDateKey();
   const now = Date.now();
