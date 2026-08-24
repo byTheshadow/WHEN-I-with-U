@@ -1,15 +1,11 @@
 import db from '../../db';
-import { getHabitatActionFeedback, generateGuardianJointCare, chatWithHabitat } from './habitatAiService';
+import { getHabitatActionFeedback, generateGuardianJointCare } from './habitatAiService';
 
-// 衰减率配置 (每小时扣减值)
 const DECAY_RATES = {
-  animal: { moisture: 3.0, nutrients: 4.0, sanitation: 2.0 }, // 动物消耗快
-  plant: { moisture: 2.0, nutrients: 2.0, sanitation: 1.0 }   // 植物消耗慢
+  animal: { moisture: 3.0, nutrients: 4.0, sanitation: 2.0 },
+  plant: { moisture: 2.0, nutrients: 2.0, sanitation: 1.0 }
 };
 
-/**
- * 定时衰减计算
- */
 const applyTimeDecay = async (habitat) => {
   const now = Date.now();
   const lastDecayed = habitat.lastDecayedAt || habitat.createdAt || now;
@@ -21,15 +17,11 @@ const applyTimeDecay = async (habitat) => {
   
   const rates = DECAY_RATES[habitat.type] || DECAY_RATES.plant;
   
-  const decMoisture = hoursElapsed * rates.moisture;
-  const decNutrients = hoursElapsed * rates.nutrients;
-  const decSanitation = hoursElapsed * rates.sanitation;
-  
   const updatedHabitat = {
     ...habitat,
-    moisture: Math.max(0, Math.round(habitat.moisture - decMoisture)),
-    nutrients: Math.max(0, Math.round(habitat.nutrients - decNutrients)),
-    sanitation: Math.max(0, Math.round(habitat.sanitation - decSanitation)),
+    moisture: Math.max(0, Math.round(habitat.moisture - hoursElapsed * rates.moisture)),
+    nutrients: Math.max(0, Math.round(habitat.nutrients - hoursElapsed * rates.nutrients)),
+    sanitation: Math.max(0, Math.round(habitat.sanitation - hoursElapsed * rates.sanitation)),
     lastDecayedAt: now
   };
   
@@ -56,7 +48,7 @@ export const getHabitatById = async (id) => {
 export const saveHabitat = async (habitat) => {
   const toSave = { ...habitat };
   if (toSave.id === null || toSave.id === undefined) {
-    delete toSave.id; // 清理 Dexie 必须的自增主键空字段
+    delete toSave.id;
     toSave.createdAt = Date.now();
     toSave.lastCaredAt = Date.now();
     toSave.lastDecayedAt = Date.now();
@@ -83,6 +75,16 @@ export const getLogs = async (habitatId) => {
     .equals(Number(habitatId))
     .reverse()
     .sortBy('timestamp');
+};
+
+/**
+ * 清空指定类别的照料日志
+ * type: 'user_action' | 'co_care'
+ */
+export const clearLogsByType = async (habitatId, logType) => {
+  await db.habitatLogs
+    .where({ habitatId: Number(habitatId), logType })
+    .delete();
 };
 
 /**
@@ -127,12 +129,11 @@ export const performUserCare = async (habitatId, actionType) => {
   const isAnimal = habitat.type === 'animal';
   const actionNames = {
     feed: isAnimal ? '喂食' : '施肥',
-    water: isAnimal ? '喷水' : '浇水',
+    water: isAnimal ? '喷雾' : '浇水',
     clean: '擦拭清洁',
     play: isAnimal ? '玩耍' : '剪枝抚育'
   };
   
-  // 1. 写入用户操作日志
   const logId = await db.habitatLogs.add({
     habitatId: Number(habitatId),
     logType: 'user_action',
@@ -143,7 +144,6 @@ export const performUserCare = async (habitatId, actionType) => {
     timestamp: Date.now()
   });
   
-  // 2. 异步生成小生命对该动作的即时吐槽/感谢，覆盖操作日志的内容
   try {
     const feedback = await getHabitatActionFeedback(updatedHabitat, actionType);
     await db.habitatLogs.update(logId, { content: feedback });
@@ -151,11 +151,10 @@ export const performUserCare = async (habitatId, actionType) => {
     console.error(err);
   }
   
-  // 30% 几率触发绑定的 AI 角色前来联合照顾
-  if (habitat.guardianCharacterId && Math.random() < 0.3) {
+  if (habitat.guardianCharacterId && Math.random() < 0.4) {
     setTimeout(() => {
       triggerGuardianCare(habitatId);
-    }, 2500);
+    }, 2000);
   }
   
   return updatedHabitat;
@@ -190,46 +189,10 @@ export const triggerGuardianCare = async (habitatId) => {
       operatorName: character.name,
       avatar: character.avatar || '',
       actionType: 'co_care',
-      content: `${textNote} — ${character.name}`,
+      content: textNote,
       timestamp: Date.now()
     });
   } catch (err) {
     console.error(err);
   }
-};
-
-/**
- * 重 Roll 对话消息或照料反馈
- */
-export const rerollMessage = async (habitatId, logId) => {
-  const log = await db.habitatLogs.get(Number(logId));
-  if (!log) return null;
-
-  const habitat = await db.habitats.get(Number(habitatId));
-  if (!habitat) return null;
-
-  let newContent = '';
-
-  if (log.actionType === 'chat') {
-    // 聊天重 Roll：获取该时间戳之前的所有交互日志作为上下文
-    const allLogs = await db.habitatLogs
-      .where('habitatId')
-      .equals(Number(habitatId))
-      .sortBy('timestamp');
-
-    const previousLogs = allLogs
-      .filter(l => l.timestamp < log.timestamp)
-      .slice(-5);
-
-    newContent = await chatWithHabitat(habitat, log.content, previousLogs);
-  } else {
-    // 照料动作反馈重 Roll
-    newContent = await getHabitatActionFeedback(habitat, log.actionType);
-  }
-
-  if (newContent) {
-    await db.habitatLogs.update(Number(logId), { content: newContent });
-    return newContent;
-  }
-  return null;
 };

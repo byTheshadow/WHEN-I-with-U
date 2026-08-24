@@ -1,122 +1,91 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  ArrowLeft, 
-  Droplets, 
-  Sparkles, 
-  Heart, 
-  Apple, 
-  Settings, 
-  Send, 
-  BookOpen, 
-  MessageSquare,
-  Activity,
-  RotateCcw,
-  User,
-  CheckCheck
+  ArrowLeft, Droplets, Sparkles, Heart, Apple, Settings, 
+  Send, RefreshCw, Trash2, Cpu, Activity, User, Users
 } from 'lucide-react';
 import db from '../../db';
-import { performUserCare, getLogs, getHabitatById, saveHabitat, rerollMessage } from './habitatService';
+import { performUserCare, getLogs, getHabitatById, saveHabitat, clearLogsByType } from './habitatService';
 import { chatWithHabitat } from './habitatAiService';
 import { AdoptionAndEditModal } from './components/AdoptionAndEditModal';
 
 export const HabitatRoom = ({ habitatId, onBack }) => {
   const [habitat, setHabitat] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [chatList, setChatList] = useState([]);
+  
+  // 监视器状态栏文本
+  const [statusMessage, setStatusMessage] = useState('SYSTEM MONITOR ACTIVE');
   const [inputText, setInputText] = useState('');
   const [isAiResponding, setIsAiResponding] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   
-  // 三 Tab 设计：'care' (照料) | 'chat' (对话) | 'ledger' (照料手账)
-  const [activeTab, setActiveTab] = useState('care'); 
+  // 底部大 Tab: 'care' (照料指令) | 'chat' (心灵感应) | 'ledger' (照料手账)
+  const [activeTab, setActiveTab] = useState('care');
   
-  // 照料物理动效状态
+  // 手账子过滤: 'user' | 'guardian'
+  const [ledgerSubTab, setLedgerSubTab] = useState('user');
+  
+  // 交互动作反馈动效
+  const [interactionText, setInteractionText] = useState(null);
   const [sprayActive, setSprayActive] = useState(false);
-  const [sparkleActive, setSparkleActive] = useState(false);
-  
-  // 物理操作的顶部浮动 Toast 状态
-  const [toastMessage, setToastMessage] = useState('');
-  
-  // 控制重 Roll 时 hover 显示
-  const [hoveredLogId, setHoveredLogId] = useState(null);
 
   const scrollRef = useRef(null);
-  const ledgerScrollRef = useRef(null);
-
-  const triggerLocalToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage('');
-    }, 2800);
-  };
 
   const loadRoom = useCallback(async () => {
     const data = await getHabitatById(Number(habitatId));
     if (data) {
       setHabitat(data);
+      if (data.moisture < 35) {
+        setStatusMessage('WARN: MOISTURE DEFIENCY');
+      } else if (data.nutrients < 35) {
+        setStatusMessage('WARN: NUTRIENTS DEFIENCY');
+      } else if (data.sanitation < 35) {
+        setStatusMessage('WARN: DEPOSIT DETECTED');
+      } else {
+        setStatusMessage('SYSTEM: LIFEFORM RUNNING STABLE');
+      }
     }
     const logList = await getLogs(Number(habitatId));
     setLogs(logList);
-    
-    // 过滤出聊天面板需要的数据
-    const chats = logList.filter(l => l.actionType === 'chat' || l.logType === 'npc_action');
-    setChatList(chats);
   }, [habitatId]);
 
   useEffect(() => {
-    void loadRoom();
+    loadRoom();
   }, [loadRoom]);
 
   useEffect(() => {
-    if (activeTab === 'chat' && scrollRef.current) {
+    if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatList, activeTab]);
+  }, [logs]);
 
-  useEffect(() => {
-    if (activeTab === 'ledger' && ledgerScrollRef.current) {
-      ledgerScrollRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs, activeTab]);
-
+  // 照料按钮点击
   const handleAction = async (actionType) => {
-    if (sprayActive || sparkleActive) return;
+    if (sprayActive) return;
     
-    const isAnimal = habitat.type === 'animal';
-    const actionNames = {
-      feed: isAnimal ? '喂食' : '施肥',
-      water: isAnimal ? '喷雾' : '浇水',
-      clean: '擦拭外壳',
-      play: isAnimal ? '玩耍' : '剪枝抚育'
-    };
-    
+    // 视觉特效触发
     if (actionType === 'water') {
       setSprayActive(true);
       setTimeout(() => setSprayActive(false), 1200);
-    } else if (actionType === 'clean' || actionType === 'play') {
-      setSparkleActive(true);
-      setTimeout(() => setSparkleActive(false), 1200);
     }
 
-    triggerLocalToast(`正在对小家伙进行 [${actionNames[actionType]}] 照料...`);
+    const actionTextMap = {
+      feed: 'INJECTING NUTRIENTS (+30)',
+      water: 'SPRAYING DEW MIST (+30)',
+      clean: 'PURGING SURFACE DUST (+30)',
+      play: 'COMMENCING STIMULATE (+15 BOND)'
+    };
+    
+    setInteractionText(actionTextMap[actionType]);
+    setTimeout(() => setInteractionText(null), 1500);
 
     const updated = await performUserCare(habitatId, actionType);
     if (updated) {
       setHabitat(updated);
-      const logList = await getLogs(Number(habitatId));
-      setLogs(logList);
-      
-      // 3秒后拉取最新的照料人留言或回执
-      setTimeout(async () => {
-        const freshLogs = await getLogs(Number(habitatId));
-        setLogs(freshLogs);
-        if (freshLogs.length > 0) {
-          triggerLocalToast(`照料完毕。获得生命反馈。`);
-        }
-      }, 1000);
+      await loadRoom();
     }
   };
 
+  // 心灵感应发送
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim() || isAiResponding) return;
@@ -125,10 +94,10 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
     setInputText('');
     setIsAiResponding(true);
 
-    // 1. 写入用户聊天记录
+    // 写入聊天记录 (chat_user)
     await db.habitatLogs.add({
       habitatId: Number(habitatId),
-      logType: 'user_action',
+      logType: 'chat_user',
       operatorName: '我',
       avatar: '',
       actionType: 'chat',
@@ -136,511 +105,430 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
       timestamp: Date.now()
     });
     
-    let freshLogs = await getLogs(Number(habitatId));
-    setLogs(freshLogs);
-    setChatList(freshLogs.filter(l => l.actionType === 'chat' || l.logType === 'npc_action'));
+    await loadRoom();
 
-    // 2. 调用副 API 获得回复
     try {
-      const contextLogs = freshLogs.filter(l => l.actionType === 'chat').slice(0, 5).reverse();
-      const reply = await chatWithHabitat(habitat, text, contextLogs);
+      const activeLogs = logs
+        .filter(l => l.logType === 'chat_user' || l.logType === 'chat_npc')
+        .slice(0, 6)
+        .reverse();
+
+      const reply = await chatWithHabitat(habitat, text, activeLogs);
       
       await db.habitatLogs.add({
         habitatId: Number(habitatId),
-        logType: 'npc_action',
+        logType: 'chat_npc',
         operatorName: habitat.name,
         avatar: habitat.avatar,
         actionType: 'chat',
         content: reply,
         timestamp: Date.now()
       });
+      
     } catch (err) {
       console.error(err);
-      await db.habitatLogs.add({
-        habitatId: Number(habitatId),
-        logType: 'npc_action',
-        operatorName: habitat.name,
-        avatar: habitat.avatar,
-        actionType: 'chat',
-        content: '静静地看着你，没有发出声音。',
-        timestamp: Date.now()
-      });
     } finally {
       setIsAiResponding(false);
-      const finalLogs = await getLogs(Number(habitatId));
-      setLogs(finalLogs);
-      setChatList(finalLogs.filter(l => l.actionType === 'chat' || l.logType === 'npc_action'));
+      await loadRoom();
     }
   };
 
+  // 重 roll AI 消息
   const handleReroll = async (logId) => {
     if (isAiResponding) return;
     setIsAiResponding(true);
-    triggerLocalToast('正在重新唤醒生命回应...');
-    
+
     try {
-      const newText = await rerollMessage(habitatId, logId);
-      if (newText) {
-        triggerLocalToast('回应已更新');
+      const allLogs = await db.habitatLogs
+        .where('habitatId')
+        .equals(Number(habitatId))
+        .sortBy('timestamp');
+
+      const targetIdx = allLogs.findIndex(l => l.id === logId);
+      if (targetIdx === -1) return;
+
+      // 寻找该 AI 消息之前的那条用户输入
+      let lastUserText = '你好';
+      for (let i = targetIdx - 1; i >= 0; i--) {
+        if (allLogs[i].logType === 'chat_user') {
+          lastUserText = allLogs[i].content;
+          break;
+        }
       }
+
+      // 获取上下文
+      const historyContext = allLogs
+        .slice(0, targetIdx)
+        .filter(l => l.logType === 'chat_user' || l.logType === 'chat_npc')
+        .slice(-6);
+
+      const reply = await chatWithHabitat(habitat, lastUserText, historyContext);
+
+      // 更新原数据
+      await db.habitatLogs.update(logId, {
+        content: reply,
+        timestamp: Date.now()
+      });
+
     } catch (err) {
-      console.error(err);
-      triggerLocalToast('连接失败，请检查配置');
+      console.error('重roll失败', err);
     } finally {
       setIsAiResponding(false);
-      const freshLogs = await getLogs(Number(habitatId));
-      setLogs(freshLogs);
-      setChatList(freshLogs.filter(l => l.actionType === 'chat' || l.logType === 'npc_action'));
+      await loadRoom();
     }
   };
 
-  const handleUpdate = async (data) => {
-    await saveHabitat(data);
-    setShowEditModal(false);
-    void loadRoom();
+  // 一键清空照料手账
+  const handleClearLedger = async (type) => {
+    const dbType = type === 'user' ? 'user_action' : 'co_care';
+    await clearLogsByType(habitatId, dbType);
+    await loadRoom();
   };
 
   if (!habitat) {
     return (
-      <div className="flex h-full items-center justify-center text-xs" style={{ color: 'var(--text-muted)' }}>
-        加载温室生命中...
+      <div className="flex h-full items-center justify-center text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+        CONNECTING TO SPECIMEN...
       </div>
     );
   }
 
   const isAnimal = habitat.type === 'animal';
-  const labels = {
-    feed: isAnimal ? '喂食' : '施肥',
-    water: isAnimal ? '喷水' : '浇灌',
-    clean: '擦拭',
-    play: isAnimal ? '玩耍' : '抚育'
-  };
+
+  // 筛选日志
+  const userActions = logs.filter(l => l.logType === 'user_action');
+  const guardianActions = logs.filter(l => l.logType === 'co_care');
+  const chatMessages = logs.filter(l => l.logType === 'chat_user' || l.logType === 'chat_npc');
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative" style={{ backgroundColor: 'var(--bg-main)' }}>
-      {/* 浮动 Toast 提醒 */}
-      {toastMessage && (
-        <div className="absolute top-16 left-4 right-4 z-50 flex justify-center animate-fade-in-up">
-          <div 
-            className="px-4 py-2 rounded-xl text-xs font-semibold shadow-lg border"
-            style={{
-              backgroundColor: 'var(--bg-surface)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text-main)'
-            }}
-          >
-            {toastMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Top Header */}
-      <div className="flex items-center justify-between p-4 border-b shrink-0" style={{ borderColor: 'var(--divider)' }}>
+    <div className="flex flex-col h-full overflow-hidden font-mono text-[var(--text-main)]">
+      {/* 顶部监视面板 Header */}
+      <div className="p-4 border-b shrink-0 flex items-center justify-between" style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--bg-surface)' }}>
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 rounded-full p-2 transition-transform active:scale-95"
+          className="flex items-center gap-1.5 rounded border px-2.5 py-1 transition-transform active:scale-95 text-xs font-semibold"
           style={{
-            color: 'var(--text-main)',
-            backgroundColor: 'var(--control-soft-bg)',
-            border: '1px solid var(--card-border)'
+            borderColor: 'var(--card-border)',
+            backgroundColor: 'var(--control-soft-bg)'
           }}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
+          EXIT
         </button>
 
-        <span className="font-serif text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-          {habitat.name}
-        </span>
-
-        <button
-          type="button"
-          onClick={() => setShowEditModal(true)}
-          className="flex items-center gap-2 rounded-full p-2 transition-transform active:scale-95"
-          style={{
-            color: 'var(--text-main)',
-            backgroundColor: 'var(--control-soft-bg)',
-            border: '1px solid var(--card-border)'
-          }}
-        >
-          <Settings className="h-4 w-4" />
-        </button>
+        <div className="text-right flex flex-col items-end">
+          <span className="text-[10px] font-bold tracking-widest opacity-80">SYS_ID: HAB_00{habitat.id}</span>
+          <span className="text-[9px] opacity-40">VER: 3.1.2-STABLE</span>
+        </div>
       </div>
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-h-0">
-        
-        {/* Top Dome Area */}
-        <div className="flex flex-col items-center py-6 shrink-0 border-b" style={{ borderColor: 'var(--divider)', backgroundColor: 'rgba(0,0,0,0.02)' }}>
-          <div className="relative w-40 h-40 flex items-center justify-center">
-            <div className="habitat-glass-dome w-36 h-36 flex items-center justify-center relative">
-              <img 
-                src={habitat.avatar} 
-                alt={habitat.name} 
-                className="h-20 w-20 object-contain animate-float-gentle"
-              />
-              
-              {sprayActive && (
-                <div className="mist-particles">
-                  <div className="mist-spray-active w-24 h-24 rounded-full bg-white/20 blur-md" />
-                </div>
-              )}
-              {sparkleActive && (
-                <div className="mist-particles">
-                  <div className="w-20 h-20 bg-amber-200/20 rounded-full blur-lg animate-pulse" />
-                </div>
-              )}
+      {/* 核心拟物化电子屏区 */}
+      <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
+        {/* 系统监视状态面板 */}
+        <div className="border px-3 py-2 rounded flex justify-between items-center text-[10px] uppercase font-semibold" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}>
+          <span className="flex items-center gap-1">
+            <Activity className="h-3 w-3 animate-pulse" style={{ color: 'var(--accent-color)' }} />
+            {statusMessage}
+          </span>
+          <span className="opacity-60">UPTIME: 00:00:24</span>
+        </div>
+
+        {/* 生态舱监控显示框 */}
+        <div 
+          className="relative flex-1 border rounded-2xl flex flex-col items-center justify-center p-6 overflow-hidden min-h-[180px]"
+          style={{ 
+            borderColor: 'var(--card-border)',
+            backgroundImage: 'radial-gradient(var(--card-border) 1px, transparent 1px)',
+            backgroundSize: '16px 16px',
+            backgroundColor: 'var(--card-bg)'
+          }}
+        >
+          {/* 反馈信息弹幕 */}
+          {interactionText && (
+            <div className="absolute top-4 px-3 py-1 text-[10px] border border-dashed rounded bg-black/80 text-green-400 font-bold animate-bounce tracking-widest">
+              {interactionText}
             </div>
-            <div 
-              className="absolute bottom-1 w-28 h-2 rounded-full border-t"
-              style={{
-                backgroundColor: 'var(--card-border)',
-                borderColor: 'var(--divider)',
-                boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-              }}
+          )}
+
+          {/* 拟物圆形视网膜舱 */}
+          <div className="relative w-36 h-36 flex items-center justify-center rounded-full border shadow-inner" style={{ borderColor: 'var(--card-border)' }}>
+            <div className="absolute inset-0 rounded-full bg-radial-glow opacity-10 pointer-events-none" />
+            <img 
+              src={habitat.avatar} 
+              alt={habitat.name} 
+              className="h-24 w-24 object-contain animate-float-gentle"
             />
-          </div>
-
-          <div className="flex items-center gap-1 mt-2">
-            <Heart className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />
-            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-              羁绊指数: {habitat.bondPoints || 0}
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="w-full flex border-b shrink-0" style={{ borderColor: 'var(--divider)' }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('care')}
-            className="flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors"
-            style={{
-              borderColor: activeTab === 'care' ? 'var(--accent-color)' : 'transparent',
-              color: activeTab === 'care' ? 'var(--text-main)' : 'var(--text-muted)'
-            }}
-          >
-            <Activity className="h-3.5 w-3.5" />
-            照料面板
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('chat')}
-            className="flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors"
-            style={{
-              borderColor: activeTab === 'chat' ? 'var(--accent-color)' : 'transparent',
-              color: activeTab === 'chat' ? 'var(--text-main)' : 'var(--text-muted)'
-            }}
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            灵性对话
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ledger')}
-            className="flex-1 py-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors"
-            style={{
-              borderColor: activeTab === 'ledger' ? 'var(--accent-color)' : 'transparent',
-              color: activeTab === 'ledger' ? 'var(--text-main)' : 'var(--text-muted)'
-            }}
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            照料手账
-          </button>
-        </div>
-
-        {/* Tab Contents: Flex Container to auto-fill */}
-        <div className="flex-1 overflow-hidden flex flex-col relative min-h-0">
-          
-          {/* TAB 1: CARE PANEL */}
-          {activeTab === 'care' && (
-            <div className="flex-grow overflow-y-auto p-4 space-y-6 animate-fade-in flex flex-col justify-between">
-              <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] font-semibold">
-                    <span style={{ color: 'var(--text-sub)' }}>水分与湿度</span>
-                    <span style={{ color: 'var(--text-main)' }}>{habitat.moisture}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={habitat.moisture} 
-                    disabled
-                    className="physical-slider w-full"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] font-semibold">
-                    <span style={{ color: 'var(--text-sub)' }}>养分与饱腹</span>
-                    <span style={{ color: 'var(--text-main)' }}>{habitat.nutrients}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={habitat.nutrients} 
-                    disabled
-                    className="physical-slider w-full"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] font-semibold">
-                    <span style={{ color: 'var(--text-sub)' }}>外表洁净度</span>
-                    <span style={{ color: 'var(--text-main)' }}>{habitat.sanitation}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={habitat.sanitation} 
-                    disabled
-                    className="physical-slider w-full"
-                  />
-                </div>
+            {sprayActive && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-28 h-28 rounded-full bg-white/10 blur animate-pulse" />
               </div>
+            )}
+          </div>
 
-              <div className="grid grid-cols-2 gap-4 pb-2">
+          <div className="mt-4 text-center">
+            <h3 className="font-serif text-base font-bold">{habitat.name}</h3>
+            <p className="text-[10px] mt-0.5 opacity-60 tracking-widest">
+              {isAnimal ? 'SYNTHETIC ANIMAL LIFEFORM' : 'BIOLOGICAL DOME VEGETAL'}
+            </p>
+          </div>
+        </div>
+
+        {/* 核心数值展示条 */}
+        <div className="grid grid-cols-3 gap-2 shrink-0">
+          <div className="border p-2 rounded text-center" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-surface)' }}>
+            <span className="text-[9px] uppercase tracking-wider block opacity-50">MOISTURE</span>
+            <span className="text-sm font-bold block">{habitat.moisture}%</span>
+            <div className="h-1 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full mt-1.5 overflow-hidden">
+              <div className="h-full" style={{ width: `${habitat.moisture}%`, backgroundColor: 'var(--accent-color)' }} />
+            </div>
+          </div>
+          <div className="border p-2 rounded text-center" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-surface)' }}>
+            <span className="text-[9px] uppercase tracking-wider block opacity-50">NUTRIENTS</span>
+            <span className="text-sm font-bold block">{habitat.nutrients}%</span>
+            <div className="h-1 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full mt-1.5 overflow-hidden">
+              <div className="h-full" style={{ width: `${habitat.nutrients}%`, backgroundColor: 'var(--accent-color)' }} />
+            </div>
+          </div>
+          <div className="border p-2 rounded text-center" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-surface)' }}>
+            <span className="text-[9px] uppercase tracking-wider block opacity-50">BOND INDEX</span>
+            <span className="text-sm font-bold block">{habitat.bondPoints || 0}</span>
+            <div className="h-1 w-full bg-neutral-200 dark:bg-neutral-800 rounded-full mt-1.5 overflow-hidden">
+              <div className="h-full" style={{ width: `${Math.min(100, habitat.bondPoints || 0)}%`, backgroundColor: 'var(--accent-color)' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* 功能切换 Tab 控制台 */}
+        <div className="border rounded-xl flex flex-col overflow-hidden" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-surface)' }}>
+          {/* Tab 按钮 */}
+          <div className="flex border-b text-[10px]" style={{ borderColor: 'var(--divider)' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('care')}
+              className={`flex-1 py-2 font-bold tracking-widest text-center border-r transition-all ${activeTab === 'care' ? 'opacity-100' : 'opacity-40'}`}
+              style={{ 
+                borderColor: 'var(--divider)',
+                backgroundColor: activeTab === 'care' ? 'var(--control-soft-bg)' : 'transparent'
+              }}
+            >
+              CONTROL PANEL
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 py-2 font-bold tracking-widest text-center border-r transition-all ${activeTab === 'chat' ? 'opacity-100' : 'opacity-40'}`}
+              style={{ 
+                borderColor: 'var(--divider)',
+                backgroundColor: activeTab === 'chat' ? 'var(--control-soft-bg)' : 'transparent'
+              }}
+            >
+              SENSORY CHAT
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('ledger')}
+              className={`flex-1 py-2 font-bold tracking-widest text-center transition-all ${activeTab === 'ledger' ? 'opacity-100' : 'opacity-40'}`}
+              style={{ 
+                backgroundColor: activeTab === 'ledger' ? 'var(--control-soft-bg)' : 'transparent'
+              }}
+            >
+              CO-CARE LOGS
+            </button>
+          </div>
+
+          {/* Tab 核心内容区 */}
+          <div className="p-3 min-h-[140px] max-h-[140px] overflow-y-auto">
+            {/* 1. 照料指令区 */}
+            {activeTab === 'care' && (
+              <div className="grid grid-cols-2 gap-2 h-full items-center">
                 <button
                   type="button"
                   onClick={() => handleAction('feed')}
-                  className="flex items-center justify-center gap-2 rounded-xl py-3.5 border text-xs font-semibold shadow-sm transition-all active:scale-95 active:translate-y-0.5"
-                  style={{
-                    backgroundColor: 'var(--card-bg)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-main)'
-                  }}
+                  className="flex items-center justify-center gap-2 rounded-lg py-2.5 border text-[11px] font-bold transition-all active:scale-95"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 >
-                  <Apple className="h-4 w-4" style={{ color: 'var(--accent-color)' }} />
+                  <Apple className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
                   {labels.feed}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleAction('water')}
-                  className="flex items-center justify-center gap-2 rounded-xl py-3.5 border text-xs font-semibold shadow-sm transition-all active:scale-95 active:translate-y-0.5"
-                  style={{
-                    backgroundColor: 'var(--card-bg)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-main)'
-                  }}
+                  className="flex items-center justify-center gap-2 rounded-lg py-2.5 border text-[11px] font-bold transition-all active:scale-95"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 >
-                  <Droplets className="h-4 w-4" style={{ color: 'var(--accent-color)' }} />
+                  <Droplets className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
                   {labels.water}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleAction('clean')}
-                  className="flex items-center justify-center gap-2 rounded-xl py-3.5 border text-xs font-semibold shadow-sm transition-all active:scale-95 active:translate-y-0.5"
-                  style={{
-                    backgroundColor: 'var(--card-bg)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-main)'
-                  }}
+                  className="flex items-center justify-center gap-2 rounded-lg py-2.5 border text-[11px] font-bold transition-all active:scale-95"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 >
-                  <Sparkles className="h-4 w-4" style={{ color: 'var(--accent-color)' }} />
+                  <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
                   {labels.clean}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleAction('play')}
-                  className="flex items-center justify-center gap-2 rounded-xl py-3.5 border text-xs font-semibold shadow-sm transition-all active:scale-95 active:translate-y-0.5"
-                  style={{
-                    backgroundColor: 'var(--card-bg)',
-                    borderColor: 'var(--card-border)',
-                    color: 'var(--text-main)'
-                  }}
+                  className="flex items-center justify-center gap-2 rounded-lg py-2.5 border text-[11px] font-bold transition-all active:scale-95"
+                  style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
                 >
-                  <Activity className="h-4 w-4" style={{ color: 'var(--accent-color)' }} />
+                  <Heart className="h-3.5 w-3.5" style={{ color: 'var(--accent-color)' }} />
                   {labels.play}
                 </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 2: SENSORY CHAT (独立对话流) */}
-          {activeTab === 'chat' && (
-            <div className="flex-1 flex flex-col min-h-0 animate-fade-in">
-              <div className="flex-grow overflow-y-auto p-4 space-y-4 min-h-0">
-                {chatList.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-[11px] space-y-1" style={{ color: 'var(--text-muted)' }}>
-                    <span>屏里安安静静的。</span>
-                    <span>打字说点什么，来呼唤小家伙吧。</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {chatList.map((log) => {
-                      const isMe = log.logType === 'user_action';
-                      return (
-                        <div
-                          key={log.id}
-                          className={`flex items-start gap-2.5 ${isMe ? 'justify-end' : 'justify-start'}`}
-                          onMouseEnter={() => !isMe && setHoveredLogId(log.id)}
-                          onMouseLeave={() => setHoveredLogId(null)}
-                          onClick={() => !isMe && setHoveredLogId(hoveredLogId === log.id ? null : log.id)}
-                        >
-                          {!isMe && (
-                            <div 
-                              className="h-8 w-8 rounded-full border overflow-hidden shrink-0 flex items-center justify-center"
-                              style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}
-                            >
-                              <img src={log.avatar} alt="avatar" className="h-full w-full object-cover" />
-                            </div>
-                          )}
-
-                          <div className={`flex flex-col max-w-[70%] ${isMe ? 'items-end' : 'items-start'}`}>
-                            <div 
-                              className="p-3 rounded-2xl text-xs leading-relaxed break-words border relative shadow-sm"
-                              style={{
-                                backgroundColor: isMe ? 'var(--control-soft-bg)' : 'var(--card-bg)',
-                                borderColor: 'var(--card-border)',
-                                color: 'var(--text-main)',
-                                borderRadius: isMe ? '16px 16px 2px 16px' : '16px 16px 16px 2px'
-                              }}
-                            >
-                              {log.content}
-
-                              {/* Hover/Click 可见的操作条 (引用/重roll) */}
-                              {!isMe && hoveredLogId === log.id && (
-                                <div 
-                                  className="absolute bottom-[-24px] left-0 flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-semibold bg-[var(--bg-surface)] border-[var(--card-border)] animate-fade-in z-20"
-                                >
+            {/* 2. 心灵感应对话区 (独立终端记录形式) */}
+            {activeTab === 'chat' && (
+              <div className="flex flex-col h-full justify-between">
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-[11px]">
+                  {chatMessages.length === 0 ? (
+                    <p className="text-center py-4 opacity-40">AWAITING SENSORY SIGNALS...</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {chatMessages.map((log) => {
+                        const isUser = log.logType === 'chat_user';
+                        return (
+                          <div 
+                            key={log.id} 
+                            className="group flex flex-col border-b pb-1.5 last:border-0"
+                            style={{ borderColor: 'var(--divider)' }}
+                          >
+                            <div className="flex items-center justify-between text-[9px] opacity-50 mb-0.5">
+                              <span className="font-bold flex items-center gap-1">
+                                {isUser ? <User className="h-2.5 w-2.5" /> : <Cpu className="h-2.5 w-2.5" />}
+                                {log.operatorName.toUpperCase()}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                {!isUser && (
                                   <button
                                     type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleReroll(log.id);
-                                    }}
-                                    className="flex items-center gap-1 hover:opacity-80 transition-opacity active:scale-95"
-                                    style={{ color: 'var(--text-sub)' }}
+                                    onClick={() => handleReroll(log.id)}
+                                    title="重新生成"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-[var(--accent-color)] active:scale-95"
                                   >
-                                    <RotateCcw className="h-2.5 w-2.5" />
-                                    重发回应
+                                    <RefreshCw className="h-2.5 w-2.5" />
                                   </button>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
-
-                            <span className="text-[9px] mt-1 flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-                              {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              {isMe && <CheckCheck className="h-3 w-3" style={{ color: 'var(--accent-color)' }} />}
-                            </span>
+                            <p className="leading-relaxed opacity-85">{log.content}</p>
                           </div>
-
-                          {isMe && (
-                            <div 
-                              className="h-8 w-8 rounded-full border overflow-hidden shrink-0 flex items-center justify-center"
-                              style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}
-                            >
-                              <User className="h-4.5 w-4.5" style={{ color: 'var(--text-sub)' }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <div ref={scrollRef} />
-                  </div>
-                )}
+                        );
+                      })}
+                      <div ref={scrollRef} />
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
 
-              {/* Chat Input */}
-              <div className="p-3 border-t shrink-0 bg-transparent" style={{ borderColor: 'var(--divider)' }}>
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    disabled={isAiResponding}
-                    placeholder={isAiResponding ? '小生命正在构思辞章...' : '倾听生态瓶的声音...'}
-                    className="flex-1 rounded-full border px-4 py-2 text-xs focus:outline-none"
-                    style={{
-                      backgroundColor: 'var(--bg-surface)',
-                      borderColor: 'var(--card-border)',
-                      color: 'var(--text-main)'
-                    }}
-                  />
+            {/* 3. 共同照料手账 */}
+            {activeTab === 'ledger' && (
+              <div className="flex flex-col h-full space-y-2">
+                {/* 我做的 / 角色做的 筛选控制层 */}
+                <div className="flex justify-between items-center text-[9px] shrink-0 border-b pb-1" style={{ borderColor: 'var(--divider)' }}>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLedgerSubTab('user')}
+                      className={`flex items-center gap-1 font-bold ${ledgerSubTab === 'user' ? 'opacity-100 underline decoration-2' : 'opacity-40'}`}
+                      style={{ textDecorationColor: 'var(--accent-color)' }}
+                    >
+                      <User className="h-2.5 w-2.5" />
+                      我做的 ({userActions.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLedgerSubTab('guardian')}
+                      className={`flex items-center gap-1 font-bold ${ledgerSubTab === 'guardian' ? 'opacity-100 underline decoration-2' : 'opacity-40'}`}
+                      style={{ textDecorationColor: 'var(--accent-color)' }}
+                    >
+                      <Users className="h-2.5 w-2.5" />
+                      角色做的 ({guardianActions.length})
+                    </button>
+                  </div>
                   <button
-                    type="submit"
-                    disabled={isAiResponding || !inputText.trim()}
-                    className="rounded-full p-2.5 transition-transform active:scale-95 flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: 'var(--accent-color)',
-                      color: 'var(--accent-foreground)'
-                    }}
+                    type="button"
+                    onClick={() => handleClearLedger(ledgerSubTab)}
+                    className="flex items-center gap-0.5 text-red-400 hover:text-red-500 font-bold active:scale-95"
                   >
-                    <Send className="h-3.5 w-3.5" />
+                    <Trash2 className="h-2.5 w-2.5" />
+                    CLEAR
                   </button>
-                </form>
-              </div>
-            </div>
-          )}
+                </div>
 
-          {/* TAB 3: CO-CARE LEDGER (照料手账纸条) */}
-          {activeTab === 'ledger' && (
-            <div className="flex-grow overflow-y-auto p-4 space-y-4 animate-fade-in flex flex-col justify-between min-h-0">
-              <div className="flex-1 overflow-y-auto space-y-4 min-h-0">
-                {logs.length === 0 ? (
-                  <div className="text-center py-12 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                    暂无照料日志。
-                  </div>
-                ) : (
-                  <div className="space-y-4 pr-1">
-                    {logs.map((log) => {
-                      const isCoCare = log.logType === 'co_care';
-                      return (
-                        <div 
-                          key={log.id} 
-                          className="p-4 rounded-xl border text-xs shadow-sm transition-all"
-                          style={{
-                            backgroundColor: isCoCare ? 'var(--control-soft-bg)' : 'var(--card-bg)',
-                            borderColor: 'var(--card-border)',
-                            borderLeft: isCoCare ? '3px solid var(--accent-color)' : '1px solid var(--card-border)'
-                          }}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-1.5">
-                              {log.avatar ? (
-                                <img src={log.avatar} alt="avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <div className="h-5 w-5 rounded-full bg-neutral-500/10 flex items-center justify-center shrink-0">
-                                  <User className="h-3 w-3" style={{ color: 'var(--text-sub)' }} />
-                                </div>
-                              )}
-                              <span className="font-bold font-serif" style={{ color: 'var(--text-main)' }}>
-                                {log.operatorName}
-                              </span>
-                              {isCoCare && (
-                                <span 
-                                  className="text-[8px] uppercase tracking-wider px-1 rounded-sm scale-90"
-                                  style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-                                >
-                                  联合照顾者
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                              {new Date(log.timestamp).toLocaleDateString([], { month: '2-digit', day: '2-digit' })} {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className="leading-relaxed font-sans italic" style={{ color: 'var(--text-sub)' }}>
-                            {log.content}
-                          </p>
+                {/* 手账日志输出框 */}
+                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 text-[10px]">
+                  {ledgerSubTab === 'user' ? (
+                    userActions.length === 0 ? (
+                      <p className="text-center py-6 opacity-30">NO LOGS FOUND</p>
+                    ) : (
+                      userActions.map(log => (
+                        <div key={log.id} className="flex justify-between border-b border-dashed py-1" style={{ borderColor: 'var(--divider)' }}>
+                          <span className="opacity-50">[{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]</span>
+                          <span className="flex-1 px-2 truncate opacity-80">{log.content}</span>
                         </div>
-                      );
-                    })}
-                    <div ref={ledgerScrollRef} />
-                  </div>
-                )}
+                      ))
+                    )
+                  ) : (
+                    guardianActions.length === 0 ? (
+                      <p className="text-center py-6 opacity-30">NO GUARDIAN NOTES FOUND</p>
+                    ) : (
+                      guardianActions.map(log => (
+                        <div key={log.id} className="border border-dashed p-1.5 rounded" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}>
+                          <div className="flex justify-between text-[8px] opacity-40 mb-0.5">
+                            <span>BY: {log.operatorName.toUpperCase()}</span>
+                            <span>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p className="leading-relaxed opacity-80 italic">"{log.content}"</p>
+                        </div>
+                      ))
+                    )
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 仅在心灵感应 Tab 激活时显示输入条，其他时候完美隐藏不占空间 */}
+      {activeTab === 'chat' && (
+        <div className="p-3 border-t shrink-0 flex items-center bg-transparent" style={{ borderColor: 'var(--divider)' }}>
+          <form onSubmit={handleSendMessage} className="flex gap-2 w-full">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              disabled={isAiResponding}
+              placeholder={isAiResponding ? 'CONNECTING SIGNAL...' : 'INPUT SENSORY DATA...'}
+              className="flex-1 rounded border px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent-color font-mono"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-main)'
+              }}
+            />
+            <button
+              type="submit"
+              disabled={isAiResponding || !inputText.trim()}
+              className="rounded border p-1.5 transition-transform active:scale-95 flex items-center justify-center shrink-0"
+              style={{
+                backgroundColor: 'var(--accent-color)',
+                color: 'var(--accent-foreground)',
+                borderColor: 'var(--card-border)'
+              }}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </button>
+          </form>
+        </div>
+      )}
 
       {showEditModal && (
         <AdoptionAndEditModal

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sliders, RefreshCw, Loader } from 'lucide-react';
+import { X, Sliders, RefreshCw } from 'lucide-react';
 import db from '../../../db';
-import { fetchAvailableModels } from '../habitatAiService';
+import { fetchHabitatModels } from '../habitatAiService';
 
-const DEFAULT_FALLBACK_MODELS = [
+const DEFAULT_MODELS = [
   'gpt-4o',
   'gpt-4o-mini',
   'gpt-3.5-turbo',
@@ -12,53 +12,39 @@ const DEFAULT_FALLBACK_MODELS = [
 ];
 
 export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
-  const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1');
+  const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gpt-4o');
-  
-  const [modelList, setModelList] = useState(DEFAULT_FALLBACK_MODELS);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [apiError, setApiError] = useState('');
+  const [model, setModel] = useState('');
+  const [models, setModels] = useState(DEFAULT_MODELS);
+  const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
     const loadConfig = async () => {
       const configRecord = await db.settings.get('habitatApiConfig');
       if (configRecord && configRecord.value) {
-        setBaseUrl(configRecord.value.baseUrl || 'https://api.openai.com/v1');
+        setBaseUrl(configRecord.value.baseUrl || '');
         setApiKey(configRecord.value.apiKey || '');
         setModel(configRecord.value.model || 'gpt-4o');
         
-        if (configRecord.value.apiKey) {
-          void loadModelsFromApi(configRecord.value.baseUrl, configRecord.value.apiKey, configRecord.value.model);
+        if (configRecord.value.baseUrl && configRecord.value.apiKey) {
+          triggerFetchModels(configRecord.value.baseUrl, configRecord.value.apiKey);
         }
+      } else {
+        setBaseUrl('https://api.openai.com/v1');
+        setModel('gpt-4o');
       }
     };
-    void loadConfig();
+    loadConfig();
   }, []);
 
-  const loadModelsFromApi = async (url, key, currentModel) => {
-    if (!key) return;
-    setIsLoadingModels(true);
-    setApiError('');
-    try {
-      const models = await fetchAvailableModels(url, key);
-      if (models.length > 0) {
-        setModelList(models);
-        // 如果当前保存的模型不在获取到的列表中，且当前模型有效，追加至列表
-        if (currentModel && !models.includes(currentModel)) {
-          setModelList(prev => [currentModel, ...prev]);
-        }
-      }
-    } catch (err) {
-      console.error('拉取模型失败:', err);
-      setApiError('无法连接 API，已启用预设降级列表。');
-    } finally {
-      setIsLoadingModels(false);
+  const triggerFetchModels = async (url, key) => {
+    if (!url || !key) return;
+    setFetching(true);
+    const fetched = await fetchHabitatModels(url, key);
+    if (fetched && fetched.length > 0) {
+      setModels(fetched);
     }
-  };
-
-  const handleFetchModels = () => {
-    void loadModelsFromApi(baseUrl, apiKey, model);
+    setFetching(false);
   };
 
   const handleSubmit = async (e) => {
@@ -75,7 +61,7 @@ export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div 
-        className="w-full max-w-[340px] rounded-2xl border transition-all duration-300 shadow-xl"
+        className="w-full max-w-[340px] rounded-2xl border transition-all duration-300"
         style={{
           backgroundColor: 'var(--bg-surface)',
           borderColor: 'var(--card-border)',
@@ -94,7 +80,7 @@ export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-            如果不配置专属接口，系统自动使用全局默认 API 配置。
+            配置生态瓶独立共用的 API。未配置时将使用全局默认 API。
           </p>
 
           <div className="space-y-1">
@@ -135,47 +121,38 @@ export const HabitatApiSettingsModal = ({ onClose, onSave }) => {
           </div>
 
           <div className="space-y-1">
-            <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center justify-between">
               <label className="text-[10px] font-semibold uppercase tracking-wider block" style={{ color: 'var(--text-sub)' }}>
                 模型 (Model)
               </label>
-              {apiKey && (
-                <button
-                  type="button"
-                  onClick={handleFetchModels}
-                  disabled={isLoadingModels}
-                  className="text-[9px] font-semibold flex items-center gap-1 hover:opacity-80 active:scale-95"
-                  style={{ color: 'var(--accent-color)' }}
-                >
-                  {isLoadingModels ? (
-                    <Loader className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3" />
-                  )}
-                  获取可用模型
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => triggerFetchModels(baseUrl, apiKey)}
+                disabled={fetching}
+                className="text-[9px] flex items-center gap-1 hover:opacity-80 active:scale-95 disabled:opacity-50"
+                style={{ color: 'var(--accent-color)' }}
+              >
+                <RefreshCw className={`h-3 w-3 ${fetching ? 'animate-spin' : ''}`} />
+                获取可用模型
+              </button>
             </div>
-            
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border px-2 py-1.5 text-xs focus:outline-none"
+              className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none"
               style={{
                 backgroundColor: 'var(--bg-main)',
                 borderColor: 'var(--card-border)',
                 color: 'var(--text-main)'
               }}
             >
-              {modelList.map(m => (
+              {!models.includes(model) && model && (
+                <option value={model}>{model} (当前)</option>
+              )}
+              {models.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
-            {apiError && (
-              <span className="text-[9px] block leading-tight mt-1" style={{ color: 'var(--text-muted)' }}>
-                {apiError}
-              </span>
-            )}
           </div>
 
           <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--divider)' }}>
