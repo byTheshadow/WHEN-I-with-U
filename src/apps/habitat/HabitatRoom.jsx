@@ -30,9 +30,20 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
 
   const scrollRef = useRef(null);
 
-  const loadRoom = useCallback(async () => {
-    const data = await getHabitatById(Number(habitatId));
-          if (data.moisture < 35) {
+   const loadRoom = useCallback(async () => {
+    try {
+      const data = await getHabitatById(Number(habitatId));
+
+      if (!data) {
+        setHabitat(null);
+        setStatusMessage('未找到这个生命体的档案');
+        setLogs([]);
+        return;
+      }
+
+      setHabitat(data);
+
+      if (data.moisture < 35) {
         setStatusMessage('状态提醒：当前水分不足');
       } else if (data.nutrients < 35) {
         setStatusMessage('状态提醒：当前养分不足');
@@ -40,11 +51,18 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
         setStatusMessage('状态提醒：生态舱需要清洁');
       } else {
         setStatusMessage('生命体状态稳定');
-      
+      }
+
+      const logList = await getLogs(Number(habitatId));
+      setLogs(logList);
+    } catch (error) {
+      console.error('加载生态瓶详情失败：', error);
+      setHabitat(null);
+      setStatusMessage('生命体档案读取失败');
+      setLogs([]);
     }
-    const logList = await getLogs(Number(habitatId));
-    setLogs(logList);
   }, [habitatId]);
+
 
   useEffect(() => {
     loadRoom();
@@ -183,6 +201,16 @@ export const HabitatRoom = ({ habitatId, onBack }) => {
     await clearLogsByType(habitatId, dbType);
     await loadRoom();
   };
+    const handleUpdate = async (data) => {
+    try {
+      await saveHabitat(data);
+      setShowEditModal(false);
+      await loadRoom();
+    } catch (error) {
+      console.error('更新生命档案失败：', error);
+    }
+  };
+
 
   if (!habitat) {
     return (
