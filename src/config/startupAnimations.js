@@ -36,8 +36,8 @@ export const STARTUP_ANIMATIONS = [
     title: 'Sealed Letter',
     description: 'A private airmail letter is folded for the next arrival.',
     archiveDescription: 'Reserved for future development',
-    status: 'SOON',
-    isAvailable: false
+   isAvailable: true,
+  status: 'READY'
   },
   {
     id: 'pebble',

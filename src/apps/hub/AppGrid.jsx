@@ -1,5 +1,5 @@
 // src/apps/hub/AppGrid.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   MessageSquare,
   BookOpen,
@@ -13,9 +13,37 @@ import {
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
 import PreloaderSelector from './PreloaderSelector';
+import { Leaf } from 'lucide-react';
+import db from '../../db';
+
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
+  const [habitatCount, setHabitatCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadHabitatCount = async () => {
+      try {
+        const count = await db.habitats.count();
+
+        if (isMounted) {
+          setHabitatCount(count);
+        }
+      } catch (error) {
+        console.error('读取生态瓶数量失败：', error);
+      }
+    };
+
+    void loadHabitatCount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
+
     <div className="space-y-3">
       <h3 className="px-2 text-[11px] font-semibold uppercase tracking-widest opacity-40">
         Applications
@@ -125,6 +153,32 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
+                <GlassCard
+          delay={delay + 70}
+          onClick={() => onOpenApp('habitat')}
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+        >
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Leaf
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold">Living Habitat</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+              {habitatCount > 0
+                ? `${habitatCount} lives breathing`
+                : 'Adopt a new life'}
+            </p>
+          </div>
+        </GlassCard>
+
+
         <GlassCard
           delay={delay + 70}
           onClick={() => onOpenApp('diaries')}
@@ -158,6 +212,8 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <Calendar className="h-5 w-5 opacity-80" />
             <h4 className="text-sm font-bold">Planner</h4>
           </GlassCard>
+
+          
         </div>
       </div>
 

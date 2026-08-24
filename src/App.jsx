@@ -14,7 +14,9 @@ import TravelApp from './apps/travels/TravelApp';
 import SnapshotsApp from './apps/snapshots/SnapshotsApp';
 import PebblingApp from './apps/pebbling/PebblingApp';
 import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
-import EnsembleApp from './apps/ensemble/EnsembleApp';
+import EnsembleApp from './apps/ensemble/EnsembleApp';,
+import HabitatApp from './apps/habitat/HabitatApp';
+
 import { Settings as SettingsIcon } from 'lucide-react';
 import {
   requestNotificationPermission,
@@ -29,7 +31,8 @@ const THEME_COLORS = {
   'cyber-velvet': '#171321'
 };
 
-const CHAT_APPS = ['messages', 'imaginarium', 'ensemble'];
+const CHAT_APPS = ['messages', 'imaginarium', 'ensemble', 'habitat'];
+
 
 const REGISTERED_APPS = [
   'hub',
@@ -43,7 +46,8 @@ const REGISTERED_APPS = [
   'snapshots',
   'pebbling',
   'imaginarium',
-  'ensemble'
+  'ensemble',
+   'habitat'
 ];
 
 export const App = () => {
@@ -272,6 +276,17 @@ export const App = () => {
             />
           </ErrorBoundary>
         )}
+
+        
+        {currentApp === 'habitat' && (
+          <ErrorBoundary>
+            <HabitatApp
+              onBackHub={() => openApp('hub')}
+              onChatRoomStateChange={setIsInsideChatRoom}
+            />
+          </ErrorBoundary>
+        )}
+
 
         {!REGISTERED_APPS.includes(currentApp) && (
           <ErrorBoundary>

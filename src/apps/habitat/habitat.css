@@ -1,0 +1,87 @@
+/* 生态玻璃罩质感 */
+.habitat-glass-dome {
+  position: relative;
+  background: radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.02) 75%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    inset 0 10px 20px rgba(255, 255, 255, 0.15),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.08),
+    0 8px 24px var(--card-shadow);
+  backdrop-filter: blur(5px);
+  border-radius: 9999px;
+  overflow: hidden;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme='obsidian-dark'] .habitat-glass-dome,
+[data-theme='cyber-velvet'] .habitat-glass-dome {
+  background: radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 80%);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 小生命浮动呼吸动画 */
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
+}
+
+.animate-float-gentle {
+  animation: float-gentle 4s ease-in-out infinite;
+}
+
+/* 喷雾水汽粒子特效 */
+@keyframes mist-spray {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(20px);
+    filter: blur(2px);
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3) translateY(-10px);
+    filter: blur(8px);
+  }
+}
+
+.mist-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.mist-spray-active {
+  animation: mist-spray 1.2s ease-out forwards;
+}
+
+/* 拟物物理滑块仪表盘 */
+.physical-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--control-soft-bg);
+  border: 1px solid var(--card-border);
+  height: 5px;
+  border-radius: 99px;
+  outline: none;
+}
+
+.physical-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  border: 1px solid var(--card-border);
+  cursor: default;
+}

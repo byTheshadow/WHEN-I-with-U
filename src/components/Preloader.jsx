@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import AstrologyDice from './AstrologyDice';
 import VinylLoader from './VinylLoader';
 import PolaroidLoader from './PolaroidLoader';
+import LetterLoader from './LetterLoader';
+
 import { getRandomInspiration } from '../data/dailyInspirations';
 import {
   DEFAULT_STARTUP_ANIMATION_ID,
@@ -40,6 +42,10 @@ const LOADER_MAP = {
   polaroid: {
     Component: PolaroidLoader,
     status: 'A moment is developing'
+  },
+  letter: {
+    Component: LetterLoader,
+    status: 'Opening a private frequency'
   }
 };
 
