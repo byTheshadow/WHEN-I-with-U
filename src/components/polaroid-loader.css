@@ -1,0 +1,515 @@
+/* src/components/polaroid-loader.css */
+
+.polaroid-loader {
+  position: relative;
+  display: grid;
+  width: min(100%, 22rem);
+  min-height: 21rem;
+  place-items: center;
+  isolation: isolate;
+}
+
+.polaroid-loader__ambient {
+  position: absolute;
+  z-index: -3;
+  width: 18rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    var(--accent-color) 0%,
+    var(--bg-surface-strong) 38%,
+    var(--bg-main) 72%
+  );
+  filter: blur(1.5rem);
+  transform: scale(0.55);
+  animation: polaroid-ambient-awaken 2.8s 0.35s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__mist {
+  position: absolute;
+  z-index: -2;
+  width: 20rem;
+  height: 11rem;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse,
+    var(--text-main) 0%,
+    var(--bg-surface-strong) 36%,
+    var(--bg-main) 72%
+  );
+  filter: blur(2.2rem);
+  transform: translateY(1.5rem) scale(0.72);
+  animation: polaroid-mist-clear 2.3s 0.15s ease-out forwards;
+}
+
+.polaroid-loader__shadow {
+  position: absolute;
+  bottom: 2.7rem;
+  width: 10.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  opacity: 0;
+  background: var(--card-shadow);
+  filter: blur(0.85rem);
+  transform: scaleX(0.45);
+  animation: polaroid-shadow-settle 1.2s 0.52s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__photo {
+  position: relative;
+  z-index: 1;
+  width: min(72vw, 13.8rem);
+  padding: 0.55rem 0.55rem 2.55rem;
+  border: 1px solid var(--card-border);
+  background: var(--text-main);
+  box-shadow:
+    0 1.25rem 2.5rem var(--card-shadow),
+    0 0.2rem 0.5rem var(--card-shadow);
+  opacity: 0;
+  transform: translateY(2.5rem) rotate(-7deg) scale(0.82);
+  transform-origin: 50% 100%;
+  animation: polaroid-photo-arrive 1.35s 0.28s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: var(--bg-surface);
+}
+
+.polaroid-loader__image {
+  position: relative;
+  display: flex;
+  min-height: 12.1rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg-surface-strong);
+}
+
+.polaroid-loader__image::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  opacity: 0.68;
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      var(--accent-color) 0%,
+      var(--bg-surface-strong) 25%,
+      var(--bg-main) 74%
+    ),
+    linear-gradient(
+      145deg,
+      var(--bg-surface) 0%,
+      var(--bg-main) 100%
+    );
+}
+
+.polaroid-loader__image::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  opacity: 1;
+  background: var(--text-main);
+  mix-blend-mode: screen;
+  animation: polaroid-emulsion-develop 2.55s 0.82s ease-out forwards;
+}
+
+.polaroid-loader__image-haze {
+  position: absolute;
+  width: 10rem;
+  height: 7rem;
+  border-radius: 50%;
+  opacity: 0.8;
+  background: var(--text-main);
+  filter: blur(2.2rem);
+  transform: translateY(-0.5rem);
+  animation: polaroid-haze-dissolve 2.65s 0.72s ease-out forwards;
+}
+
+.polaroid-loader__horizon {
+  position: absolute;
+  right: -8%;
+  bottom: 29%;
+  left: -8%;
+  height: 1px;
+  background: var(--text-sub);
+  opacity: 0;
+  transform: scaleX(0.25);
+  animation: polaroid-line-develop 1.2s 1.45s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__sun {
+  position: absolute;
+  top: 24%;
+  right: 23%;
+  width: 1.8rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--accent-color);
+  border-radius: 50%;
+  opacity: 0;
+  background: var(--accent-color);
+  box-shadow: 0 0 1.4rem var(--accent-color);
+  transform: scale(0.35);
+  animation: polaroid-subject-develop 1.1s 1.55s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__mountain {
+  position: absolute;
+  bottom: 0;
+  width: 9rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--card-border);
+  background: var(--bg-main);
+  opacity: 0;
+  transform: rotate(45deg) translate(1.4rem, 1.4rem) scale(0.7);
+}
+
+.polaroid-loader__mountain--far {
+  right: -2.8rem;
+  bottom: -5.8rem;
+  background: var(--bg-surface);
+  animation: polaroid-landscape-develop 1.2s 1.36s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__mountain--near {
+  bottom: -6.4rem;
+  left: -2.8rem;
+  animation: polaroid-landscape-develop 1.2s 1.52s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__mark {
+  position: absolute;
+  z-index: 1;
+  top: 46%;
+  left: 50%;
+  display: grid;
+  width: 3.3rem;
+  aspect-ratio: 1;
+  place-items: center;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.55);
+  animation: polaroid-subject-develop 1s 1.8s
+    cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.polaroid-loader__mark-orbit {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--text-main);
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.polaroid-loader__mark-orbit::before,
+.polaroid-loader__mark-orbit::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130%;
+  height: 1px;
+  content: '';
+  background: var(--text-main);
+  transform-origin: center;
+}
+
+.polaroid-loader__mark-orbit::before {
+  transform: translate(-50%, -50%) rotate(42deg);
+}
+
+.polaroid-loader__mark-orbit::after {
+  transform: translate(-50%, -50%) rotate(-42deg);
+}
+
+.polaroid-loader__mark-core {
+  width: 0.48rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--accent-color);
+  box-shadow: 0 0 0.7rem var(--accent-color);
+}
+
+.polaroid-loader__image-copy {
+  position: absolute;
+  z-index: 2;
+  bottom: 1rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-main);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1.45;
+  opacity: 0;
+  text-transform: uppercase;
+  transform: translateY(0.5rem);
+  animation: polaroid-copy-develop 1s 2.05s ease-out forwards;
+}
+
+.polaroid-loader__image-copy strong {
+  color: var(--accent-color);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1rem;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.polaroid-loader__caption {
+  display: flex;
+  min-height: 1.9rem;
+  align-items: end;
+  justify-content: space-between;
+  padding: 0.48rem 0.2rem 0;
+  color: var(--accent-foreground);
+  font-size: 0.42rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1.2;
+  opacity: 0;
+  text-transform: uppercase;
+  animation: polaroid-caption-write 0.7s 2.32s ease-out forwards;
+}
+
+.polaroid-loader__note {
+  position: absolute;
+  bottom: 0.1rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.72rem;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  opacity: 0;
+  transform: translateY(0.45rem);
+  animation: polaroid-note-enter 0.9s 2.5s ease-out forwards;
+}
+
+@keyframes polaroid-ambient-awaken {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+
+  65% {
+    opacity: 0.32;
+  }
+
+  100% {
+    opacity: 0.16;
+    transform: scale(1);
+  }
+}
+
+@keyframes polaroid-mist-clear {
+  0% {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.72);
+  }
+
+  35% {
+    opacity: 0.4;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-1.2rem) scale(1.18);
+  }
+}
+
+@keyframes polaroid-shadow-settle {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.45);
+  }
+
+  100% {
+    opacity: 0.58;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes polaroid-photo-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(2.5rem) rotate(-7deg) scale(0.82);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translateY(-0.35rem) rotate(1.1deg) scale(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(-0.7deg) scale(1);
+  }
+}
+
+@keyframes polaroid-emulsion-develop {
+  0% {
+    opacity: 1;
+  }
+
+  45% {
+    opacity: 0.72;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes polaroid-haze-dissolve {
+  0% {
+    opacity: 0.8;
+    transform: translateY(-0.5rem) scale(0.8);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-1.4rem) scale(1.25);
+  }
+}
+
+@keyframes polaroid-line-develop {
+  to {
+    opacity: 0.68;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes polaroid-landscape-develop {
+  to {
+    opacity: 0.88;
+    transform: rotate(45deg) translate(1.4rem, 1.4rem) scale(1);
+  }
+}
+
+@keyframes polaroid-subject-develop {
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.polaroid-loader__sun {
+  animation-name: polaroid-sun-develop;
+}
+
+@keyframes polaroid-sun-develop {
+  to {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+}
+
+@keyframes polaroid-copy-develop {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes polaroid-caption-write {
+  to {
+    opacity: 0.72;
+  }
+}
+
+@keyframes polaroid-note-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 24rem) {
+  .polaroid-loader {
+    min-height: 19rem;
+  }
+
+  .polaroid-loader__ambient {
+    width: 15rem;
+  }
+
+  .polaroid-loader__mist {
+    width: 17rem;
+  }
+
+  .polaroid-loader__image {
+    min-height: 10.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .polaroid-loader *,
+  .polaroid-loader *::before,
+  .polaroid-loader *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .polaroid-loader__ambient {
+    opacity: 0.12;
+    transform: scale(1);
+  }
+
+  .polaroid-loader__mist,
+  .polaroid-loader__image::after,
+  .polaroid-loader__image-haze {
+    opacity: 0;
+  }
+
+  .polaroid-loader__shadow {
+    opacity: 0.58;
+    transform: scaleX(1);
+  }
+
+  .polaroid-loader__photo {
+    opacity: 1;
+    transform: rotate(-0.7deg);
+  }
+
+  .polaroid-loader__horizon {
+    opacity: 0.68;
+    transform: scaleX(1);
+  }
+
+  .polaroid-loader__sun {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+
+  .polaroid-loader__mountain {
+    opacity: 0.88;
+    transform: rotate(45deg) translate(1.4rem, 1.4rem) scale(1);
+  }
+
+  .polaroid-loader__mark {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .polaroid-loader__image-copy,
+  .polaroid-loader__caption,
+  .polaroid-loader__note {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

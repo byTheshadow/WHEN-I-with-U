@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AstrologyDice from './AstrologyDice';
 import VinylLoader from './VinylLoader';
+import PolaroidLoader from './PolaroidLoader';
 import { getRandomInspiration } from '../data/dailyInspirations';
 import {
   DEFAULT_STARTUP_ANIMATION_ID,
@@ -35,6 +36,10 @@ const LOADER_MAP = {
   vinyl: {
     Component: VinylLoader,
     status: 'Headphones connected'
+  },
+  polaroid: {
+    Component: PolaroidLoader,
+    status: 'A moment is developing'
   }
 };
 
