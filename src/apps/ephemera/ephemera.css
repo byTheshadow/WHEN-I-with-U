@@ -132,8 +132,9 @@
 
 .ep-card-shell {
   position: relative;
-  padding-bottom: 2.5rem;
+  padding-bottom: 3.25rem;
 }
+
 
 .ep-flip-stage {
   cursor: pointer;
@@ -169,9 +170,10 @@
 
 .ep-card-actions {
   position: absolute;
-  right: 0.2rem;
+  right: 0;
   bottom: 0;
   z-index: 4;
+  display: flex;
   justify-content: flex-end;
   gap: 0.4rem;
 }
@@ -533,14 +535,7 @@
   min-height: 23rem;
   margin: 0 auto;
   padding: 1.45rem 1.3rem 1.6rem;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 1.3rem,
-      var(--divider) 1.35rem
-    ),
-    var(--card-bg);
+ background: var(--card-bg);
   box-shadow: var(--card-shadow);
   clip-path: polygon(
     0 0.42rem,
@@ -655,6 +650,12 @@
 .ep-receipt-head {
   text-align: center;
 }
+.ep-receipt-head {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--divider);
+  text-align: center;
+}
+
 
 .ep-receipt-head h3,
 .ep-receipt-head p,
@@ -681,22 +682,32 @@
 }
 
 .ep-receipt-divider {
-  margin: 1rem 0 0.75rem;
+  width: 58%;
+  height: 1px;
+  margin: 1rem auto 0.95rem;
   overflow: hidden;
-  color: var(--text-muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.5rem;
-  white-space: nowrap;
+  background-image: radial-gradient(
+    circle,
+    var(--text-muted) 0.65px,
+    transparent 0.85px
+  );
+  background-repeat: repeat-x;
+  background-size: 0.28rem 1px;
+  opacity: 0.65;
 }
 
+
 .ep-receipt-title {
-  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
-  font-size: 1.7rem;
+  margin: 0;
+  color: var(--text-main);
+  font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.05em;
-  line-height: 1;
+  letter-spacing: -0.08em;
+  line-height: 1.25;
   text-align: center;
 }
+
 
 .ep-receipt-list {
   display: grid;
@@ -732,6 +743,23 @@
   opacity: 0.6;
 }
 
+.ep-receipt-row {
+  min-height: 1.35rem;
+  align-items: center;
+}
+
+.ep-receipt-row-name::after {
+  bottom: 0.34rem;
+  background-size: 0.3rem 1px;
+  opacity: 0.5;
+}
+
+.ep-receipt-row-name span {
+  padding-right: 0.32rem;
+  background: var(--card-bg);
+}
+
+
 .ep-receipt-row-name span {
   position: relative;
   z-index: 1;
@@ -743,13 +771,15 @@
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 0.7rem;
-  border-top: 1px dashed var(--divider);
+  margin-top: 1.2rem;
+  padding: 0.72rem 0;
+  border-top: 1px solid var(--text-muted);
+  border-bottom: 1px solid var(--divider);
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.58rem;
   font-weight: 600;
 }
+
 
 .ep-receipt-note {
   margin-top: 1rem;

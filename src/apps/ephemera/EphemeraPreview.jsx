@@ -67,7 +67,8 @@ export const EphemeraPreview = ({
           </p>
         </header>
 
-        <div className="ep-receipt-divider">--------------------------------</div>
+ <div className="ep-receipt-divider" />
+
 
         <h4 className="ep-receipt-title">{content.receiptTitle || item?.title || '夜晚的共同账目'}</h4>
 
