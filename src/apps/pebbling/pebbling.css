@@ -718,3 +718,31 @@
   }
 }
 
+.pebble-nest-folio {
+  position: relative;
+  z-index: 1;
+}
+
+.pebble-nest-index {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -4px 31px;
+  padding: 2px 4px 8px;
+  scrollbar-width: none;
+}
+
+.pebble-nest-index__item {
+  position: relative;
+  z-index: 1;
+}
+
+.pebble-nest-index__item.is-active {
+  z-index: 2;
+  border-color: var(--accent-color);
+  background: var(--card-bg-gradient);
+  box-shadow: var(--card-shadow);
+  transform: translateY(-8px) rotate(-1deg);
+}
