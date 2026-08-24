@@ -289,6 +289,12 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
+        {currentApp === 'ephemera' && (
+          <ErrorBoundary>
+            <EphemeraApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
 
         {!REGISTERED_APPS.includes(currentApp) && (
           <ErrorBoundary>
