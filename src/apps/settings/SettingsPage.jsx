@@ -23,7 +23,6 @@ import {
   Upload,
   X,
   XCircle,
-  BookOpen,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import ConfirmModal from '../../components/ConfirmModal';
