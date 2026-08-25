@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
+  ChevronRight,
   Cpu,
   Database,
   Download,
