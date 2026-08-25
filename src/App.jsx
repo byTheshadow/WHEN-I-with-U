@@ -17,8 +17,10 @@ import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
 import EphemeraApp from './apps/ephemera/EphemeraApp';
+import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import './apps/daily-offering/daily-offering.css';
+import './apps/manual/manual.css';
 
 
 import { Settings as SettingsIcon } from 'lucide-react';
@@ -42,6 +44,7 @@ const REGISTERED_APPS = [
   'hub',
   'settings',
   'messages',
+   'manual',
   'todos',
   'planner',
   'diaries',
@@ -224,10 +227,11 @@ export const App = () => {
 )}
 
 
-        {currentApp === 'settings' && (
+                {currentApp === 'settings' && (
           <ErrorBoundary>
             <SettingsPage
               onBack={() => openApp('hub')}
+              onOpenManual={() => openApp('manual')}
               currentTheme={activeTheme}
               onChangeTheme={setActiveTheme}
               showTitle={showTitle}
@@ -236,7 +240,14 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
+        {currentApp === 'manual' && (
+          <ErrorBoundary>
+            <ManualApp onBack={() => openApp('settings')} />
+          </ErrorBoundary>
+        )}
+
         {currentApp === 'messages' && (
+
           <ErrorBoundary>
             <MessagesApp
               onBackHub={() => openApp('hub')}

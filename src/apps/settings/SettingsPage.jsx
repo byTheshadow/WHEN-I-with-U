@@ -21,6 +21,7 @@ import {
   Upload,
   X,
   XCircle,
+  BookOpen,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -53,6 +54,7 @@ const formatBytes = (bytes = 0) => {
 
 export const SettingsPage = ({
   onBack,
+  onOpenManual,
   currentTheme,
   onChangeTheme,
   showTitle,
@@ -1062,6 +1064,57 @@ export const SettingsPage = ({
           </div>
         )}
       </GlassCard>
+
+            {onOpenManual && (
+        <GlassCard className="text-left">
+          <button
+            type="button"
+            onClick={onOpenManual}
+            className="flex w-full items-center gap-3 text-left transition-transform active:scale-[0.99]"
+          >
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+              style={{
+                color: 'var(--accent-foreground)',
+                backgroundColor: 'var(--accent-color)',
+              }}
+            >
+              <BookOpen className="h-4 w-4" strokeWidth={1.6} />
+            </span>
+
+            <span className="min-w-0 flex-1">
+              <span
+                className="block text-[9px] tracking-[0.14em]"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                THE HOUSE MANUAL
+              </span>
+
+              <span
+                className="mt-1 block font-serif text-sm font-semibold"
+                style={{ color: 'var(--text-main)' }}
+              >
+                空间说明书
+              </span>
+
+              <span
+                className="mt-1 block text-[10px] leading-relaxed"
+                style={{ color: 'var(--text-sub)' }}
+              >
+                一份关于如何在这里生活的说明
+              </span>
+            </span>
+
+            <ChevronRight
+              className="h-4 w-4 shrink-0"
+              style={{ color: 'var(--text-muted)' }}
+              strokeWidth={1.6}
+            />
+          </button>
+        </GlassCard>
+      )}
+
+
 
       <div className="sticky bottom-3 z-20 pt-2">
         <button
