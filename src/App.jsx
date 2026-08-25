@@ -107,8 +107,9 @@ export const App = () => {
     });
   }, []);
 
-  const shouldDisplayHeader =
-    showTitle && currentApp !== 'settings' && !isInsideChatRoom;
+ const shouldDisplayHubHeader =
+  currentApp === 'hub' && !isInsideChatRoom;
+
 
   const mainClassName = isInsideChatRoom
     ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
@@ -155,43 +156,50 @@ export const App = () => {
             : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
         }}
       >
-        {shouldDisplayHeader && (
-          <header className="flex items-start justify-between animate-fade-in-up">
-            <div>
-              <h1
-                className="font-serif text-5xl font-semibold leading-none tracking-tighter"
-                style={{ color: 'var(--text-main)' }}
-              >
-                WHEN I
-                <br />
-                <span className="font-normal italic opacity-40">with U.</span>
-              </h1>
+      {shouldDisplayHubHeader && (
+  <header
+    className={`flex items-start animate-fade-in-up ${
+      showTitle ? 'justify-between' : 'justify-end'
+    }`}
+  >
+    {showTitle && (
+      <div>
+        <h1
+          className="font-serif text-5xl font-semibold leading-none tracking-tighter"
+          style={{ color: 'var(--text-main)' }}
+        >
+          WHEN I
+          <br />
+          <span className="font-normal italic opacity-40">with U.</span>
+        </h1>
 
-              <div
-                className="mt-3 h-px w-10"
-                style={{
-                  backgroundColor: 'var(--text-main)',
-                  opacity: 0.2
-                }}
-              />
-            </div>
+        <div
+          className="mt-3 h-px w-10"
+          style={{
+            backgroundColor: 'var(--text-main)',
+            opacity: 0.2,
+          }}
+        />
+      </div>
+    )}
 
-            <button
-              type="button"
-              onClick={() => openApp('settings')}
-              title="Settings"
-              aria-label="Open settings"
-              className="ml-auto rounded-full p-2.5 shadow-sm transition-transform active:scale-95"
-              style={{
-                color: 'var(--accent-foreground)',
-                backgroundColor: 'var(--accent-color)',
-                border: '1px solid var(--card-border)'
-              }}
-            >
-              <SettingsIcon className="h-4 w-4" strokeWidth={1.7} />
-            </button>
-          </header>
-        )}
+    <button
+      type="button"
+      onClick={() => openApp('settings')}
+      title="打开设置"
+      aria-label="打开设置"
+      className="rounded-full p-2.5 shadow-sm transition-transform active:scale-95"
+      style={{
+        color: 'var(--accent-foreground)',
+        backgroundColor: 'var(--accent-color)',
+        border: '1px solid var(--card-border)',
+      }}
+    >
+      <SettingsIcon className="h-4 w-4" strokeWidth={1.7} />
+    </button>
+  </header>
+)}
+
 
        {currentApp === 'hub' && (
   <DailyOfferingHubGate
