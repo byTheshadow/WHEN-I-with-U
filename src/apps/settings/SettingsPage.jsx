@@ -23,7 +23,9 @@ import {
   XCircle,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
+import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
+import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
 
 import db from '../../db';
 import {
@@ -32,20 +34,10 @@ import {
   startLockscreenCompanion,
   stopLockscreenCompanion,
 } from '../../services/lockscreenService';
-
-const TABLE_NAMES = [
-  'profile',
-  'pinnedGallery',
-  'characters',
-  'homeBoard',
-  'diaries',
-  'travels',
-  'todos',
-  'settings',
-];
-
-const BACKUP_FORMAT = 'when-i-with-u-backup';
-const BACKUP_VERSION = 1;
+import {
+  generateBackupData,
+  restoreBackupData,
+} from '../../services/backupService';
 
 const formatBytes = (bytes = 0) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -57,94 +49,6 @@ const formatBytes = (bytes = 0) => {
   );
 
   return `${(bytes / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-};
-
-const readBlobAsDataUrl = (blob) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Unable to read local image data.'));
-    reader.readAsDataURL(blob);
-  });
-
-const dataUrlToBlob = async (
-  dataUrl,
-  fallbackType = 'application/octet-stream',
-) => {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-
-  return new Blob([blob], { type: blob.type || fallbackType });
-};
-
-const serializeBackupValue = async (value) => {
-  if (value instanceof Blob) {
-    return {
-      __whenIWithUType: 'blob',
-      type: value.type || 'application/octet-stream',
-      dataUrl: await readBlobAsDataUrl(value),
-    };
-  }
-
-  if (value instanceof Date) {
-    return {
-      __whenIWithUType: 'date',
-      value: value.toISOString(),
-    };
-  }
-
-  if (Array.isArray(value)) {
-    return Promise.all(value.map((item) => serializeBackupValue(item)));
-  }
-
-  if (value && typeof value === 'object') {
-    const serializedObject = {};
-
-    for (const [key, nestedValue] of Object.entries(value)) {
-      serializedObject[key] = await serializeBackupValue(nestedValue);
-    }
-
-    return serializedObject;
-  }
-
-  return value;
-};
-
-const restoreBackupValue = async (value) => {
-  if (Array.isArray(value)) {
-    return Promise.all(value.map((item) => restoreBackupValue(item)));
-  }
-
-  if (value && typeof value === 'object') {
-    if (value.__whenIWithUType === 'blob' && typeof value.dataUrl === 'string') {
-      return dataUrlToBlob(value.dataUrl, value.type);
-    }
-
-    if (value.__whenIWithUType === 'date' && typeof value.value === 'string') {
-      return new Date(value.value);
-    }
-
-    const restoredObject = {};
-
-    for (const [key, nestedValue] of Object.entries(value)) {
-      restoredObject[key] = await restoreBackupValue(nestedValue);
-    }
-
-    return restoredObject;
-  }
-
-  return value;
-};
-
-const isValidBackup = (backup) => {
-  if (!backup || typeof backup !== 'object') return false;
-  if (backup.format !== BACKUP_FORMAT) return false;
-  if (!backup.data || typeof backup.data !== 'object') return false;
-
-  return TABLE_NAMES.every((tableName) =>
-    Array.isArray(backup.data[tableName]),
-  );
 };
 
 export const SettingsPage = ({
@@ -402,22 +306,25 @@ export const SettingsPage = ({
 
       await saveLockscreenQuotes(cleanQuotes);
 
-      // 主题和首页标题属于 App 层状态，保存后同步应用。
-      onChangeTheme(draftTheme);
-      onToggleTitle(draftShowTitle);
+      if (draftTheme !== currentTheme) {
+        onChangeTheme(draftTheme);
+      }
 
-      setLockscreenQuotes(cleanQuotes);
-      showSaveResult('success', '设置已成功保存到本地。');
+      if (draftShowTitle !== showTitle) {
+        onToggleTitle();
+      }
+
+      showSaveResult('success', '配置保存成功。');
     } catch (error) {
-      console.error('Unable to save settings:', error);
-      showSaveResult('error', '保存失败，请检查浏览器本地存储权限。');
+      console.error('Unable to save all settings:', error);
+      showSaveResult('error', '保存失败，请稍后重试。');
     } finally {
       setIsSaving(false);
     }
   };
 
   const testApiConnection = async () => {
-    if (!apiConfig.baseUrl.trim()) {
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
       setApiStatus('error');
       return;
     }
@@ -425,37 +332,33 @@ export const SettingsPage = ({
     setApiStatus('testing');
 
     try {
-      const baseUrl = apiConfig.baseUrl.trim().replace(/\/$/, '');
-
-      const response = await fetch(`${baseUrl}/models`, {
-        headers: apiConfig.apiKey
-          ? { Authorization: `Bearer ${apiConfig.apiKey}` }
-          : {},
+      const cleanUrl = apiConfig.baseUrl.replace(/\/+$/, '');
+      const response = await fetch(`${cleanUrl}/models`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiConfig.apiKey}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const responseData = await response.json();
-
-      const modelList = Array.isArray(responseData.data)
-        ? responseData.data
-            .map((model) => model?.id)
-            .filter(
-              (modelId) =>
-                typeof modelId === 'string' && modelId.length > 0,
-            )
+      const resData = await response.json();
+      const list = Array.isArray(resData.data)
+        ? resData.data.map((item) => item.id)
         : [];
 
-      setModels(modelList);
-
-      setApiConfig((previous) => ({
-        ...previous,
-        model: previous.model || modelList[0] || '',
-      }));
-
+      setModels(list);
       setApiStatus('success');
+
+      if (list.length > 0 && !list.includes(apiConfig.model)) {
+        setApiConfig((previous) => ({
+          ...previous,
+          model: list[0],
+        }));
+      }
     } catch (error) {
       console.error('API connection failed:', error);
       setApiStatus('error');
@@ -467,21 +370,7 @@ export const SettingsPage = ({
     setDataStatus({ type: 'idle', message: '' });
 
     try {
-      const data = {};
-
-      for (const tableName of TABLE_NAMES) {
-        const records = await db.table(tableName).toArray();
-        data[tableName] = await Promise.all(
-          records.map((record) => serializeBackupValue(record)),
-        );
-      }
-
-      const backup = {
-        format: BACKUP_FORMAT,
-        version: BACKUP_VERSION,
-        exportedAt: new Date().toISOString(),
-        data,
-      };
+      const backup = await generateBackupData();
 
       const backupBlob = new Blob(
         [JSON.stringify(backup, null, 2)],
@@ -500,13 +389,10 @@ export const SettingsPage = ({
 
       document.body.appendChild(downloadLink);
       downloadLink.click();
-      downloadLink.remove();
-
-      URL.revokeObjectURL(downloadUrl);
 
       setDataStatus({
         type: 'success',
-        message: '数据备份文件已导出。',
+        message: '数据已安全导出到本地，请妥善保管导出的 JSON 文件。',
       });
     } catch (error) {
       console.error('Database export failed:', error);
@@ -532,62 +418,33 @@ export const SettingsPage = ({
       const content = await file.text();
       const backup = JSON.parse(content);
 
-      if (!isValidBackup(backup)) {
-        throw new Error('The selected file is not a valid project backup.');
+      if (!backup || backup.format !== 'when-i-with-u-backup' || !backup.data) {
+        throw new Error('无效的备份数据结构');
       }
 
       setPendingImport(backup);
-
       setConfirmDialog({
         type: 'import',
         title: '恢复本地备份',
-        description:
-          '恢复将先清空当前所有本地数据，再写入备份中的数据。此操作无法撤销。',
-        confirmLabel: '确认恢复',
-        danger: true,
+        description: '此操作将抹去设备上所有的本地记录并载入备份，确定载入？',
+        confirmLabel: '载入备份',
+        danger: false,
       });
     } catch (error) {
-      console.error('Backup import validation failed:', error);
-
+      console.error('Failed to read backup file:', error);
       setDataStatus({
         type: 'error',
-        message: '文件无法识别。请选择由本项目导出的有效 JSON 备份。',
+        message: '无效的文件格式，解析失败。请重新确认备份文件合法。',
       });
     }
   };
 
   const importDatabase = async () => {
-    if (!pendingImport) return;
-
     setIsProcessing(true);
     setConfirmDialog(null);
 
     try {
-      const restoredData = {};
-
-      for (const tableName of TABLE_NAMES) {
-        restoredData[tableName] = await Promise.all(
-          pendingImport.data[tableName].map((record) =>
-            restoreBackupValue(record),
-          ),
-        );
-      }
-
-      await db.transaction(
-        'rw',
-        TABLE_NAMES.map((tableName) => db.table(tableName)),
-        async () => {
-          await Promise.all(
-            TABLE_NAMES.map((tableName) => db.table(tableName).clear()),
-          );
-
-          for (const tableName of TABLE_NAMES) {
-            if (restoredData[tableName].length > 0) {
-              await db.table(tableName).bulkPut(restoredData[tableName]);
-            }
-          }
-        },
-      );
+      await restoreBackupData(pendingImport);
 
       setPendingImport(null);
       await updateStorageEstimate();
@@ -613,31 +470,19 @@ export const SettingsPage = ({
     setConfirmDialog(null);
 
     try {
-      const galleries = await db.pinnedGallery.toArray();
-
-      await db.transaction('rw', db.pinnedGallery, async () => {
-        await Promise.all(
-          galleries.map((gallery) =>
-            db.pinnedGallery.put({
-              ...gallery,
-              photos: [],
-            }),
-          ),
-        );
-      });
-
+      await db.pinnedGallery.clear();
       await updateStorageEstimate();
 
       setDataStatus({
         type: 'success',
-        message: '图集中的本地图片已清理，标题与文字内容已保留。',
+        message: '置顶图集中的图片数据已清理。',
       });
     } catch (error) {
-      console.error('Image cleanup failed:', error);
+      console.error('Failed to clear gallery images:', error);
 
       setDataStatus({
         type: 'error',
-        message: '图片清理失败，请稍后重试。',
+        message: '清理图片失败，请稍后重试。',
       });
     } finally {
       setIsProcessing(false);
@@ -654,10 +499,10 @@ export const SettingsPage = ({
 
       await db.transaction(
         'rw',
-        TABLE_NAMES.map((tableName) => db.table(tableName)),
+        db.tables,
         async () => {
           await Promise.all(
-            TABLE_NAMES.map((tableName) => db.table(tableName).clear()),
+            db.tables.map((table) => table.clear()),
           );
         },
       );
@@ -692,261 +537,290 @@ export const SettingsPage = ({
 
   const storagePercent =
     storageInfo.quota > 0
-      ? Math.min((storageInfo.usage / storageInfo.quota) * 100, 100)
+      ? (storageInfo.usage / storageInfo.quota) * 100
       : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in-up pb-12">
-      <div className="flex items-center justify-between">
+    <div className="w-full space-y-6 pb-20 pt-4 text-xs">
+      <header className="flex items-center gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-xs font-semibold opacity-70 transition-opacity hover:opacity-100"
+          className="rounded-full bg-black/5 p-2 transition-transform active:scale-90 dark:bg-white/5"
+          aria-label="返回"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Hub</span>
         </button>
 
-        <span className="font-mono text-xs opacity-40">
-          SYSTEM / SETTINGS
-        </span>
-      </div>
+        <div className="text-left">
+          <h2 className="font-serif text-lg font-bold">设定空间 (Settings)</h2>
+          <p className="text-[10px] opacity-60">调校你的空间与专属记忆</p>
+        </div>
+      </header>
 
+      {/* 1. 主题与视觉设置 */}
       <GlassCard className="space-y-4 text-left">
         <div className="flex items-center gap-2 text-sm font-bold">
           <Palette className="h-4 w-4" />
-          <span>外观与主题 (Appearance)</span>
+          <span>视觉美学 (Theme Settings)</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {[
-            { id: 'mono-mist', name: 'Mono Mist (白黑极简)' },
-            { id: 'cream-latte', name: 'Cream & Latte (燕麦)' },
-            { id: 'obsidian-dark', name: 'Obsidian (黑曜石)' },
-            { id: 'cyber-velvet', name: 'Cyber Velvet (暗紫)' },
-          ].map((theme) => (
+        <div className="space-y-3">
+          <div>
+            <label className="mb-2 block opacity-60">空间底色 (Select Theme)</label>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {[
+                { id: 'mono-mist', name: 'Mono Mist (水墨灰)' },
+                { id: 'cream-latte', name: 'Cream Latte (奶油咖)' },
+                { id: 'obsidian-dark', name: 'Obsidian (曜石黑)' },
+                { id: 'rose-quartz', name: 'Quartz (暮色粉)' },
+              ].map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => setDraftTheme(theme.id)}
+                  className={`rounded-xl py-3 font-medium transition-all ${
+                    draftTheme === theme.id
+                      ? 'bg-black text-white dark:bg-white dark:text-black font-semibold'
+                      : 'bg-black/5 dark:bg-white/10 hover:bg-black/10'
+                  }`}
+                >
+                  {theme.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-black/5 pt-3 dark:border-white/5">
+            <div>
+              <p className="font-medium">空间文学标题 (Space Title)</p>
+              <p className="mt-0.5 text-[10px] opacity-50">
+                决定是否在主页和各副应用上方悬挂本空间标题
+              </p>
+            </div>
             <button
-              key={theme.id}
               type="button"
-              onClick={() => setDraftTheme(theme.id)}
-              className={`rounded-xl border p-3 text-left transition-all ${
-                draftTheme === theme.id
-                  ? 'border-black bg-black/5 font-semibold dark:border-white dark:bg-white/10'
-                  : 'border-white/10 opacity-70 hover:opacity-100'
+              onClick={() => setDraftShowTitle(!draftShowTitle)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                draftShowTitle ? 'bg-black dark:bg-white' : 'bg-black/10 dark:bg-white/20'
               }`}
             >
-              {theme.name}
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform dark:bg-black ${
+                  draftShowTitle ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
             </button>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-white/10 pt-2 text-xs">
-          <span>显示主页 “WHEN I WITH U” 标题</span>
-          <input
-            type="checkbox"
-            checked={draftShowTitle}
-            onChange={(event) => setDraftShowTitle(event.target.checked)}
-            className="h-4 w-4 accent-black dark:accent-white"
-          />
+          </div>
         </div>
       </GlassCard>
 
+      {/* 2. 陪伴系统行为设定 */}
       <GlassCard className="space-y-4 text-left">
         <div className="flex items-center gap-2 text-sm font-bold">
           <Sliders className="h-4 w-4" />
-          <span>角色主动触发配置 (Auto Message)</span>
+          <span>陪伴频率 (Interaction Behavior)</span>
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <span>允许角色主动发送动态 / 留言 / 日记</span>
-          <input
-            type="checkbox"
-            checked={autoMessage}
-            onChange={(event) => setAutoMessage(event.target.checked)}
-            className="h-4 w-4 accent-black dark:accent-white"
-          />
-        </div>
-
-        {autoMessage && (
-          <div className="space-y-3 border-t border-white/10 pt-2 text-xs">
+        <div className="space-y-3.5">
+          <div className="flex items-center justify-between">
             <div>
-              <label className="mb-1 block opacity-60">
-                主动触发频率 (Humanized Schedule)
-              </label>
-
-              <select
-                value={frequency}
-                onChange={(event) => setFrequency(event.target.value)}
-                className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
-              >
-                <option value="high">高频：约每 2 ～ 4 小时</option>
-                <option value="moderate">中频：约每 6 ～ 8 小时</option>
-                <option value="low">低频：约每 12 ～ 24 小时</option>
-              </select>
+              <p className="font-medium">日常自动偶发消息</p>
+              <p className="mt-0.5 text-[10px] opacity-50">
+                开启后，伴侣将不定期自发给你留信
+              </p>
             </div>
-
-            <div className="space-y-2 rounded-xl bg-black/5 p-3 dark:bg-white/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Moon className="h-3.5 w-3.5 opacity-70" />
-                  <span className="font-medium">
-                    安静勿扰时段 (Quiet Hours)
-                  </span>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={quietHours.enabled}
-                  onChange={(event) =>
-                    setQuietHours((previous) => ({
-                      ...previous,
-                      enabled: event.target.checked,
-                    }))
-                  }
-                />
-              </div>
-
-              {quietHours.enabled && (
-                <div className="flex items-center gap-2 pt-1 opacity-80">
-                  <input
-                    type="time"
-                    value={quietHours.start}
-                    onChange={(event) =>
-                      setQuietHours((previous) => ({
-                        ...previous,
-                        start: event.target.value,
-                      }))
-                    }
-                    className="rounded bg-black/5 px-2 py-1 outline-none dark:bg-white/10"
-                  />
-
-                  <span>to</span>
-
-                  <input
-                    type="time"
-                    value={quietHours.end}
-                    onChange={(event) =>
-                      setQuietHours((previous) => ({
-                        ...previous,
-                        end: event.target.value,
-                      }))
-                    }
-                    className="rounded bg-black/5 px-2 py-1 outline-none dark:bg-white/10"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-           </GlassCard>
-
-      <DailyOfferingSettings />
-
-      <GlassCard className="space-y-4 text-left">
-        <div className="flex items-center justify-between gap-3">
-
-          <div className="flex items-center gap-2 text-sm font-bold">
-            <Heart className="h-4 w-4 text-rose-500" />
-            <span>锁屏陪伴与角色台词</span>
+            <button
+              type="button"
+              onClick={() => setAutoMessage(!autoMessage)}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                autoMessage ? 'bg-black dark:bg-white' : 'bg-black/10 dark:bg-white/20'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform dark:bg-black ${
+                  autoMessage ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleToggleCompanion}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-transform active:scale-95 ${
-              isCompanionActive
-                ? 'bg-rose-500 text-white'
-                : 'bg-black/10 dark:bg-white/10'
-            }`}
-          >
-            <Music className="h-3.5 w-3.5" />
-            <span>{isCompanionActive ? '关闭陪伴' : '开启陪伴'}</span>
-          </button>
-        </div>
-
-        <p className="text-xs leading-5 opacity-60">
-          开启后，浏览器可尝试在锁屏媒体卡片显示角色名称、头像与短台词。
-          不同手机系统对网页锁屏卡片支持不同，无法保证显示完整长文本。
-        </p>
-
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newQuoteInput}
-            maxLength={120}
-            placeholder="添加一条想在锁屏上看到的话……"
-            onChange={(event) => setNewQuoteInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                handleAddQuote();
-              }
-            }}
-            className="min-w-0 flex-1 rounded-xl bg-black/5 px-3 py-2 text-xs outline-none dark:bg-white/10"
-          />
-
-          <button
-            type="button"
-            onClick={handleAddQuote}
-            className="flex items-center justify-center rounded-xl bg-black px-3 text-white transition-transform active:scale-95 dark:bg-white dark:text-black"
-            aria-label="添加锁屏台词"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-          {lockscreenQuotes.length === 0 ? (
-            <p className="rounded-xl bg-black/5 px-3 py-3 text-xs opacity-60 dark:bg-white/5">
-              暂无自定义台词。添加后点击页面底部“保存设置”即可保存。
-            </p>
-          ) : (
-            lockscreenQuotes.map((quote, index) => (
-              <div
-                key={`${quote}-${index}`}
-                className="flex items-center gap-2 rounded-xl bg-black/5 p-2 dark:bg-white/5"
-              >
-                <input
-                  type="text"
-                  value={quote}
-                  maxLength={120}
-                  onChange={(event) =>
-                    handleEditQuote(index, event.target.value)
-                  }
-                  className="min-w-0 flex-1 bg-transparent px-1 text-xs outline-none"
-                  aria-label={`编辑第 ${index + 1} 条锁屏台词`}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => handleDeleteQuote(index)}
-                  className="rounded-lg p-2 text-rose-500 opacity-70 transition-opacity hover:opacity-100"
-                  aria-label={`删除第 ${index + 1} 条锁屏台词`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+          {autoMessage && (
+            <div className="space-y-3 border-t border-black/5 pt-3 dark:border-white/5 animate-fade-in-up">
+              <div>
+                <label className="mb-1 block opacity-60">触发频次阈值</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'quiet', name: '静寂' },
+                    { id: 'moderate', name: '适中' },
+                    { id: 'passionate', name: '热情' },
+                  ].map((level) => (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => setFrequency(level.id)}
+                      className={`rounded-lg py-2 transition-all ${
+                        frequency === level.id
+                          ? 'bg-black text-white dark:bg-white dark:text-black font-semibold'
+                          : 'bg-black/5 dark:bg-white/10'
+                      }`}
+                    >
+                      {level.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="opacity-60">设定勿扰时段</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuietHours((prev) => ({
+                        ...prev,
+                        enabled: !prev.enabled,
+                      }))
+                    }
+                    className={`relative h-5 w-9 rounded-full transition-colors ${
+                      quietHours.enabled ? 'bg-black dark:bg-white' : 'bg-black/10'
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform dark:bg-black ${
+                        quietHours.enabled ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {quietHours.enabled && (
+                  <div className="mt-2 flex items-center gap-2 animate-fade-in-up">
+                    <input
+                      type="time"
+                      value={quietHours.start}
+                      onChange={(event) =>
+                        setQuietHours((prev) => ({
+                          ...prev,
+                          start: event.target.value,
+                        }))
+                      }
+                      className="rounded bg-black/5 p-1 dark:bg-white/10 outline-none text-[11px]"
+                    />
+                    <span className="opacity-50">至</span>
+                    <input
+                      type="time"
+                      value={quietHours.end}
+                      onChange={(event) =>
+                        setQuietHours((prev) => ({
+                          ...prev,
+                          end: event.target.value,
+                        }))
+                      }
+                      className="rounded bg-black/5 p-1 dark:bg-white/10 outline-none text-[11px]"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
-
-        <p className="text-[11px] opacity-45">
-          台词修改不会自动保存；请点击页面底部的“保存设置”确认写入本地。
-        </p>
       </GlassCard>
 
+      {/* 3. 锁屏音频陪伴 */}
       <GlassCard className="space-y-4 text-left">
         <div className="flex items-center gap-2 text-sm font-bold">
-          <Key className="h-4 w-4" />
-          <span>API Endpoint & Model</span>
+          <Music className="h-4 w-4" />
+          <span>锁屏台词陪伴 (Lockscreen Quotes)</span>
         </div>
 
-        <div className="space-y-3 text-xs">
+        <p className="text-[11px] leading-relaxed opacity-60">
+          通过锁屏时后台循环的极静环境音频，在手机锁屏时将你留下的回忆台词投送在通知媒体卡片上。
+        </p>
+
+        <div className="space-y-3.5">
+          <div className="flex items-center justify-between rounded-xl bg-black/5 p-3 dark:bg-white/5">
+            <div>
+              <p className="font-semibold">开启锁屏陪伴通道</p>
+              <p className="mt-0.5 text-[10px] opacity-50">
+                使用手机端浏览器时需授权音频播放
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggleCompanion}
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                isCompanionActive ? 'bg-black dark:bg-white' : 'bg-black/10'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform dark:bg-black ${
+                  isCompanionActive ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="space-y-2 border-t border-black/5 pt-3 dark:border-white/5">
+            <label className="block font-medium opacity-65">自定义陪伴台词册 (至多120字)</label>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="在锁屏卡片上留下他/她会对你说的话..."
+                value={newQuoteInput}
+                onChange={(event) => setNewQuoteInput(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && handleAddQuote()}
+                className="flex-1 rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10 text-xs"
+              />
+              <button
+                type="button"
+                onClick={handleAddQuote}
+                className="rounded-xl bg-black px-4 font-semibold text-white transition-transform active:scale-95 dark:bg-white dark:text-black"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+
+            {lockscreenQuotes.length > 0 && (
+              <div className="max-h-40 overflow-y-auto space-y-1.5 rounded-xl border border-black/5 p-2 dark:border-white/5">
+                {lockscreenQuotes.map((quote, index) => (
+                  <div key={index} className="flex items-center justify-between gap-2 py-1">
+                    <input
+                      type="text"
+                      value={quote}
+                      onChange={(event) => handleEditQuote(index, event.target.value)}
+                      className="flex-1 bg-transparent font-medium outline-none focus:border-b focus:border-black/20 text-[11px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuote(index)}
+                      className="rounded-full p-1 opacity-50 hover:opacity-100"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* 4. AI 连通设置 */}
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Cpu className="h-4 w-4" />
+          <span>AI 心灵连通 (Core Model Configuration)</span>
+        </div>
+
+        <div className="space-y-3.5 text-xs">
           <div>
-            <label className="mb-1 block opacity-60">Base URL</label>
+            <label className="mb-1 block opacity-60">API Base URL</label>
             <input
               type="text"
-              placeholder="https://api.openai.com/v1"
+              placeholder="e.g. https://api.openai.com/v1"
               value={apiConfig.baseUrl}
               onChange={(event) =>
                 setApiConfig((previous) => ({
@@ -954,7 +828,7 @@ export const SettingsPage = ({
                   baseUrl: event.target.value,
                 }))
               }
-              className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
+              className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
             />
           </div>
 
@@ -970,36 +844,54 @@ export const SettingsPage = ({
                   apiKey: event.target.value,
                 }))
               }
-              className="w-full rounded-lg bg-black/5 p-2 outline-none dark:bg-white/10"
+              className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
             />
           </div>
 
-          <div className="flex items-center gap-3 pt-1">
+          {apiConfig.model && (
+            <div>
+              <label className="mb-1 block opacity-60">Model (当前使用)</label>
+              <input
+                type="text"
+                placeholder="gpt-4o"
+                value={apiConfig.model}
+                onChange={(event) =>
+                  setApiConfig((previous) => ({
+                    ...previous,
+                    model: event.target.value,
+                  }))
+                }
+                className="w-full rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-4 border-t border-black/5 pt-3 dark:border-white/5">
             <button
               type="button"
               onClick={testApiConnection}
-              disabled={apiStatus === 'testing'}
-              className="flex items-center gap-1.5 rounded-lg bg-black/10 px-3 py-1.5 font-medium transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10"
+              disabled={apiStatus === 'testing' || !apiConfig.baseUrl || !apiConfig.apiKey}
+              className="flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 font-semibold text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
             >
-              <Cpu className="h-3.5 w-3.5" />
-              <span>Test Connection</span>
+              {apiStatus === 'testing' ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              <span>{apiStatus === 'testing' ? '正在连接' : '测试连通性'}</span>
             </button>
 
-            {apiStatus === 'testing' && (
-              <RefreshCw className="h-4 w-4 animate-spin opacity-50" />
-            )}
-
             {apiStatus === 'success' && (
-              <span className="flex items-center gap-1 text-emerald-600">
+              <span className="flex items-center gap-1 font-semibold text-emerald-500">
                 <CheckCircle2 className="h-4 w-4" />
-                Connected
+                连通正常
               </span>
             )}
 
             {apiStatus === 'error' && (
-              <span className="flex items-center gap-1 text-rose-600">
+              <span className="flex items-center gap-1 font-semibold text-rose-500">
                 <XCircle className="h-4 w-4" />
-                Connection Failed
+                连接失败
               </span>
             )}
           </div>
@@ -1029,6 +921,13 @@ export const SettingsPage = ({
         </div>
       </GlassCard>
 
+      {/* 5. 今日留物设置组件（已装配） */}
+      <DailyOfferingSettings />
+
+      {/* 6. GitHub 备份云端抽屉组件（全新装配） */}
+      <GitHubBackupSettings />
+
+      {/* 7. 本地数据与存储卡片 */}
       <GlassCard className="space-y-5 text-left">
         <div className="flex items-center gap-2 text-sm font-bold">
           <Database className="h-4 w-4" />
@@ -1203,83 +1102,21 @@ export const SettingsPage = ({
         </div>
       )}
 
-      {confirmDialog && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-4 backdrop-blur-sm sm:items-center sm:justify-center">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="settings-confirm-title"
-            className="w-full max-w-sm rounded-[2rem] border border-white/20 bg-white p-6 shadow-2xl dark:bg-neutral-900"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div
-                className={`rounded-2xl p-3 ${
-                  confirmDialog.danger
-                    ? 'bg-rose-500/10 text-rose-600'
-                    : 'bg-black/5 text-black dark:bg-white/10 dark:text-white'
-                }`}
-              >
-                {confirmDialog.danger ? (
-                  <AlertTriangle className="h-5 w-5" />
-                ) : (
-                  <Database className="h-5 w-5" />
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmDialog(null);
-                  setPendingImport(null);
-                }}
-                className="rounded-full p-1.5 opacity-50 transition-opacity hover:opacity-100"
-                aria-label="关闭确认窗口"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <h2
-              id="settings-confirm-title"
-              className="mt-5 text-base font-bold"
-            >
-              {confirmDialog.title}
-            </h2>
-
-            <p className="mt-2 text-xs leading-6 opacity-65">
-              {confirmDialog.description}
-            </p>
-
-            <div className="mt-6 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmDialog(null);
-                  setPendingImport(null);
-                }}
-                className="flex-1 rounded-xl bg-black/5 px-4 py-3 text-xs font-semibold transition-transform active:scale-[0.98] dark:bg-white/10"
-              >
-                取消
-              </button>
-
-              <button
-                type="button"
-                onClick={runConfirmedAction}
-                className={`flex-1 rounded-xl px-4 py-3 text-xs font-semibold transition-transform active:scale-[0.98] ${
-                  confirmDialog.danger
-                    ? 'bg-rose-600 text-white'
-                    : 'bg-black text-white dark:bg-white dark:text-black'
-                }`}
-              >
-                {confirmDialog.confirmLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 统一为 ConfirmModal 组件以遵循全站交互哲学 */}
+      <ConfirmModal
+        isOpen={!!confirmDialog}
+        title={confirmDialog?.title || ''}
+        message={confirmDialog?.description || ''}
+        confirmText={confirmDialog?.confirmLabel || '确定'}
+        cancelText="取消"
+        onConfirm={runConfirmedAction}
+        onCancel={() => {
+          setConfirmDialog(null);
+          setPendingImport(null);
+        }}
+      />
     </div>
   );
 };
 
 export default SettingsPage;
-
