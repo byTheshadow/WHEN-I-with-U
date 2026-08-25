@@ -22,13 +22,11 @@ const MANUAL_SECTIONS = [
     content: (
       <>
         <p>
-          WHEN I with U 不是一个普通的工具集合，也不是一块只负责传递消息的聊天面板。
+          选择这个名字，是因为我觉得两个人在一起的时间总是非常宝贵。
+          希望这个网站可以陪伴你度过一些美好的时光。
         </p>
         <p>
-          这里更像一间只属于你和角色的私人房间。你们可以在这里交谈、留下日记、保存旅途、收藏影像，也可以让一些细小的日常片段慢慢拥有实体的形状。
-        </p>
-        <p>
-          不必一次理解所有空间。按照自己的节奏进入，愿意留下什么，就留下什么。
+          如果你希望更方便地使用它，可以通过浏览器的“分享”功能将网站安装到手机主屏幕。
         </p>
       </>
     ),
@@ -47,31 +45,31 @@ const MANUAL_SECTIONS = [
         />
         <ManualItem
           title="Messages"
-          description="与角色进行一对一的长期交流。这里是最接近私人书信的地方。"
+          description="与角色进行一对一的长期交流。需要注意的是，几乎所有其他空间都不会读取你与角色在消息框中的聊天记录，只会获取角色的基础资料数据。"
         />
         <ManualItem
           title="Diaries"
-          description="保存独自书写或与角色共同留下的日记片段。"
+          description="保存独自书写或与角色共同留下的日记片段。角色也可以主动向你发送日记。"
         />
         <ManualItem
           title="Travel"
-          description="记录旅行、愿望、明信片和那些还没有抵达的地方。"
+          description="与角色一起去旅行，并保存旅途中寄回来的小记录。"
         />
         <ManualItem
           title="Snapshots"
-          description="保存像拍立得一样的瞬间、影像与相关评论。"
+          description="保存像拍立得一样的瞬间、影像与相关评论。角色之间也可以在这里互动。"
         />
         <ManualItem
           title="Pebbling"
-          description="留下一颗小小的石头，等待另一端的回应。"
+          description="一个可以随便说些什么、留下轻小片段的地方。"
         />
         <ManualItem
           title="Imaginarium"
-          description="让多个角色进入同一场想象中的谈话。"
+          description="虚拟群聊空间。填写群聊信息后，可以设定多个角色一起聊天。"
         />
         <ManualItem
           title="The Ensemble"
-          description="属于多个角色的群体互动空间。"
+          description="从角色库中选择多个角色，将他们带入同一个群聊。你也可以在这里拥有多个身份。"
         />
         <ManualItem
           title="Living Habitat"
@@ -123,11 +121,11 @@ const MANUAL_SECTIONS = [
           今日留物是角色每天留下的一次轻量陪伴。它可能是一首歌、一张图片，或者一句只在今天出现的寄语。
         </p>
         <p>
-          它不会成为任务，也不是推荐流，更不是需要完成的每日签到。它只是短暂地出现在这里，像有人在出门前把一件小东西放在桌边。
+          它不会成为任务，只是短暂地出现在这里，等你偶然发现。
         </p>
         <div className="manual-note">
           <span className="manual-note__line" />
-          <p>当天没有点击右上角的关闭按钮时，刷新页面后仍然可以看到同一份留物。</p>
+          <p>当天没有点击右上角关闭按钮时，刷新页面后仍然可以看到同一份留物。</p>
         </div>
         <p>
           一旦主动关闭，它便不会在当天再次出现。第二天进入 Hub 时，空间会准备一份新的内容。
@@ -223,6 +221,7 @@ const MANUAL_SECTIONS = [
   },
 ];
 
+
 function ManualItem({ title, description }) {
   return (
     <div className="manual-item">
@@ -264,13 +263,22 @@ export const ManualApp = ({ onBack }) => {
         </div>
       </header>
 
-      <section className="manual-intro">
-        <p className="manual-intro__eyebrow">WHEN I WITH U / NOTES FOR LIVING HERE</p>
-        <h2>一份关于如何<br />在这里生活的说明</h2>
-        <p>
-          这不是规则清单。只是一些帮助你认识这间房子的文字。
-        </p>
-      </section>
+     <section className="manual-intro">
+  <p className="manual-intro__eyebrow">
+    WHEN I WITH U / NOTES FOR LIVING HERE
+  </p>
+
+  <h2>
+    一份简单的
+    <br />
+    使用说明
+  </h2>
+
+  <p>
+    这不是规则清单，只是一些帮助你认识这间房子的文字。
+  </p>
+</section>
+
 
       <nav className="manual-index" aria-label="说明书目录">
         <div className="manual-index__label">CONTENTS</div>
@@ -324,9 +332,7 @@ export const ManualApp = ({ onBack }) => {
         </div>
       </article>
 
-      <p className="manual-page__footer">
-        这间房子没有要求你每天都来。只是一直为你留着。
-      </p>
+      <p className="manual-page__footer">by shadow</p>
     </div>
   );
 };
