@@ -65,6 +65,12 @@ export const ChatRoom = ({
   const handleSendSticker = async (sticker) => {
     if (!sticker || !sticker.name || !chat?.id) return;
 
+      // Memo 化自定义 CSS，只有在 currentCss 发生实际变化时才重新计算
+  const memoizedStyle = useMemo(() => {
+    return <style>{`.chat-room-container ${currentCss}`}</style>;
+  }, [currentCss]);
+
+
     const newMsg = {
       chatId: chat.id,
       characterId: chat.characterId,
@@ -305,10 +311,8 @@ export const ChatRoom = ({
       }}
     >
 
-          {/* 1. Memo 化自定义气泡样式，避免高频滚动触发浏览器样式表重排 */}
-      {useMemo(() => (
-        <style>{`.chat-room-container ${currentCss}`}</style>
-      ), [currentCss])}
+          {/* 1. 渲染已在顶部 Memo 好的样式标签 */}
+      {memoizedStyle}
 
       {/* 2. 背景图渲染：优化掉昂贵的 backdrop-blur，改用高性能 RGBA 遮罩 */}
       {chat.bgImage && (
