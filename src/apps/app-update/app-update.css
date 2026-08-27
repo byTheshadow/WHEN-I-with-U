@@ -1,125 +1,245 @@
-/* Gothic Goth-Noir Update Overlay */
-.gothic-overlay {
-  background: rgba(10, 9, 12, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.app-update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--modal-overlay);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: app-update-overlay-in 420ms ease-out both;
 }
 
-.gothic-window {
+.app-update-window {
   position: relative;
-  background: #110f14;
-  border: 1px solid #2e2638;
-  box-shadow: 
-    0 0 30px rgba(0, 0, 0, 0.8),
-    0 0 15px rgba(114, 46, 209, 0.15); /* 幽暗的紫罗兰微光 */
-  animation: gothicSmokeRise 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: min(100%, 370px);
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      var(--ink-card-bg),
+      var(--modal-bg)
+    );
+  border: 1px solid var(--ink-card-border);
+  box-shadow: var(--modal-shadow);
+  color: var(--text-on-ink);
+  animation: app-update-window-in 560ms
+    cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* 哥特双层古典尖锐边框 */
-.gothic-border-inner {
-  position: relative;
-  border: 1px dashed rgba(168, 120, 224, 0.3);
-  padding: 1.5rem;
-}
-
-/* 边角古典尖角花纹 */
-.gothic-corner {
+.app-update-window::before,
+.app-update-window::after {
   position: absolute;
-  width: 10px;
-  height: 10px;
-  border-color: #722ed1;
-  border-style: solid;
+  content: '';
+  pointer-events: none;
 }
-.gothic-corner-tl { top: 4px; left: 4px; border-width: 1.5px 0 0 1.5px; }
-.gothic-corner-tr { top: 4px; right: 4px; border-width: 1.5px 1.5px 0 0; }
-.gothic-corner-bl { bottom: 4px; left: 4px; border-width: 0 0 1.5px 1.5px; }
-.gothic-corner-br { bottom: 4px; right: 4px; border-width: 0 1.5px 1.5px 0; }
 
-/* 尖拱装饰线 */
-.gothic-arch-header {
+.app-update-window::before {
+  inset: 0.45rem;
+  border: 1px solid var(--ink-card-border);
+  opacity: 0.55;
+}
+
+.app-update-window::after {
+  top: -5rem;
+  right: -4rem;
+  width: 13rem;
+  height: 13rem;
+  border: 1px solid var(--accent-color);
+  border-radius: 50%;
+  opacity: 0.14;
+  box-shadow:
+    0 0 0 1.5rem transparent,
+    0 0 0 1.6rem var(--accent-color);
+}
+
+.app-update-frame {
   position: relative;
+  z-index: 1;
+  padding: 2.5rem 1.5rem 1.25rem;
+}
+
+.app-update-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--text-on-ink-muted);
+  border: 1px solid var(--ink-card-border);
+  border-radius: 999px;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.app-update-close:hover {
+  color: var(--text-on-ink);
+  border-color: var(--accent-color);
+}
+
+.app-update-close:active {
+  transform: scale(0.9);
+}
+
+.app-update-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto 0.85rem;
+  color: var(--accent-foreground);
+  background: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  transform: rotate(45deg);
+  box-shadow: 0 0 1.75rem var(--accent-color);
+  animation: app-update-mark-pulse 2.8s ease-in-out infinite;
+}
+
+.app-update-mark svg {
+  transform: rotate(-45deg);
+}
+
+.app-update-eyebrow {
+  margin: 0;
+  color: var(--text-on-ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.22em;
+  line-height: 1.5;
   text-align: center;
-  padding-bottom: 1.5rem;
 }
 
-.gothic-arch-header::after {
-  content: "";
-  display: block;
-  width: 40px;
-  height: 8px;
-  margin: 8px auto 0;
-  border-top: 1px solid #722ed1;
-  border-left: 1px solid #722ed1;
-  border-right: 1px solid #722ed1;
-  border-radius: 4px 4px 0 0; /* 模拟尖拱顶部 */
-  opacity: 0.6;
+.app-update-title {
+  margin: 1.25rem 0 0;
+  color: var(--text-on-ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.75;
+  text-align: center;
 }
 
-/* 炫酷的暗黑烛火/黑雾动画 */
-@keyframes gothicSmokeRise {
-  0% {
+.app-update-divider {
+  width: 4rem;
+  height: 1px;
+  margin: 1.25rem auto;
+  background: var(--accent-color);
+  box-shadow: 0 0 0.75rem var(--accent-color);
+}
+
+.app-update-note {
+  margin: 0.85rem 0;
+  color: var(--text-on-ink-muted);
+  font-size: 0.7rem;
+  line-height: 1.9;
+  text-align: left;
+}
+
+.app-update-primary,
+.app-update-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 1.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.app-update-primary {
+  gap: 0.5rem;
+  color: var(--accent-foreground);
+  background: var(--accent-color);
+  border: 1px solid var(--accent-color);
+}
+
+.app-update-primary:hover {
+  filter: brightness(1.12);
+}
+
+.app-update-primary:active,
+.app-update-secondary:active {
+  transform: scale(0.97);
+}
+
+.app-update-secondary {
+  margin-top: 0.55rem;
+  color: var(--text-on-ink-muted);
+  background: transparent;
+  border: 1px solid var(--ink-card-border);
+}
+
+.app-update-secondary:hover {
+  color: var(--text-on-ink);
+  border-color: var(--accent-color);
+}
+
+.app-update-footer {
+  margin: 1.35rem 0 0;
+  color: var(--text-on-ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.16em;
+  line-height: 1.6;
+  text-align: center;
+  opacity: 0.7;
+}
+
+@keyframes app-update-overlay-in {
+  from {
     opacity: 0;
-    transform: translateY(30px) scale(0.96);
-    filter: blur(4px);
   }
-  70% {
-    filter: blur(0.5px);
+
+  to {
+    opacity: 1;
   }
-  100% {
+}
+
+@keyframes app-update-window-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.94);
+    filter: blur(0.5rem);
+  }
+
+  to {
     opacity: 1;
     transform: translateY(0) scale(1);
     filter: blur(0);
   }
 }
 
-/* 暗红与银灰色按钮 */
-.gothic-btn-update {
-  background: #2e1a47;
-  border: 1px solid #722ed1;
-  color: #e4dcf5;
-  transition: all 0.2s ease;
-}
-.gothic-btn-update:hover {
-  background: #3f2266;
-  box-shadow: 0 0 10px rgba(114, 46, 209, 0.4);
-}
-.gothic-btn-update:active {
-  transform: scale(0.97);
+@keyframes app-update-mark-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 1rem var(--accent-color);
+  }
+
+  50% {
+    box-shadow: 0 0 2.2rem var(--accent-color);
+  }
 }
 
-.gothic-btn-dismiss {
-  background: transparent;
-  border: 1px solid rgba(135, 120, 153, 0.2);
-  color: #8c8299;
-  transition: all 0.2s ease;
-}
-.gothic-btn-dismiss:hover {
-  border-color: rgba(135, 120, 153, 0.4);
-  color: #bfaecf;
-}
-.gothic-btn-dismiss:active {
-  transform: scale(0.97);
+@media (prefers-reduced-motion: reduce) {
+  .app-update-overlay,
+  .app-update-window,
+  .app-update-mark {
+    animation: none;
+  }
 }
 
-/* 烛光般的呼吸点 */
-.gothic-dot {
-  position: relative;
-}
-.gothic-dot::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  background: #722ed1;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 8px #722ed1;
-  animation: gothicPulse 2s infinite ease-in-out;
-}
-
-@keyframes gothicPulse {
-  0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 12px #9254de; }
-}
