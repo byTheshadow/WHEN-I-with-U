@@ -406,8 +406,8 @@ export const ChatSettingsModal = ({
           </div>
         </div>
 
-        {/* 正在输入加载动画选择 */}
-        <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+             {/* 正在输入加载动画选择 - 独立区块 */}
+        <div className="space-y-2 p-3 rounded-2xl border w-full" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold">
               <Sparkles className="w-3.5 h-3.5" />
@@ -415,14 +415,34 @@ export const ChatSettingsModal = ({
             </div>
             <span className="font-mono text-[9px] opacity-45">TYPING STYLE</span>
           </div>
-
           <p className="text-[10px] opacity-55 leading-relaxed">
             默认动画保持不变。此处只为本聊天窗选择加载动画，后续新增样式可继续在 TypingIndicator 注册中心追加。
           </p>
 
-          <div className="grid grid-cols-2 gap-1.5">
-                    {/* 自定义总提示词控制区 */}
-        <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {typingStyleOptions.map((styleOpt) => (
+              <button
+                key={styleOpt.id}
+                type="button"
+                onClick={() => {
+                  setTypingStyle(styleOpt.id);
+                  handleSaveUserIdentity({ nextTypingStyle: styleOpt.id });
+                }}
+                className="p-2.5 rounded-xl border text-center font-medium transition-all text-[11px] active:scale-95"
+                style={{
+                  background: typingStyle === styleOpt.id ? 'var(--accent-color)' : 'var(--bg-main)',
+                  borderColor: typingStyle === styleOpt.id ? 'var(--accent-color)' : 'var(--divider)',
+                  color: typingStyle === styleOpt.id ? 'var(--accent-foreground)' : 'var(--text-main)'
+                }}
+              >
+                {styleOpt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 自定义总提示词控制区 - 独立区块，宽度撑满 */}
+        <div className="space-y-2.5 p-3.5 rounded-2xl border w-full" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold">
               <Sliders className="w-3.5 h-3.5" />
@@ -435,7 +455,7 @@ export const ChatSettingsModal = ({
             自定义的提示词将覆盖系统的默认提示词，作为指导伴侣行为的最高指令。留空则恢复默认。
           </p>
 
-          <div>
+          <div className="space-y-1.5">
             <textarea
               rows={4}
               value={systemPrompt}
@@ -446,7 +466,7 @@ export const ChatSettingsModal = ({
               }
               onChange={(e) => setSystemPrompt(e.target.value)}
               onBlur={() => handleSaveUserIdentity()}
-              className="w-full p-2 rounded-xl border outline-none text-[11px] leading-normal overflow-y-auto resize-y max-h-48 min-h-[64px]"
+              className="w-full p-2.5 rounded-xl border outline-none text-[11px] leading-normal overflow-y-auto resize-y max-h-48 min-h-[64px]"
               style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
             />
             {systemPrompt && (
@@ -456,13 +476,14 @@ export const ChatSettingsModal = ({
                   setSystemPrompt('');
                   handleSaveUserIdentity({ nextSystemPrompt: '' });
                 }}
-                className="mt-1 text-[10px] text-red-500 hover:underline flex items-center gap-1"
+                className="text-[10px] text-red-500 hover:underline flex items-center gap-1 mt-1"
               >
                 清空并恢复系统默认
               </button>
             )}
           </div>
         </div>
+
 
             {typingStyleOptions.map((option) => {
               const isActive = typingStyle === option.id;

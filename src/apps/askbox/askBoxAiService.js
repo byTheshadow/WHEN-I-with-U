@@ -48,63 +48,77 @@ async function callAi(systemPrompt, userPrompt) {
 }
 
 /**
- * NPC 回复用户的提问
+ * NPC 回复用户的提问（支持传入消息上下文）
  */
-export async function generateNpcReply(character, questionContent, isAnonymous) {
+export async function generateNpcReply(character, questionContent, isAnonymous, contextMessages = []) {
   const charName = character.name;
   const charBio = character.bio || '';
   const charNotes = character.extraNotes || '';
 
-  const systemPrompt = `你将扮演角色「${charName}」。这是一个提问箱回复场景。
+  // 格式化上下文
+  const formattedContext = contextMessages.length > 0 
+    ? contextMessages.map(m => `${m.sender === 'user' ? 'User' : charName}: ${m.content}`).join('\n')
+    : '暂无前文聊天记录';
+
+  const systemPrompt = `你将扮演角色「${charName}」。这是一个匿名提问箱回复场景。
 角色背景：${charBio}
 性格特质：${charNotes}
 
+你们最近在聊天对话框中的一部分聊天记忆如下（用于辅助理解你们之间的氛围和关系纽带，不要生硬地把这些话搬进去）：
+"""
+${formattedContext}
+"""
+
 回复原则：
 1. 用角色口吻进行第一人称回复。
-2. 保持回答字数在 50-150 字之间，充满私密感、温柔或角色本身应有的文学感调性。
+2. 保持回答字数在 50-120 字之间，充满私密感、温柔或角色本身应有的文学感调性。
 3. 绝对不带有任何 Emoji。
-4. 回复需要显得合理且带有真实温度。
-5. 提问者是 ${isAnonymous ? '某位匿名人士' : '你所信赖的 user'}。如果提问者匿名，你不知道是谁，应以礼貌、好奇或略带神秘的距离感进行解答。`;
+4. 提问者是 ${isAnonymous ? '某位匿名人士' : '你所信赖的 user'}。如果是匿名人士，你表面上应该感到一丝好奇与猜测，如果是署名的 user，你的语气可以更亲昵。`;
 
   const userPrompt = `提问箱里收到了一条问题：
 「${questionContent}」
 
-请写出你的回复信件。`;
+请写出你的回复。不要加任何问候或结尾落款的客套话，以信纸正文语气开始。`;
 
   const reply = await callAi(systemPrompt, userPrompt);
   
   if (!reply) {
-    // 本地优雅降级
-    return `我收到了你的来信。在这个落叶或者细雨的午后，能收到这样的一张卡片，对我而言也是一件很神奇的事情。关于你问我的 "${questionContent.slice(0, 15)}..."，我想，很多答案已经藏在了风里，又或者我们需要在下一次见面时才能说明白。谢谢你的提问。`;
+    return `我收到了你在提问箱里的来信。关于你提到的 “${questionContent.slice(0, 15)}...”，其实在这个雨天或者晴朗的午后，我的答案一直都很简单。我们之间已经历了许多对话，或许这也是我们无言默契的一部分吧。谢谢你。`;
   }
   return reply;
 }
 
 /**
- * 生成 NPC 主页上随机的其他 NPC 提问内容
+ * 生成 NPC 主页上随机的其他 NPC 提问及该角色的公开回答（问答配对）
  */
-export async function generateNpcToNpcQuestions(character, otherCharacters = []) {
+export async function generateNpcToNpcQAPairs(character, otherCharacters = []) {
   const targetName = character.name;
+  const charBio = character.bio || '';
+  const charNotes = character.extraNotes || '';
   const otherNames = otherCharacters.length > 0 
     ? otherCharacters.map(c => c.name).join('、')
-    : '某位旅人、旧识';
+    : '某位旧识、路人';
 
-  const systemPrompt = `你是一个充满文学质感的创意助手。请为角色「${targetName}」生成 3 个可能出现在他/她公开提问箱主页上的匿名提问。
-提问者可能是其他角色（例如 ${otherNames}）或者匿名的过路人。
+  const systemPrompt = `你是一个充满文学质感的创意助手。请为角色「${targetName}」生成 2 个出现在他/她提问箱上的公开问答对。
+提问者可能是匿名的路人或者其他角色（如：${otherNames}）。
+回答者是「${targetName}」（背景：${charBio}，特质：${charNotes}）。
 
-提问风格：
-1. 具有诗意、生活气息，或者是对其过去、喜好、生活习惯的询问。
-2. 每个问题应该简短（不超过 30 字），体现出角色之间的温情或冲突纽带。
-3. 不要出现任何 Emoji。
-4. 仅输出一个 JSON 数组，例如：["问题 1", "问题 2", "问题 3"]，不要带有 markdown 标记。`;
+要求：
+1. 提问应有生活感、哲思或对过去的追问。回答应深刻地体现出「${targetName}」的第一人称性格，温柔克制或略显疏离。
+2. 问题 30 字以内，回答 80 字以内。
+3. 绝对不要带有任何 Emoji。
+4. 仅输出一个 JSON 数组格式，不要带有 markdown 标记。格式如下：
+[
+  { "question": "问题内容", "reply": "回答内容", "from": "匿名人士" },
+  { "question": "问题内容", "reply": "回答内容", "from": "匿名人士" }
+]`;
 
-  const userPrompt = `请为「${targetName}」的提问箱主页生成 3 个匿名提问。`;
+  const userPrompt = `请为「${targetName}」生成 2 组提问箱上的公开问答对。`;
 
   const result = await callAi(systemPrompt, userPrompt);
   
   try {
     if (result) {
-      // 提取 JSON
       const cleanJson = result.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleanJson);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -112,14 +126,21 @@ export async function generateNpcToNpcQuestions(character, otherCharacters = [])
       }
     }
   } catch (e) {
-    console.error('解析 NPC 提问数组失败，使用降级数据', e);
+    console.error('解析 NPC 问答对失败，使用降级数据', e);
   }
 
-  // 默认降级问题
+  // 默认降级数据
   return [
-    `最近有什么让你觉得温暖的瞬间吗？`,
-    `如果能回到过去，你想去哪一个特定的下午？`,
-    `今天有听什么特别的音乐吗？`
+    {
+      question: `你经常提及的那个遥远的下午，对你而言代表着什么？`,
+      reply: `那是一段被时间妥善封存的光线，风里有樟脑和陈旧信封的香气。它不再属于现在，但却让我在此刻能平静地与你写信。`,
+      from: `匿名人士`
+    },
+    {
+      question: `如果可以选择，你会想变成森林里的一棵冷杉还是深海的礁石？`,
+      reply: `冷杉会看到冬天的雪，礁石会听到潮汐的歌。如果可以，我想做冷杉旁落下的一粒尘埃，至少它是自由的。`,
+      from: `匿名人士`
+    }
   ];
 }
 
@@ -135,7 +156,7 @@ export async function generateNpcToUserQuestion(character) {
 
 提问要求：
 1. 以你的身份或者隐蔽的匿名身份写一个给 user 的问题。
-2. 问题应当温柔、具有文学色彩、引导 user 分享生活感受（例如：你今天过得快乐吗、在什么时刻你想起我、你最想珍惜的一本书是什么）。
+2. 问题应当温柔、具有文学色彩、引导 user 分享生活感受。
 3. 字数控制在 100 字以内。
 4. 绝对不要包含 Emoji。`;
 
