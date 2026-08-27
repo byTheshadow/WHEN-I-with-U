@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, ArrowLeft, RefreshCw, ChevronRight } from 'lucide-react';
+import { BookOpen, ArrowLeft, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
 import db from '../../../db';
 import { checkAndTriggerParallelOrbit } from '../../../services/parallelOrbitService';
 
@@ -9,6 +9,7 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [triggerStatus, setTriggerStatus] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // 格式化日期显示
   const formatNotebookDate = (timestamp) => {
@@ -34,10 +35,10 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         .where('chatId')
         .equals(chatId)
         .sortBy('timestamp');
-      // 最新生成的排在前面
       const sortedData = data.reverse();
       setLogs(sortedData);
-      setActiveIndex(0); // 默认选中最新的一篇
+      setActiveIndex(0); 
+      setShowDeleteConfirm(false);
     } catch (err) {
       console.error('加载平行轨迹失败:', err);
     }
@@ -65,12 +66,25 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
     }
   };
 
+  const handleDeleteActiveLog = async () => {
+    if (!activeLog) return;
+    try {
+      await db.parallelOrbits.delete(activeLog.id);
+      const updatedLogs = logs.filter(log => log.id !== activeLog.id);
+      setLogs(updatedLogs);
+      setShowDeleteConfirm(false);
+      setActiveIndex(0); 
+    } catch (err) {
+      console.error('删除日常轨迹失败:', err);
+      setErrorMsg('删除失败，请稍后重试。');
+    }
+  };
+
   useEffect(() => {
     loadLogs();
     handleGenerate(false);
   }, [chatId]);
 
-  // 将带有 <s> 或 ~~ 格式的文字渲染为手绘涂抹样式
   const renderRichText = (text) => {
     if (!text) return '';
     const parts = text.split(/(<s>.*?<\/s>|~~.*?~~)/g);
@@ -87,7 +101,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
     });
   };
 
-  // 解析记事文本为段落、小剧场剧本或旁白
   const parseActivityText = (text) => {
     if (!text) return [];
     const lines = text.split('\n');
@@ -98,7 +111,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
       const trimmed = line.trim();
       if (!trimmed) return;
 
-      // 匹配“人物：“对话内容””或“人物: 对话内容”
       const dialogueMatch = trimmed.match(/^([^：:\s]{1,10})\s*[：:]\s*(.*)$/);
 
       if (dialogueMatch) {
@@ -106,7 +118,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         const content = dialogueMatch[2];
         currentSceneDialogues.push({ speaker, content, key: index });
       } else {
-        // 如果遇到非对话行，且之前累积了对话，则先输出对话剧场块
         if (currentSceneDialogues.length > 0) {
           parsedElements.push({
             type: 'scene',
@@ -116,7 +127,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
           currentSceneDialogues = [];
         }
 
-        // 判定是否是旁白/括号备注
         if ((trimmed.startsWith('（') && trimmed.endsWith('）')) || (trimmed.startsWith('(') && trimmed.endsWith(')'))) {
           parsedElements.push({
             type: 'note',
@@ -133,7 +143,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
       }
     });
 
-    // 扫尾输出残余对话
     if (currentSceneDialogues.length > 0) {
       parsedElements.push({
         type: 'scene',
@@ -156,7 +165,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         color: 'var(--text-main)',
       }}
     >
-      {/* 顶部极简操作栏 */}
       <header 
         className="flex items-center justify-between px-5 py-3 border-b shrink-0" 
         style={{ borderColor: 'var(--card-border)' }}
@@ -187,9 +195,7 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         </button>
       </header>
 
-      {/* 杂志排版主体内容 */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        {/* 1. 杂志刊头 (Masthead) */}
         <section 
           className="px-5 py-7 border-b-2"
           style={{ borderColor: 'var(--text-main)' }}
@@ -211,7 +217,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
 
         {activeLog ? (
           <div className="animate-fade-in">
-            {/* 2. 当地气象栏 (Weather Strip) */}
             <section 
               className="grid grid-cols-[1fr_auto] gap-4 px-5 py-4 border-b text-xs"
               style={{ 
@@ -233,9 +238,7 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
               </div>
             </section>
 
-            {/* 3. 正文专栏区域 */}
             <div className="px-5 py-7 space-y-6">
-              {/* 信息首部 */}
               <div className="flex items-end gap-3 pb-4 border-b" style={{ borderColor: 'var(--card-border)' }}>
                 <div className="text-5xl font-extrabold font-serif tracking-tighter leading-none opacity-90">
                   {formattedActive.timeStr}
@@ -248,7 +251,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                 </div>
               </div>
 
-              {/* API 提示面板 */}
               {errorMsg && (
                 <div 
                   className="p-3 border rounded text-[10px] leading-relaxed font-mono"
@@ -269,11 +271,9 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                 </div>
               )}
 
-              {/* 正文解析渲染 */}
               <div className="space-y-6">
                 {parseActivityText(activeLog.activity).map((element, idx) => {
                   if (element.type === 'paragraph') {
-                    // 第一段段落采用 Drop Cap (首字下沉) 效果
                     const isFirstParagraph = idx === 0;
                     if (isFirstParagraph && typeof element.text === 'string' && element.text.length > 0) {
                       const firstChar = element.text.charAt(0);
@@ -334,7 +334,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                 })}
               </div>
 
-              {/* 视觉速写线画框 (Graphic Cutout) */}
               {activeLog.cutout && activeLog.cutout !== '一片空白' && (
                 <div 
                   className="relative min-height-[140px] p-4 border flex flex-col justify-end overflow-hidden"
@@ -352,7 +351,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                 </div>
               )}
 
-              {/* 独白 Pull Quote */}
               {activeLog.thoughts && (
                 <div className="py-2 pl-4 border-l-2" style={{ borderColor: 'var(--accent-color, var(--text-main))' }}>
                   <blockquote className="m-0 font-serif text-[18px] italic leading-snug opacity-95 text-justify">
@@ -364,7 +362,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                 </div>
               )}
 
-              {/* 感官气味白噪音 (Margin Notes) */}
               <div 
                 className="grid grid-cols-2 gap-[1px] border"
                 style={{ borderColor: 'var(--card-border)', background: 'var(--card-border)' }}
@@ -386,11 +383,57 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                   </p>
                 </div>
               </div>
+
+              {/* 5. 撕去此页 (Tear Page) 面板，无原生弹窗，符合 Zine 排版调性 */}
+              <div 
+                className="pt-6 border-t border-dashed flex flex-col items-end"
+                style={{ borderColor: 'var(--card-border)' }}
+              >
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[10px] font-mono tracking-widest uppercase opacity-45 hover:opacity-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+                    style={{ border: '1px solid var(--card-border)' }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Tear page / 撕去此页</span>
+                  </button>
+                ) : (
+                  <div 
+                    className="w-full p-3 border flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] font-mono tracking-wider"
+                    style={{ 
+                      borderColor: 'var(--accent-color, #8a4c3d)', 
+                      background: 'var(--control-soft-bg)' 
+                    }}
+                  >
+                    <span className="opacity-80">是否确定撕下并遗忘这一页轨迹？</span>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDeleteActiveLog}
+                        className="px-2.5 py-1 text-white bg-red-600 hover:bg-red-700 font-bold uppercase rounded"
+                        style={{ background: 'var(--accent-color, #8a4c3d)' }}
+                      >
+                        Confirm / 确认
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="px-2.5 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 uppercase rounded"
+                        style={{ border: '1px solid var(--card-border)' }}
+                      >
+                        Cancel / 取消
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
         ) : null}
 
-        {/* 4. 往期片段列表 (Earlier Fragments) */}
         {logs.length > 1 && (
           <section 
             className="px-5 pb-10 border-t-2"
@@ -407,7 +450,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
             
             <div className="divide-y divide-[var(--card-border)]">
               {logs.map((log, idx) => {
-                // 不在往期列表中渲染当前选中的这篇
                 if (idx === activeIndex) return null;
                 const { timeStr, dateStr } = formatNotebookDate(log.timestamp);
                 return (
@@ -415,10 +457,10 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                     key={log.id}
                     onClick={() => {
                       setActiveIndex(idx);
-                      // 滚动到顶部，让新内容置顶
+                      setShowDeleteConfirm(false); 
                       document.querySelector('.flex-1')?.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="w-full flex items-center justify-between py-3 text-left transition-colors hover:opacity-80"
+                    className="w-full flex items-center justify-between py-3 text-left transition-colors hover:opacity-80 animate-fade-in"
                     style={{ background: 'transparent', border: 0 }}
                   >
                     <div className="flex items-baseline gap-3 min-w-0">
@@ -436,7 +478,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         )}
       </div>
 
-      {/* 页脚 */}
       <footer 
         className="py-3 text-center text-[8px] font-mono tracking-[0.25em] opacity-40 border-t shrink-0" 
         style={{ borderColor: 'var(--card-border)' }}
