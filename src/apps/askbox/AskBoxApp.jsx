@@ -1,4 +1,3 @@
-// src/apps/askbox/AskBoxApp.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
@@ -27,7 +26,7 @@ export default function AskBoxApp({ onBackHub }) {
   const [characters, setCharacters] = useState([]);
   const [selectedChar, setSelectedChar] = useState(null);
   
-  // 当前角色对应的消息框(chats)列表及选中的消息框
+  // 当前角色对应的消息会话(chats)列表及选中的消息会话
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   
@@ -38,8 +37,8 @@ export default function AskBoxApp({ onBackHub }) {
   const [questionText, setQuestionText] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [sending, setSending] = useState(false);
-  const [isFolded, setIsFolded] = useState(true); // 拟物信封折叠动效
-  const [isDelivering, setIsDelivering] = useState(false); // 投递飞出动效
+  const [isFolded, setIsFolded] = useState(true); // 拟物折叠动效
+  const [isDelivering, setIsDelivering] = useState(false); // 投递动画
 
   // 角色公开提问箱的 NPC 随机问答对
   const [npcQAPairs, setNpcQAPairs] = useState([]);
@@ -63,7 +62,7 @@ export default function AskBoxApp({ onBackHub }) {
     loadIncomingQuestions();
   }, []);
 
-  // 当选择角色变动时，拉取该角色下的消息框(chats)
+  // 当选择角色变动时，拉取该角色下的消息框(chats)与公开问答对
   useEffect(() => {
     if (selectedChar) {
       loadChatsForCharacter(selectedChar.id);
@@ -162,9 +161,9 @@ export default function AskBoxApp({ onBackHub }) {
         .reverse()
         .limit(10)
         .toArray();
-      contextMsgs.reverse(); // 恢复时间顺序
+      contextMsgs.reverse();
 
-      // 模拟派送时间 (1.5 - 3秒内回复)
+      // 模拟派送时间 (1.5 - 3.5秒内回复)
       const delayTime = Math.floor(Math.random() * 2000) + 1500;
       setTimeout(async () => {
         const reply = await generateNpcReply(selectedChar, newQuestion.content, isAnonymous, contextMsgs);
@@ -240,7 +239,7 @@ export default function AskBoxApp({ onBackHub }) {
       content: questionContent,
       reply: '',
       replyAt: null,
-      needPassword: npcAnonymous ? 1 : 0, // 如果是匿名提问，需要密码才能揭开身份；不匿名则直接揭开
+      needPassword: npcAnonymous ? 1 : 0, // 如果是匿名提问，需要密码才能揭开身份
       password: randomPassword,
       isPasswordUnlocked: npcAnonymous ? 0 : 1, // 非匿名无需解锁
       createdAt: Date.now()
@@ -748,4 +747,141 @@ export default function AskBoxApp({ onBackHub }) {
                 <p className="mt-2.5 text-xs opacity-40 font-serif">尚未有任何书信送达此信箱</p>
               </div>
             )}
-          
+          </div>
+
+          {/* 解锁与回复的拟物详情浮窗 */}
+          {selectedIncoming && (
+            <div
+              className="p-5 border rounded-2xl mt-4 space-y-4 shadow-lg animate-fade-in-up"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--card-border)'
+              }}
+            >
+              <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--divider)' }}>
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">
+                  信件细览
+                </span>
+                <button
+                  onClick={() => setSelectedIncoming(null)}
+                  className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100"
+                >
+                  关闭
+                </button>
+              </div>
+
+              {/* 问题本身始终可见 */}
+              <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+                <span className="text-[9px] uppercase tracking-widest opacity-35">问题正文：</span>
+                <p className="font-serif text-sm leading-relaxed mt-1" style={{ color: 'var(--text-main)' }}>
+                  「{selectedIncoming.content}」
+                </p>
+              </div>
+
+              {/* 身份锁：如果需要输入密码且未解锁，显示输入框解锁寄件人身份 */}
+              {selectedIncoming.needPassword && !selectedIncoming.isPasswordUnlocked ? (
+                <div className="space-y-4 text-center py-4 border rounded-xl bg-[var(--card-bg)] border-dashed p-4">
+                  <div className="flex justify-center mb-1">
+                    <Key className="h-6 w-6 text-amber-500 opacity-80" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold uppercase tracking-widest">验对 4 位数线索解锁寄件人真实身份</h4>
+                    <p className="text-[10px] opacity-40">
+                      （提示：寄件人在封泥时留下的 4 位数字密码）
+                    </p>
+                  </div>
+                  <div className="flex justify-center gap-2 max-w-[200px] mx-auto">
+                    <input
+                      type="text"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value.replace(/\D/g, ''))}
+                      placeholder="••••"
+                      className="w-full text-center border rounded-lg py-2 text-lg tracking-[0.6em] font-mono bg-[var(--card-bg)] border-[var(--card-border)] text-[var(--text-main)] outline-none"
+                    />
+                  </div>
+                  {passwordError && (
+                    <p className="text-[10px] text-red-500">密码不正确，封泥纹丝不动。</p>
+                  )}
+                  <button
+                    onClick={handleUnlockPassword}
+                    className="px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-transform active:scale-95"
+                    style={{
+                      backgroundColor: 'var(--accent-color)',
+                      color: 'var(--accent-foreground)'
+                    }}
+                  >
+                    解锁来信人身份
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/30 text-xs flex items-center gap-2">
+                  <Unlock className="h-4 w-4 text-emerald-600" />
+                  <span>
+                    已确认寄件人身份：<strong>{selectedIncoming.sender}</strong>
+                  </span>
+                </div>
+              )}
+
+              {/* 回复框区域 */}
+              <div className="space-y-3">
+                {selectedIncoming.reply ? (
+                  <div className="p-4 rounded-xl border border-dashed" style={{ borderColor: 'var(--card-border)' }}>
+                    <span className="text-[9px] uppercase tracking-widest opacity-40 font-mono">你的答复：</span>
+                    <p className="text-xs font-sans italic opacity-85 mt-1 leading-relaxed">
+                      {selectedIncoming.reply}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1">
+                      <PenTool className="h-3 w-3" /> 填写你的答复
+                    </label>
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="将你的答案写在信封背面..."
+                      rows={3}
+                      maxLength={200}
+                      className="w-full p-3 border rounded-xl resize-none text-xs leading-relaxed bg-[var(--card-bg)] border-[var(--card-border)] text-[var(--text-main)] focus:outline-none"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleReplyIncoming}
+                        disabled={replying || !replyText.trim()}
+                        className="px-5 py-2 rounded-full text-xs font-bold tracking-wider transition-transform active:scale-95 disabled:opacity-30"
+                        style={{
+                          backgroundColor: 'var(--accent-color)',
+                          color: 'var(--accent-foreground)'
+                        }}
+                      >
+                        {replying ? '送出中' : '投回信箱'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* 确认删除对话框 */}
+      {showDeleteModal && (
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          title="焚毁来信"
+          message="你确定要彻底烧掉这封信件吗？该操作不可撤销，信件将永远消失在空气中。"
+          confirmText="焚毁"
+          cancelText="保留"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setShowDeleteModal(false)}
+        />
+      )}
+      
+    </div>
+  );
+}
