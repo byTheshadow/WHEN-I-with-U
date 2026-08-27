@@ -358,7 +358,7 @@ export const ChatRoom = ({
               <span>返回列表</span>
             </button>
 
-            {/* 翻阅平行轨迹入口 */}
+            {/* 极简现代主义纯 SVG 入口按钮，无汉字，仅边框与图标 */}
             <button
               type="button"
               onClick={() => setShowParallelOrbit(true)}
@@ -373,6 +373,8 @@ export const ChatRoom = ({
               <BookOpen className="h-4 w-4" />
             </button>
           </div>
+
+         
 
           <button
             type="button"
