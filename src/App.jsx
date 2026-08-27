@@ -130,10 +130,17 @@ export const App = () => {
         setActiveCharacterId(character.id);
 
         // 尝试静默触发 AI 提醒
-        const result = await triggerRhythmActiveReminder(latestChat.id, character, false);
-        if (result.status === 'success') {
-          console.log(`[RhythmScheduler] AI 已主动留下提醒消息: "${result.text}"`);
-        }
+const result = await triggerRhythmActiveReminder(
+  latestChat.id,
+  character,
+  false
+);
+
+if (result?.status === 'success') {
+  console.log(
+    `[RhythmScheduler] AI 已主动留下提醒消息: "${result.text}"`
+  );
+}
       } catch (err) {
         console.warn('[RhythmScheduler] 提醒自检未通过或暂无可用角色:', err);
       }
