@@ -268,7 +268,7 @@ export const ChatRoom = ({
 
     if (!chat || !character) return null;
 
-  // 新增：如果状态为 true，直接渲染平行轨迹日记本，并传入必要的参数
+  // 渲染平行轨迹杂志页面
   if (showParallelOrbit) {
     return (
       <ParallelOrbit
@@ -280,6 +280,7 @@ export const ChatRoom = ({
   }
 
   const currentCss = chat.customCss || defaultCss;
+
 
 
   // 当前聊天窗独享的 User 头像与昵称
@@ -341,19 +342,20 @@ export const ChatRoom = ({
               <span>返回列表</span>
             </button>
 
-            {/* 新增：平行轨迹入口按钮 */}
+           
+            {/* 极简现代主义纯 SVG 入口按钮，无汉字，仅边框与图标 */}
             <button
               type="button"
               onClick={() => setShowParallelOrbit(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold opacity-85 hover:opacity-100 transition-opacity"
+              className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all flex items-center justify-center opacity-80 hover:opacity-100"
               style={{
-                background: 'var(--control-soft-bg)',
-                color: 'var(--text-main)'
+                color: 'var(--text-main)',
+                border: '1px solid var(--card-border)',
+                background: 'var(--control-soft-bg)'
               }}
-              title="翻阅对方的平行轨迹"
+              title="翻阅平行轨迹"
             >
               <BookOpen className="h-4 w-4" />
-              <span>平行轨迹</span>
             </button>
           </div>
 
