@@ -186,3 +186,4 @@ ${chatContextText || '（暂无最近对话）'}
     return { status: 'error', error: err.message };
   }
 };
+

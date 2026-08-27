@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, ArrowLeft, RefreshCw, PenTool, MapPin, Wind } from 'lucide-react';
+import { BookOpen, ArrowLeft, RefreshCw, Compass, Eye, VolumeX } from 'lucide-react';
 import db from '../../../db';
 import { checkAndTriggerParallelOrbit } from '../../../services/parallelOrbitService';
 
@@ -15,10 +15,9 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         .where('chatId')
         .equals(chatId)
         .sortBy('timestamp');
-      // 倒序排列，最新生成的日常在最上面
       setLogs(data.reverse());
     } catch (err) {
-      console.error('Failed to load parallel orbits:', err);
+      console.error('加载平行轨迹失败:', err);
     }
   };
 
@@ -31,7 +30,7 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
       if (result.status === 'success') {
         await loadLogs();
       } else if (result.status === 'active_chatting') {
-        setErrorMsg('角色正专注于在聊天室里等待或回复你，独处日记暂时不会更新。');
+        setErrorMsg('对方当前正专注于与你的聊天中。独处轨迹暂时不会更新。');
       } else if (result.status === 'cooldown' && !force) {
         setErrorMsg('他/她刚记录过生活不久，此时正在继续他的日常。');
       } else if (result.status === 'error') {
@@ -46,42 +45,37 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
 
   useEffect(() => {
     loadLogs();
-    // 首次进入时静默自检一次（非强制）
     handleGenerate(false);
   }, [chatId]);
 
-  // 将带有 <s> 或 ~~ 格式的文字渲染为手绘涂抹样式
   const renderRichText = (text) => {
     if (!text) return '';
     const parts = text.split(/(<s>.*?<\/s>|~~.*?~~)/g);
     return parts.map((part, idx) => {
       if (part.startsWith('<s>') && part.endsWith('</s>')) {
         const clean = part.replace(/<\/?s>/g, '');
-        return <span key={idx} className="line-through decoration-double opacity-40 italic px-0.5">{clean}</span>;
+        return <span key={idx} className="line-through decoration-1 opacity-35 px-0.5">{clean}</span>;
       }
       if (part.startsWith('~~') && part.endsWith('~~')) {
         const clean = part.replace(/~~/g, '');
-        return <span key={idx} className="line-through decoration-double opacity-40 italic px-0.5">{clean}</span>;
+        return <span key={idx} className="line-through decoration-1 opacity-35 px-0.5">{clean}</span>;
       }
       return part;
     });
   };
 
-  // 格式化日期显示为手账感的日期
   const formatNotebookDate = (timestamp) => {
     const d = new Date(timestamp);
-    const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
-    const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    
-    const year = d.getFullYear();
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const month = months[d.getMonth()];
     const date = d.getDate();
-    const day = days[d.getDay()];
-    
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     
-    return `${year}年 ${month}${date}日 (${day}) ${hours}:${minutes}`;
+    return {
+      dateStr: `${month} ${date}`,
+      timeStr: `${hours}:${minutes}`
+    };
   };
 
   return (
@@ -90,128 +84,139 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
       style={{
         background: 'var(--bg-main)',
         color: 'var(--text-main)',
-        fontFamily: 'serif'
       }}
     >
-      <header className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--card-border)' }}>
+      {/* 极简现代主义 Header */}
+      <header 
+        className="flex items-center justify-between px-6 py-4 border-b shrink-0" 
+        style={{ borderColor: 'var(--card-border)' }}
+      >
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] transition-opacity hover:opacity-80"
-          style={{ background: 'var(--control-soft-bg)' }}
+          className="flex items-center justify-center p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+          style={{ border: '1px solid var(--card-border)', color: 'var(--text-main)' }}
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>合上日记</span>
+          <ArrowLeft className="h-4 w-4" />
         </button>
 
-        <div className="text-[12px] font-bold tracking-widest font-mono opacity-80">
-          PARALLEL ORBIT / 平行轨迹
+        <div className="text-[10px] font-bold tracking-[0.25em] font-mono opacity-65 uppercase">
+          Orbit / {character.name}
         </div>
 
         <button
           type="button"
           onClick={() => handleGenerate(true)}
           disabled={isLoading}
-          className="p-1.5 rounded-full transition-all hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
-          title="探寻日常轨迹"
+          className="flex items-center justify-center p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all disabled:opacity-40"
+          style={{ border: '1px solid var(--card-border)', color: 'var(--text-main)' }}
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
       </header>
 
-      <div 
-        className="flex-1 overflow-y-auto p-5 space-y-8 no-scrollbar"
-        style={{
-          backgroundImage: 'linear-gradient(var(--bg-main) 96%, var(--divider) 96%)',
-          backgroundSize: '100% 2rem',
-          lineHeight: '2rem'
-        }}
-      >
+      {/* 杂志排版滚动区 */}
+      <div className="flex-1 overflow-y-auto px-6 py-8 space-y-12 no-scrollbar">
         {errorMsg && (
           <div 
-            className="p-3 border rounded text-[11px] leading-relaxed transition-all"
+            className="p-4 border rounded text-[11px] leading-relaxed transition-all font-mono"
             style={{ 
               background: 'var(--control-soft-bg)', 
-              borderColor: 'var(--card-border)',
-              fontFamily: 'sans-serif'
+              borderColor: 'var(--card-border)'
             }}
           >
             <p className="opacity-70">{errorMsg}</p>
             {triggerStatus === 'cooldown' && (
               <button
                 onClick={() => handleGenerate(true)}
-                className="mt-2 text-xs font-semibold underline opacity-90 block hover:opacity-100"
+                className="mt-2 text-[10px] font-bold uppercase tracking-wider underline opacity-90 block hover:opacity-100"
               >
-                强制让角色写下一页日记
+                Force Record / 强制记录
               </button>
             )}
           </div>
         )}
 
         {logs.length === 0 ? (
-          <div className="py-20 text-center opacity-40 font-serif italic text-xs space-y-3">
-            <BookOpen className="h-8 w-8 mx-auto stroke-[1.2] opacity-60 animate-pulse" />
-            <p>这里目前是一本空白的手扎</p>
-            <p className="text-[10px] sans-serif font-normal">点击右上角的刷新按钮探寻对方的生活轨迹...</p>
+          <div className="py-32 text-center opacity-45 font-mono text-[10px] space-y-4 tracking-widest">
+            <BookOpen className="h-6 w-6 mx-auto stroke-[1] opacity-50" />
+            <p>EMPTY ORBIT JOURNAL</p>
+            <p className="text-[9px] opacity-60">点击右上角探寻对方的生活轨迹</p>
           </div>
         ) : (
-          logs.map((log, index) => (
-            <article 
-              key={log.id} 
-              className="relative pl-6 border-l transition-all animate-fade-in-up"
-              style={{ 
-                borderColor: 'var(--card-border)',
-                animationDelay: `${index * 50}ms`
-              }}
-            >
-              <div 
-                className="absolute -left-[6px] top-2 h-[11px] w-[11px] rounded-full border-2 bg-neutral-100 dark:bg-neutral-900"
+          logs.map((log, index) => {
+            const { dateStr, timeStr } = formatNotebookDate(log.timestamp);
+            return (
+              <article 
+                key={log.id} 
+                className="space-y-6 pt-4 border-t first:border-t-0 first:pt-0"
                 style={{ borderColor: 'var(--card-border)' }}
-              />
-
-              <div className="space-y-3 font-serif">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-neutral-400 font-mono tracking-wider">
-                  <span className="flex items-center gap-1">
-                    <Wind className="h-3 w-3 opacity-60" />
-                    <span>{log.weather}</span>
+              >
+                {/* 1. 大字号现代主义时间标志 */}
+                <div className="flex items-baseline justify-between">
+                  <span className="text-4xl font-extrabold tracking-tighter font-serif opacity-90">
+                    {timeStr}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3 opacity-60" />
-                    <span>{log.location}</span>
+                  <span className="text-[10px] font-mono tracking-widest opacity-45">
+                    {dateStr} // {log.weather || 'STABLE'}
                   </span>
                 </div>
 
-                <time className="block text-[11px] font-sans font-bold tracking-tight opacity-50">
-                  {formatNotebookDate(log.timestamp)}
-                </time>
-
+                {/* 2. 感官白噪音仪表栏 (Zine Sidebar) */}
                 <div 
-                  className="text-[12px] leading-6 tracking-wide text-neutral-700 dark:text-neutral-300 font-serif whitespace-pre-wrap pl-2 border-l-2 py-0.5"
-                  style={{ borderColor: 'rgba(var(--accent-color-rgb, 120, 120, 120), 0.15)' }}
+                  className="grid grid-cols-2 gap-x-4 gap-y-2 py-3 px-4 border-y text-[10px] font-mono tracking-wide opacity-65"
+                  style={{ borderColor: 'var(--card-border)', background: 'var(--control-soft-bg)' }}
                 >
+                  <div className="truncate">
+                    <span className="opacity-40">LOC: </span>{log.location}
+                  </div>
+                  <div className="truncate">
+                    <span className="opacity-40">SNS: </span>{log.sensory || 'NONE'}
+                  </div>
+                  <div className="truncate col-span-2">
+                    <span className="opacity-40">SND: </span>{log.bgSound || 'AMBIENT SILENCE'}
+                  </div>
+                </div>
+
+                {/* 3. 引言独白 (Pull Quote) */}
+                {log.thoughts && (
+                  <div className="relative py-2 pl-4 border-l-2" style={{ borderColor: 'var(--text-main)' }}>
+                    <p className="text-xs font-serif italic leading-relaxed opacity-85 text-justify">
+                      “ {renderRichText(log.thoughts)} ”
+                    </p>
+                  </div>
+                )}
+
+                {/* 4. 戏剧场景与日常记事 */}
+                <div className="text-xs leading-relaxed opacity-80 font-sans tracking-wide text-justify whitespace-pre-wrap">
                   {renderRichText(log.activity)}
                 </div>
 
-                {log.thoughts && (
+                {/* 5. 画面速写黑白线框 (Graphic Cutout) */}
+                {log.cutout && log.cutout !== '一片空白' && (
                   <div 
-                    className="p-3.5 rounded-xl border border-dashed text-[11px] leading-relaxed italic text-neutral-600 dark:text-neutral-400 font-serif shadow-inner rotate-[0.5deg]"
-                    style={{ 
-                      background: 'rgba(var(--accent-color-rgb, 120, 120, 120), 0.03)',
-                      borderColor: 'var(--card-border)'
-                    }}
+                    className="p-4 border border-dashed flex flex-col items-center justify-center text-center space-y-2 select-none"
+                    style={{ borderColor: 'var(--card-border)', background: 'var(--bg-main)' }}
                   >
-                    <p className="font-semibold not-italic text-[10px] opacity-40 mb-1 font-mono tracking-widest">独白 / THOUGHTS</p>
-                    {renderRichText(log.thoughts)}
+                    <span className="text-[9px] font-mono tracking-[0.2em] opacity-40 uppercase">
+                      Visual / 画面速写
+                    </span>
+                    <p className="text-[10px] italic opacity-60 leading-relaxed font-serif max-w-[90%]">
+                      {log.cutout}
+                    </p>
                   </div>
                 )}
-              </div>
-            </article>
-          ))
+              </article>
+            );
+          })
         )}
       </div>
 
-      <footer className="py-2.5 text-center text-[9px] font-mono tracking-widest opacity-30 border-t" style={{ borderColor: 'var(--card-border)' }}>
-        PARALLEL ORBIT INCIDENT NOTEBOOK v1.0
+      <footer 
+        className="py-4 text-center text-[9px] font-mono tracking-[0.3em] opacity-35 border-t" 
+        style={{ borderColor: 'var(--card-border)' }}
+      >
+        THE KINETIC ORBIT JOURNAL
       </footer>
     </div>
   );
