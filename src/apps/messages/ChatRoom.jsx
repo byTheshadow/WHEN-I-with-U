@@ -173,48 +173,29 @@ export const ChatRoom = ({
   };
 }, [chatId]);
 
+// 监听其他模块写入数据库后的消息刷新。
+// 这个事件只负责刷新消息列表，绝不能改变 AI 打字状态。
+useEffect(() => {
+  const handleLocalMessageNotification = (e) => {
+    // 只刷新当前正在打开的聊天室
+    if (e.detail?.chatId !== chatId) return;
 
-    // 监听其他模块写入本地消息，以及 AI 的外部打字状态事件
-  useEffect(() => {
-    // 有新消息插入 IndexedDB 后，刷新当前聊天室的消息列表
-    const handleLocalMessageNotification = (e) => {
-      // 只处理当前打开的聊天室，避免其他聊天触发刷新
-      if (e.detail?.chatId !== chatId) return;
+    loadChatData();
+  };
 
-      loadChatData();
-    };
+  window.addEventListener(
+    'new-local-message-inserted',
+    handleLocalMessageNotification
+  );
 
-    // 收到 AI 打字状态变化后，更新当前聊天室的“正在输入”提示
-    const handleTypingStatus = (e) => {
-      // 只处理当前打开的聊天室
-      if (e.detail?.chatId !== chatId) return;
-
-      setIsAiTyping(Boolean(e.detail.typing));
-    };
-
-    window.addEventListener(
+  return () => {
+    window.removeEventListener(
       'new-local-message-inserted',
       handleLocalMessageNotification
     );
+  };
+}, [chatId]);
 
-    window.addEventListener(
-      'ai-typing-status',
-      handleTypingStatus
-    );
-
-    // 切换聊天室或卸载组件时，移除监听，防止重复监听和内存泄漏
-    return () => {
-      window.removeEventListener(
-        'new-local-message-inserted',
-        handleLocalMessageNotification
-      );
-
-      window.removeEventListener(
-        'ai-typing-status',
-        handleTypingStatus
-      );
-    };
-  }, [chatId]);
 
 
   useEffect(() => {
