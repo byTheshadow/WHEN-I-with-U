@@ -167,7 +167,10 @@ export const App = () => {
 
       <AudioKeepAlive isActive={isKeepAliveActive} />
 
-      <KeepAliveIndicator isVisible={isKeepAliveActive} />
+      <KeepAliveIndicator
+  isVisible={isKeepAliveActive}
+  onClick={() => openApp('messages')}
+/>
 
       <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"

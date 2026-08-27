@@ -1,19 +1,23 @@
 import React from 'react';
 import { Disc3 } from 'lucide-react';
 
-export const KeepAliveIndicator = ({ isVisible = false }) => {
+export const KeepAliveIndicator = ({
+  isVisible = false,
+  onClick
+}) => {
   if (!isVisible) return null;
 
   return (
     <div
-      className="pointer-events-none fixed right-4 z-50"
+      className="fixed right-4 z-50"
       style={{
         bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))'
       }}
-      aria-live="polite"
     >
-      <div
-        className="relative flex h-12 w-12 items-center justify-center rounded-full border shadow-lg"
+      <button
+        type="button"
+        onClick={onClick}
+        className="group relative flex h-12 w-12 items-center justify-center rounded-full border shadow-lg transition-transform duration-200 active:scale-90"
         style={{
           color: 'var(--accent-foreground)',
           backgroundColor: 'var(--accent-color)',
@@ -21,8 +25,7 @@ export const KeepAliveIndicator = ({ isVisible = false }) => {
           boxShadow:
             '0 10px 28px color-mix(in srgb, var(--accent-color) 28%, transparent)'
         }}
-        role="status"
-        aria-label="后台音频保活正在运行"
+        aria-label="后台音频保活正在运行，前往消息页面管理"
         title="后台音频保活正在运行"
       >
         <span
@@ -42,7 +45,7 @@ export const KeepAliveIndicator = ({ isVisible = false }) => {
             borderColor: 'var(--accent-color)'
           }}
         />
-      </div>
+      </button>
     </div>
   );
 };
