@@ -16,7 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-   BookOpen 
+  BookOpen 
 } from 'lucide-react';
 import db from '../../db';
 import { triggerAiResponse, rerollAiResponse, subscribeAiEvents, playMessageSound } from '../../services/aiService';
@@ -39,8 +39,6 @@ import StickerPickerModal from './components/StickerPickerModal';
 import AudioKeepAlive from './components/AudioKeepAlive';
 import ParallelOrbit from './components/ParallelOrbit';
 
-
-
 export const ChatRoom = ({
   chatId,
   onBack,
@@ -57,12 +55,15 @@ export const ChatRoom = ({
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
+  const [showStickerModal, setShowStickerModal] = useState(false);
 
-    const [showStickerModal, setShowStickerModal] = useState(false);
-
-     // 新增：控制是否展示平行轨迹页面的状态，默认为 false（即默认显示聊天室）
+  // 控制是否展示平行轨迹页面的状态，默认为 false
   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
-    const defaultCss = useMemo(() => `
+
+  // 核心转场/首屏动画是否优先渲染完成的标识，用于延迟挂载高开销后台保活音频
+  const [isPrioritizedLoaded, setIsPrioritizedLoaded] = useState(false);
+
+  const defaultCss = useMemo(() => `
     .user-bubble {
       background: var(--accent-color);
       color: var(--accent-foreground);
@@ -80,17 +81,17 @@ export const ChatRoom = ({
     }
   `, []);
 
-  // 安全地提取当前 CSS（若 chat 数据尚未拉取完毕，则退回默认样式）
-  const currentCss = chat?.customCss || defaultCss;
+  // 安全地提取当前 CSS
+  const customCssStr = chat?.customCss || '';
 
-  // 在组件最顶部 Memo 化自定义样式，确保其在任何提前返回之前被声明
+  // 依赖项优化为 customCssStr 字符串，而非 chat 复杂对象，防止高频重绘 style 节点
   const memoizedStyle = useMemo(() => {
-    return <style>{`.chat-room-container ${currentCss}`}</style>;
-  }, [currentCss]);
+    const cssToApply = customCssStr || defaultCss;
+    return <style>{`.chat-room-container ${cssToApply}`}</style>;
+  }, [customCssStr, defaultCss]);
 
   const handleSendSticker = async (sticker) => {
     if (!sticker || !sticker.name || !chat?.id) return;
-
 
     const newMsg = {
       chatId: chat.id,
@@ -124,6 +125,11 @@ export const ChatRoom = ({
   useEffect(() => {
     loadChatData();
 
+    // 延迟 400ms 激活保活机制与事件流监听，避开转场 CPU 计算最高峰，提升丝滑感
+    const loadTimer = setTimeout(() => {
+      setIsPrioritizedLoaded(true);
+    }, 400);
+
     const unsubscribe = subscribeAiEvents((event) => {
       if (event.chatId !== chatId) return;
       if (event.type === 'AI_TYPING_START') setIsAiTyping(true);
@@ -133,7 +139,10 @@ export const ChatRoom = ({
       }
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(loadTimer);
+      unsubscribe();
+    };
   }, [chatId]);
 
   useEffect(() => {
@@ -149,9 +158,9 @@ export const ChatRoom = ({
     return () => window.cancelAnimationFrame(frameId);
   }, [messages, isAiTyping]);
 
-    const loadChatData = async () => {
+  const loadChatData = async () => {
     try {
-      // 1. 并发读取聊天实体与消息历史，大幅缩短 IndexedDB I/O 堵塞时间
+      // 1. 并发读取聊天实体与消息历史，缩短 IndexedDB I/O 堵塞
       const [chatRecord, msgList] = await Promise.all([
         db.chats.get(chatId),
         db.messages.where('chatId').equals(chatId).sortBy('timestamp')
@@ -162,7 +171,7 @@ export const ChatRoom = ({
       // 2. 根据聊天关联的角色 ID 读取角色设定
       const charRecord = await db.characters.get(chatRecord.characterId);
 
-      // 3. 集中进行状态更新（React 18 会自动对这些同步发生的 State 变更进行 Batching 批处理合并，只触发 1 次重新渲染）
+      // 3. 集中进行状态更新（自动 Batching 批处理合并渲染）
       setChat(chatRecord);
       if (charRecord) {
         setCharacter(charRecord);
@@ -172,9 +181,6 @@ export const ChatRoom = ({
       console.error('[ChatRoom] loadChatData batch query failed safely:', err);
     }
   };
-
-
-
 
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
@@ -205,10 +211,10 @@ export const ChatRoom = ({
     // 播放发送提示音
     playMessageSound('send');
 
-        setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => [...prev, newMsg]);
     setInputText('');
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto'; // 👈 手动重置输入框高度
+      inputRef.current.style.height = 'auto'; // 手动重置输入框高度
     }
     setQuotedMsg(null);
     setSelectedType('text');
@@ -280,28 +286,26 @@ export const ChatRoom = ({
     await db.chats.update(chatId, { summary: newSummary });
   };
 
-
-
-  // 当前聊天窗独享的 User 头像与昵称
-  const activeUserAvatar = chat?.userAvatar || character?.userAvatar || '';
-  const activeUserName = chat?.userName || character?.userName || '你';
-
-  // 背景蒙层受控参数
-  const bgOpacity = chat?.bgOpacity ?? 0.3;
-  const isBgDimmed = chat?.isBgDimmed ?? true;
+  // 1. 安全拦截判定：如果 chat 还未加载出来，展示优雅的骨架/Loading
   if (!chat) {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-[var(--bg-main)] text-[var(--text-main)]">
         <div className="flex flex-col items-center gap-2">
           <RotateCw className="h-6 w-6 animate-spin text-[var(--accent-color)]" />
-          <p className="text-sm">正在加载聊天...</p>
+          <p className="text-sm">正在加载空间...</p>
         </div>
       </div>
     );
   }
 
+  // 2. 安全地提取属性，加可选链防范
+  const activeUserAvatar = chat?.userAvatar || character?.userAvatar || '';
+  const activeUserName = chat?.userName || character?.userName || '你';
+  const bgOpacity = chat?.bgOpacity ?? 0.3;
+  const isBgDimmed = chat?.isBgDimmed ?? true;
+  const currentCss = chat?.customCss || defaultCss;
 
-    return (
+  return (
     <div
       className="chat-room-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
       style={{
@@ -309,15 +313,14 @@ export const ChatRoom = ({
         color: 'var(--text-main)'
       }}
     >
-
-          {/* 1. 渲染已在顶部 Memo 好的样式标签 */}
+      {/* 渲染已在顶部 Memo 好的样式标签 */}
       {memoizedStyle}
 
-      {/* 2. 背景图渲染：优化掉昂贵的 backdrop-blur，改用高性能 RGBA 遮罩 */}
+      {/* 背景图渲染：改用高性能合成图层渲染 */}
       {chat.bgImage && (
         <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
           <div
-            className="absolute inset-0 will-change-transform" // 提示浏览器创建独立合成层
+            className="absolute inset-0 will-change-transform" 
             style={{
               backgroundImage: `url(${chat.bgImage})`,
               backgroundSize: 'cover',
@@ -329,9 +332,8 @@ export const ChatRoom = ({
             <div
               className="absolute inset-0 transition-opacity"
               style={{
-                // 采用线性叠加暗淡层代替 backdrop-blur 模糊，滚动效率提升 300%
                 background: `rgba(var(--bg-main-rgb, 0, 0, 0), ${bgOpacity})`,
-                backgroundColor: 'var(--bg-main)', // 基于当前主题色混入
+                backgroundColor: 'var(--bg-main)', 
                 opacity: bgOpacity
               }}
             />
@@ -339,7 +341,7 @@ export const ChatRoom = ({
         </div>
       )}
 
-         {/* 顶部按钮控制区 */}
+      {/* 顶部按钮控制区 */}
       <header className="z-20 shrink-0 px-4 pt-3 pb-1">
         <div className="flex items-center justify-between pb-1">
           <div className="flex items-center gap-2">
@@ -356,8 +358,7 @@ export const ChatRoom = ({
               <span>返回列表</span>
             </button>
 
-           
-            {/* 极简现代主义纯 SVG 入口按钮，无汉字，仅边框与图标 */}
+            {/* 翻阅平行轨迹入口 */}
             <button
               type="button"
               onClick={() => setShowParallelOrbit(true)}
@@ -433,8 +434,8 @@ export const ChatRoom = ({
                     }}
                   >
                     <span className="block font-bold">
-  {quoted.sender === 'user' ? activeUserName : (character?.name || '伴侣')}
-</span>
+                      {quoted.sender === 'user' ? activeUserName : (character?.name || '伴侣')}
+                    </span>
                     <p className="truncate">{quoted.content}</p>
                   </div>
                 )}
@@ -446,7 +447,7 @@ export const ChatRoom = ({
                 >
                   {/* 头像渲染 */}
                   {!isUser ? (
-                    character.avatar ? (
+                    character?.avatar ? (
                       <img
                         src={character.avatar}
                         alt={character.name}
@@ -458,7 +459,7 @@ export const ChatRoom = ({
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
                         style={{ background: 'var(--control-soft-bg)' }}
                       >
-                        {character.name?.[0]}
+                        {character?.name?.[0]}
                       </div>
                     )
                   ) : activeUserAvatar ? (
@@ -517,12 +518,11 @@ export const ChatRoom = ({
                         {msg.type === 'food' && <FoodDeliveryCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
                         {msg.type === 'kinship' && <KinshipCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
                         {msg.type === 'sticker' && (
-  <StickerCard
-    metadata={msg.metadata}
-    isUser={msg.sender === 'user'}
-  />
-)}
-
+                          <StickerCard
+                            metadata={msg.metadata}
+                            isUser={msg.sender === 'user'}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -618,7 +618,7 @@ export const ChatRoom = ({
 
           {isAiTyping && (
             <TypingIndicator
-              customText={chat.typingText || `${character.name} 正在思考...`}
+              customText={chat.typingText || `${character?.name || '伴侣'} 正在思考...`}
               styleType={chat.typingStyle || 'default'}
             />
           )}
@@ -642,7 +642,7 @@ export const ChatRoom = ({
           >
             <div className="truncate pr-2">
               <span className="font-bold">
-                引用 {quotedMsg.sender === 'user' ? activeUserName : character.name}:
+                引用 {quotedMsg.sender === 'user' ? activeUserName : character?.name}:
               </span>{' '}
               {quotedMsg.content}
             </div>
@@ -834,16 +834,15 @@ export const ChatRoom = ({
           }}
         >
           <div className="flex items-center gap-1 opacity-80">
-           <InteractiveMenuPopover 
-  onSelectAction={(type) => {
-    if (type === 'sticker') {
-      setShowStickerModal(true);
-    } else {
-      setSelectedType(type);
-    }
-  }} 
-/>
-
+            <InteractiveMenuPopover 
+              onSelectAction={(type) => {
+                if (type === 'sticker') {
+                  setShowStickerModal(true);
+                } else {
+                  setSelectedType(type);
+                }
+              }} 
+            />
 
             <button
               type="button"
@@ -873,35 +872,32 @@ export const ChatRoom = ({
             </button>
           </div>
 
-                 <textarea
-          ref={inputRef} // 👈 绑定 ref
-          rows={1}
-          value={inputText}
-          onChange={(e) => {
-            setInputText(e.target.value);
-            e.target.style.height = 'auto';
-            // 实时高度撑开最大至 160px，超出后顺畅触发滚动条
-            e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={inputText}
+            onChange={(e) => {
+              setInputText(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            placeholder={
+              selectedType === 'text'
+                ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
+                : `已选 ${selectedType} 模式`
             }
-          }}
-          placeholder={
-            selectedType === 'text'
-              ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
-              : `已选 ${selectedType} 模式`
-          }
-          className="w-full bg-transparent outline-none text-xs resize-y overflow-y-auto leading-relaxed max-h-40"
-          style={{
-            color: 'var(--text-main)',
-            minHeight: '24px',
-          }}
-        />
-
-
+            className="w-full bg-transparent outline-none text-xs resize-y overflow-y-auto leading-relaxed max-h-40"
+            style={{
+              color: 'var(--text-main)',
+              minHeight: '24px',
+            }}
+          />
 
           <div className="flex shrink-0 items-center gap-1.5">
             <button
@@ -935,8 +931,6 @@ export const ChatRoom = ({
         </div>
       </footer>
 
-      
-
       {showBubbleCustomizer && (
         <BubbleCustomizer
           currentCss={currentCss}
@@ -960,14 +954,12 @@ export const ChatRoom = ({
           onUpdatedUserPersona={loadChatData}
         />
       )}
-    
-{/* 后台音频保活逻辑，不渲染可见界面 */}
-{chat && chat.keepAlive ? (
-  <AudioKeepAlive isActive={true} />
-) : null}
 
-
-
+      {/* 
+        【优化保活挂载】AudioKeepAlive 始终保持挂载，仅依赖渲染后延迟标志以及 keepAlive 属性共同驱动。
+        彻底避免频繁挂载带来的 Web Audio 初始化、注册手势监听的性能消耗。
+      */}
+      <AudioKeepAlive isActive={!!(isPrioritizedLoaded && chat?.keepAlive)} />
 
       {/* 表情包选择器弹窗 */}
       <StickerPickerModal
@@ -980,4 +972,3 @@ export const ChatRoom = ({
 };
 
 export default ChatRoom;
-
