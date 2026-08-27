@@ -1,22 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 
-// 🌟 全局单例 AudioContext，防止在组件高频重新渲染或反复进出聊天室时重复创建音频实例
+// 全局单例 AudioContext，多窗口复用
 let globalAudioContext = null;
 
 export const AudioKeepAlive = ({ isActive = false }) => {
   const oscillatorRef = useRef(null);
   const gainNodeRef = useRef(null);
   const audioRef = useRef(null);
-  
-  // 记录上一次的 isActive 状态，防止相同状态重复执行 start/stop 耗费性能
-  const prevActiveRef = useRef(null);
 
   useEffect(() => {
-    // 如果状态没有发生实质变化，直接跳过，防止重新渲染造成的死循环和卡顿
-    if (prevActiveRef.current === isActive) {
-      return;
-    }
-    prevActiveRef.current = isActive;
+    if (!isActive) return;
+
+    let hasActivated = false;
 
     const stopKeepAlive = async () => {
       try {
@@ -25,101 +20,109 @@ export const AudioKeepAlive = ({ isActive = false }) => {
           oscillatorRef.current.disconnect();
           oscillatorRef.current = null;
         }
-
         if (gainNodeRef.current) {
           gainNodeRef.current.disconnect();
           gainNodeRef.current = null;
         }
-
         if (audioRef.current) {
           audioRef.current.pause();
-          audioRef.current.currentTime = 0;
         }
-
-        // 不释放 AudioContext，仅将其 suspend (挂起)，省去高昂的硬件通道重载开销
         if (globalAudioContext && globalAudioContext.state === 'running') {
           await globalAudioContext.suspend();
         }
-
         if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = null;
           navigator.mediaSession.playbackState = 'none';
         }
-      } catch (error) {
-        console.warn('[AudioKeepAlive] Suspend stop notice:', error);
+      } catch (e) {
+        console.warn('[AudioKeepAlive] Clean up stop error:', e);
       }
     };
 
-    const startKeepAlive = async () => {
+    const tryActivateAudio = async () => {
+      if (hasActivated) return;
+      
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
 
-        if (AudioContextClass) {
-          // 懒加载全局单例
-          if (!globalAudioContext) {
-            globalAudioContext = new AudioContextClass();
-          }
-
-          // 仅在被挂起时恢复，不重复 resume 避免阻塞主线程
-          if (globalAudioContext.state === 'suspended') {
-            await globalAudioContext.resume();
-          }
-
-          if (!oscillatorRef.current) {
-            const oscillator = globalAudioContext.createOscillator();
-            const gainNode = globalAudioContext.createGain();
-
-            oscillator.type = 'sine';
-            // 超低频声波 (20Hz)，用户耳朵完全听不见，但对系统音频通道能起到保活作用
-            oscillator.frequency.setValueAtTime(20, globalAudioContext.currentTime);
-            // 极低音量，不干扰正常通话和背景音乐
-            gainNode.gain.setValueAtTime(0.00001, globalAudioContext.currentTime);
-
-            oscillator.connect(gainNode);
-            gainNode.connect(globalAudioContext.destination);
-            oscillator.start();
-
-            oscillatorRef.current = oscillator;
-            gainNodeRef.current = gainNode;
-          }
+        if (!globalAudioContext) {
+          globalAudioContext = new AudioContextClass();
         }
 
-        if (audioRef.current && audioRef.current.paused) {
-          try {
-            await audioRef.current.play();
-          } catch (error) {
-            console.warn(
-              '[AudioKeepAlive] Audio autoplay blocked. Direct user interaction required to trigger keep-alive.',
-              error
-            );
-          }
+        if (globalAudioContext.state === 'suspended') {
+          await globalAudioContext.resume();
         }
 
+        // 初始化超低频无声振荡器
+        if (!oscillatorRef.current) {
+          const osc = globalAudioContext.createOscillator();
+          const gain = globalAudioContext.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(20, globalAudioContext.currentTime);
+          gain.gain.setValueAtTime(0.00001, globalAudioContext.currentTime);
+
+          osc.connect(gain);
+          gain.connect(globalAudioContext.destination);
+          osc.start();
+
+          oscillatorRef.current = osc;
+          gainNodeRef.current = gain;
+        }
+
+        // 尝试播放无声音乐文件
+        if (audioRef.current) {
+          await audioRef.current.play();
+        }
+
+        // 写入手机锁屏媒体卡片
         if ('mediaSession' in navigator) {
-          // 仅在 metadata 未设定时设定，防止高频重复写入导致 UI 卡顿
-          if (!navigator.mediaSession.metadata) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: 'WHEN I with U',
-              artist: 'Personal Companion Space',
-              album: 'Keep Alive',
-            });
-          }
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: 'WHEN I with U',
+            artist: 'Personal Companion Space',
+            album: 'Keep Alive Active'
+          });
           navigator.mediaSession.playbackState = 'playing';
         }
-      } catch (error) {
-        console.warn('[AudioKeepAlive] Resume start failed:', error);
+
+        hasActivated = true;
+        console.log('[AudioKeepAlive] 用户交互触发，音频后台保活已成功激活。');
+
+        // 成功激活后移除所有屏幕手势监听，零多余处理器消耗
+        removeGestureListeners();
+      } catch (err) {
+        // 如果是因为尚未交互被拦截，此处捕获但不抛出异常，等待下一次手势触发
+        console.log('[AudioKeepAlive] 等待用户点击或手势交互以允许音频自动播放。');
       }
     };
 
-    if (isActive) {
-      startKeepAlive();
-    } else {
-      stopKeepAlive();
+    // 绑定几种常见的用户交互手势
+    const gestureEvents = ['touchstart', 'click', 'keydown', 'mousedown'];
+    
+    const addGestureListeners = () => {
+      gestureEvents.forEach((evt) => {
+        window.addEventListener(evt, tryActivateAudio, { passive: true });
+      });
+    };
+
+    const removeGestureListeners = () => {
+      gestureEvents.forEach((evt) => {
+        window.removeEventListener(evt, tryActivateAudio);
+      });
+    };
+
+    // 1. 先尝试静默触发（若浏览器权限已被用户之前授过，则能直接成功播放）
+    tryActivateAudio();
+
+    // 2. 若静默失败，监听用户后续在页面上的任意一次触摸/点击/打字，实现无感恢复
+    if (!hasActivated) {
+      addGestureListeners();
     }
 
     return () => {
-      // 卸载时仅重置，不强制执行耗时的 stop，等待下一次生命周期或延迟关闭
-      prevActiveRef.current = null;
+      removeGestureListeners();
+      void stopKeepAlive();
     };
   }, [isActive]);
 

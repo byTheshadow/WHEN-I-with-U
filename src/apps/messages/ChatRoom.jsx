@@ -948,7 +948,10 @@ export const ChatRoom = ({
       )}
     
 {/* 后台音频保活逻辑，不渲染可见界面 */}
-<AudioKeepAlive isActive={Boolean(chat?.keepAlive)} />
+{chat && chat.keepAlive ? (
+  <AudioKeepAlive isActive={true} />
+) : null}
+
 
 
 
