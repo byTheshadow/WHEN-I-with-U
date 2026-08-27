@@ -784,8 +784,6 @@ const isInQuietHours = (quietConfig) => {
 };
 
 // 把 settings 表内的 { key, value } 记录转成对象。
-// 例如：[{ key: 'autoMessage', value: true }]
-// 会变成：{ autoMessage: true }
 const getAutoSchedulerSettings = async () => {
   const allSettings = await db.settings.toArray();
 
@@ -797,10 +795,7 @@ const getAutoSchedulerSettings = async () => {
   }, {});
 };
 
-// 频率使用“随机冷却区间”，而非固定间隔，避免每次总在同一时刻触发：
-// high：2~4 小时
-// moderate：6~8 小时
-// low：12~24 小时
+// 频率使用“随机冷却区间”
 const getAutoMessageCooldownRange = (frequency) => {
   const hour = 60 * 60 * 1000;
 
@@ -824,17 +819,10 @@ const getRandomCooldownMs = (frequency) => {
 
 /**
  * 检查设置，并在符合条件时触发一次 AI 主动行为。
- *
- * 触发行为：
- * - 65% 概率：角色在主页留下主动随笔；
- * - 35% 概率：角色主动写一篇日记。
- *
- * 两个生成函数内部均已负责：
- * - 写入 IndexedDB；
- * - notifyListeners（供 Toast/UI 使用）；
- * - triggerSystemNotification（浏览器原生通知）。
+ * 40% 概率：在具体聊天窗主动发送聊天消息；
+ * 30% 概率：主动写日记；
+ * 30% 概率：在主页留下主动随笔。
  */
-
 export const checkAndTriggerAutoMessage = async () => {
   // 防止 setInterval、页面恢复、手动调用等造成并发重复生成。
   if (isAutoMessageTriggering) {
@@ -1027,111 +1015,32 @@ export const checkAndTriggerAutoMessage = async () => {
   }
 };
 
+/**
+ * 启动后台检查器。
+ */
+export const startAutoMessageScheduler = () => {
+  if (autoMessageSchedulerTimer) return;
 
-    // 6. 获取允许接收主动消息的角色。
-    // 兼容旧角色数据：字段缺失时，默认认为开启。
-    const activeCharacters = await db.characters
-      .filter((character) => character.isAutoMessageActive !== false)
-      .toArray();
+  // 应用启动时立即自检一次
+  void checkAndTriggerAutoMessage();
 
-    if (!activeCharacters.length) {
-      console.log('[AutoScheduler] 跳过检查：未找到任何开启了主动消息特权的角色。');
-      isAutoMessageTriggering = false;
-      return;
-    }
+  autoMessageSchedulerTimer = setInterval(() => {
+    void checkAndTriggerAutoMessage();
+  }, 15 * 60 * 1000);
 
-    // 6. 随机决定是：“主动在特定聊天窗口发消息(message)”、还是“写日记(diary)”、或是“在主页写留言随笔(homeBoard)”。
-    const rand = Math.random();
-    let actionType = '';
-    
-    if (rand < 0.40) {
-      actionType = 'message';
-    } else if (rand < 0.70) {
-      actionType = 'diary';
-    } else {
-      actionType = 'homeBoard';
-    }
+  console.log('[AutoScheduler] AI 主动消息调度器已启动。');
+};
 
-    let generatedId = null;
+/**
+ * 停止后台检查器。
+ */
+export const stopAutoMessageScheduler = () => {
+  if (!autoMessageSchedulerTimer) return;
 
-    if (actionType === 'message') {
-      // 获取所有活跃聊天窗，随机挑选一个
-      const allChats = await db.chats.toArray();
-      if (allChats.length > 0) {
-        // 随机选择一个对话实体
-        const selectedChat = allChats[Math.floor(Math.random() * allChats.length)];
-        console.log(`[AutoScheduler] 决定在聊天窗 ${selectedChat.title} (ID: ${selectedChat.id}) 中主动发送聊天消息。`);
-        
-        // 调用主动聊天消息生成器
-        generatedId = await generateCompanionProactiveMessage(selectedChat.id);
-      } else {
-        console.log('[AutoScheduler] 未找到任何对话聊天窗，降级为生成主页留言。');
-        actionType = 'homeBoard';
-      }
-    }
+  clearInterval(autoMessageSchedulerTimer);
+  autoMessageSchedulerTimer = null;
 
-    // 如果是日记模式，或者由 message 降级/直接随机选入
-    if (actionType === 'diary') {
-      const character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
-      actionType = 'diary';
-      generatedId = await generateCompanionProactiveDiary(character.id);
-    } else if (actionType === 'homeBoard') {
-      const character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
-      actionType = 'homeBoard';
-      generatedId = await generateCharacterHomeBoardMessage(character.id);
-    }
-
-    // 只有确实写入/发送成功后，才更新冷却时间。
-
-// 这样 API/数据库失败时，下一次轮询仍可以自动重试。
-if (generatedId !== null && generatedId !== undefined) {
-  // 更新锁屏卡片。
-  // 即使锁屏功能未开启、浏览器不支持或更新失败，
-  // 也不能影响日记/动态已经生成成功后的冷却时间更新。
-  try {
-    await updateLockscreenMediaSession(
-      character.name,
-      `最新${actionType === 'diary' ? '日记' : '动态'}: 已更新`
-    );
-  } catch (err) {
-    console.warn(
-      '[Lockscreen] 更新锁屏卡片失败，但不影响主动日记/动态的生成：',
-      err
-    );
-  }
-
-  // 原来已有的冷却更新逻辑：保持不变。
-  const nextCooldownMs = getRandomCooldownMs(frequency);
-
-  await db.settings.put({
-    key: 'lastAutoMessageTimestamp',
-    value: now
-  });
-
-  await db.settings.put({
-    key: 'autoMessageCooldownMs',
-    value: nextCooldownMs
-  });
-
-  await db.settings.put({
-    key: 'autoMessageFrequencyApplied',
-    value: frequency
-  });
-
-  console.log(
-    `[AutoScheduler] 已触发 ${actionType}：${character.name}；下次最早触发时间约为 ${Math.round(nextCooldownMs / 3600000)} 小时后。`
-  );
-} else {
-  console.warn(
-    `[AutoScheduler] ${actionType} 生成失败，未更新冷却时间，将在后续轮询中重试。`
-  );
-}
-
-  } catch (err) {
-    console.error('[AutoScheduler] 主动任务触发失败：', err);
-  } finally {
-    isAutoMessageTriggering = false;
-  }
+  console.log('[AutoScheduler] AI 主动消息调度器已停止。');
 };
 
 /**
