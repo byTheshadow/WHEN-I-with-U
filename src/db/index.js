@@ -529,7 +529,8 @@ db.version(19).stores({
   parallelOrbits: '++id, chatId, characterId, timestamp',
   
   // 👈 Version 19 新增用户作息表
-  schedules: '++id, characterId, title, dayOfWeek, startTime, endTime, category, createdAt'
+    schedules: '++id, characterId, title, dayOfWeek, startTime, endTime, category, date, weeks, createdAt'
+
 });
 
 

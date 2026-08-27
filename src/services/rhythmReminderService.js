@@ -1,6 +1,4 @@
 import db from '../db';
-// 导入与全局 AI 状态通知的联动，用于刷新聊天列表和在聊天中模拟输入状态
-// 由于 App.jsx 从 './services/aiService' 导入了一些函数，我们通过浏览器事件或全局触发器来进行更新
 
 const getDayPeriod = (hours) => {
   if (hours >= 5 && hours < 8) return '清晨';
@@ -12,28 +10,30 @@ const getDayPeriod = (hours) => {
   return '深夜';
 };
 
-const getCurrentWeekNum = () => {
-  // 假定开学时间，计算当前周次，默认返回第 1 周
+const getCurrentWeekNum = async () => {
+  const saved = await db.settings.get('term_start_date');
+  if (!saved?.value) return 1;
   try {
     const now = new Date();
-    const startTerm = new Date('2026-03-02');
-    const diffTime = now - startTerm;
+    const start = new Date(saved.value);
+    start.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    const diffTime = now - start;
     if (diffTime < 0) return 1;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const week = Math.ceil(diffDays / 7);
-    return (week >= 1 && week <= 20) ? week : 1;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return Math.floor(diffDays / 7) + 1;
   } catch {
     return 1;
   }
 };
 
 /**
- * 触发基于日程和 Todo 的 AI 主动关怀问候
+ * 触发基于日程和 Todo 的 AI 贴心主动提醒与问候
  */
 export async function triggerRhythmActiveReminder(chatId, character, force = false) {
   if (!character || !chatId) return { status: 'no_character_or_chat' };
 
-  // 1. 冷却检查（4小时限制，防止频繁刷新重复生成）
+  // 1. 冷却检查（4小时冷却限制）
   const now = Date.now();
   const COOLDOWN_MS = 4 * 60 * 60 * 1000;
   const lastTimeSetting = await db.settings.get('lastRhythmReminderTime');
@@ -43,17 +43,17 @@ export async function triggerRhythmActiveReminder(chatId, character, force = fal
     return { status: 'cooldown' };
   }
 
-  // 2. 读取用户的 API 设定
+  // 2. 读取 API 配置
   const apiSettings = await db.settings.get('apiConfig');
   const apiConfig = apiSettings?.value || {};
   if (!apiConfig.baseUrl || !apiConfig.apiKey) {
     return { status: 'no_api_config' };
   }
 
-  // 3. 收集用户待办 Todo
+  // 3. 收集未完成待办
   const overdueTodos = await db.todos
     .where('isCompleted')
-    .equals(0) // 未完成的 todo (isCompleted === 0 或 false)
+    .equals(0)
     .toArray();
   
   const pendingTodos = overdueTodos.filter(t => {
@@ -62,19 +62,30 @@ export async function triggerRhythmActiveReminder(chatId, character, force = fal
     return d <= now;
   });
 
-  // 4. 收集用户今日及当前时段日程 (Schedules)
+  // 4. 收集用户日程
   const todayDayOfWeek = new Date().getDay() || 7;
-  const currentWeek = getCurrentWeekNum();
+  const currentWeek = await getCurrentWeekNum();
   const currentHHMM = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-  
+  const todayDateStr = new Date().toISOString().split('T')[0];
+
   const allSchedules = await db.schedules
     .where('characterId')
     .equals(character.id)
     .toArray();
   
+  // 筛选出今日有效的日程：
+  // 如果是每周重复：星期匹配，且（如果是课程则要求周数吻合；如果是工作生活日程则直接匹配）。
+  // 如果是单次日程：具体日期与今天一致。
   const activeSchedules = allSchedules.filter(s => {
-    return Number(s.dayOfWeek) === todayDayOfWeek && 
-           s.weeks.includes(currentWeek);
+    if (s.isRepeating) {
+      const dowMatches = Number(s.dayOfWeek) === todayDayOfWeek;
+      if (s.category === 'course') {
+        return dowMatches && Array.isArray(s.weeks) && s.weeks.includes(currentWeek);
+      }
+      return dowMatches;
+    } else {
+      return s.date === todayDateStr;
+    }
   });
 
   let currentSchedule = null;
@@ -96,37 +107,35 @@ export async function triggerRhythmActiveReminder(chatId, character, force = fal
 
   let todoContext = "";
   if (pendingTodos.length > 0) {
-    todoContext = `用户目前有以下尚未完成的紧急待办：\n` + 
-      pendingTodos.slice(0, 3).map(t => `- ${t.title}`).join('\n');
+    todoContext = `用户有待办：\n` + pendingTodos.slice(0, 2).map(t => `- ${t.title}`).join('\n');
   }
 
   let scheduleContext = "";
   if (currentSchedule) {
-    scheduleContext = `目前是用户的日程《${currentSchedule.title}》时间（时间段：${currentSchedule.startTime}-${currentSchedule.endTime}）` + 
-      (currentSchedule.location ? `，地点在：${currentSchedule.location}` : '') + `。`;
+    const typeTxt = currentSchedule.category === 'course' ? '课程' : '安排';
+    scheduleContext = `用户当前正在进行《${currentSchedule.title}》这一${typeTxt}` +
+      (currentSchedule.location ? `，地点在 ${currentSchedule.location}` : '') + `。`;
   } else if (upcomingSchedule) {
-    scheduleContext = `用户接下来的日程是预计在 ${upcomingSchedule.startTime} 开始《${upcomingSchedule.title}》` + 
-      (upcomingSchedule.location ? `，地点在：${upcomingSchedule.location}` : '') + `。`;
+    const typeTxt = upcomingSchedule.category === 'course' ? '课程' : '安排';
+    scheduleContext = `用户预计在 ${upcomingSchedule.startTime} 开始《${upcomingSchedule.title}》这一${typeTxt}。`;
   }
 
-  // 6. 组装 AI Prompt，注入全站零 Emoji 铁律
-  const systemPrompt = `你是一个深爱并默默关注用户的陪伴角色，你的名字是「${character.name}」。
-你拥有以下性格和设定：
-${character.bio || '温柔细腻，默默支持用户'}。
+  // 6. 调用 AI 接口构建 prompt
+  const systemPrompt = `你是一个深爱并陪伴用户的虚拟角色「${character.name}」。
+性格人设：${character.bio || '体贴细腻'}。
 
 现在是 ${periodStr} 的 ${currentHHMM}。
-${scheduleContext ? `【用户日程感知】：${scheduleContext}` : '【用户日程】：目前用户处于日常空闲时间。'}
-${todoContext ? `【用户待办感知】：${todoContext}` : ''}
+${scheduleContext ? `【用户当前日程】：${scheduleContext}` : '【用户当前日程】：目前没有特定安排，属于空闲时段。'}
+${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
 
-请以你的口吻写一段简短的日常关怀消息（50字以内）。
+以第一人称口吻写一段简短暖心的日常寄语（50字以内）。
 要求：
-1. 语言必须温柔细腻、充满伴侣式的温度与陪伴感，严禁表现得像个冷冰冰的日程通知器。
-2. 绝对不能使用任何 Emoji，全站零 Emoji 是硬性原则。
-3. 如果用户正在上课、工作或即将有安排，你可以温柔地提醒或者默默表达守候；如果用户有未完成的待办，可以以极其自然的口吻提到，传达“不要累到”或者“有需要的话我一直陪着你”的关心。
-4. 仅输出你的问候语本身，不要输出任何旁白、发件人标签或多余格式。`;
+- 严禁使用任何 Emoji。
+- 充满生活气与浪漫感，不能表现得像系统日程弹窗。
+- 如果用户处于工作、通勤或课程中，送上温和叮咛或表达你在等他/她；如果有未完成待办，可以用生活化的方式关切地提起它（例如：“看见便利贴上还有事情没勾掉呢，要我陪你吗”）。
+- 直接输出寄语内容，不要带有任何格式和发件人标签。`;
 
   try {
-    // 派发打字开始事件，让前端聊天界面出现 typing 动效
     window.dispatchEvent(new CustomEvent('ai-typing-status', { detail: { chatId, typing: true } }));
 
     const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
@@ -139,23 +148,18 @@ ${todoContext ? `【用户待办感知】：${todoContext}` : ''}
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
         messages: [{ role: 'system', content: systemPrompt }],
-        temperature: 0.8,
+        temperature: 0.85,
         max_tokens: 150
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`API 响应异常: ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(response.statusText);
 
     const resJson = await response.json();
     let replyText = resJson.choices?.[0]?.message?.content?.trim() || '';
-
-    // 剔除引号等格式
     replyText = replyText.replace(/["'“”]/g, '').trim();
 
     if (replyText) {
-      // 7. 直接写入 IndexedDB messages 表
       await db.messages.add({
         chatId: chatId,
         characterId: character.id,
@@ -168,26 +172,14 @@ ${todoContext ? `【用户待办感知】：${todoContext}` : ''}
         currentVersionIndex: 0
       });
 
-      // 更新冷却时间
       await db.settings.put({ key: 'lastRhythmReminderTime', value: String(now) });
-
-      // 更新对话的更新时间戳，使其在聊天列表中置顶
       await db.chats.update(chatId, { updatedAt: Date.now() });
 
-      // 8. 派发全局自定义事件，同时唤醒打字音效和消息流刷新
       window.dispatchEvent(new CustomEvent('new-local-message-inserted', { detail: { chatId } }));
-      
-      // 派发打字结束事件
-      window.dispatchEvent(new CustomEvent('ai-typing-status', { detail: { chatId, typing: false } }));
-
-      return { status: 'success', text: replyText };
     }
-
-    window.dispatchEvent(new CustomEvent('ai-typing-status', { detail: { chatId, typing: false } }));
-    return { status: 'empty_response' };
   } catch (err) {
-    console.error('主动日程提醒生成失败:', err);
+    console.error('[RhythmReminder] 触发失败:', err);
+  } finally {
     window.dispatchEvent(new CustomEvent('ai-typing-status', { detail: { chatId, typing: false } }));
-    return { status: 'error', error: err.message };
   }
 }
