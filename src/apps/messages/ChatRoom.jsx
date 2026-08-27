@@ -15,7 +15,8 @@ import {
   RotateCw,
   ChevronLeft,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+   BookOpen 
 } from 'lucide-react';
 import db from '../../db';
 import { triggerAiResponse, rerollAiResponse, subscribeAiEvents, playMessageSound } from '../../services/aiService';
@@ -36,6 +37,7 @@ import StickerCard from './components/cards/StickerCard';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
 import AudioKeepAlive from './components/AudioKeepAlive';
+import ParallelOrbit from './components/ParallelOrbit';
 
 
 
@@ -58,6 +60,8 @@ export const ChatRoom = ({
 
     const [showStickerModal, setShowStickerModal] = useState(false);
 
+     // 新增：控制是否展示平行轨迹页面的状态，默认为 false（即默认显示聊天室）
+  const [showParallelOrbit, setShowParallelOrbit] = useState(false);
   const handleSendSticker = async (sticker) => {
     if (!sticker || !sticker.name || !chat?.id) return;
 
@@ -262,9 +266,21 @@ export const ChatRoom = ({
     }
   `, []);
 
-  if (!chat || !character) return null;
+    if (!chat || !character) return null;
+
+  // 新增：如果状态为 true，直接渲染平行轨迹日记本，并传入必要的参数
+  if (showParallelOrbit) {
+    return (
+      <ParallelOrbit
+        chatId={chatId}
+        character={character}
+        onBack={() => setShowParallelOrbit(false)}
+      />
+    );
+  }
 
   const currentCss = chat.customCss || defaultCss;
+
 
   // 当前聊天窗独享的 User 头像与昵称
   const activeUserAvatar = chat.userAvatar || character.userAvatar || '';
@@ -308,21 +324,38 @@ export const ChatRoom = ({
         </div>
       )}
 
-      {/* 顶部按钮控制区 */}
+         {/* 顶部按钮控制区 */}
       <header className="z-20 shrink-0 px-4 pt-3 pb-1">
         <div className="flex items-center justify-between pb-1">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold opacity-85 hover:opacity-100 transition-opacity"
-            style={{
-              background: 'var(--control-soft-bg)',
-              color: 'var(--text-main)'
-            }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>返回列表</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold opacity-85 hover:opacity-100 transition-opacity"
+              style={{
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)'
+              }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>返回列表</span>
+            </button>
+
+            {/* 新增：平行轨迹入口按钮 */}
+            <button
+              type="button"
+              onClick={() => setShowParallelOrbit(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold opacity-85 hover:opacity-100 transition-opacity"
+              style={{
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)'
+              }}
+              title="翻阅对方的平行轨迹"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>平行轨迹</span>
+            </button>
+          </div>
 
           <button
             type="button"
