@@ -28,6 +28,10 @@ import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
 
+// 👈 导入新增的 Rhythm 模块
+import RhythmApp from './apps/rhythm/RhythmApp';
+import { triggerRhythmActiveReminder } from './services/rhythmReminderService';
+
 import db from './db';
 
 import {
@@ -58,6 +62,7 @@ const CHAT_APPS = [
   'habitat'
 ];
 
+// 👈 注册 rhythm 到可用子应用列表中
 const REGISTERED_APPS = [
   'hub',
   'settings',
@@ -74,7 +79,8 @@ const REGISTERED_APPS = [
   'ensemble',
   'habitat',
   'ephemera',
-  'askbox'
+  'askbox',
+  'rhythm'
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -91,6 +97,9 @@ export const App = () => {
 
   const [activeKeepAliveChats, setActiveKeepAliveChats] = useState([]);
   const [audioConfig, setAudioConfig] = useState(DEFAULT_AUDIO_CONFIG);
+  
+  // 缓存当前角色ID，用于传递给 RhythmApp 子应用
+  const [activeCharacterId, setActiveCharacterId] = useState(null);
 
   useEffect(() => {
     void requestNotificationPermission();
@@ -101,6 +110,46 @@ export const App = () => {
     return () => {
       stopAutoMessageScheduler();
       stopTravelPostcardScheduler();
+    };
+  }, []);
+
+  // 👈 新增：开门与切回应用时触发 AI 作息/待办提醒自检
+  useEffect(() => {
+    const handleCheckReminder = async () => {
+      try {
+        // 获取最新的聊天会话和角色
+        const latestChat = await db.chats.orderBy('updatedAt').reverse().first();
+        if (!latestChat) return;
+
+        const character = await db.characters.get(latestChat.characterId);
+        if (!character) return;
+
+        // 设置当前活跃角色 ID 缓存
+        setActiveCharacterId(character.id);
+
+        // 尝试静默触发 AI 提醒
+        const result = await triggerRhythmActiveReminder(latestChat.id, character, false);
+        if (result.status === 'success') {
+          console.log(`[RhythmScheduler] AI 已主动留下提醒消息: "${result.text}"`);
+        }
+      } catch (err) {
+        console.warn('[RhythmScheduler] 提醒自检未通过或暂无可用角色:', err);
+      }
+    };
+
+    // 1. 初始化时（开门）自检
+    void handleCheckReminder();
+
+    // 2. 切回标签页/回到 PWA 时自检
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void handleCheckReminder();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
@@ -452,6 +501,16 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
+        {/* 👈 新增：Rhythm 页面条件分支 */}
+        {currentApp === 'rhythm' && (
+          <ErrorBoundary>
+            <RhythmApp
+              onBackHub={() => openApp('hub')}
+              currentCharacterId={activeCharacterId}
+            />
+          </ErrorBoundary>
+        )}
+
         {!REGISTERED_APPS.includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
@@ -489,6 +548,7 @@ export const App = () => {
 };
 
 export default App;
+
 
 
 
