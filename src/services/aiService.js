@@ -1476,21 +1476,24 @@ export const generateCompanionProactiveMessage = async (chatId) => {
         return null;
       }
     }
+// 2. 组装对话的历史上下文 payload
+const historyPayload = recentMessages.map((m) => {
+  if (m.sender === 'user') {
+    return { role: 'user', content: m.content };
+  } else {
+    return { role: 'assistant', content: m.content };
+  }
+});
 
-    // 2. 组装对话的历史上下文 payload
-    const historyPayload = recentMessages.map((m) => {
-      if (m.sender === 'user') {
-        return { role: 'user', content: m.content };
-      } else {
-        return { role: 'assistant', content: m.content };
-      }
-    });
+// 3. 组装当前聊天窗口专属的 System Prompt
+const systemPrompt = await buildChatSystemPrompt(
+  chatId,
+  chat,
+  character
+);
 
-    // 3. 组装当前聊天窗口专属的 System Prompt (复用我们在 buildChatSystemPrompt 里实现的优先级逻辑)
-    const systemPrompt = await buildChatSystemPrompt(chatId);
-
-    // 4. 组装主动发送场景的微指引
-    const autoSendGuide = `
+// 4. 组装主动发送场景的微指引
+const autoSendGuide = `
 【注意：这是你作为伴侣的主动发起的对话触达】
 由于用户有一段时间没有说话了，请你基于当下的时间背景（${getFormattedRealTime()}），结合你们之前的聊天上下文，主动给用户发一条问候、分享一下你此刻在做的事情、或者延续之前的某个话题。
 要求：
@@ -1498,6 +1501,7 @@ export const generateCompanionProactiveMessage = async (chatId) => {
 - 回复要轻柔、贴心，不要带有客服味道，更不要使用 Emoji。
 - 字数控制在 80 字以内。
 `;
+
 
     const finalMessages = [
       { role: 'system', content: systemPrompt + '\n' + autoSendGuide },
