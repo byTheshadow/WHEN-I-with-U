@@ -845,7 +845,10 @@ const getAutoMessageCooldownRange = (frequency) => {
 
   switch (frequency) {
     case 'high':
-      return { min: 2 * hour, max: 4 * hour };
+  return {
+    min: 90 * 60 * 1000,
+    max: 4 * hour
+  };
 
     case 'low':
       return { min: 12 * hour, max: 24 * hour };
