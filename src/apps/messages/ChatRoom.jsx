@@ -62,13 +62,34 @@ export const ChatRoom = ({
 
      // 新增：控制是否展示平行轨迹页面的状态，默认为 false（即默认显示聊天室）
   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
-  const handleSendSticker = async (sticker) => {
-    if (!sticker || !sticker.name || !chat?.id) return;
+    const defaultCss = useMemo(() => `
+    .user-bubble {
+      background: var(--accent-color);
+      color: var(--accent-foreground);
+      border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+    }
+    .ai-bubble {
+      background: var(--control-soft-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+    }
+    .chat-font {
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+  `, []);
 
-      // Memo 化自定义 CSS，只有在 currentCss 发生实际变化时才重新计算
+  // 安全地提取当前 CSS（若 chat 数据尚未拉取完毕，则退回默认样式）
+  const currentCss = chat?.customCss || defaultCss;
+
+  // 在组件最顶部 Memo 化自定义样式，确保其在任何提前返回之前被声明
   const memoizedStyle = useMemo(() => {
     return <style>{`.chat-room-container ${currentCss}`}</style>;
   }, [currentCss]);
+
+  const handleSendSticker = async (sticker) => {
+    if (!sticker || !sticker.name || !chat?.id) return;
 
 
     const newMsg = {
@@ -259,38 +280,6 @@ export const ChatRoom = ({
     await db.chats.update(chatId, { summary: newSummary });
   };
 
-  const defaultCss = useMemo(() => `
-    .user-bubble {
-      background: var(--accent-color);
-      color: var(--accent-foreground);
-      border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
-    }
-    .ai-bubble {
-      background: var(--control-soft-bg);
-      color: var(--text-main);
-      border: 1px solid var(--card-border);
-      border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
-    }
-    .chat-font {
-      font-size: 0.75rem;
-      line-height: 1.5;
-    }
-  `, []);
-
-    if (!chat || !character) return null;
-
-  // 渲染平行轨迹杂志页面
-  if (showParallelOrbit) {
-    return (
-      <ParallelOrbit
-        chatId={chatId}
-        character={character}
-        onBack={() => setShowParallelOrbit(false)}
-      />
-    );
-  }
-
-  const currentCss = chat.customCss || defaultCss;
 
 
 
