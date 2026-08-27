@@ -299,11 +299,23 @@ export const ChatRoom = ({
   }
 
   // 2. 安全地提取属性，加可选链防范
+    // 2. 安全地提取属性，加可选链防范
   const activeUserAvatar = chat?.userAvatar || character?.userAvatar || '';
   const activeUserName = chat?.userName || character?.userName || '你';
   const bgOpacity = chat?.bgOpacity ?? 0.3;
   const isBgDimmed = chat?.isBgDimmed ?? true;
   const currentCss = chat?.customCss || defaultCss;
+
+  // 👈 新增这一段：当 showParallelOrbit 为 true 时，直接渲染平行轨迹杂志，不再渲染后面普通的聊天室 DOM
+  if (showParallelOrbit) {
+    return (
+      <ParallelOrbit
+        chatId={chatId}
+        character={character}
+        onBack={() => setShowParallelOrbit(false)}
+      />
+    );
+  }
 
   return (
     <div
