@@ -180,6 +180,32 @@ const processTravel = async (travel, now) => {
   }
 
   const delivered = [];
+
+  // 旅行已经结束：更新归档状态后不再补寄新的旅途明信片。
+  if (now >= endTime) {
+    if (travel.status === 'in_transit') {
+      await db.travels.update(travel.id, {
+        status: 'completed'
+      });
+    }
+
+    return delivered;
+  }
+
+  // 补偿检查：旅行仍在进行中，但出发明信片曾因 API、网络或
+  // 返回格式异常而未成功保存时，在后续调度中重新尝试寄出。
+  const departureResult = await createPostcardForSlot(
+    travel,
+    character,
+    'departure',
+    true
+  );
+
+  if (departureResult.created && departureResult.postcard) {
+    delivered.push(departureResult.postcard);
+  }
+
+  // 检查旅行开始八小时后、以及每满二十四小时应抵达的明信片。
   const dueSlots = getDeliverySlots(travel, now);
 
   for (const slot of dueSlots) {
@@ -195,14 +221,9 @@ const processTravel = async (travel, now) => {
     }
   }
 
-  if (now >= endTime && travel.status === 'in_transit') {
-    await db.travels.update(travel.id, {
-      status: 'completed'
-    });
-  }
-
   return delivered;
 };
+
 
 export const checkAndDeliverTravelPostcards = async () => {
   if (isChecking) {
