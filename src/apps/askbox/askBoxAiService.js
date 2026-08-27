@@ -28,24 +28,32 @@ const getFallbackIncomingQuestion = () => {
  *   https://api.openai.com/v1
  * - 此处不提供 OpenAI 官方地址的默认回退，避免绕过用户实际配置。
  */
-async function callAskBoxAi(systemPrompt, userPrompt, timeoutMs = 12000) {
+async function callAskBoxAi(
+  systemPrompt,
+  userPrompt,
+  timeoutMs = 12000
+) {
   const apiSettings = await db.settings.get('apiConfig');
   const apiConfig = apiSettings?.value || {};
 
   if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-    console.warn('[AskBox] API 配置不完整，已改用本地内容。');
+    console.warn('[AskBox] API 配置不完整。');
     return null;
   }
 
-  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
-  const controller = new AbortController();
+  const baseUrl = String(apiConfig.baseUrl).replace(/\/+$/, '');
+  const endpoint = `${baseUrl}/chat/completions`;
 
+  const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    console.info('[AskBox] 正在请求:', endpoint);
+    console.info('[AskBox] 使用模型:', apiConfig.model || 'gpt-3.5-turbo');
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,49 +61,50 @@ async function callAskBoxAi(systemPrompt, userPrompt, timeoutMs = 12000) {
       },
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        temperature: 0.82,
         messages: [
           {
             role: 'system',
-            content: systemPrompt
+            content: String(systemPrompt || '')
           },
           {
             role: 'user',
-            content: userPrompt
+            content: String(userPrompt || '')
           }
         ]
       }),
       signal: controller.signal
     });
 
+    const rawText = await response.text();
+
     if (!response.ok) {
-      let errorDetail = response.statusText || '请求未成功';
-
-      try {
-        const errorData = await response.json();
-        errorDetail =
-          errorData?.error?.message ||
-          errorData?.message ||
-          errorDetail;
-      } catch {
-        // API 可能返回 HTML 或纯文本错误页，保留已有状态文本。
-      }
-
       console.error(
-        `[AskBox] API 请求失败：HTTP ${response.status} - ${errorDetail}`
+        `[AskBox] API HTTP ${response.status}:`,
+        rawText.slice(0, 1000)
       );
-
       return null;
     }
 
-    const data = await response.json();
+    let data;
+
+    try {
+      data = JSON.parse(rawText);
+    } catch (error) {
+      console.error(
+        '[AskBox] API 返回的不是合法 JSON:',
+        rawText.slice(0, 1000)
+      );
+      return null;
+    }
 
     const content = stripEmoji(
-      data?.choices?.[0]?.message?.content || ''
+      data?.choices?.[0]?.message?.content ||
+        data?.choices?.[0]?.text ||
+        ''
     );
 
     if (!content) {
-      console.warn('[AskBox] AI 返回内容为空，已改用本地内容。');
+      console.error('[AskBox] API 返回成功，但没有找到文本内容:', data);
       return null;
     }
 
@@ -103,13 +112,10 @@ async function callAskBoxAi(systemPrompt, userPrompt, timeoutMs = 12000) {
   } catch (error) {
     if (error?.name === 'AbortError') {
       console.warn(
-        `[AskBox] AI 请求超过 ${Math.round(timeoutMs / 1000)} 秒，已改用本地内容。`
+        `[AskBox] 请求超过 ${Math.round(timeoutMs / 1000)} 秒。`
       );
     } else {
-      console.error(
-        '[AskBox] AI 请求失败，已改用本地内容：',
-        error?.message || error
-      );
+      console.error('[AskBox] 网络请求失败:', error);
     }
 
     return null;

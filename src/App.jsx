@@ -1,13 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { liveQuery } from 'dexie';
+import { Settings as SettingsIcon } from 'lucide-react';
+
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
 import NotificationToast from './components/NotificationToast';
 import KeepAliveIndicator from './components/KeepAliveIndicator';
+
 import ProfileHeader from './apps/hub/ProfileHeader';
 import PinnedGallery from './apps/hub/PinnedGallery';
 import QuickBoard from './apps/hub/QuickBoard';
 import AppGrid from './apps/hub/AppGrid';
+
 import SettingsPage from './apps/settings/SettingsPage';
 import MessagesApp from './apps/messages/MessagesApp';
 import TodoApp from './apps/todos/TodoApp';
@@ -23,8 +27,8 @@ import AskBoxApp from './apps/askbox/AskBoxApp';
 import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
+
 import db from './db';
-import { Settings as SettingsIcon } from 'lucide-react';
 
 import {
   requestNotificationPermission,
@@ -47,7 +51,12 @@ const THEME_COLORS = {
   'cyber-velvet': '#171321'
 };
 
-const CHAT_APPS = ['messages', 'imaginarium', 'ensemble', 'habitat'];
+const CHAT_APPS = [
+  'messages',
+  'imaginarium',
+  'ensemble',
+  'habitat'
+];
 
 const REGISTERED_APPS = [
   'hub',
@@ -68,13 +77,20 @@ const REGISTERED_APPS = [
   'askbox'
 ];
 
+const DEFAULT_AUDIO_CONFIG = {
+  playlist: [],
+  activeTrackId: ''
+};
+
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
   const [activeTheme, setActiveTheme] = useState('mono-mist');
   const [showTitle, setShowTitle] = useState(true);
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
-  const [isKeepAliveActive, setIsKeepAliveActive] = useState(false);
+
+  const [activeKeepAliveChats, setActiveKeepAliveChats] = useState([]);
+  const [audioConfig, setAudioConfig] = useState(DEFAULT_AUDIO_CONFIG);
 
   useEffect(() => {
     void requestNotificationPermission();
@@ -90,18 +106,39 @@ export const App = () => {
 
   useEffect(() => {
     const subscription = liveQuery(async () => {
-      const activeKeepAliveCount = await db.chats
-        .filter((chat) => chat.keepAlive === true)
-        .count();
+      const [activeChats, savedAudioConfig] = await Promise.all([
+        db.chats
+          .filter((chat) => chat.keepAlive === true)
+          .toArray(),
 
-      return activeKeepAliveCount > 0;
+        db.settings.get('keep_alive_audio_config')
+      ]);
+
+      return {
+        activeChats,
+        audioConfig: savedAudioConfig?.value || DEFAULT_AUDIO_CONFIG
+      };
     }).subscribe({
-      next: (hasActiveKeepAlive) => {
-        setIsKeepAliveActive(hasActiveKeepAlive);
+      next: ({ activeChats, audioConfig: nextAudioConfig }) => {
+        const normalizedAudioConfig = {
+          playlist: Array.isArray(nextAudioConfig?.playlist)
+            ? nextAudioConfig.playlist
+            : [],
+          activeTrackId: nextAudioConfig?.activeTrackId || ''
+        };
+
+        setActiveKeepAliveChats(activeChats);
+        setAudioConfig(normalizedAudioConfig);
       },
+
       error: (error) => {
-        console.warn('Unable to observe keep-alive state:', error);
-        setIsKeepAliveActive(false);
+        console.warn(
+          'Unable to observe keep-alive state:',
+          error
+        );
+
+        setActiveKeepAliveChats([]);
+        setAudioConfig(DEFAULT_AUDIO_CONFIG);
       }
     });
 
@@ -111,9 +148,14 @@ export const App = () => {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', activeTheme);
+    document.documentElement.setAttribute(
+      'data-theme',
+      activeTheme
+    );
 
-    const themeColor = THEME_COLORS[activeTheme] || '#fcfbf7';
+    const themeColor =
+      THEME_COLORS[activeTheme] || '#fcfbf7';
+
     document.body.style.backgroundColor = themeColor;
 
     let metaThemeColor = document.querySelector(
@@ -126,7 +168,10 @@ export const App = () => {
       document.head.appendChild(metaThemeColor);
     }
 
-    metaThemeColor.setAttribute('content', themeColor);
+    metaThemeColor.setAttribute(
+      'content',
+      themeColor
+    );
   }, [activeTheme]);
 
   const handlePreloaderFinish = useCallback(() => {
@@ -148,6 +193,15 @@ export const App = () => {
     });
   }, []);
 
+  const isKeepAliveActive =
+    activeKeepAliveChats.length > 0;
+
+  const activeAudioTrack = audioConfig.playlist.find(
+    (track) => track.id === audioConfig.activeTrackId
+  );
+
+  const activeAudioUrl = activeAudioTrack?.url || '';
+
   const shouldDisplayHubHeader =
     currentApp === 'hub' && !isInsideChatRoom;
 
@@ -165,12 +219,17 @@ export const App = () => {
 
       <NotificationToast />
 
-      <AudioKeepAlive isActive={isKeepAliveActive} />
+      <AudioKeepAlive
+        isActive={isKeepAliveActive}
+        audioSrc={activeAudioUrl}
+      />
 
       <KeepAliveIndicator
-  isVisible={isKeepAliveActive}
-  onClick={() => openApp('messages')}
-/>
+        isVisible={isKeepAliveActive}
+        activeChats={activeKeepAliveChats}
+        audioConfig={audioConfig}
+        onAudioConfigChange={setAudioConfig}
+      />
 
       <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"
@@ -198,6 +257,7 @@ export const App = () => {
           paddingTop: isInsideChatRoom
             ? '0'
             : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+
           paddingBottom: isInsideChatRoom
             ? '0'
             : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
@@ -206,7 +266,9 @@ export const App = () => {
         {shouldDisplayHubHeader && (
           <header
             className={`flex items-start animate-fade-in-up ${
-              showTitle ? 'justify-between' : 'justify-end'
+              showTitle
+                ? 'justify-between'
+                : 'justify-end'
             }`}
           >
             {showTitle && (
@@ -244,7 +306,10 @@ export const App = () => {
                 borderColor: 'var(--card-border)'
               }}
             >
-              <SettingsIcon className="h-4 w-4" strokeWidth={1.7} />
+              <SettingsIcon
+                className="h-4 w-4"
+                strokeWidth={1.7}
+              />
             </button>
           </header>
         )}
@@ -266,7 +331,10 @@ export const App = () => {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <AppGrid delay={400} onOpenApp={openApp} />
+              <AppGrid
+                delay={400}
+                onOpenApp={openApp}
+              />
             </ErrorBoundary>
           </DailyOfferingHubGate>
         )}
@@ -286,7 +354,9 @@ export const App = () => {
 
         {currentApp === 'manual' && (
           <ErrorBoundary>
-            <ManualApp onBack={() => openApp('settings')} />
+            <ManualApp
+              onBack={() => openApp('settings')}
+            />
           </ErrorBoundary>
         )}
 
@@ -301,31 +371,41 @@ export const App = () => {
 
         {['todos', 'planner'].includes(currentApp) && (
           <ErrorBoundary>
-            <TodoApp onBackHub={() => openApp('hub')} />
+            <TodoApp
+              onBackHub={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
         {currentApp === 'diaries' && (
           <ErrorBoundary>
-            <DiaryApp onBackHub={() => openApp('hub')} />
+            <DiaryApp
+              onBackHub={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
         {['travels', 'travel'].includes(currentApp) && (
           <ErrorBoundary>
-            <TravelApp onBackHub={() => openApp('hub')} />
+            <TravelApp
+              onBackHub={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
         {currentApp === 'snapshots' && (
           <ErrorBoundary>
-            <SnapshotsApp onBackHub={() => openApp('hub')} />
+            <SnapshotsApp
+              onBackHub={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
         {currentApp === 'pebbling' && (
           <ErrorBoundary>
-            <PebblingApp onBack={() => openApp('hub')} />
+            <PebblingApp
+              onBack={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
@@ -358,13 +438,17 @@ export const App = () => {
 
         {currentApp === 'ephemera' && (
           <ErrorBoundary>
-            <EphemeraApp onBackHub={() => openApp('hub')} />
+            <EphemeraApp
+              onBackHub={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
         {currentApp === 'askbox' && (
           <ErrorBoundary>
-            <AskBoxApp onBackHub={() => openApp('hub')} />
+            <AskBoxApp
+              onBackHub={() => openApp('hub')}
+            />
           </ErrorBoundary>
         )}
 
@@ -405,6 +489,7 @@ export const App = () => {
 };
 
 export default App;
+
 
 
 

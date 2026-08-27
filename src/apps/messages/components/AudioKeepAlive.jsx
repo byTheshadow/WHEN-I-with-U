@@ -1,61 +1,88 @@
 import React, { useEffect, useRef } from 'react';
 
-// 全局单例 AudioContext，多窗口/重渲染复用，避免重复 new
 let globalAudioContext = null;
 
-export const AudioKeepAlive = ({ isActive = false }) => {
+const SILENT_WAV_DATA =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+export const AudioKeepAlive = ({
+  isActive = false,
+  audioSrc = ''
+}) => {
   const oscillatorRef = useRef(null);
   const gainNodeRef = useRef(null);
   const audioRef = useRef(null);
 
-  // 使用 Ref 记录状态，防止 React 闭包脏读，彻底消除重复触发
   const hasActivatedRef = useRef(false);
   const isActivatingRef = useRef(false);
 
   useEffect(() => {
-    // 如果没有开启保活，则重置状态并安全清理
     if (!isActive) {
       hasActivatedRef.current = false;
-      return;
+      return undefined;
     }
+
+    const removeGestureListeners = () => {
+      ['touchstart', 'click', 'keydown', 'mousedown'].forEach((eventName) => {
+        window.removeEventListener(eventName, tryActivateAudio);
+      });
+    };
 
     const stopKeepAlive = async () => {
       try {
         if (oscillatorRef.current) {
           try {
             oscillatorRef.current.stop();
-          } catch (e) {}
+          } catch {}
+
           oscillatorRef.current.disconnect();
           oscillatorRef.current = null;
         }
+
         if (gainNodeRef.current) {
           gainNodeRef.current.disconnect();
           gainNodeRef.current = null;
         }
+
         if (audioRef.current) {
           audioRef.current.pause();
+          audioRef.current.currentTime = 0;
         }
-        if (globalAudioContext && globalAudioContext.state === 'running') {
+
+        if (
+          globalAudioContext &&
+          globalAudioContext.state === 'running'
+        ) {
           await globalAudioContext.suspend();
         }
+
         if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = null;
           navigator.mediaSession.playbackState = 'none';
         }
-      } catch (e) {
-        console.warn('[AudioKeepAlive] 清理保活音频失败:', e);
+      } catch (error) {
+        console.warn(
+          '[AudioKeepAlive] 清理保活音频失败:',
+          error
+        );
       }
     };
 
     const tryActivateAudio = async () => {
-      // 锁机制：如果已经激活成功，或者正在激活中，直接拦截，防止打字/触摸重复触发
-      if (hasActivatedRef.current || isActivatingRef.current) return;
+      if (
+        hasActivatedRef.current ||
+        isActivatingRef.current
+      ) {
+        return;
+      }
+
       isActivatingRef.current = true;
-      
+
       try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const AudioContextClass =
+          window.AudioContext || window.webkitAudioContext;
+
         if (!AudioContextClass) {
-          isActivatingRef.current = false;
           return;
         }
 
@@ -67,94 +94,93 @@ export const AudioKeepAlive = ({ isActive = false }) => {
           await globalAudioContext.resume();
         }
 
-        // 初始化超低频无声振荡器（仅在未创建时初始化一次）
         if (!oscillatorRef.current) {
-          const osc = globalAudioContext.createOscillator();
-          const gain = globalAudioContext.createGain();
+          const oscillator = globalAudioContext.createOscillator();
+          const gainNode = globalAudioContext.createGain();
 
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(20, globalAudioContext.currentTime);
-          gain.gain.setValueAtTime(0.00001, globalAudioContext.currentTime);
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(
+            20,
+            globalAudioContext.currentTime
+          );
 
-          osc.connect(gain);
-          gain.connect(globalAudioContext.destination);
-          osc.start();
+          gainNode.gain.setValueAtTime(
+            0.00001,
+            globalAudioContext.currentTime
+          );
 
-          oscillatorRef.current = osc;
-          gainNodeRef.current = gain;
+          oscillator.connect(gainNode);
+          gainNode.connect(globalAudioContext.destination);
+          oscillator.start();
+
+          oscillatorRef.current = oscillator;
+          gainNodeRef.current = gainNode;
         }
 
-        // 尝试播放无声音乐文件（仅在暂停状态下播放，避免重复 play() 抛错）
-        if (audioRef.current && audioRef.current.paused) {
-          try {
-            await audioRef.current.play();
-          } catch (playErr) {
-            console.warn('[AudioKeepAlive] 静音音频播放被浏览器拦截:', playErr);
-          }
+        if (audioRef.current?.paused) {
+          await audioRef.current.play();
         }
 
-        // 写入手机锁屏媒体卡片
-        if ('mediaSession' in navigator) {
+        if ('mediaSession' in navigator && 'MediaMetadata' in window) {
           navigator.mediaSession.metadata = new MediaMetadata({
-            title: 'WHEN I with U',
+            title: audioSrc ? '音乐保活' : 'WHEN I with U',
             artist: '个人陪伴空间',
             album: '后台保活运行中'
           });
+
           navigator.mediaSession.playbackState = 'playing';
         }
 
         hasActivatedRef.current = true;
-        console.log('[AudioKeepAlive] 用户交互触发，音频后台保活已成功激活。');
-
-        // 成功激活后立即移除所有手势监听，释放 CPU 资源
         removeGestureListeners();
-      } catch (err) {
-        console.log('[AudioKeepAlive] 等待用户点击或手势以激活音频。');
+      } catch (error) {
+        console.warn(
+          '[AudioKeepAlive] 音频等待用户交互后启动:',
+          error
+        );
       } finally {
         isActivatingRef.current = false;
       }
     };
 
-    // 绑定常见的手势
-    const gestureEvents = ['touchstart', 'click', 'keydown', 'mousedown'];
-    
     const addGestureListeners = () => {
-      gestureEvents.forEach((evt) => {
-        window.addEventListener(evt, tryActivateAudio, { passive: true });
+      ['touchstart', 'click', 'keydown', 'mousedown'].forEach((eventName) => {
+        window.addEventListener(eventName, tryActivateAudio, {
+          passive: true
+        });
       });
     };
 
-    const removeGestureListeners = () => {
-      gestureEvents.forEach((evt) => {
-        window.removeEventListener(evt, tryActivateAudio);
-      });
-    };
+    const initTimeout = window.setTimeout(() => {
+      void tryActivateAudio();
 
-    // 延迟 150ms 启动保活，避开页面挂载时最密集的计算期
-    const initTimeout = setTimeout(() => {
-      tryActivateAudio();
       if (!hasActivatedRef.current) {
         addGestureListeners();
       }
     }, 150);
 
     return () => {
-      clearTimeout(initTimeout);
+      window.clearTimeout(initTimeout);
       removeGestureListeners();
       void stopKeepAlive();
     };
-  }, [isActive]);
-
-  const silentWavData =
-    'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+  }, [isActive, audioSrc]);
 
   return (
     <audio
       ref={audioRef}
-      src={silentWavData}
+      src={audioSrc || SILENT_WAV_DATA}
       loop
       preload="auto"
+      volume="0.45"
       aria-hidden="true"
+      onError={() => {
+        if (audioSrc) {
+          console.warn(
+            '[AudioKeepAlive] 音乐 URL 无法播放，将保持保活状态。'
+          );
+        }
+      }}
       style={{ display: 'none' }}
     />
   );
