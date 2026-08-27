@@ -30,8 +30,10 @@ export const InTransitDashboard = ({
     }
   };
 
-  const companionName = character?.name || '伴侣';
-  const userName = travel.userPassportName || 'User';
+ const unreadPostcardCount = postcards.filter(
+  (postcard) => !postcard.isRead
+).length;
+
 
   return (
     <div className="animate-fade-in-up space-y-8">
@@ -118,7 +120,7 @@ export const InTransitDashboard = ({
           >
             <span className="flex items-center gap-1.5">
               <RefreshCw className={`h-3.5 w-3.5 ${isChecking ? 'animate-spin' : ''}`} />
-              打开今日邮袋
+              查看邮件
             </span>
           </button>
         </div>
@@ -141,9 +143,18 @@ export const InTransitDashboard = ({
               夹在信里的旅行片段
             </h3>
           </div>
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {postcards.length} 枚
-          </span>
+          <div
+  className="text-right text-xs"
+  style={{ color: 'var(--text-muted)' }}
+>
+  <p>{postcards.length} 枚</p>
+  {unreadPostcardCount > 0 && (
+    <p className="mt-0.5 text-[10px]">
+      {unreadPostcardCount} 封新抵达
+    </p>
+  )}
+</div>
+
         </div>
 
         {postcards.length === 0 ? (
@@ -188,12 +199,27 @@ export const InTransitDashboard = ({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p
-                        className="font-serif text-base font-bold"
-                        style={{ color: 'var(--text-main)' }}
-                      >
-                        {card.spotName || '旅途片段'}
-                      </p>
+                     <div className="flex items-start justify-between gap-2">
+  <p
+    className="font-serif text-base font-bold"
+    style={{ color: 'var(--text-main)' }}
+  >
+    {card.spotName || '旅途片段'}
+  </p>
+
+  {!card.isRead && (
+    <span
+      className="shrink-0 border px-1.5 py-0.5 text-[9px]"
+      style={{
+        borderColor: 'var(--card-border)',
+        color: 'var(--text-muted)'
+      }}
+    >
+      新抵达
+    </span>
+  )}
+</div>
+
                       <p
                         className="mt-2 line-clamp-3 text-xs leading-6"
                         style={{ color: 'var(--text-sub)' }}

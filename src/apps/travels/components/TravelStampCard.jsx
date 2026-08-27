@@ -18,6 +18,7 @@ export const TravelStampCard = ({
   travel,
   character,
   postcardCount = 0,
+  unreadPostcardCount = 0,
   onClick,
   onDelete
 }) => {
@@ -242,10 +243,22 @@ export const TravelStampCard = ({
               className="mt-3 flex items-center justify-between border-t pt-2 text-[9px]"
               style={{ borderColor: 'var(--divider)', color: 'var(--text-sub)' }}
             >
-              <span className="flex items-center gap-1">
-                <Mail className="h-3 w-3" />
-                {postcardCount}
-              </span>
+              <div className="flex min-w-0 items-center gap-1">
+  <Mail className="h-3 w-3 shrink-0" />
+  <span>{postcardCount}</span>
+
+  {unreadPostcardCount > 0 && (
+    <span
+      className="ml-1 truncate border px-1 py-0.5 text-[8px]"
+      style={{
+        borderColor: 'var(--card-border)',
+        color: 'var(--text-muted)'
+      }}
+    >
+      {unreadPostcardCount} 封未读
+    </span>
+  )}
+</div>
               {isInTransit && (
                 <span className="flex items-center gap-1">
                   <Plane className="h-3 w-3 animate-pulse" />

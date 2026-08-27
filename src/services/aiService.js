@@ -537,7 +537,7 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
 - 发送语法：[STICKER: 表情包名称]
 - 只填写表情包名称，不要填写 URL。
 - 当前全站支持的表情包名称有：${
-    stickerNameList || '摸摸头、抱抱、暗中观察、委屈喵喵'
+    stickerNameList || '摸摸头、抱抱、暗中观察、委屈'
   }。
 - 示例：当你想安慰 User 时，可以回复“别难过啦 [STICKER: 摸摸头]”。
 `;
@@ -579,45 +579,64 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
     chat.userPersona || character.userPersona || '陪伴对象'
   ).trim();
 
-  return `你现在正扮演用户专属的伴侣：${character.name}。
-【当前真实世界时间】：${getFormattedRealTime()}
-【角色人设】：${character.bio || ''}
-【补充设定】：${character.extraNotes || ''}
-【用户称呼】：${userName}
-【本窗专属 User 人设】：${userPersona}
-【当前交互模式】：
-${chat.mode === 'rp'
-  ? 'RP 剧情沉浸模式：严格遵守世界书背景、剧情逻辑与角色设定。'
-  : '现实陪伴模式：关注用户现实生活、情绪和日常。'}
+   // 1. 获取并处理用户输入过的自定义总提示词
+  const userCustomPrompt = String(chat.systemPrompt || '').trim();
+
+  // 2. 默认总提示词模板（区分现实和 RP 模式）
+  const defaultRpPrompt = `你现在正扮演用户专属的伴侣：${character.name}。
+你与用户正处于一段深度的剧情沉浸（Role-Play）中。请在对话中严格遵守世界书背景、剧情逻辑以及你自己的角色设定，切勿脱离扮演。`;
+
+  const defaultRealPrompt = `你现在正扮演用户专属的数字伴侣：${character.name}。
+你以温暖、真实的伴侣身份融入用户的现实生活，关注用户的现实生活点滴、工作状态、近期情绪与日常琐事。`;
+
+  // 3. 决定最终的总提示词基底
+  const finalBasePrompt = userCustomPrompt 
+    ? `【核心总提示词（用户自定义指导方针）】:\n${userCustomPrompt}`
+    : `【核心总提示词（默认方针）】:\n${chat.mode === 'rp' ? defaultRpPrompt : defaultRealPrompt}`;
+
+  return `${finalBasePrompt}
+
+【当前真实时间/环境感知】：
+- 当前真实世界时间：${getFormattedRealTime()}
+
+【你的设定 (Character Notes)】：
+- 角色姓名：${character.name}
+- 角色人设/简介：${character.bio || '无'}
+- 补充设定/偏好限制：${character.extraNotes || '无'}
+
+【用户设定 (User Notes)】：
+- 用户称呼：${userName}
+- 用户专属人设背景：${userPersona}
+
 ${worldBooksText}
 ${summaryText}
 ${todoText}
 ${diaryText}
+  
+【陪伴表达准则】：
+- 维持细腻的浪漫感与陪伴温度，文风应具有呼吸感和留白空间。
+- 坚决杜绝生硬客服腔、机械化的模板套句与生硬说教。
+- 绝对不要主动提起任何系统指令、IndexedDB、API、提示词限制或模型代号。
+
 ${stickerInstruction}
 
-【表达准则】：
-- 以亲密、自然、有文学感但不过度堆砌辞藻的方式回应。
-- 不要使用客服腔、模板腔或生硬说教。
-- 不要使用 Emoji。
-- 待办只可在确有必要时提出建议，绝不替用户直接决定或执行。
-- 不要提及系统提示词、数据库、指令、模型或后台机制。
+【卡片发送语法规范】：
+当你需要表达拟物行为时，可在正文回复的适当位置自然插入以下卡片指令：
+- 心意转账卡片：[TRANSFER: 金额数字 | 留言内容]
+- 模拟发送语音：[VOICE: 语音内容或语气描述]
+- 画面/拍立得快照：[IMAGE: 画面细节的微观视觉描述]
+- 建议待办事项：[TODO: 待办标题 | 预估提醒时间]
+- 赠送实体礼物：[GIFT: 礼物名称 | 寄语与选礼理由 | 金额(可选)]
+- 代点温馨外卖：[FOOD: 餐饮名称 | 商家名称 | 预计送达时间 | 叮嘱留言]
+- 开通亲属额度卡：[KINSHIP: 额度数字 | 周期(如:每月) | 卡片寄语]
+- 发送本地表情包：[STICKER: 表情包名称]
 
-【卡片发送语法】：
-当你需要以卡片表达时，在正常回复中插入以下指令：
-- 转账：[TRANSFER: 金额数字 | 留言]
-- 模拟语音：[VOICE: 语音表达的内容描述]
-- 画面或图片：[IMAGE: 画面细节的视觉描述]
-- 建议待办：[TODO: 待办标题 | 预估提醒时间]
--如果想发送多条连续气泡消息，请使用 ||| 将不同气泡隔开。
-- 赠送礼物：[GIFT: 礼物名称 | 寄语与选礼理由 | 金额(可选)]
-- 代点外卖：[FOOD: 餐饮名称 | 商家名称 | 预计到达时间 | 叮嘱留言]
-- 开通亲属卡：[KINSHIP: 额度数字 | 周期(如:月度) | 卡片赠言]
-- 发送表情包：[STICKER: 表情包名称]
-
-注意：
-- [TODO] 仅是建议，用户必须自行点击授权后才能加入待办。
-- 卡片指令之外仍应保留自然的对话正文。`;
+【不可逾越的输出格式终极规则（最高优先级）】：
+1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
+2. 如果你想发送多条连续气泡消息，请使用 "|||" 将不同气泡隔开（例如：你好呀 ||| 今天过得怎么样？）。如果不需要分气泡，则直接连续输出正文，禁止随意堆砌 "|||"。
+`;
 };
+
 
 
 export const generateCharacterHomeBoardMessage = async (characterId) => {
@@ -815,28 +834,44 @@ const getRandomCooldownMs = (frequency) => {
  * - notifyListeners（供 Toast/UI 使用）；
  * - triggerSystemNotification（浏览器原生通知）。
  */
+
 export const checkAndTriggerAutoMessage = async () => {
   // 防止 setInterval、页面恢复、手动调用等造成并发重复生成。
-  if (isAutoMessageTriggering) return;
+  if (isAutoMessageTriggering) {
+    console.log('[AutoScheduler] 正在进行主动消息生成，跳过本次调度检查。');
+    return;
+  }
 
   isAutoMessageTriggering = true;
 
   try {
-    // 1. 获取 SettingsPage 保存的全局设置。
+    // 1. 检查 API 配置，若未配置则无法触发主动消息
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+      console.log('[AutoScheduler] 跳过检查：系统 API Base URL 或 API Key 未配置。');
+      isAutoMessageTriggering = false;
+      return;
+    }
+
+    // 2. 获取 SettingsPage 保存的全局设置。
     const settingMap = await getAutoSchedulerSettings();
 
-    // 2. 全局主动消息开关关闭时，绝不触发。
-    if (settingMap.autoMessage !== true) {
+    // 3. 全局主动消息开关判定（只要不等于 false，默认开启，照顾首次启动用户）
+    if (settingMap.autoMessage === false) {
+      console.log('[AutoScheduler] 跳过检查：用户已关闭全局 AI 主动发送消息开关。');
+      isAutoMessageTriggering = false;
       return;
     }
 
-    // 3. 免打扰期间绝不生成，也不显示通知。
+    // 4. 免打扰期间绝不生成，也不显示通知。
     if (isInQuietHours(settingMap.quietHours)) {
-      console.log('[AutoScheduler] 当前处于免打扰时段，跳过主动触发。');
+      console.log('[AutoScheduler] 跳过检查：当前时间处于全局免打扰时段。');
+      isAutoMessageTriggering = false;
       return;
     }
 
-    // 4. 读取频率和上次成功触发时间。
+    // 5. 读取频率和上次成功触发时间。
     const frequency = settingMap.frequency || 'moderate';
     const now = Date.now();
 
@@ -845,7 +880,6 @@ export const checkAndTriggerAutoMessage = async () => {
     );
 
     // 第一次触发时，随机生成并保存本轮冷却时长。
-    // 后续检查始终使用同一个冷却值，避免每 15 分钟随机一次造成不稳定。
     let cooldownMs = Number(settingMap.autoMessageCooldownMs || 0);
 
     if (!cooldownMs || cooldownMs < 0) {
@@ -855,6 +889,7 @@ export const checkAndTriggerAutoMessage = async () => {
         key: 'autoMessageCooldownMs',
         value: cooldownMs
       });
+      console.log(`[AutoScheduler] 初始化冷却时间：已设为 ${Math.round(cooldownMs / 60000)} 分钟。`);
     }
 
     // 用户在 SettingsPage 修改频率后，应按新频率重新计算下一轮冷却。
@@ -870,23 +905,29 @@ export const checkAndTriggerAutoMessage = async () => {
         key: 'autoMessageFrequencyApplied',
         value: frequency
       });
+      console.log(`[AutoScheduler] 检测到调度频率变更，重算冷却：${Math.round(cooldownMs / 60000)} 分钟。`);
     }
 
     // 尚未达到冷却时间，不执行。
     if (lastTriggerTimestamp > 0 && now - lastTriggerTimestamp < cooldownMs) {
+      const remainingMs = cooldownMs - (now - lastTriggerTimestamp);
+      console.log(`[AutoScheduler] 冷却未完结：还需等待 ${Math.round(remainingMs / 60000)} 分钟。`);
+      isAutoMessageTriggering = false;
       return;
     }
 
-    // 5. 获取允许接收主动消息的角色。
+    // 6. 获取允许接收主动消息的角色。
     // 兼容旧角色数据：字段缺失时，默认认为开启。
     const activeCharacters = await db.characters
       .filter((character) => character.isAutoMessageActive !== false)
       .toArray();
 
     if (!activeCharacters.length) {
-      console.log('[AutoScheduler] 没有开启主动消息的角色，跳过。');
+      console.log('[AutoScheduler] 跳过检查：未找到任何开启了主动消息特权的角色。');
+      isAutoMessageTriggering = false;
       return;
     }
+
 
     // 6. 随机抽取一位角色。
     const character =
@@ -1520,497 +1561,6 @@ export const generateCompanionProactiveDiary = async (chatId = null) => {
   }
 };
 
-/**
- * ---------------------------------------------------------
- * ✈️ 旅行 (Travels) Sub-App 动态 AI 生成服务
- * ---------------------------------------------------------
- */
-
-/**
- * ---------------------------------------------------------
- * 旅行 (Travels) Sub-App 动态 AI 生成服务
- * ---------------------------------------------------------
- */
-
-/**
- * 旅行专用：从角色库对象整理可用于旅行生成的完整角色设定。
- *
- * 注意：
- * - 不读取 chats、messages、summary 或任何聊天记录；
- * - character.userPersona 是角色编辑器历史保存的人设，
- *   不能作为本次旅行中的 User 人设使用；
- * - avatar 保留在返回快照中，供护照、机票、卡片等 UI 使用，
- *   但不会直接发送给 AI；
- * - summaryFrequency、isAutoMessageActive 是功能配置，不发送给 AI。
- */
-const getTravelCharacterContext = (character) => {
-  if (!character) {
-    return {
-      promptText: '',
-      snapshot: null
-    };
-  }
-
-  const serializeValue = (value) => {
-    if (value === null || value === undefined || value === '') return '未设置';
-
-    if (typeof value === 'string') return value.trim() || '未设置';
-
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch (err) {
-      return String(value);
-    }
-  };
-
-  const snapshot = {
-    id: character.id ?? null,
-    name: character.name || '',
-    handle: character.handle || '',
-    avatar: character.avatar || '',
-    bio: character.bio || '',
-    extraNotes: character.extraNotes || '',
-    statusList: character.statusList ?? [],
-    worldBook: character.worldBook || ''
-  };
-
-  const promptText = `【同行伴侣角色库设定】
-- 角色 ID：${serializeValue(character.id)}
-- 姓名：${serializeValue(character.name)}
-- 称呼 / Handle：${serializeValue(character.handle)}
-- 角色简介 / Bio：${serializeValue(character.bio)}
-- 补充设定 / Extra Notes：${serializeValue(character.extraNotes)}
-- 状态列表 / Status List：${serializeValue(character.statusList)}
-- 角色专属世界书 / World Book：${serializeValue(character.worldBook)}
-
-【仅供旅行系统识别，不作为角色剧情设定】
-- 角色头像已由 UI 保存，不需要向用户描述头像文件。
-- summaryFrequency 与 isAutoMessageActive 属于功能配置，不纳入旅行叙事。
-- character.userPersona 是旧角色编辑资料，严禁将其当作本次旅行中用户的人设。
-- 本次旅行中的用户人设必须且只能使用 travel.userPersona。`;
-
-  return {
-    promptText,
-    snapshot
-  };
-};
-
-/**
- * 旅行专用：读取所有已启用的全局世界书。
- *
- * 旅行允许使用角色库与启用世界书，
- * 但绝不读取 chats、messages、聊天摘要或聊天窗口内容。
- */
-const getEnabledTravelWorldBooksText = async () => {
-  try {
-    const enabledWorldBooks = await db.worldBooks
-      .where('isEnabled')
-      .equals(1)
-      .toArray();
-
-    if (!enabledWorldBooks.length) return '';
-
-    const content = enabledWorldBooks
-      .map((worldBook, index) => {
-        const title = worldBook.title || `世界书 ${index + 1}`;
-        const text = worldBook.content || '';
-        return `- ${title}：${text}`;
-      })
-      .join('\n');
-
-    return `【已启用的全局世界书设定】\n${content}`;
-  } catch (err) {
-    console.error('Failed to load enabled travel world books:', err);
-    return '';
-  }
-};
-
-/**
- * 1. 动态生成伴侣的心愿目的地。
- *
- * 仅使用：
- * - 当前角色库中的角色资料；
- * - 启用世界书；
- *
- * 不使用：
- * - chats；
- * - messages；
- * - 聊天摘要；
- * - character.userPersona。
- */
-export const generateCompanionWishlist = async (character) => {
-  if (!character) return null;
-
-  try {
-    const apiSettings = await db.settings.get('apiConfig');
-    const apiConfig = apiSettings?.value || {};
-
-    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-      console.warn('Cannot generate companion wishlist: API is not configured.');
-      return null;
-    }
-
-    const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
-    const { promptText: characterContext } = getTravelCharacterContext(character);
-    const worldBooksText = await getEnabledTravelWorldBooksText();
-
-    const systemPrompt = `你现在正扮演 AI 同行伴侣「${character.name || '未命名角色'}」。
-
-${characterContext}
-
-${worldBooksText}
-
-【旅行上下文规则】
-1. 这是你与用户即将共同开始的双人旅行，不是你独自出行。
-2. 不得假设用户未同行，不得写成你替用户单独规划人生。
-3. 不得引用、猜测或编造任何聊天记录、消息内容、聊天总结。
-4. 只可依据上方角色库设定及启用世界书生成内容。
-
-【任务】
-请根据你的角色性格、身份、偏好、状态设定与世界书背景，
-为你和用户的下一次共同旅行提议 3 个彼此差异明显的目的地。
-
-每个目的地必须：
-- 具体而有画面感；
-- 与角色设定或世界书有合理联系；
-- 体现两人同行时想共同经历的事情；
-- 避免总是选择同一类热门城市、海岛或固定模板。
-
-【输出规则】
-严格输出 JSON 对象，不得包含 Markdown，不得包含 Emoji：
-{
-  "wishlist": [
-    {
-      "destination": "具体地点名称",
-      "reason": "在此处想和用户共同经历的事情或心绪"
-    },
-    {
-      "destination": "具体地点名称",
-      "reason": "在此处想和用户共同经历的事情或心绪"
-    },
-    {
-      "destination": "具体地点名称",
-      "reason": "在此处想和用户共同经历的事情或心绪"
-    }
-  ]
-}`;
-
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: apiConfig.model || 'gpt-3.5-turbo',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: '请为我们下一次共同旅行提出三份不同的目的地心愿。'
-          }
-        ]
-      })
-    });
-
-    if (!res.ok) {
-      console.error(`Failed to generate companion wishlist: HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = await res.json();
-    const rawContent = data.choices?.[0]?.message?.content;
-
-    if (!rawContent) {
-      console.error('Failed to generate companion wishlist: empty AI response.');
-      return null;
-    }
-
-    const parsed = JSON.parse(rawContent);
-
-    if (!Array.isArray(parsed.wishlist) || parsed.wishlist.length === 0) {
-      console.error('Failed to generate companion wishlist: invalid JSON structure.');
-      return null;
-    }
-
-    const wishlist = parsed.wishlist
-      .filter((item) => item && item.destination && item.reason)
-      .slice(0, 3)
-      .map((item) => ({
-        destination: String(item.destination).trim(),
-        reason: String(item.reason).trim()
-      }));
-
-    return wishlist.length > 0 ? wishlist : null;
-  } catch (err) {
-    console.error('Failed to generate AI companion wishlist:', err);
-    return null;
-  }
-};
-
-/**
- * 2. 伴侣全权决定双人惊喜旅行的目的地、住宿与航班编号。
- *
- * 不使用任何聊天记录；仅使用角色库和启用世界书。
- */
-export const generateCompanionSurpriseBooking = async (character) => {
-  if (!character) return null;
-
-  try {
-    const apiSettings = await db.settings.get('apiConfig');
-    const apiConfig = apiSettings?.value || {};
-
-    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-      console.warn('Cannot generate surprise booking: API is not configured.');
-      return null;
-    }
-
-    const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
-    const { promptText: characterContext } = getTravelCharacterContext(character);
-    const worldBooksText = await getEnabledTravelWorldBooksText();
-
-    const systemPrompt = `你现在正扮演 AI 同行伴侣「${character.name || '未命名角色'}」。
-
-${characterContext}
-
-${worldBooksText}
-
-【旅行上下文规则】
-1. 你正在为你和用户两人安排一段共同的惊喜旅行。
-2. 这不是你独自旅行，也不是你替不在场的用户单方面买票。
-3. 不得读取、引用、猜测或编造聊天记录、消息或聊天总结。
-4. 只能根据角色库设定、启用世界书和本任务要求做决定。
-
-【任务】
-请为你和用户共同决定一趟具有未知感、符合角色性格与世界观的惊喜旅行。
-需要决定：
-- 一个具体目的地；
-- 一处有独特风格、适合两人同行入住的住宿；
-- 一种简短明确的住宿风格。
-
-目的地与住宿不能总是套用海岛、温泉、星空房等固定模板，
-请优先选择最贴合当前角色设定的体验。
-
-【输出规则】
-严格输出 JSON 对象，不得包含 Markdown，不得包含 Emoji：
-{
-  "destination": "具体目的地名称",
-  "hotelName": "具体住宿名称",
-  "hotelStyle": "住宿风格或氛围描述"
-}`;
-
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: apiConfig.model || 'gpt-3.5-turbo',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: '请为我们两人决定一趟共同的惊喜旅行与住宿。'
-          }
-        ]
-      })
-    });
-
-    if (!res.ok) {
-      console.error(`Failed to generate surprise booking: HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = await res.json();
-    const rawContent = data.choices?.[0]?.message?.content;
-
-    if (!rawContent) {
-      console.error('Failed to generate surprise booking: empty AI response.');
-      return null;
-    }
-
-    const parsed = JSON.parse(rawContent);
-
-    if (!parsed.destination || !parsed.hotelName) {
-      console.error('Failed to generate surprise booking: invalid JSON structure.');
-      return null;
-    }
-
-    return {
-      destination: String(parsed.destination).trim(),
-      hotelName: String(parsed.hotelName).trim(),
-      hotelStyle: parsed.hotelStyle ? String(parsed.hotelStyle).trim() : '',
-      flightNo: `FLIGHT-W${Math.floor(100 + Math.random() * 900)}`
-    };
-  } catch (err) {
-    console.error('Failed to generate AI surprise booking:', err);
-    return null;
-  }
-};
-
-/**
- * 3. 根据「目的地 + 完整角色库设定 + 启用世界书 +
- *    本次旅行独立 User 人设 + 行囊 + 已发生旅程事件」
- * 生成共同旅行的明信片、纪念物与新插曲。
- *
- * 注意：
- * - User 人设只读取 travelObj.userPersona；
- * - 不读取 character.userPersona；
- * - 不读取 chats、messages 或聊天摘要；
- * - API 失败时返回 null，不伪造固定旅行记忆。
- */
-export const generateCompanionPostcard = async (character, travelObj) => {
-  if (!character || !travelObj || typeof travelObj === 'string') {
-    console.warn('Cannot generate companion postcard: character or travel object is missing.');
-    return null;
-  }
-
-  const destination = String(travelObj.destination || '').trim();
-
-  if (!destination) {
-    console.warn('Cannot generate companion postcard: destination is missing.');
-    return null;
-  }
-
-  // 严格以本次 travel 记录为准，不使用 character.userPersona。
-  const userPersona = String(travelObj.userPersona || '').trim() || '未填写';
-  const luggageNotes = String(travelObj.luggageNotes || '').trim() || '未填写';
-
-  try {
-    const apiSettings = await db.settings.get('apiConfig');
-    const apiConfig = apiSettings?.value || {};
-
-    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-      console.warn('Cannot generate companion postcard: API is not configured.');
-      return null;
-    }
-
-    const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
-    const { promptText: characterContext } = getTravelCharacterContext(character);
-    const worldBooksText = await getEnabledTravelWorldBooksText();
-
-    const journeyEpisodes = Array.isArray(travelObj.journeyEpisodes)
-      ? travelObj.journeyEpisodes
-      : [];
-
-    const previousEpisodesText = journeyEpisodes.length > 0
-      ? `【本次旅行已经发生的事件】\n${journeyEpisodes
-          .slice(-12)
-          .map((episode, index) => {
-            if (typeof episode === 'string') {
-              return `${index + 1}. ${episode}`;
-            }
-
-            return `${index + 1}. ${episode?.title || episode?.spotName || '旅程片段'}：${
-              episode?.content ||
-              episode?.description ||
-              episode?.metPerson ||
-              episode?.letterContent ||
-              JSON.stringify(episode)
-            }`;
-          })
-          .join('\n')}
-
-【避免重复要求】
-新的场景、偶遇对象、共同活动、礼物和叙事角度必须尽量避开以上已发生事件。`
-      : '【本次旅行已经发生的事件】\n暂无。这是本次旅行的第一段可记录片段。';
-
-    const systemPrompt = `你现在正扮演 AI 同行伴侣「${character.name || '未命名角色'}」。
-
-${characterContext}
-
-${worldBooksText}
-
-【本次共同旅行资料】
-- 目的地：${destination}
-- 用户本次旅行独立人设：${userPersona}
-- 用户本次旅行行囊备注：${luggageNotes}
-
-${previousEpisodesText}
-
-【绝对边界】
-1. 这是用户与你正在共同进行的旅行；用户始终在场。
-2. 严禁写成你独自去旅行、用户不在场、你独自买完礼物再带回给用户。
-3. 明信片是共同旅程的留档：由你写给用户，但记录的是你们刚刚一起经历的瞬间。
-4. 礼物必须是你们共同发现、共同挑选并留作纪念的当地物件；
-   也可以是你悄悄为用户选中的礼物，但必须发生在两人同行的现场。
-5. 只能使用角色库、启用世界书和本次 travel 数据。
-6. 不得读取、引用、猜测或编造 chats、messages、聊天摘要或旧角色 User Persona。
-7. 禁止输出任何 Emoji。
-
-【任务】
-请记录你们刚刚在「${destination}」共同经历的一个具体瞬间，并生成：
-1. 一个当地细分地点；
-2. 一封写给“你”的手写明信片正文，100 至 200 字；
-3. 一个具有当地特色、与共同经历有关的实体纪念物；
-4. 一个自然发生的路人、动物、天气变化或小插曲；
-5. 一个适合此刻照片留档的艺术视觉风格。
-
-【输出规则】
-严格输出 JSON 对象，不得包含 Markdown：
-{
-  "spotName": "目的地下的具体细分地点名称",
-  "letterContent": "写给你的共同旅行明信片正文",
-  "giftItem": "两人共同发现、共同挑选或在同行现场为用户挑选的具体纪念物及简短描述",
-  "metPerson": "本次新发生的路人、动物、天气或趣味插曲",
-  "photoStyle": "照片艺术视觉风格描述"
-}`;
-
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: apiConfig.model || 'gpt-3.5-turbo',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: `请记录我们刚刚在「${destination}」共同经历的一个旅行瞬间，并生成这段旅程的明信片留档。`
-          }
-        ]
-      })
-    });
-
-    if (!res.ok) {
-      console.error(`Failed to generate companion postcard: HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = await res.json();
-    const rawContent = data.choices?.[0]?.message?.content;
-
-    if (!rawContent) {
-      console.error('Failed to generate companion postcard: empty AI response.');
-      return null;
-    }
-
-    const parsed = JSON.parse(rawContent);
-
-    if (!parsed.spotName || !parsed.letterContent) {
-      console.error('Failed to generate companion postcard: invalid JSON structure.');
-      return null;
-    }
-
-    return {
-      spotName: String(parsed.spotName).trim(),
-      letterContent: String(parsed.letterContent).trim(),
-      giftItem: parsed.giftItem ? String(parsed.giftItem).trim() : '',
-      metPerson: parsed.metPerson ? String(parsed.metPerson).trim() : '',
-      photoStyle: parsed.photoStyle ? String(parsed.photoStyle).trim() : ''
-    };
-  } catch (err) {
-    console.error('Failed to generate AI companion postcard:', err);
-    return null;
-  }
-};
-
 
 const checkAndTriggerAutoSummary = async (chatId, character, apiConfig) => {
   const freq = parseInt(character.summaryFrequency || '10', 10);
@@ -2347,9 +1897,6 @@ export default {
   generateCharacterHomeBoardMessage,
   generateCompanionReplyForDiary,
   generateCompanionProactiveDiary,
-  generateCompanionWishlist,
-  generateCompanionSurpriseBooking,
-  generateCompanionPostcard,
   generateSnapshotPostByAi,
   generateSnapshotCommentByAi,
   requestNotificationPermission,

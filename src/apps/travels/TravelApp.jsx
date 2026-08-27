@@ -9,7 +9,11 @@ import { BoardingTicketModal } from './components/BoardingTicketModal';
 import { InTransitDashboard } from './components/InTransitDashboard';
 import { PostcardDetailModal } from './components/PostcardDetailModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
-import { generateCompanionPostcard } from '../../services/aiService';
+import {
+  checkAndDeliverTravelPostcards,
+  createDeparturePostcard
+} from './travelPostcardScheduler';
+
 
 export const TravelApp = ({ onBackHub }) => {
   const [travels, setTravels] = useState([]);
@@ -36,9 +40,15 @@ export const TravelApp = ({ onBackHub }) => {
   // 成功进入托管旅程的提示
   const [enterNotification, setEnterNotification] = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
+ useEffect(() => {
+  const initializeTravelPage = async () => {
+    await checkAndDeliverTravelPostcards();
+    await loadData();
+  };
+
+  void initializeTravelPage();
+}, []);
+
 
   const loadData = async () => {
     const allTravels = await db.travels.orderBy('createdAt').reverse().toArray();
@@ -107,8 +117,10 @@ export const TravelApp = ({ onBackHub }) => {
     const newId = await db.travels.add(payload);
     const createdTravel = await db.travels.get(newId);
 
-    // 自动生成第一张动态双人明信片
-    await triggerNewPostcard(createdTravel, selectedCharacter);
+    // 旅行刚开始时寄出第一张明信片。
+// 若 API 暂时不可用，不写入空白明信片；后续检查仍可补寄。
+await createDeparturePostcard(createdTravel, selectedCharacter);
+
 
     await loadData();
     setActiveTravel(createdTravel);
@@ -120,24 +132,37 @@ export const TravelApp = ({ onBackHub }) => {
     setTimeout(() => setEnterNotification(''), 4000);
   };
 
-  const triggerNewPostcard = async (travel, char) => {
-    if (!travel || !char) return;
 
-    const postcard = await generateCompanionPostcard(char, travel);
+  const handleCheckTravelPostcards = async () => {
+  await checkAndDeliverTravelPostcards();
+  await loadData();
 
-    const payload = {
-      travelId: travel.id,
-      characterId: char.id,
-      ...postcard,
-      timestamp: Date.now(),
-      isRead: false
-    };
+  if (activeTravel?.id) {
+    const refreshedTravel = await db.travels.get(activeTravel.id);
 
-    delete payload.id;
+    if (refreshedTravel) {
+      setActiveTravel(refreshedTravel);
+    }
+  }
+};
 
-    await db.travelPostcards.add(payload);
+const handleOpenPostcard = async (postcard) => {
+  if (!postcard) return;
+
+  if (!postcard.isRead) {
+    await db.travelPostcards.update(postcard.id, {
+      isRead: true
+    });
+
     await loadData();
-  };
+  }
+
+  setActivePostcard({
+    ...postcard,
+    isRead: true
+  });
+};
+
 
   const handleRerollPostcard = async (postcardId) => {
     const pc = await db.travelPostcards.get(postcardId);
@@ -272,18 +297,14 @@ export const TravelApp = ({ onBackHub }) => {
 
       {/* 视图分发 */}
       {activeTravel ? (
-        <InTransitDashboard
-          travel={activeTravel}
-          character={getCharacter(activeTravel.characterId)}
-          postcards={postcardsMap[activeTravel.id] || []}
-          onOpenPostcard={(card) => setActivePostcard(card)}
-          onCheckNewPostcard={() =>
-            triggerNewPostcard(
-              activeTravel,
-              getCharacter(activeTravel.characterId)
-            )
-          }
-        />
+       <InTransitDashboard
+  travel={activeTravel}
+  character={getCharacter(activeTravel.characterId)}
+  postcards={postcardsMap[activeTravel.id] || []}
+  onOpenPostcard={handleOpenPostcard}
+  onCheckNewPostcard={handleCheckTravelPostcards}
+/>
+
       ) : (
         <div className="space-y-6">
           {/* 无旅行卡片时的温馨提示 */}
@@ -356,16 +377,20 @@ export const TravelApp = ({ onBackHub }) => {
 
               <div className="relative grid grid-cols-2 gap-x-2 gap-y-5">
                 {travels.map((travel) => (
-                  <TravelStampCard
-                    key={travel.id}
-                    travel={travel}
-                    character={getCharacter(travel.characterId)}
-                    postcardCount={
-                      (postcardsMap[travel.id] || []).length
-                    }
-                    onClick={() => setActiveTravel(travel)}
-                    onDelete={(id) => setDeleteTargetId(id)}
-                  />
+                 <TravelStampCard
+  key={travel.id}
+  travel={travel}
+  character={getCharacter(travel.characterId)}
+  postcardCount={(postcardsMap[travel.id] || []).length}
+  unreadPostcardCount={
+    (postcardsMap[travel.id] || []).filter(
+      (postcard) => !postcard.isRead
+    ).length
+  }
+  onClick={() => setActiveTravel(travel)}
+  onDelete={(id) => setDeleteTargetId(id)}
+/>
+
                 ))}
               </div>
             </div>

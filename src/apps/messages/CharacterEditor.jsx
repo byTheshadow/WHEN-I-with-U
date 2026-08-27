@@ -205,29 +205,31 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
               />
             </div>
 
-            <div>
+                        <div>
               <label className="block opacity-60 mb-1">角色简介 (Bio)</label>
               <textarea
-                rows={2}
+                rows={3}
                 placeholder="一句话性格描述..."
                 value={character.bio}
                 onChange={(e) => setCharacter({ ...character, bio: e.target.value })}
-                className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-none"
+                className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-y overflow-y-auto max-h-32 min-h-[48px]"
               />
             </div>
+
           </div>
         </div>
 
-        <div>
+              <div>
           <label className="block opacity-60 mb-1">其它补充说明 (Extra Notes)</label>
           <textarea
-            rows={2}
+            rows={3}
             placeholder="关于角色的特殊补充偏好或人设限制..."
             value={character.extraNotes}
             onChange={(e) => setCharacter({ ...character, extraNotes: e.target.value })}
-            className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-none"
+            className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-y overflow-y-auto max-h-32 min-h-[48px]"
           />
         </div>
+
       </GlassCard>
 
       {/* 2. 状态列表 (Status List) */}
@@ -520,11 +522,11 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
           <div>
             <label className="block opacity-60 mb-1">我的人设 (User Persona - RP 模式生效)</label>
             <textarea
-              rows={2}
+              rows={3}
               placeholder="在此设定您的特定身份、称呼与背景..."
               value={character.userPersona}
               onChange={(e) => setCharacter({ ...character, userPersona: e.target.value })}
-              className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-none"
+              className="w-full bg-black/5 dark:bg-white/10 rounded-lg p-2 outline-none resize-y overflow-y-auto max-h-48 min-h-[64px]"
             />
           </div>
 

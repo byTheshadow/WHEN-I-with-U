@@ -46,11 +46,15 @@ export const ChatSettingsModal = ({
   // 本聊天窗独立的正在输入动画样式
   const [typingStyle, setTypingStyle] = useState(chat?.typingStyle || 'default');
 
+  // 本聊天窗专属的 AI 总提示词设定
+  const [systemPrompt, setSystemPrompt] = useState(chat?.systemPrompt || '');
+
   // 背景图淡化控制：B 方案，只控制背景图本身透明度
+
   const [isBgDimmed, setIsBgDimmed] = useState(chat?.isBgDimmed ?? true);
   const [bgOpacity, setBgOpacity] = useState(chat?.bgOpacity ?? 0.3);
 
-  const [isSavingUserIdentity, setIsSavingUserIdentity] = useState(false);
+  const [isSavingUserIdentity, setIsavingUserIdentity] = useState(false);
 
   const typingStyleOptions = [
     { id: 'default', label: '默认闪烁' },
@@ -155,6 +159,10 @@ export const ChatSettingsModal = ({
       ? override.nextBgOpacity
       : bgOpacity;
 
+        const nextSystemPrompt = Object.prototype.hasOwnProperty.call(override, 'nextSystemPrompt')
+      ? override.nextSystemPrompt
+      : systemPrompt;
+
     const payload = {
       userName: (nextUserName || '').trim(),
       userAvatar: (nextUserAvatar || '').trim(),
@@ -163,8 +171,10 @@ export const ChatSettingsModal = ({
       typingText: (nextTypingText || '').trim(),
       typingStyle: nextTypingStyle || 'default',
       isBgDimmed: Boolean(nextIsBgDimmed),
-      bgOpacity: Number(nextBgOpacity)
+      bgOpacity: Number(nextBgOpacity),
+      systemPrompt: (nextSystemPrompt || '').trim()
     };
+
 
     try {
       setIsSavingUserIdentity(true);
@@ -353,18 +363,19 @@ export const ChatSettingsModal = ({
             </div>
           </div>
 
-          <div>
+                    <div>
             <label className="block text-[10px] opacity-60 mb-1">本窗你的专属人设 (User Persona)</label>
             <textarea
-              rows={2}
+              rows={3}
               value={userPersona}
               placeholder="例如：刚下班的程序员 / 喜欢弹吉他的室友..."
               onChange={(e) => setUserPersona(e.target.value)}
               onBlur={() => handleSaveUserIdentity()}
-              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs leading-relaxed"
+              className="w-full px-3 py-1.5 rounded-xl border outline-none text-xs leading-relaxed overflow-y-auto resize-y max-h-32 min-h-[48px]"
               style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
             />
           </div>
+
 
           <div className="grid grid-cols-2 gap-2 pt-1">
             <div>
@@ -410,6 +421,49 @@ export const ChatSettingsModal = ({
           </p>
 
           <div className="grid grid-cols-2 gap-1.5">
+                    {/* 自定义总提示词控制区 */}
+        <div className="space-y-2 p-3 rounded-2xl border" style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Sliders className="w-3.5 h-3.5" />
+              <span>本窗总提示词 (System Prompt)</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">SYSTEM PROMPT</span>
+          </div>
+
+          <p className="text-[10px] opacity-55 leading-relaxed">
+            自定义的提示词将覆盖系统的默认提示词，作为指导伴侣行为的最高指令。留空则恢复默认。
+          </p>
+
+          <div>
+            <textarea
+              rows={4}
+              value={systemPrompt}
+              placeholder={
+                chat?.mode === 'rp'
+                  ? "未设定自定义设定。默认模式：RP 剧情沉浸模式下严格遵守角色及背景设定进行剧情推进演绎。"
+                  : "未设定自定义设定。默认模式：现实陪伴模式下关注用户日常生活细节与情感。"
+              }
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              onBlur={() => handleSaveUserIdentity()}
+              className="w-full p-2 rounded-xl border outline-none text-[11px] leading-normal overflow-y-auto resize-y max-h-48 min-h-[64px]"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--card-border)', color: 'var(--text-main)' }}
+            />
+            {systemPrompt && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSystemPrompt('');
+                  handleSaveUserIdentity({ nextSystemPrompt: '' });
+                }}
+                className="mt-1 text-[10px] text-red-500 hover:underline flex items-center gap-1"
+              >
+                清空并恢复系统默认
+              </button>
+            )}
+          </div>
+        </div>
+
             {typingStyleOptions.map((option) => {
               const isActive = typingStyle === option.id;
 
@@ -561,19 +615,35 @@ export const ChatSettingsModal = ({
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
 
-            <div className="flex-1 space-y-1">
+                        <div className="flex-1 flex gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-1.5 rounded-xl border text-center font-medium transition-all"
+                className="flex-1 py-1.5 rounded-xl border text-center font-medium transition-all text-[11px]"
                 style={{
                   background: 'var(--control-soft-bg)',
                   borderColor: 'var(--divider)',
                   color: 'var(--text-main)'
                 }}
               >
-                {bgImage ? '更换背景图' : '选择图片上传'}
+                {bgImage ? '更换背景' : '选择图片'}
               </button>
+              {bgImage && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    onUpdateBgImage('');
+                    if (onUpdatedUserPersona) onUpdatedUserPersona({ bgImage: '' });
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl border text-center font-medium transition-all text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                  style={{
+                    borderColor: 'var(--divider)',
+                  }}
+                  title="删除背景图"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 

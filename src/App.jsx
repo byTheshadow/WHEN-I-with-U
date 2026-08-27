@@ -30,6 +30,8 @@ import {
   stopAutoMessageScheduler
 } from './services/aiService';
 
+
+
 const THEME_COLORS = {
   'mono-mist': '#fcfbf7',
   'cream-latte': '#f8f5ee',
@@ -65,15 +67,18 @@ export const App = () => {
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
-  useEffect(() => {
-    void requestNotificationPermission();
+ useEffect(() => {
+  void requestNotificationPermission();
 
-    startAutoMessageScheduler();
+  startAutoMessageScheduler();
+  startTravelPostcardScheduler();
 
-    return () => {
-      stopAutoMessageScheduler();
-    };
-  }, []);
+  return () => {
+    stopAutoMessageScheduler();
+    stopTravelPostcardScheduler();
+  };
+}, []);
+
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', activeTheme);

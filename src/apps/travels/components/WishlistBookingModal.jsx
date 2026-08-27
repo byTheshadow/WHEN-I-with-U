@@ -9,10 +9,12 @@ import {
   RotateCw,
   CheckCircle2
 } from 'lucide-react';
+
 import {
   generateCompanionWishlist,
   generateCompanionSurpriseBooking
-} from '../../../services/aiService';
+} from '../travelAiService';
+
 
 export const WishlistBookingModal = ({
   isOpen,
@@ -49,12 +51,17 @@ export const WishlistBookingModal = ({
     try {
       const surprise = await generateCompanionSurpriseBooking(character);
 
-      onConfirmTrip({
-        destination: surprise.destination,
-        hotelName: surprise.hotelName,
-        flightNo: surprise.flightNo,
-        ...setupData
-      });
+if (!surprise) {
+  return;
+}
+
+onConfirmTrip({
+  destination: surprise.destination,
+  hotelName: surprise.hotelName,
+  flightNo: surprise.flightNo,
+  ...setupData
+});
+
     } catch (err) {
       console.error('生成伴侣惊喜行程失败:', err);
     } finally {

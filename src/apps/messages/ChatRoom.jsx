@@ -83,6 +83,7 @@ export const ChatRoom = ({
   };
 
   const scrollAreaRef = useRef(null);
+  const inputRef = useRef(null); 
 
   useEffect(() => {
     onRoomStateChange?.(true);
@@ -168,8 +169,11 @@ export const ChatRoom = ({
     // 播放发送提示音
     playMessageSound('send');
 
-    setMessages((prev) => [...prev, newMsg]);
+        setMessages((prev) => [...prev, newMsg]);
     setInputText('');
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'; // 👈 手动重置输入框高度
+    }
     setQuotedMsg(null);
     setSelectedType('text');
     setExtraInputMeta({});
@@ -270,14 +274,15 @@ export const ChatRoom = ({
   const bgOpacity = chat.bgOpacity ?? 0.3;
   const isBgDimmed = chat.isBgDimmed ?? true;
 
-  return (
+    return (
     <div
-      className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
+      className="chat-room-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
       style={{
         background: 'var(--bg-main)',
         color: 'var(--text-main)'
       }}
     >
+
       <style>{`.chat-room-container ${currentCss}`}</style>
 
       {/* 背景图渲染：支持淡化/蒙层自由切换 */}
@@ -819,31 +824,34 @@ export const ChatRoom = ({
             </button>
           </div>
 
-         <textarea
-  rows={1}
-  value={inputText}
-  onChange={(e) => {
-    setInputText(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-  }}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }}
-  placeholder={
-    selectedType === 'text'
-      ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
-      : `已选 ${selectedType} 模式`
-  }
-  className="w-full bg-transparent outline-none text-xs resize-none max-h-32 overflow-y-auto leading-relaxed"
-  style={{
-    color: 'var(--text-main)',
-    minHeight: '24px'
-  }}
-/>
+                 <textarea
+          ref={inputRef} // 👈 绑定 ref
+          rows={1}
+          value={inputText}
+          onChange={(e) => {
+            setInputText(e.target.value);
+            e.target.style.height = 'auto';
+            // 实时高度撑开最大至 160px，超出后顺畅触发滚动条
+            e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSendMessage();
+            }
+          }}
+          placeholder={
+            selectedType === 'text'
+              ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
+              : `已选 ${selectedType} 模式`
+          }
+          className="w-full bg-transparent outline-none text-xs resize-y overflow-y-auto leading-relaxed max-h-40"
+          style={{
+            color: 'var(--text-main)',
+            minHeight: '24px',
+          }}
+        />
+
 
 
           <div className="flex shrink-0 items-center gap-1.5">
