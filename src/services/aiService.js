@@ -1043,37 +1043,6 @@ export const stopAutoMessageScheduler = () => {
   console.log('[AutoScheduler] AI 主动消息调度器已停止。');
 };
 
-/**
- * 启动后台检查器。
- * 每 15 分钟检查一次，但真正生成仍严格由频率冷却、开关、静音时段控制。
- */
-export const startAutoMessageScheduler = () => {
-  // 防止 React 重新渲染或重复挂载后创建多个定时器。
-  if (autoMessageSchedulerTimer) return;
-
-  // 应用启动时检查一次。
-  void checkAndTriggerAutoMessage();
-
-  autoMessageSchedulerTimer = setInterval(() => {
-    void checkAndTriggerAutoMessage();
-  }, 15 * 60 * 1000);
-
-  console.log('[AutoScheduler] AI 主动消息调度器已启动。');
-};
-
-/**
- * 停止后台检查器。
- * 通常用于应用卸载、退出登录或测试环境清理。
- */
-export const stopAutoMessageScheduler = () => {
-  if (!autoMessageSchedulerTimer) return;
-
-  clearInterval(autoMessageSchedulerTimer);
-  autoMessageSchedulerTimer = null;
-
-  console.log('[AutoScheduler] AI 主动消息调度器已停止。');
-};
-
 
 export const triggerAiResponse = async (chatId) => {
   if (!chatId || activeAiRequests.has(chatId)) return;
