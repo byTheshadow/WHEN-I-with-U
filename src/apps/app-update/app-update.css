@@ -13,20 +13,45 @@
 }
 
 .app-update-window {
+  --app-update-bg: var(--ink-card-bg);
+  --app-update-border: var(--ink-card-border);
+  --app-update-shadow: var(--ink-card-shadow);
+  --app-update-text: var(--text-on-ink);
+  --app-update-muted: var(--text-on-ink-muted);
+  --app-update-accent: var(--accent-color);
+  --app-update-accent-foreground: var(--accent-foreground);
+
   position: relative;
   width: min(100%, 370px);
   overflow: hidden;
-  background:
-    linear-gradient(
-      145deg,
-      var(--ink-card-bg),
-      var(--modal-bg)
-    );
-  border: 1px solid var(--ink-card-border);
-  box-shadow: var(--modal-shadow);
-  color: var(--text-on-ink);
+  background: var(--app-update-bg);
+  border: 1px solid var(--app-update-border);
+  box-shadow:
+    var(--app-update-shadow),
+    var(--modal-shadow);
+  color: var(--app-update-text);
   animation: app-update-window-in 560ms
     cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/*
+ * obsidian-dark 与 cyber-velvet 的 ink-card 是浅色卡片。
+ * 更新弹窗必须维持暗色哥特基调，因此在这两套主题中
+ * 改用深色空间背景和对应的浅色正文变量。
+ */
+:root[data-theme='obsidian-dark'] .app-update-window,
+:root[data-theme='cyber-velvet'] .app-update-window {
+  --app-update-bg: linear-gradient(
+    145deg,
+    var(--bg-surface-strong) 0%,
+    var(--bg-main) 100%
+  );
+  --app-update-border: var(--modal-border);
+  --app-update-shadow: var(--modal-shadow);
+  --app-update-text: var(--text-main);
+  --app-update-muted: var(--text-sub);
+  --app-update-accent: var(--accent-color);
+  --app-update-accent-foreground: var(--accent-foreground);
 }
 
 .app-update-window::before,
@@ -38,8 +63,8 @@
 
 .app-update-window::before {
   inset: 0.45rem;
-  border: 1px solid var(--ink-card-border);
-  opacity: 0.55;
+  border: 1px solid var(--app-update-border);
+  opacity: 0.58;
 }
 
 .app-update-window::after {
@@ -47,12 +72,12 @@
   right: -4rem;
   width: 13rem;
   height: 13rem;
-  border: 1px solid var(--accent-color);
+  border: 1px solid var(--app-update-accent);
   border-radius: 50%;
-  opacity: 0.14;
+  opacity: 0.16;
   box-shadow:
     0 0 0 1.5rem transparent,
-    0 0 0 1.6rem var(--accent-color);
+    0 0 0 1.6rem var(--app-update-accent);
 }
 
 .app-update-frame {
@@ -70,8 +95,8 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  color: var(--text-on-ink-muted);
-  border: 1px solid var(--ink-card-border);
+  color: var(--app-update-muted);
+  border: 1px solid var(--app-update-border);
   border-radius: 999px;
   transition:
     color 180ms ease,
@@ -80,8 +105,8 @@
 }
 
 .app-update-close:hover {
-  color: var(--text-on-ink);
-  border-color: var(--accent-color);
+  color: var(--app-update-text);
+  border-color: var(--app-update-accent);
 }
 
 .app-update-close:active {
@@ -95,11 +120,11 @@
   width: 2.5rem;
   height: 2.5rem;
   margin: 0 auto 0.85rem;
-  color: var(--accent-foreground);
-  background: var(--accent-color);
-  border: 1px solid var(--accent-color);
+  color: var(--app-update-accent-foreground);
+  background: var(--app-update-accent);
+  border: 1px solid var(--app-update-accent);
   transform: rotate(45deg);
-  box-shadow: 0 0 1.75rem var(--accent-color);
+  box-shadow: 0 0 1.75rem var(--app-update-accent);
   animation: app-update-mark-pulse 2.8s ease-in-out infinite;
 }
 
@@ -109,7 +134,7 @@
 
 .app-update-eyebrow {
   margin: 0;
-  color: var(--text-on-ink-muted);
+  color: var(--app-update-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.56rem;
   letter-spacing: 0.22em;
@@ -119,7 +144,7 @@
 
 .app-update-title {
   margin: 1.25rem 0 0;
-  color: var(--text-on-ink);
+  color: var(--app-update-text);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.15rem;
   font-weight: 600;
@@ -131,13 +156,13 @@
   width: 4rem;
   height: 1px;
   margin: 1.25rem auto;
-  background: var(--accent-color);
-  box-shadow: 0 0 0.75rem var(--accent-color);
+  background: var(--app-update-accent);
+  box-shadow: 0 0 0.75rem var(--app-update-accent);
 }
 
 .app-update-note {
   margin: 0.85rem 0;
-  color: var(--text-on-ink-muted);
+  color: var(--app-update-muted);
   font-size: 0.7rem;
   line-height: 1.9;
   text-align: left;
@@ -150,7 +175,6 @@
   justify-content: center;
   width: 100%;
   min-height: 2.75rem;
-  margin-top: 1.25rem;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -163,13 +187,14 @@
 
 .app-update-primary {
   gap: 0.5rem;
-  color: var(--accent-foreground);
-  background: var(--accent-color);
-  border: 1px solid var(--accent-color);
+  margin-top: 1.25rem;
+  color: var(--app-update-accent-foreground);
+  background: var(--app-update-accent);
+  border: 1px solid var(--app-update-accent);
 }
 
 .app-update-primary:hover {
-  filter: brightness(1.12);
+  filter: brightness(1.1);
 }
 
 .app-update-primary:active,
@@ -179,25 +204,25 @@
 
 .app-update-secondary {
   margin-top: 0.55rem;
-  color: var(--text-on-ink-muted);
+  color: var(--app-update-muted);
   background: transparent;
-  border: 1px solid var(--ink-card-border);
+  border: 1px solid var(--app-update-border);
 }
 
 .app-update-secondary:hover {
-  color: var(--text-on-ink);
-  border-color: var(--accent-color);
+  color: var(--app-update-text);
+  border-color: var(--app-update-accent);
 }
 
 .app-update-footer {
   margin: 1.35rem 0 0;
-  color: var(--text-on-ink-muted);
+  color: var(--app-update-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.5rem;
   letter-spacing: 0.16em;
   line-height: 1.6;
   text-align: center;
-  opacity: 0.7;
+  opacity: 0.78;
 }
 
 @keyframes app-update-overlay-in {
@@ -227,11 +252,11 @@
 @keyframes app-update-mark-pulse {
   0%,
   100% {
-    box-shadow: 0 0 1rem var(--accent-color);
+    box-shadow: 0 0 1rem var(--app-update-accent);
   }
 
   50% {
-    box-shadow: 0 0 2.2rem var(--accent-color);
+    box-shadow: 0 0 2.2rem var(--app-update-accent);
   }
 }
 
@@ -242,4 +267,3 @@
     animation: none;
   }
 }
-

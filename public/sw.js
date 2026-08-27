@@ -2,7 +2,7 @@
 
 // 每次发布一个需要用户更新的版本时，都应递增此版本号。
 // 例如：v4 → v5。否则已缓存的静态资源可能继续沿用旧版本。
-const CACHE_NAME = 'when-i-with-u-v5';
+const CACHE_NAME = 'when-i-with-u-v6';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径。
 // 本地示例：       http://localhost:5173/
