@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { liveQuery } from 'dexie';
 import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
 import NotificationToast from './components/NotificationToast';
+import KeepAliveIndicator from './components/KeepAliveIndicator';
 import ProfileHeader from './apps/hub/ProfileHeader';
 import PinnedGallery from './apps/hub/PinnedGallery';
 import QuickBoard from './apps/hub/QuickBoard';
@@ -17,9 +19,11 @@ import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
 import EphemeraApp from './apps/ephemera/EphemeraApp';
-import AskBoxApp from './apps/askbox/AskBoxApp'; // 👈 引入提问箱
+import AskBoxApp from './apps/askbox/AskBoxApp';
 import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
+import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
+import db from './db';
 import { Settings as SettingsIcon } from 'lucide-react';
 
 import {
@@ -61,7 +65,7 @@ const REGISTERED_APPS = [
   'ensemble',
   'habitat',
   'ephemera',
-  'askbox' // 👈 注册
+  'askbox'
 ];
 
 export const App = () => {
@@ -70,6 +74,7 @@ export const App = () => {
   const [showTitle, setShowTitle] = useState(true);
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
+  const [isKeepAliveActive, setIsKeepAliveActive] = useState(false);
 
   useEffect(() => {
     void requestNotificationPermission();
@@ -80,6 +85,28 @@ export const App = () => {
     return () => {
       stopAutoMessageScheduler();
       stopTravelPostcardScheduler();
+    };
+  }, []);
+
+  useEffect(() => {
+    const subscription = liveQuery(async () => {
+      const activeKeepAliveCount = await db.chats
+        .filter((chat) => chat.keepAlive === true)
+        .count();
+
+      return activeKeepAliveCount > 0;
+    }).subscribe({
+      next: (hasActiveKeepAlive) => {
+        setIsKeepAliveActive(hasActiveKeepAlive);
+      },
+      error: (error) => {
+        console.warn('Unable to observe keep-alive state:', error);
+        setIsKeepAliveActive(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -137,6 +164,10 @@ export const App = () => {
       )}
 
       <NotificationToast />
+
+      <AudioKeepAlive isActive={isKeepAliveActive} />
+
+      <KeepAliveIndicator isVisible={isKeepAliveActive} />
 
       <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"
@@ -371,5 +402,6 @@ export const App = () => {
 };
 
 export default App;
+
 
 

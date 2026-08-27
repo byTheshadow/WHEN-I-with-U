@@ -36,7 +36,7 @@ import KinshipCard from './components/cards/KinshipCard';
 import StickerCard from './components/cards/StickerCard';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
-import AudioKeepAlive from './components/AudioKeepAlive';
+
 import ParallelOrbit from './components/ParallelOrbit';
 
 export const ChatRoom = ({
@@ -969,11 +969,7 @@ export const ChatRoom = ({
         />
       )}
 
-      {/* 
-        【优化保活挂载】AudioKeepAlive 始终保持挂载，仅依赖渲染后延迟标志以及 keepAlive 属性共同驱动。
-        彻底避免频繁挂载带来的 Web Audio 初始化、注册手势监听的性能消耗。
-      */}
-      <AudioKeepAlive isActive={!!(isPrioritizedLoaded && chat?.keepAlive)} />
+      
 
       {/* 表情包选择器弹窗 */}
       <StickerPickerModal
