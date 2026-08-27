@@ -122,25 +122,30 @@ export const ChatRoom = ({
     return () => window.cancelAnimationFrame(frameId);
   }, [messages, isAiTyping]);
 
-  const loadChatData = async () => {
+    const loadChatData = async () => {
     try {
-      const chatRecord = await db.chats.get(chatId);
+      // 1. 并发读取聊天实体与消息历史，大幅缩短 IndexedDB I/O 堵塞时间
+      const [chatRecord, msgList] = await Promise.all([
+        db.chats.get(chatId),
+        db.messages.where('chatId').equals(chatId).sortBy('timestamp')
+      ]);
+
       if (!chatRecord) return;
-      setChat(chatRecord);
 
+      // 2. 根据聊天关联的角色 ID 读取角色设定
       const charRecord = await db.characters.get(chatRecord.characterId);
-      if (charRecord) setCharacter(charRecord);
 
-      const msgList = await db.messages
-        .where('chatId')
-        .equals(chatId)
-        .sortBy('timestamp');
-
+      // 3. 集中进行状态更新（React 18 会自动对这些同步发生的 State 变更进行 Batching 批处理合并，只触发 1 次重新渲染）
+      setChat(chatRecord);
+      if (charRecord) {
+        setCharacter(charRecord);
+      }
       setMessages(Array.isArray(msgList) ? msgList : []);
     } catch (err) {
-      console.error('[ChatRoom] loadChatData failed safely:', err);
+      console.error('[ChatRoom] loadChatData batch query failed safely:', err);
     }
   };
+
 
 
 
