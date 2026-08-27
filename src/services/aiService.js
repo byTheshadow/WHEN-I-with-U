@@ -928,27 +928,49 @@ export const checkAndTriggerAutoMessage = async () => {
       return;
     }
 
-
-    // 6. 随机抽取一位角色。
-    const character =
-      activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
-
-    // 7. 随机决定“主动发随笔”或“主动写日记”。
-    // 若你希望两种行为各 50%，改为：Math.random() < 0.5
-    const shouldWriteDiary = Math.random() < 0.35;
+    // 6. 随机决定是：“主动在特定聊天窗口发消息(message)”、还是“写日记(diary)”、或是“在主页写留言随笔(homeBoard)”。
+    const rand = Math.random();
+    let actionType = '';
+    
+    if (rand < 0.40) {
+      actionType = 'message';
+    } else if (rand < 0.70) {
+      actionType = 'diary';
+    } else {
+      actionType = 'homeBoard';
+    }
 
     let generatedId = null;
-    let actionType = '';
 
-    if (shouldWriteDiary) {
+    if (actionType === 'message') {
+      // 获取所有活跃聊天窗，随机挑选一个
+      const allChats = await db.chats.toArray();
+      if (allChats.length > 0) {
+        // 随机选择一个对话实体
+        const selectedChat = allChats[Math.floor(Math.random() * allChats.length)];
+        console.log(`[AutoScheduler] 决定在聊天窗 ${selectedChat.title} (ID: ${selectedChat.id}) 中主动发送聊天消息。`);
+        
+        // 调用主动聊天消息生成器
+        generatedId = await generateCompanionProactiveMessage(selectedChat.id);
+      } else {
+        console.log('[AutoScheduler] 未找到任何对话聊天窗，降级为生成主页留言。');
+        actionType = 'homeBoard';
+      }
+    }
+
+    // 如果是日记模式，或者由 message 降级/直接随机选入
+    if (actionType === 'diary') {
+      const character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
       actionType = 'diary';
       generatedId = await generateCompanionProactiveDiary(character.id);
-    } else {
+    } else if (actionType === 'homeBoard') {
+      const character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
       actionType = 'homeBoard';
       generatedId = await generateCharacterHomeBoardMessage(character.id);
     }
 
-    // 只有确实写入成功后，才更新冷却时间。
+    // 只有确实写入/发送成功后，才更新冷却时间。
+
 // 这样 API/数据库失败时，下一次轮询仍可以自动重试。
 if (generatedId !== null && generatedId !== undefined) {
   // 更新锁屏卡片。
@@ -1419,6 +1441,149 @@ export const generateCompanionReplyForDiary = async (diaryId) => {
   } catch (err) {
     console.error('Failed to generate companion reply for diary:', err);
     return null;
+  }
+};
+
+/**
+ * 伴侣主动在具体的聊天窗口 (chatId) 中发送消息
+ * 基于该聊天窗口的特定上下文、专属人设和总提示词 (systemPrompt) 组装
+ */
+export const generateCompanionProactiveMessage = async (chatId) => {
+  if (!chatId) return null;
+
+  try {
+    const chat = await db.chats.get(chatId);
+    if (!chat) return null;
+
+    const character = await db.characters.get(chat.characterId);
+    if (!character) return null;
+
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
+
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+      console.warn('[ProactiveMessage] API 未配置，无法生成主动聊天消息。');
+      return null;
+    }
+
+    const baseUrl = apiConfig.baseUrl.replace(/\/$/, '');
+
+    // 1. 获取近期聊天记录上下文（获取最后 15 条消息作为短期记忆）
+    const msgs = await db.messages.where('chatId').equals(chatId).sortBy('timestamp');
+    const recentMessages = msgs.slice(-15);
+    
+    // 如果最后一条消息已经是 AI 刚才发的，或者距离最后一条消息发送还没有过去 5 分钟，
+    // 我们暂时不打扰，避免连发两条 AI 消息显得不够真实。
+    if (recentMessages.length > 0) {
+      const lastMsg = recentMessages[recentMessages.length - 1];
+      if (lastMsg.sender === 'character') {
+        console.log(`[ProactiveMessage] 聊天窗 ${chatId} 最后一条消息已由伴侣发送，跳过主动发送。`);
+        return null;
+      }
+      const timeDiff = Date.now() - new Date(lastMsg.timestamp).getTime();
+      if (timeDiff < 5 * 60 * 1000) {
+        console.log(`[ProactiveMessage] 距离用户最后一次活动不足 5 分钟，暂不打扰。`);
+        return null;
+      }
+    }
+
+    // 2. 组装对话的历史上下文 payload
+    const historyPayload = recentMessages.map((m) => {
+      if (m.sender === 'user') {
+        return { role: 'user', content: m.content };
+      } else {
+        return { role: 'assistant', content: m.content };
+      }
+    });
+
+    // 3. 组装当前聊天窗口专属的 System Prompt (复用我们在 buildChatSystemPrompt 里实现的优先级逻辑)
+    const systemPrompt = await buildChatSystemPrompt(chatId);
+
+    // 4. 组装主动发送场景的微指引
+    const autoSendGuide = `
+【注意：这是你作为伴侣的主动发起的对话触达】
+由于用户有一段时间没有说话了，请你基于当下的时间背景（${getFormattedRealTime()}），结合你们之前的聊天上下文，主动给用户发一条问候、分享一下你此刻在做的事情、或者延续之前的某个话题。
+要求：
+- 直接发信，不要表现出系统正在调用你。
+- 回复要轻柔、贴心，不要带有客服味道，更不要使用 Emoji。
+- 字数控制在 80 字以内。
+`;
+
+    const finalMessages = [
+      { role: 'system', content: systemPrompt + '\n' + autoSendGuide },
+      ...historyPayload
+    ];
+
+    // 如果历史记录为空，提供一个初始 user 提示，引导 AI 发起第一句话
+    if (finalMessages.length === 1) {
+      finalMessages.push({ role: 'user', content: '（我们在安静的房间里，你主动对我说第一句话）' });
+    }
+
+    // 开启打字动画状态
+    notifyListeners({ chatId, type: 'AI_TYPING_START' });
+
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: apiConfig.model || 'gpt-3.5-turbo',
+        messages: finalMessages,
+        temperature: 0.8
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(`API returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    const replyText = data?.choices?.[0]?.message?.content || '';
+
+    if (!replyText.trim()) {
+      return null;
+    }
+
+    // 解析出的一气呵成气泡列表
+    const proactiveMsgs = await parseAiResponseToMessages(replyText);
+    
+    let lastInsertedId = null;
+
+    // 写入数据库
+    for (const item of proactiveMsgs) {
+      const payload = {
+        chatId,
+        characterId: chat.characterId,
+        sender: 'character',
+        type: item.type || 'text',
+        content: item.content,
+        metadata: item.metadata || {},
+        isRead: false,
+        timestamp: new Date().toISOString()
+      };
+
+      lastInsertedId = await db.messages.add(payload);
+    }
+
+    // 更新聊天的更新时间
+    await db.chats.update(chatId, { updatedAt: new Date().toISOString() });
+
+    // 播放接收消息音效
+    playMessageSound('receive');
+
+    // 广播新消息通知，让正在打开的聊天窗立即刷新
+    notifyListeners({ chatId, type: 'NEW_MESSAGE' });
+
+    return lastInsertedId;
+
+  } catch (err) {
+    console.error('[ProactiveMessage] AI 主动发送聊天消息失败:', err);
+    return null;
+  } finally {
+    // 结束打字动画状态
+    notifyListeners({ chatId, type: 'AI_TYPING_END' });
   }
 };
 
@@ -1906,5 +2071,6 @@ export default {
   // SettingsPage 联动的主动任务调度器
   checkAndTriggerAutoMessage,
   startAutoMessageScheduler,
-  stopAutoMessageScheduler
+  stopAutoMessageScheduler,
+  generateCompanionProactiveMessage
 };
