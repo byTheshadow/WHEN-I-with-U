@@ -15,7 +15,7 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         .where('chatId')
         .equals(chatId)
         .sortBy('timestamp');
-      // 倒序排列，最新生成的日常在最上面，像翻开日记本最新的一页
+      // 倒序排列，最新生成的日常在最上面
       setLogs(data.reverse());
     } catch (err) {
       console.error('Failed to load parallel orbits:', err);
@@ -33,7 +33,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
       } else if (result.status === 'active_chatting') {
         setErrorMsg('角色正专注于在聊天室里等待或回复你，独处日记暂时不会更新。');
       } else if (result.status === 'cooldown' && !force) {
-        // 如果是冷却期，且不是强制生成，直接提示，但提供强制按钮
         setErrorMsg('他/她刚记录过生活不久，此时正在继续他的日常。');
       } else if (result.status === 'error') {
         setErrorMsg(`记录失败: ${result.error}`);
@@ -47,14 +46,13 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
 
   useEffect(() => {
     loadLogs();
-    // 首次进入时静默自检一次（非强制，仅在符合条件时静默增加生活轨迹）
+    // 首次进入时静默自检一次（非强制）
     handleGenerate(false);
   }, [chatId]);
 
-  // 将带有 <s> 或被划掉格式的文字渲染为手绘涂抹样式
+  // 将带有 <s> 或 ~~ 格式的文字渲染为手绘涂抹样式
   const renderRichText = (text) => {
     if (!text) return '';
-    // 将 <s> </s> 标签或 ~~ 转换为带有删除线类的 span
     const parts = text.split(/(<s>.*?<\/s>|~~.*?~~)/g);
     return parts.map((part, idx) => {
       if (part.startsWith('<s>') && part.endsWith('</s>')) {
@@ -95,7 +93,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         fontFamily: 'serif'
       }}
     >
-      {/* 顶部手账牛皮纸标签栏 */}
       <header className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--card-border)' }}>
         <button
           type="button"
@@ -122,7 +119,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         </button>
       </header>
 
-      {/* 日记纸内容滚动区 */}
       <div 
         className="flex-1 overflow-y-auto p-5 space-y-8 no-scrollbar"
         style={{
@@ -131,7 +127,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
           lineHeight: '2rem'
         }}
       >
-        {/* 如果有 API 提示 */}
         {errorMsg && (
           <div 
             className="p-3 border rounded text-[11px] leading-relaxed transition-all"
@@ -157,7 +152,7 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
           <div className="py-20 text-center opacity-40 font-serif italic text-xs space-y-3">
             <BookOpen className="h-8 w-8 mx-auto stroke-[1.2] opacity-60 animate-pulse" />
             <p>这里目前是一本空白的手扎</p>
-            <p className="text-[10px] sans-serif font-normal">点击右上角的笔刷探寻对方的生活轨迹...</p>
+            <p className="text-[10px] sans-serif font-normal">点击右上角的刷新按钮探寻对方的生活轨迹...</p>
           </div>
         ) : (
           logs.map((log, index) => (
@@ -169,14 +164,12 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                 animationDelay: `${index * 50}ms`
               }}
             >
-              {/* 时间轴节点标记 (铅笔短横线) */}
               <div 
                 className="absolute -left-[6px] top-2 h-[11px] w-[11px] rounded-full border-2 bg-neutral-100 dark:bg-neutral-900"
                 style={{ borderColor: 'var(--card-border)' }}
               />
 
               <div className="space-y-3 font-serif">
-                {/* 顶端天气与气象氛围 */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-neutral-400 font-mono tracking-wider">
                   <span className="flex items-center gap-1">
                     <Wind className="h-3 w-3 opacity-60" />
@@ -188,12 +181,10 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                   </span>
                 </div>
 
-                {/* 铅笔手账日期 */}
                 <time className="block text-[11px] font-sans font-bold tracking-tight opacity-50">
                   {formatNotebookDate(log.timestamp)}
                 </time>
 
-                {/* 记事正文 (可能带有NPC对话剧场) */}
                 <div 
                   className="text-[12px] leading-6 tracking-wide text-neutral-700 dark:text-neutral-300 font-serif whitespace-pre-wrap pl-2 border-l-2 py-0.5"
                   style={{ borderColor: 'rgba(var(--accent-color-rgb, 120, 120, 120), 0.15)' }}
@@ -201,7 +192,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
                   {renderRichText(log.activity)}
                 </div>
 
-                {/* 心流独白 (略带倾斜度，模拟手写随感) */}
                 {log.thoughts && (
                   <div 
                     className="p-3.5 rounded-xl border border-dashed text-[11px] leading-relaxed italic text-neutral-600 dark:text-neutral-400 font-serif shadow-inner rotate-[0.5deg]"
@@ -220,7 +210,6 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
         )}
       </div>
 
-      {/* 页脚手账线缝设计 */}
       <footer className="py-2.5 text-center text-[9px] font-mono tracking-widest opacity-30 border-t" style={{ borderColor: 'var(--card-border)' }}>
         PARALLEL ORBIT INCIDENT NOTEBOOK v1.0
       </footer>

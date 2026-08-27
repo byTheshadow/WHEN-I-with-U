@@ -437,6 +437,7 @@ db.version(17).stores({
   askBoxQuestions: '++id, characterId, sender, isAnonymous, content, reply, replyAt, needPassword, password, isPasswordUnlocked, createdAt'
 });
 
+
 // 🛠️ Version 18: 新增平行轨迹 (ParallelOrbit) 日常记录表
 db.version(18).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
