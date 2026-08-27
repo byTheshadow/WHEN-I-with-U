@@ -282,14 +282,24 @@ export const ChatRoom = ({
 
 
 
-
   // 当前聊天窗独享的 User 头像与昵称
-  const activeUserAvatar = chat.userAvatar || character.userAvatar || '';
-  const activeUserName = chat.userName || character.userName || '你';
+  const activeUserAvatar = chat?.userAvatar || character?.userAvatar || '';
+  const activeUserName = chat?.userName || character?.userName || '你';
 
   // 背景蒙层受控参数
-  const bgOpacity = chat.bgOpacity ?? 0.3;
-  const isBgDimmed = chat.isBgDimmed ?? true;
+  const bgOpacity = chat?.bgOpacity ?? 0.3;
+  const isBgDimmed = chat?.isBgDimmed ?? true;
+  if (!chat) {
+    return (
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-[var(--bg-main)] text-[var(--text-main)]">
+        <div className="flex flex-col items-center gap-2">
+          <RotateCw className="h-6 w-6 animate-spin text-[var(--accent-color)]" />
+          <p className="text-sm">正在加载聊天...</p>
+        </div>
+      </div>
+    );
+  }
+
 
     return (
     <div
