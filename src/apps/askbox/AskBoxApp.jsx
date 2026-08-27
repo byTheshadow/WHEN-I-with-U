@@ -5,17 +5,17 @@ import {
   Key, 
   Trash2, 
   RotateCw, 
-  HelpCircle, 
   UserCheck, 
   UserX, 
   Lock, 
   Unlock,
-  CheckCircle,
   Inbox,
   PenTool,
   Mail,
   ChevronDown,
-  MessageSquare
+  ChevronUp,
+  MessageSquare,
+  HelpCircle
 } from 'lucide-react';
 import db from '../../db';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -26,21 +26,21 @@ export default function AskBoxApp({ onBackHub }) {
   const [characters, setCharacters] = useState([]);
   const [selectedChar, setSelectedChar] = useState(null);
   
-  // 当前角色对应的消息会话(chats)列表及选中的消息会话
+  // 当前角色对应的消息框 (chats)
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   
-  // 选项卡： 'send' (给角色写信/主页) | 'receive' (收到的来信)
+  // 选项卡：'send' (给角色写信与公开问答) | 'receive' (收到的来信)
   const [activeTab, setActiveTab] = useState('send');
   
-  // 我向角色提问状态
+  // 我给角色写信的状态
   const [questionText, setQuestionText] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [sending, setSending] = useState(false);
-  const [isFolded, setIsFolded] = useState(true); // 拟物折叠动效
-  const [isDelivering, setIsDelivering] = useState(false); // 投递动画
+  const [isFolded, setIsFolded] = useState(true); 
+  const [isDelivering, setIsDelivering] = useState(false); 
 
-  // 角色公开提问箱的 NPC 随机问答对
+  // NPC 主页问答配对卡片
   const [npcQAPairs, setNpcQAPairs] = useState([]);
   const [loadingNpcMain, setLoadingNpcMain] = useState(false);
   
@@ -56,13 +56,13 @@ export default function AskBoxApp({ onBackHub }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // 加载数据
+  // 初始化加载
   useEffect(() => {
     loadCharacters();
     loadIncomingQuestions();
   }, []);
 
-  // 当选择角色变动时，拉取该角色下的消息框(chats)与公开问答对
+  // 选择角色变动时加载关联会话与主页问答
   useEffect(() => {
     if (selectedChar) {
       loadChatsForCharacter(selectedChar.id);
@@ -84,8 +84,10 @@ export default function AskBoxApp({ onBackHub }) {
   const loadChatsForCharacter = async (charId) => {
     const list = await db.chats.where('characterId').equals(charId).toArray();
     setChats(list);
+    // 默认选择最近更新的一个消息框
     if (list.length > 0) {
-      setSelectedChat(list[0]);
+      const sorted = list.sort((a, b) => b.updatedAt - a.updatedAt);
+      setSelectedChat(sorted[0]);
     } else {
       setSelectedChat(null);
     }
@@ -107,26 +109,24 @@ export default function AskBoxApp({ onBackHub }) {
     setLoadingNpcMain(false);
   };
 
-  // 1. 发送提问（带消息框上下文）
+  // 1. 发送我的提问 (带消息框上下文 & 写入聊天室)
   const handleSendQuestion = async () => {
     if (!questionText.trim() || !selectedChar) return;
-    
-    // 如果没有选择消息框，提示必须绑定上下文
     if (!selectedChat) {
       triggerGlobalToast({
-        title: '需要选择消息框',
-        content: '请先在该角色下选择一个互动的会话上下文。',
+        title: '选择一个消息会话',
+        content: '投递提问前，必须在此角色下选中一个具体的消息对话框。',
         iconType: 'bell'
       });
       return;
     }
 
     setSending(true);
-    setIsDelivering(true); // 开启投递飞出动效
+    setIsDelivering(true);
 
     const newQuestion = {
       characterId: selectedChar.id,
-      chatId: selectedChat.id, // 关联消息框 ID
+      chatId: selectedChat.id, 
       sender: 'user',
       isAnonymous: isAnonymous,
       content: questionText.trim(),
@@ -141,62 +141,62 @@ export default function AskBoxApp({ onBackHub }) {
     try {
       const qId = await db.askBoxQuestions.add(newQuestion);
       
-      // 延迟关闭投递动画
+      // 倒计邮戳投递动效
       setTimeout(() => {
         setIsDelivering(false);
         setQuestionText('');
         setIsFolded(true);
         triggerGlobalToast({
-          title: '信件已投入信箱',
-          content: '问题正随着邮差前往对方的消息框...',
+          title: '信件滑入邮筒',
+          content: `已成功投往与 ${selectedChar.name} 关联的消息框。`,
           iconType: 'mail',
           duration: 3000
         });
-      }, 800);
+      }, 700);
 
-      // 获取当前聊天对话框的上下文消息（前 10 条）
+      // 加载该消息框前 10 条上下文以帮助 AI 进行连贯性分析
       const contextMsgs = await db.messages
         .where('chatId')
         .equals(selectedChat.id)
         .reverse()
         .limit(10)
         .toArray();
-      contextMsgs.reverse();
+      contextMsgs.reverse(); 
 
-      // 模拟派送时间 (1.5 - 3.5秒内回复)
-      const delayTime = Math.floor(Math.random() * 2000) + 1500;
+      // 模拟派送的不确定时间回复 (1.5s - 3s)
+      const delayTime = Math.floor(Math.random() * 1500) + 1500;
       setTimeout(async () => {
         const reply = await generateNpcReply(selectedChar, newQuestion.content, isAnonymous, contextMsgs);
         
-        // 更新提问箱记录
+        // 更新提问箱本地记录
         await db.askBoxQuestions.update(qId, {
           reply: reply,
           replyAt: Date.now()
         });
 
-        // 写入对应的消息框(chats)上下文中，使故事延续
-        const senderLabel = isAnonymous ? '匿名提问' : '署名提问';
+        // 核心流程：同步将“问与答”写入到对应的消息对话框中，让角色能够感知到这次互动
+        const anonymityLabel = isAnonymous ? '匿名' : '署名';
         await db.messages.add({
           chatId: selectedChat.id,
           characterId: selectedChar.id,
           sender: 'character',
           type: 'text',
           metadata: { askBoxRef: qId },
-          content: `「在提问箱收到了你的${senderLabel}：${newQuestion.content}」\n\n我的回答是：${reply}`,
+          content: `「在提问箱收到了你的${anonymityLabel}提问：${newQuestion.content}」\n\n我的回答是：\n${reply}`,
           isRead: 0,
           timestamp: Date.now()
         });
 
-        // 更新 chats 的最后活跃时间
+        // 更新 chats 的最后更新时间
         await db.chats.update(selectedChat.id, {
           updatedAt: Date.now()
         });
 
         triggerGlobalToast({
-          title: '会话收到新回音',
-          content: `${selectedChar.name} 已在对应消息框中回复了你的提问。`,
+          title: '信箱传来回音',
+          content: `${selectedChar.name} 已在会话框中作答，并同步写在了信札上。`,
           iconType: 'bell',
-          duration: 4500
+          duration: 4000
         });
 
         loadIncomingQuestions();
@@ -216,11 +216,11 @@ export default function AskBoxApp({ onBackHub }) {
     }
   };
 
-  // 2. 模拟自动触发角色给我写信
+  // 2. 模拟角色向我提问
   const handleTriggerIncoming = async () => {
     if (characters.length === 0) {
       triggerGlobalToast({
-        title: '未发现角色',
+        title: '尚无角色',
         content: '请先创建至少一位陪伴角色。',
         iconType: 'bell'
       });
@@ -230,28 +230,30 @@ export default function AskBoxApp({ onBackHub }) {
     const randomChar = characters[Math.floor(Math.random() * characters.length)];
     const randomPassword = Math.floor(1000 + Math.random() * 9000).toString();
     const questionContent = await generateNpcToUserQuestion(randomChar);
-    const npcAnonymous = Math.random() > 0.3; // 70% 概率会是匿名来信
+    
+    // 是否需要密码解锁真实身份
+    const needsLock = Math.random() > 0.3; // 70% 概率为加密来信
 
     const newIncoming = {
       characterId: randomChar.id,
-      sender: randomChar.name, // 它的真实身份其实是这个角色
-      isAnonymous: npcAnonymous,
+      sender: randomChar.name,
+      isAnonymous: needsLock,
       content: questionContent,
       reply: '',
       replyAt: null,
-      needPassword: npcAnonymous ? 1 : 0, // 如果是匿名提问，需要密码才能揭开身份
+      needPassword: needsLock ? 1 : 0, 
       password: randomPassword,
-      isPasswordUnlocked: npcAnonymous ? 0 : 1, // 非匿名无需解锁
+      isPasswordUnlocked: needsLock ? 0 : 1, 
       createdAt: Date.now()
     };
 
     await db.askBoxQuestions.add(newIncoming);
     
-    console.log(`[开发调试提示] 匿名提问解锁密码是：${randomPassword}（来信人：${randomChar.name}）`);
+    console.log(`[开发调试提示] 匿名来信真实寄件人是 [${randomChar.name}]，4位解锁身份密码为：${randomPassword}`);
     
     triggerGlobalToast({
-      title: '信箱有声响',
-      content: npcAnonymous ? '收到了一封匿名人的加密蜡印信笺。' : `收到了来自 ${randomChar.name} 的提问信笺。`,
+      title: '邮差轻轻叩门',
+      content: needsLock ? '收到一封寄件身份被火漆锁住的提问信。' : `收到来自 ${randomChar.name} 的公开提问信。`,
       iconType: 'mail',
       duration: 4000
     });
@@ -259,7 +261,7 @@ export default function AskBoxApp({ onBackHub }) {
     loadIncomingQuestions();
   };
 
-  // 密码解锁：验证火漆印，解锁真实身份
+  // 解锁真实身份机制
   const handleUnlockPassword = () => {
     if (!selectedIncoming) return;
     if (passwordInput.trim() === selectedIncoming.password) {
@@ -271,22 +273,22 @@ export default function AskBoxApp({ onBackHub }) {
         setPasswordError(false);
         loadIncomingQuestions();
         triggerGlobalToast({
-          title: '封泥碎裂',
-          content: `已确认来信人是：${selectedIncoming.sender}`,
+          title: '封泥已被敲碎',
+          content: `已破译真实写信人是：${selectedIncoming.sender}`,
           iconType: 'mail'
         });
       });
     } else {
       setPasswordError(true);
       triggerGlobalToast({
-        title: '解锁失败',
-        content: '封印纹丝不动，密码不太对。',
+        title: '密码错误',
+        content: '数字无法咬合，无法溶解蜡印。',
         iconType: 'bell'
       });
     }
   };
 
-  // 回复 NPC 提问，并写回关联的 messages 会话流中
+  // 答复 NPC 提问，并自动同步写入会话消息表中，让角色在聊天时能获知答案
   const handleReplyIncoming = async () => {
     if (!replyText.trim() || !selectedIncoming) return;
     setReplying(true);
@@ -300,27 +302,28 @@ export default function AskBoxApp({ onBackHub }) {
         replyAt: Date.now()
       });
 
-      // 找到该角色的合适 chat
+      // 寻找或创建对应角色的 chat 会话
       let activeChat = await db.chats.where('characterId').equals(charId).first();
       if (!activeChat) {
         const chatId = await db.chats.add({
           characterId: charId,
           mode: 'chat',
-          title: selectedIncoming.sender || '陪伴聊天',
+          title: selectedIncoming.isPasswordUnlocked ? selectedIncoming.sender : '提问箱对话',
           summary: '',
           updatedAt: Date.now()
         });
         activeChat = { id: chatId };
       }
 
-      const anonymityLabel = selectedIncoming.needPassword ? '匿名提问箱' : '提问箱';
+      // 写入消息框
+      const displaySenderName = selectedIncoming.isPasswordUnlocked ? selectedIncoming.sender : '匿名写信者';
       await db.messages.add({
         chatId: activeChat.id,
         characterId: charId,
         sender: 'user',
         type: 'text',
         metadata: { askBoxRef: selectedIncoming.id },
-        content: `「在提问箱答复了你留下的问题：${selectedIncoming.content}」\n\n我的回答：${resolvedReply}`,
+        content: `「在提问箱答复了${displaySenderName}的提问：${selectedIncoming.content}」\n\n我的回答：${resolvedReply}`,
         isRead: 1,
         timestamp: Date.now()
       });
@@ -330,8 +333,8 @@ export default function AskBoxApp({ onBackHub }) {
       });
 
       triggerGlobalToast({
-        title: '答复已寄出',
-        content: `回答已同步送入与 ${selectedIncoming.sender} 的消息框。`,
+        title: '答复送达',
+        content: '已将回答同步反馈到你的聊天对话框中。',
         iconType: 'mail'
       });
 
@@ -355,8 +358,8 @@ export default function AskBoxApp({ onBackHub }) {
     if (confirmDeleteId) {
       await db.askBoxQuestions.delete(confirmDeleteId);
       triggerGlobalToast({
-        title: '来信已烧毁',
-        content: '记录已从提问箱清除。',
+        title: '焚毁成功',
+        content: '信件碎屑已随潮汐飘散。',
         iconType: 'mail'
       });
       setSelectedIncoming(null);
@@ -378,7 +381,7 @@ export default function AskBoxApp({ onBackHub }) {
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
         <span className="font-serif text-[10px] uppercase tracking-[0.25em] opacity-40">
-          Letter & Inquiry Room
+          Inquiry Box • Issue No. 04
         </span>
       </header>
 
@@ -389,10 +392,10 @@ export default function AskBoxApp({ onBackHub }) {
         </h2>
         <div className="flex items-center justify-between">
           <p className="text-[10px] tracking-widest uppercase opacity-40">
-            A safe space for mutual conversations
+            Anonymity exchange between souls
           </p>
-          <div className="h-px flex-1 mx-4 opacity-10" style={{ backgroundColor: 'var(--text-main)' }} />
-          <span className="text-[9px] uppercase tracking-wider opacity-30 font-mono">v1.2</span>
+          <div className="h-px flex-1 mx-4 opacity-15" style={{ backgroundColor: 'var(--text-main)' }} />
+          <span className="text-[9px] uppercase tracking-wider opacity-30 font-mono">PWA Stable</span>
         </div>
       </div>
 
@@ -406,21 +409,21 @@ export default function AskBoxApp({ onBackHub }) {
         >
           给角色写信
           {activeTab === 'send' && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--accent-color)]" />
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--text-main)]" />
           )}
         </button>
         <button
           onClick={() => setActiveTab('receive')}
           className={`flex-1 pb-3 text-center text-xs font-bold uppercase tracking-wider transition-colors relative ${
-            activeTab === 'receive' ? 'text-[var(--text-main)] text-bold' : 'text-[var(--text-muted)] opacity-60'
+            activeTab === 'receive' ? 'text-[var(--text-main)] font-bold' : 'text-[var(--text-muted)] opacity-60'
           }`}
         >
           收到的来信
           {incomingQuestions.some(q => !q.reply) && (
-            <span className="absolute top-1 right-[22%] h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="absolute top-1 right-[22%] h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
           )}
           {activeTab === 'receive' && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[var(--accent-color)]" />
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--text-main)]" />
           )}
         </button>
       </div>
@@ -429,24 +432,24 @@ export default function AskBoxApp({ onBackHub }) {
       {activeTab === 'send' ? (
         <div className="space-y-6 animate-fade-in">
           
-          {/* 1. 角色选择 */}
+          {/* 1. 角色选择列表 */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-              投递给谁 / Send to
+              投递给谁 / Deliver to
             </label>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
               {characters.map((char) => (
                 <button
                   key={char.id}
                   onClick={() => setSelectedChar(char)}
-                  className={`flex flex-col items-center gap-2 p-2.5 rounded-2xl border transition-all min-w-[75px] ${
+                  className={`flex flex-col items-center gap-2 p-2.5 rounded-2xl border transition-all min-w-[80px] ${
                     selectedChar?.id === char.id
                       ? 'border-[var(--text-main)] bg-[var(--control-soft-bg)] scale-95 shadow-sm'
                       : 'border-[var(--card-border)] bg-[var(--card-bg)] opacity-60'
                   }`}
                 >
                   <img
-                    src={char.avatar || 'https://via.placeholder.com/150'}
+                    src={char.avatar || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=100'}
                     alt={char.name}
                     className="h-10 w-10 rounded-full object-cover filter grayscale border border-stone-200"
                     onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=100' }}
@@ -457,14 +460,15 @@ export default function AskBoxApp({ onBackHub }) {
             </div>
           </div>
 
-          {/* 2. 消息框关联 (Chats context) */}
+          {/* 2. 消息框上下文关联 (必选) */}
           {selectedChar && (
             <div className="space-y-2 animate-fade-in-up">
-              <label className="text-[10px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1">
-                <MessageSquare className="h-3 w-3" /> 投递至指定消息框 (关联上下文)
+              <label className="text-[10px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 opacity-80" /> 
+                投递至指定消息框 (关联上下文)
               </label>
               {chats.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-2 max-h-[140px] overflow-y-auto pr-1">
                   {chats.map((chat) => (
                     <button
                       key={chat.id}
@@ -483,70 +487,82 @@ export default function AskBoxApp({ onBackHub }) {
                   ))}
                 </div>
               ) : (
-                <div className="p-3 border rounded-xl border-dashed text-xs text-center opacity-50 bg-[var(--bg-surface)]">
-                  没有找到与该角色的消息框。请前往 Messages 创建对话。
+                <div className="p-4 border rounded-xl border-dashed text-xs text-center opacity-50 bg-[var(--bg-surface)]">
+                  没有找到与该角色的消息框。请先前往聊天室创建一个对话。
                 </div>
               )}
             </div>
           )}
 
-          {/* 3. 拟物折叠信封信纸 */}
+          {/* 3. 拟物信封及手写信纸 (完全自适应颜色) */}
           {selectedChar && selectedChat && (
             <div className="relative mt-2">
               
-              {/* 信封投递飞出动效遮罩 */}
+              {/* 派信投递动画遮罩 */}
               {isDelivering && (
-                <div className="absolute inset-0 bg-white/80 dark:bg-black/80 z-20 flex flex-col items-center justify-center rounded-2xl animate-fade-in">
+                <div className="absolute inset-0 bg-[var(--bg-main)]/90 z-20 flex flex-col items-center justify-center rounded-2xl animate-fade-in">
                   <div className="animate-bounce">
-                    <Mail className="h-10 w-10 text-[var(--accent-color)]" />
+                    <Mail className="h-10 w-10" style={{ color: 'var(--text-main)' }} />
                   </div>
-                  <span className="text-xs uppercase tracking-widest font-serif mt-3 animate-pulse">正在投递信纸...</span>
+                  <span className="text-xs uppercase tracking-widest font-serif mt-3 animate-pulse">
+                    正在火漆固封并塞入邮筒...
+                  </span>
                 </div>
               )}
 
-              {/* 拟物信封封皮 */}
+              {/* 拟物信封皮 */}
               <div 
-                onClick={() => setIsFolded(false)}
-                className={`cursor-pointer border-2 rounded-2xl p-5 transition-all duration-500 shadow-sm relative overflow-hidden flex flex-col justify-between ${
+                onClick={() => isFolded && setIsFolded(false)}
+                className={`border rounded-2xl p-5 transition-all duration-300 shadow-sm relative overflow-hidden flex flex-col justify-between ${
                   isFolded 
-                    ? 'h-24 bg-stone-100 dark:bg-stone-900 border-dashed border-stone-400 hover:border-solid hover:scale-[1.01]' 
-                    : 'h-auto bg-[var(--card-bg)] border-[var(--card-border)]'
+                    ? 'h-24 bg-[var(--bg-surface)] border-dashed hover:scale-[1.01] cursor-pointer' 
+                    : 'h-auto bg-[var(--card-bg)] border-solid'
                 }`}
+                style={{
+                  borderColor: isFolded ? 'var(--text-muted)' : 'var(--card-border)'
+                }}
               >
                 {isFolded ? (
                   <div className="flex items-center justify-between h-full w-full">
                     <div className="space-y-1">
-                      <h4 className="font-serif text-sm font-bold opacity-80">点击展开未写信纸</h4>
-                      <p className="text-[10px] uppercase tracking-wider opacity-45">TO: {selectedChar.name} • {selectedChat.title}</p>
+                      <h4 className="font-serif text-sm font-bold" style={{ color: 'var(--text-main)' }}>
+                        点击铺开空白信笺
+                      </h4>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-sub)' }}>
+                        致: {selectedChar.name} • 寄至《{selectedChat.title}》
+                      </p>
                     </div>
-                    <div className="h-10 w-10 rounded-full border border-dashed border-stone-400 flex items-center justify-center">
-                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    <div 
+                      className="h-9 w-9 rounded-full flex items-center justify-center border transition-colors"
+                      style={{ borderColor: 'var(--divider)', backgroundColor: 'var(--control-soft-bg)' }}
+                    >
+                      <ChevronDown className="h-4 w-4" style={{ color: 'var(--text-main)' }} />
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-4 animate-fade-in-up">
                     <div className="flex items-center justify-between text-[9px] uppercase tracking-widest opacity-40 font-mono">
-                      <span>信纸正文 • {selectedChar.name} 收</span>
-                      <span>邮戳: 提问箱</span>
+                      <span>信纸正文 •致 {selectedChar.name}</span>
+                      <span>邮签: POSTAL MAIL</span>
                     </div>
 
-                    {/* 信封内衬线效果 */}
-                    <div className="h-px bg-stone-200 dark:bg-stone-800" />
+                    <div className="h-px" style={{ backgroundColor: 'var(--divider)' }} />
 
+                    {/* 信纸手写底线效果 */}
                     <textarea
                       value={questionText}
                       onChange={(e) => setQuestionText(e.target.value)}
-                      placeholder="提问将进入此会话的记忆里。在此手写你想问的问题..."
+                      placeholder="写下你想在会话中问他的问题。他会收到通知，并在对应的消息框中进行长信答复..."
                       rows={4}
                       maxLength={200}
-                      className="w-full resize-none bg-transparent text-sm leading-relaxed border-none outline-none focus:ring-0 placeholder-opacity-30"
+                      className="w-full resize-none bg-transparent text-sm leading-relaxed border-none outline-none focus:ring-0 placeholder-opacity-40"
                       style={{
                         color: 'var(--text-main)',
                         fontFamily: 'serif',
                         backgroundAttachment: 'local',
                         backgroundImage: 'linear-gradient(rgba(0,0,0,0) 0%, rgba(0,0,0,0) 95%, var(--divider) 95%)',
-                        backgroundSize: '100% 2rem',
-                        lineHeight: '2rem'
+                        backgroundSize: '100% 2.2rem',
+                        lineHeight: '2.2rem'
                       }}
                     />
 
@@ -556,15 +572,15 @@ export default function AskBoxApp({ onBackHub }) {
                           e.stopPropagation();
                           setIsAnonymous(!isAnonymous);
                         }}
-                        className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity"
+                        className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity"
                       >
                         {isAnonymous ? (
                           <UserX className="h-4 w-4 text-red-500" />
                         ) : (
                           <UserCheck className="h-4 w-4 text-emerald-600" />
                         )}
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          {isAnonymous ? '匿名投递' : '署名投递'}
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
+                          {isAnonymous ? '匿名提问' : '署名提问'}
                         </span>
                       </button>
 
@@ -574,9 +590,10 @@ export default function AskBoxApp({ onBackHub }) {
                             e.stopPropagation();
                             setIsFolded(true);
                           }}
-                          className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-[var(--card-border)] hover:bg-stone-50"
+                          className="px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-colors hover:bg-[var(--control-soft-hover)]"
+                          style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--control-soft-bg)' }}
                         >
-                          收起
+                          收起信纸
                         </button>
                         <button
                           onClick={(e) => {
@@ -590,7 +607,7 @@ export default function AskBoxApp({ onBackHub }) {
                             color: 'var(--accent-foreground)'
                           }}
                         >
-                          <Send className="h-3 w-3" />
+                          <Send className="h-3.5 w-3.5" />
                           投进信箱
                         </button>
                       </div>
@@ -601,50 +618,66 @@ export default function AskBoxApp({ onBackHub }) {
             </div>
           )}
 
-          {/* 4. 公开问答期刊墙 (QA Pairs with responses) */}
+          {/* 4. 公开问答配对墙 (带回答，完美解决截图的黑底高亮问题) */}
           {selectedChar && (
             <div className="space-y-4 pt-3">
               <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--divider)' }}>
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-                  {selectedChar.name} 的主页公开问答专栏
+                  {selectedChar.name} 主页公开的往来信笺
                 </span>
                 <button
                   onClick={handleRerollNpcMain}
                   disabled={loadingNpcMain}
-                  className="flex items-center gap-1 text-[9px] uppercase tracking-wider opacity-60 hover:opacity-100 transition-opacity"
+                  className="flex items-center gap-1.5 text-[9px] uppercase tracking-wider opacity-60 hover:opacity-100 transition-opacity"
                 >
                   <RotateCw className={`h-3 w-3 ${loadingNpcMain ? 'animate-spin' : ''}`} /> Reroll
                 </button>
               </div>
 
               {loadingNpcMain ? (
-                <div className="py-10 text-center text-xs italic opacity-40 animate-pulse">正在编排卡片...</div>
+                <div className="py-10 text-center text-xs italic opacity-40 animate-pulse font-serif">
+                  正在翻检旧信纸...
+                </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {npcQAPairs.map((pair, idx) => (
                     <div 
                       key={idx}
-                      className="border rounded-2xl overflow-hidden shadow-sm flex flex-col"
-                      style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}
+                      className="border rounded-2xl overflow-hidden shadow-sm flex flex-col transition-all duration-300"
+                      style={{ 
+                        borderColor: 'var(--card-border)', 
+                        backgroundColor: 'var(--card-bg)' 
+                      }}
                     >
-                      {/* 问题纸笺 */}
-                      <div className="p-4 bg-[var(--bg-surface)] border-b" style={{ borderColor: 'var(--card-border)' }}>
-                        <div className="flex justify-between items-center text-[9px] uppercase tracking-widest opacity-40 mb-1">
-                          <span>Q. #{idx + 1}</span>
-                          <span>来自: {pair.from || '匿名人士'}</span>
+                      {/* 上半部：提问卡片 */}
+                      <div className="p-4" style={{ backgroundColor: 'var(--bg-surface)' }}>
+                        <div className="flex justify-between items-center text-[9px] uppercase tracking-widest opacity-40 mb-1.5 font-mono">
+                          <span>LETTER #{idx + 1}</span>
+                          <span>FROM: {pair.from || '匿名人士'}</span>
                         </div>
-                        <p className="text-xs font-serif italic text-[var(--text-main)]">
+                        <p className="text-xs font-serif italic leading-relaxed" style={{ color: 'var(--text-main)' }}>
                           「{pair.question}」
                         </p>
                       </div>
 
-                      {/* 撕裂纸张虚线 + 答复区 */}
-                      <div className="p-4 relative bg-stone-50 dark:bg-stone-900 border-t border-dashed" style={{ borderColor: 'var(--divider)' }}>
-                        <div className="absolute top-[-5px] left-0 right-0 h-[6px] bg-transparent border-b-[6px] border-dotted opacity-20" style={{ borderColor: 'var(--text-main)' }} />
-                        <div className="text-[9px] uppercase tracking-widest opacity-35 mb-1.5 flex items-center gap-1 font-mono">
-                          <span>A. ANSWER BY {selectedChar.name}</span>
+                      {/* 撕裂纸张齿轮线与角色答复区域 */}
+                      <div 
+                        className="p-4 relative border-t border-dashed" 
+                        style={{ 
+                          borderColor: 'var(--divider)', 
+                          backgroundColor: 'var(--card-bg)'
+                        }}
+                      >
+                        {/* 拟物撕纸齿轮投影 */}
+                        <div 
+                          className="absolute top-[-3.5px] left-0 right-0 h-[6px] opacity-10 bg-transparent border-b-[6px] border-dotted" 
+                          style={{ borderColor: 'var(--text-main)' }} 
+                        />
+                        
+                        <div className="text-[9px] uppercase tracking-widest opacity-35 mb-2 flex items-center gap-1 font-mono">
+                          <span>REPLY BY {selectedChar.name}</span>
                         </div>
-                        <p className="text-xs leading-relaxed font-serif text-[var(--text-sub)]">
+                        <p className="text-xs leading-relaxed font-serif" style={{ color: 'var(--text-sub)' }}>
                           {pair.reply}
                         </p>
                       </div>
@@ -658,25 +691,25 @@ export default function AskBoxApp({ onBackHub }) {
         </div>
       ) : (
         
-        /* 角色向我提问的信件列表 */
+        /* 收到的来信列表 */
         <div className="space-y-4 animate-fade-in">
           
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-              投递日志
+              信匣存根
             </span>
             <button
               onClick={handleTriggerIncoming}
-              className="text-[9px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-dashed opacity-50 hover:opacity-100 transition-opacity"
-              style={{ color: 'var(--text-sub)', borderColor: 'var(--card-border)' }}
+              className="text-[9px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full border border-dashed opacity-50 hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--text-sub)', borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-surface)' }}
             >
-              模拟同步: 在路途中聆听来信
+              聆听来信 (测试同步)
             </button>
           </div>
 
           <div className="space-y-4">
             {incomingQuestions.map((item) => {
-              // 修改后逻辑：内容始终可见，只锁住寄信人的真实身份
+              // 核心修改 4：提问内容始终可见，只锁寄信人身份
               const isIdentityLocked = item.needPassword && !item.isPasswordUnlocked;
               return (
                 <div
@@ -684,48 +717,52 @@ export default function AskBoxApp({ onBackHub }) {
                   onClick={() => setSelectedIncoming(item)}
                   className={`p-4 border rounded-2xl transition-all cursor-pointer relative ${
                     selectedIncoming?.id === item.id 
-                      ? 'border-[var(--text-main)] bg-[var(--control-soft-bg)] shadow-md scale-[0.99]' 
-                      : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-[var(--bg-surface)]'
+                      ? 'border-[var(--text-main)] shadow-md scale-[0.99]' 
+                      : 'border-[var(--card-border)] hover:bg-[var(--bg-surface)]'
                   }`}
+                  style={{
+                    backgroundColor: selectedIncoming?.id === item.id ? 'var(--control-soft-bg)' : 'var(--card-bg)'
+                  }}
                 >
                   
-                  {/* 信件状态行 */}
+                  {/* 信封邮戳头 */}
                   <div className="flex items-center justify-between text-[9px] uppercase tracking-wider opacity-45 mb-2 font-mono">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       {isIdentityLocked ? (
-                        <span className="flex items-center gap-1 text-amber-600">
-                          <Lock className="h-3 w-3" /> 加密匿名信笺
+                        <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                          <Lock className="h-3 w-3" /> [ 寄信人身份已用蜡印封锁 ]
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-emerald-600">
-                          <Unlock className="h-3 w-3" /> 寄件人: {item.sender}
+                        <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                          <Unlock className="h-3 w-3" /> 来自: {item.sender}
                         </span>
                       )}
                     </div>
                     <span>{new Date(item.createdAt).toLocaleDateString()}</span>
                   </div>
 
-                  {/* 问题内容永远直接可见 */}
+                  {/* 问题内容百分之百可见 */}
                   <div className="py-1">
                     <p className="text-xs font-serif leading-relaxed" style={{ color: 'var(--text-main)' }}>
                       「{item.content}」
                     </p>
                   </div>
 
-                  {/* 如果有回复则展示，没有则展示待回复提示 */}
                   {item.reply ? (
-                    <div className="mt-2 pt-2 border-t border-dotted" style={{ borderColor: 'var(--divider)' }}>
-                      <span className="text-[9px] uppercase tracking-widest opacity-40">已答复：</span>
-                      <p className="text-[11px] font-sans italic opacity-75 mt-0.5">{item.reply}</p>
+                    <div className="mt-2.5 pt-2 border-t border-dotted" style={{ borderColor: 'var(--divider)' }}>
+                      <span className="text-[9px] uppercase tracking-widest opacity-40">已同步的答复：</span>
+                      <p className="text-[11px] font-sans italic opacity-75 mt-0.5" style={{ color: 'var(--text-sub)' }}>
+                        {item.reply}
+                      </p>
                     </div>
                   ) : (
-                    <div className="mt-2 flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-red-500">
-                      <span>待我回复</span>
+                    <div className="mt-2 pt-2 border-t border-dotted flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-red-500" style={{ borderColor: 'var(--divider)' }}>
+                      <span>等待我的答复</span>
                       <span className="animate-pulse">●</span>
                     </div>
                   )}
 
-                  {/* 偷偷烧毁按钮 */}
+                  {/* 烧毁信件小图标 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -733,7 +770,7 @@ export default function AskBoxApp({ onBackHub }) {
                     }}
                     className="absolute bottom-3 right-3 p-1 rounded opacity-50 hover:opacity-100 hover:text-red-500 transition-all"
                     style={{ color: 'var(--text-muted)' }}
-                    title="烧毁信件"
+                    title="烧毁存根"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -742,14 +779,14 @@ export default function AskBoxApp({ onBackHub }) {
             })}
 
             {incomingQuestions.length === 0 && (
-              <div className="py-14 text-center border border-dashed rounded-2xl" style={{ borderColor: 'var(--card-border)' }}>
+              <div className="py-14 text-center border border-dashed rounded-2xl animate-fade-in" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-surface)' }}>
                 <Inbox className="h-8 w-8 mx-auto opacity-20" />
-                <p className="mt-2.5 text-xs opacity-40 font-serif">尚未有任何书信送达此信箱</p>
+                <p className="mt-2.5 text-xs opacity-40 font-serif">目前还没有收到任何纸笺提问</p>
               </div>
             )}
           </div>
 
-          {/* 解锁与回复的拟物详情浮窗 */}
+          {/* 蜡印解锁身份/回复拟物控制台 */}
           {selectedIncoming && (
             <div
               className="p-5 border rounded-2xl mt-4 space-y-4 shadow-lg animate-fade-in-up"
@@ -760,37 +797,30 @@ export default function AskBoxApp({ onBackHub }) {
             >
               <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--divider)' }}>
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">
-                  信件细览
+                  {selectedIncoming.needPassword && !selectedIncoming.isPasswordUnlocked ? '加密信件' : selectedIncoming.sender} 信件查看
                 </span>
                 <button
                   onClick={() => setSelectedIncoming(null)}
-                  className="text-[10px] uppercase font-bold tracking-widest opacity-60 hover:opacity-100"
+                  className="text-[10px] font-bold tracking-widest opacity-60 hover:opacity-100 transition-opacity"
                 >
-                  关闭
+                  关闭 (CLOSE)
                 </button>
               </div>
 
-              {/* 问题本身始终可见 */}
-              <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-                <span className="text-[9px] uppercase tracking-widest opacity-35">问题正文：</span>
-                <p className="font-serif text-sm leading-relaxed mt-1" style={{ color: 'var(--text-main)' }}>
-                  「{selectedIncoming.content}」
-                </p>
-              </div>
-
-              {/* 身份锁：如果需要输入密码且未解锁，显示输入框解锁寄件人身份 */}
               {selectedIncoming.needPassword && !selectedIncoming.isPasswordUnlocked ? (
-                <div className="space-y-4 text-center py-4 border rounded-xl bg-[var(--card-bg)] border-dashed p-4">
+                
+                /* 密码盘界面：用于解锁寄信人真实身份 */
+                <div className="space-y-4 text-center py-3 bg-[var(--card-bg)] p-4 rounded-xl border" style={{ borderColor: 'var(--card-border)' }}>
                   <div className="flex justify-center mb-1">
-                    <Key className="h-6 w-6 text-amber-500 opacity-80" />
+                    <Key className="h-7 w-7 text-amber-500 opacity-80" />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-xs font-bold uppercase tracking-widest">验对 4 位数线索解锁寄件人真实身份</h4>
-                    <p className="text-[10px] opacity-40">
-                      （提示：寄件人在封泥时留下的 4 位数字密码）
+                    <h4 className="text-xs font-bold uppercase tracking-widest">输入 4 位数解锁寄信人</h4>
+                    <p className="text-[10px] opacity-40 leading-relaxed max-w-[280px] mx-auto">
+                      （提示：偷偷向你提问的角色在留下信封时脑海中所想的 4 位数字）
                     </p>
                   </div>
-                  <div className="flex justify-center gap-2 max-w-[200px] mx-auto">
+                  <div className="flex justify-center gap-2 max-w-[160px] mx-auto">
                     <input
                       type="text"
                       pattern="[0-9]*"
@@ -798,74 +828,86 @@ export default function AskBoxApp({ onBackHub }) {
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value.replace(/\D/g, ''))}
                       placeholder="••••"
-                      className="w-full text-center border rounded-lg py-2 text-lg tracking-[0.6em] font-mono bg-[var(--card-bg)] border-[var(--card-border)] text-[var(--text-main)] outline-none"
+                      className="w-full text-center border rounded-lg py-2 text-lg tracking-[0.6em] font-mono outline-none transition-all focus:border-[var(--text-main)]"
+                      style={{
+                        backgroundColor: 'var(--bg-surface)',
+                        borderColor: 'var(--card-border)',
+                        color: 'var(--text-main)'
+                      }}
                     />
                   </div>
                   {passwordError && (
-                    <p className="text-[10px] text-red-500">密码不正确，封泥纹丝不动。</p>
+                    <p className="text-[10px] text-red-500">印油密闭无缝，请再次核查密码。</p>
                   )}
                   <button
                     onClick={handleUnlockPassword}
-                    className="px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-transform active:scale-95"
+                    className="px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform active:scale-95"
                     style={{
                       backgroundColor: 'var(--accent-color)',
                       color: 'var(--accent-foreground)'
                     }}
                   >
-                    解锁来信人身份
+                    解锁寄件人
                   </button>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/30 text-xs flex items-center gap-2">
-                  <Unlock className="h-4 w-4 text-emerald-600" />
-                  <span>
-                    已确认寄件人身份：<strong>{selectedIncoming.sender}</strong>
-                  </span>
-                </div>
-              )}
-
-              {/* 回复框区域 */}
-              <div className="space-y-3">
-                {selectedIncoming.reply ? (
-                  <div className="p-4 rounded-xl border border-dashed" style={{ borderColor: 'var(--card-border)' }}>
-                    <span className="text-[9px] uppercase tracking-widest opacity-40 font-mono">你的答复：</span>
-                    <p className="text-xs font-sans italic opacity-85 mt-1 leading-relaxed">
-                      {selectedIncoming.reply}
+                
+                /* 身份已解锁，提供写答复并同步对话的信箱 */
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+                    <div className="flex justify-between items-center text-[9px] uppercase tracking-widest opacity-35 mb-1">
+                      <span>问题正文</span>
+                      <span>寄件者: {selectedIncoming.sender}</span>
+                    </div>
+                    <p className="font-serif text-xs leading-relaxed" style={{ color: 'var(--text-main)' }}>
+                      「{selectedIncoming.content}」
                     </p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1">
-                      <PenTool className="h-3 w-3" /> 填写你的答复
-                    </label>
-                    <textarea
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="将你的答案写在信封背面..."
-                      rows={3}
-                      maxLength={200}
-                      className="w-full p-3 border rounded-xl resize-none text-xs leading-relaxed bg-[var(--card-bg)] border-[var(--card-border)] text-[var(--text-main)] focus:outline-none"
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        onClick={handleReplyIncoming}
-                        disabled={replying || !replyText.trim()}
-                        className="px-5 py-2 rounded-full text-xs font-bold tracking-wider transition-transform active:scale-95 disabled:opacity-30"
-                        style={{
-                          backgroundColor: 'var(--accent-color)',
-                          color: 'var(--accent-foreground)'
-                        }}
-                      >
-                        {replying ? '送出中' : '投回信箱'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
 
+                  {selectedIncoming.reply ? (
+                    <div className="p-4 rounded-xl border border-dashed" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--card-bg)' }}>
+                      <span className="text-[9px] uppercase tracking-widest opacity-40">已寄往对话框的答案：</span>
+                      <p className="text-xs font-sans italic opacity-85 mt-1 leading-relaxed">
+                        {selectedIncoming.reply}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 animate-fade-in">
+                      <label className="text-[10px] font-bold uppercase tracking-widest opacity-40 flex items-center gap-1">
+                        <PenTool className="h-3 w-3" /> 填写你的答复并寄给对方
+                      </label>
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="将答案写在信封背面。提交后，这行字会立刻以你的名义出现在对应的聊天记录中..."
+                        rows={3}
+                        maxLength={200}
+                        className="w-full p-3 border rounded-xl resize-none text-xs leading-relaxed outline-none"
+                        style={{
+                          backgroundColor: 'var(--card-bg)',
+                          borderColor: 'var(--card-border)',
+                          color: 'var(--text-main)'
+                        }}
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleReplyIncoming}
+                          disabled={replying || !replyText.trim()}
+                          className="px-5 py-1.5 rounded-full text-xs font-bold tracking-wider transition-transform active:scale-95 disabled:opacity-30"
+                          style={{
+                            backgroundColor: 'var(--accent-color)',
+                            color: 'var(--accent-foreground)'
+                          }}
+                        >
+                          {replying ? '投递中' : '投回聊天框'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
-
         </div>
       )}
 
@@ -874,14 +916,13 @@ export default function AskBoxApp({ onBackHub }) {
         <ConfirmModal
           isOpen={showDeleteModal}
           title="焚毁来信"
-          message="你确定要彻底烧掉这封信件吗？该操作不可撤销，信件将永远消失在空气中。"
+          message="确定要彻底烧掉这封来信吗？该操作不可撤销，对应的存根也将永远消失。"
           confirmText="焚毁"
           cancelText="保留"
           onConfirm={handleConfirmDelete}
           onCancel={() => setShowDeleteModal(false)}
         />
       )}
-      
     </div>
   );
 }
