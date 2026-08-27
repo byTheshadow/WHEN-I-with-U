@@ -27,6 +27,8 @@ import AskBoxApp from './apps/askbox/AskBoxApp';
 import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
+import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
+
 
 // 👈 导入新增的 Rhythm 模块
 import RhythmApp from './apps/rhythm/RhythmApp';
@@ -266,12 +268,18 @@ export const App = () => {
         </ErrorBoundary>
       )}
 
-      <NotificationToast />
+     <NotificationToast />
 
-      <AudioKeepAlive
-        isActive={isKeepAliveActive}
-        audioSrc={activeAudioUrl}
-      />
+<AppUpdatePrompt
+  isAppReady={!showPreloader}
+  isInsideChatRoom={isInsideChatRoom}
+/>
+
+<AudioKeepAlive
+  isActive={isKeepAliveActive}
+  audioSrc={activeAudioUrl}
+/>
+
 
       <KeepAliveIndicator
         isVisible={isKeepAliveActive}

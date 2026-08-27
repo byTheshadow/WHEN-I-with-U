@@ -1,0 +1,125 @@
+/* Gothic Goth-Noir Update Overlay */
+.gothic-overlay {
+  background: rgba(10, 9, 12, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gothic-window {
+  position: relative;
+  background: #110f14;
+  border: 1px solid #2e2638;
+  box-shadow: 
+    0 0 30px rgba(0, 0, 0, 0.8),
+    0 0 15px rgba(114, 46, 209, 0.15); /* 幽暗的紫罗兰微光 */
+  animation: gothicSmokeRise 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 哥特双层古典尖锐边框 */
+.gothic-border-inner {
+  position: relative;
+  border: 1px dashed rgba(168, 120, 224, 0.3);
+  padding: 1.5rem;
+}
+
+/* 边角古典尖角花纹 */
+.gothic-corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: #722ed1;
+  border-style: solid;
+}
+.gothic-corner-tl { top: 4px; left: 4px; border-width: 1.5px 0 0 1.5px; }
+.gothic-corner-tr { top: 4px; right: 4px; border-width: 1.5px 1.5px 0 0; }
+.gothic-corner-bl { bottom: 4px; left: 4px; border-width: 0 0 1.5px 1.5px; }
+.gothic-corner-br { bottom: 4px; right: 4px; border-width: 0 1.5px 1.5px 0; }
+
+/* 尖拱装饰线 */
+.gothic-arch-header {
+  position: relative;
+  text-align: center;
+  padding-bottom: 1.5rem;
+}
+
+.gothic-arch-header::after {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 8px;
+  margin: 8px auto 0;
+  border-top: 1px solid #722ed1;
+  border-left: 1px solid #722ed1;
+  border-right: 1px solid #722ed1;
+  border-radius: 4px 4px 0 0; /* 模拟尖拱顶部 */
+  opacity: 0.6;
+}
+
+/* 炫酷的暗黑烛火/黑雾动画 */
+@keyframes gothicSmokeRise {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+    filter: blur(4px);
+  }
+  70% {
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* 暗红与银灰色按钮 */
+.gothic-btn-update {
+  background: #2e1a47;
+  border: 1px solid #722ed1;
+  color: #e4dcf5;
+  transition: all 0.2s ease;
+}
+.gothic-btn-update:hover {
+  background: #3f2266;
+  box-shadow: 0 0 10px rgba(114, 46, 209, 0.4);
+}
+.gothic-btn-update:active {
+  transform: scale(0.97);
+}
+
+.gothic-btn-dismiss {
+  background: transparent;
+  border: 1px solid rgba(135, 120, 153, 0.2);
+  color: #8c8299;
+  transition: all 0.2s ease;
+}
+.gothic-btn-dismiss:hover {
+  border-color: rgba(135, 120, 153, 0.4);
+  color: #bfaecf;
+}
+.gothic-btn-dismiss:active {
+  transform: scale(0.97);
+}
+
+/* 烛光般的呼吸点 */
+.gothic-dot {
+  position: relative;
+}
+.gothic-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: #722ed1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px #722ed1;
+  animation: gothicPulse 2s infinite ease-in-out;
+}
+
+@keyframes gothicPulse {
+  0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(0.8); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 12px #9254de; }
+}

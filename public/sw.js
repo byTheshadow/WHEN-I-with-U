@@ -1,6 +1,8 @@
 // public/sw.js
 
-const CACHE_NAME = 'when-i-with-u-v3';
+// 每次发布一个需要用户更新的版本时，都应递增此版本号。
+// 例如：v4 → v5。否则已缓存的静态资源可能继续沿用旧版本。
+const CACHE_NAME = 'when-i-with-u-v4';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径。
 // 本地示例：       http://localhost:5173/
@@ -14,7 +16,7 @@ self.addEventListener('install', (event) => {
       .open(CACHE_NAME)
       .then(async (cache) => {
         try {
-          // 不使用 cache.addAll：避免任一资源失败导致 SW 整体安装失败。
+          // 不使用 cache.addAll，避免任一资源失败导致 SW 整体安装失败。
           const response = await fetch(APP_INDEX_URL, {
             cache: 'reload',
           });
@@ -25,16 +27,23 @@ self.addEventListener('install', (event) => {
             console.warn(
               '[SW] index.html 预缓存失败，状态码：',
               response.status,
-              APP_INDEX_URL
+              APP_INDEX_URL,
             );
           }
         } catch (error) {
           // 首次离线打开时可能无法预缓存；不应因此导致 SW 安装失败。
           console.warn('[SW] index.html 预缓存失败：', error);
         }
-      })
-      .then(() => self.skipWaiting())
+      }),
   );
+
+  /*
+   * 不要在这里调用 self.skipWaiting()。
+   *
+   * 新 SW 安装完成后应停留在 waiting 状态，
+   * 由页面发现更新、展示更新弹窗，并在用户确认后
+   * 通过 SKIP_WAITING 消息主动激活。
+   */
 });
 
 self.addEventListener('activate', (event) => {
@@ -47,12 +56,12 @@ self.addEventListener('activate', (event) => {
             .filter(
               (key) =>
                 key.startsWith('when-i-with-u-') &&
-                key !== CACHE_NAME
+                key !== CACHE_NAME,
             )
-            .map((key) => caches.delete(key))
-        )
+            .map((key) => caches.delete(key)),
+        ),
       )
-      .then(() => self.clients.claim())
+      .then(() => self.clients.claim()),
   );
 });
 
@@ -68,7 +77,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 页面路由：网络优先，离线时返回已缓存的 SPA 入口页。
+  // 页面导航请求：网络优先；离线时返回已缓存的 SPA 入口页。
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -79,7 +88,7 @@ self.addEventListener('fetch', (event) => {
             event.waitUntil(
               caches.open(CACHE_NAME).then((cache) => {
                 return cache.put(APP_INDEX_URL, responseCopy);
-              })
+              }),
             );
           }
 
@@ -100,15 +109,15 @@ self.addEventListener('fetch', (event) => {
               headers: {
                 'Content-Type': 'text/plain; charset=utf-8',
               },
-            }
+            },
           );
-        })
+        }),
     );
 
     return;
   }
 
-  // 静态资源：缓存优先，缓存未命中后请求网络并写入缓存。
+  // 静态资源：缓存优先；缓存未命中后请求网络并写入当前版本缓存。
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -128,18 +137,26 @@ self.addEventListener('fetch', (event) => {
             event.waitUntil(
               caches.open(CACHE_NAME).then((cache) => {
                 return cache.put(event.request, responseCopy);
-              })
+              }),
             );
           }
 
           return networkResponse;
         })
         .catch(() => Response.error());
-    })
+    }),
   );
 });
 
-// 后台离线同步事件
+// 页面确认更新后，向 waiting 状态的 SW 发送此消息。
+// 收到后，新 SW 会跳过 waiting 并进入 activate。
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// 后台离线同步事件。
 self.addEventListener('sync', (event) => {
   if (event.tag !== 'sync-offline-messages') {
     return;
@@ -157,6 +174,6 @@ self.addEventListener('sync', (event) => {
             type: 'SYNC_OFFLINE_MESSAGES',
           });
         });
-      })
+      }),
   );
 });
