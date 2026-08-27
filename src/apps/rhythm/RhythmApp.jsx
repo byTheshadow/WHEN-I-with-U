@@ -290,30 +290,132 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
   const filteredSchedules = getTodaySchedules();
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] font-serif p-4 max-w-[420px] mx-auto pb-24 text-left">
-      {/* 头部标题栏 */}
-      <div className="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-[var(--theme-border)]">
-        <button onClick={onBackHub} className="p-1 hover:opacity-75 transition-opacity" aria-label="返回">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <span className="text-lg font-bold tracking-widest text-center">时光作息 Rhythm</span>
-        <button 
-          onClick={() => setShowConfig(!showConfig)}
-          className="p-1 hover:opacity-75 transition-opacity text-[var(--theme-text-muted)]"
-          title="开学日期设置"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-      </div>
+    <div
+  className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col px-5 pb-24 pt-5 text-left"
+  style={{
+    color: 'var(--text-main)'
+  }}
+>
+      {/* 手账页眉 */}
+<header
+  className="relative mb-7 px-1"
+  style={{ color: 'var(--text-main)' }}
+>
+  {/* 顶部操作栏 */}
+  <div className="flex items-center justify-between">
+    <button
+      type="button"
+      onClick={onBackHub}
+      aria-label="返回主页"
+      className="flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90"
+      style={{
+        color: 'var(--text-main)',
+        backgroundColor: 'var(--control-soft-bg)',
+        border: '1px solid var(--card-border)'
+      }}
+    >
+      <ArrowLeft
+        className="h-[17px] w-[17px]"
+        strokeWidth={1.8}
+      />
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setShowConfig((value) => !value)}
+      aria-label="打开日程设置"
+      title="日程设置"
+      className="flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-90"
+      style={{
+        color: 'var(--text-main)',
+        backgroundColor: 'transparent',
+        border: '1px solid var(--card-border)'
+      }}
+    >
+      <Settings
+        className="h-[17px] w-[17px]"
+        strokeWidth={1.7}
+      />
+    </button>
+  </div>
+
+  {/* 标题与日期 */}
+  <div className="mt-5 flex items-end justify-between">
+    <div>
+      <p
+        className="mb-1 font-mono text-[9px] uppercase tracking-[0.28em]"
+        style={{ color: 'var(--text-sub)' }}
+      >
+        Personal Rhythm / 01
+      </p>
+
+      <h1
+        className="font-serif text-[29px] font-semibold leading-none tracking-[0.08em]"
+        style={{ color: 'var(--text-main)' }}
+      >
+        时光作息
+      </h1>
+    </div>
+
+    <div className="pb-0.5 text-right">
+      <p
+        className="font-mono text-[10px] tracking-wider"
+        style={{ color: 'var(--text-sub)' }}
+      >
+        {new Date().toLocaleDateString('zh-CN', {
+          month: '2-digit',
+          day: '2-digit'
+        })}
+      </p>
+
+      <p
+        className="mt-1 text-[10px] italic"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        留一点时间给生活
+      </p>
+    </div>
+  </div>
+
+  {/* 页眉底部装饰线 */}
+  <div className="mt-4 flex items-center gap-3">
+    <span
+      className="h-px w-12"
+      style={{
+        backgroundColor: 'var(--accent-color)'
+      }}
+    />
+
+    <span
+      className="h-px flex-1"
+      style={{
+        backgroundColor: 'var(--card-border)',
+        opacity: 0.65
+      }}
+    />
+  </div>
+</header>
+
 
       {/* 学期第一周配置气泡（小书签） */}
       {showConfig && (
-        <div className="mb-6 p-4 border border-dashed border-[var(--theme-border)] bg-[rgba(0,0,0,0.01)] rounded-lg text-xs space-y-3">
+        <div
+  className="mb-6 space-y-3 border border-dashed p-4 text-xs"
+  style={{
+    borderColor: 'var(--card-border)',
+    backgroundColor: 'var(--control-soft-bg)'
+  }}
+>
+
           <div className="flex items-center justify-between">
             <span className="font-bold">设定开学周一 (计算当前学周)</span>
             <button onClick={() => setShowConfig(false)}><X className="w-4 h-4" /></button>
           </div>
-          <p className="text-[10px] text-[var(--theme-text-muted)] leading-relaxed">
+          <p
+  className="text-[10px] leading-relaxed"
+  style={{ color: 'var(--text-sub)' }}
+>
+
             仅学生党需要配置。配置后系统会根据此日期自动算得当前的学周次，用以在上课日自动进行日程关照。
           </p>
           <div className="flex gap-2">
@@ -321,11 +423,20 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
               type="date" 
               value={termStartDate} 
               onChange={(e) => setTermStartDate(e.target.value)}
-              className="flex-1 p-1.5 border border-[var(--theme-border)] rounded bg-[var(--theme-bg)] font-sans"
+              className="flex-1 border p-1.5 font-sans"
+style={{
+  color: 'var(--text-main)',
+  backgroundColor: 'var(--bg-main)',
+  borderColor: 'var(--card-border)'
+}}
             />
             <button 
               onClick={handleSaveTermStart}
-              className="px-4 py-1.5 bg-[var(--theme-text)] text-[var(--theme-bg)] rounded font-sans font-bold"
+              className="px-4 py-1.5 font-sans font-bold transition-opacity hover:opacity-80"
+style={{
+  color: 'var(--accent-foreground)',
+  backgroundColor: 'var(--accent-color)'
+}}
             >
               确定
             </button>
@@ -342,22 +453,50 @@ export default function RhythmApp({ onBackHub, currentCharacterId }) {
         </div>
       )}
 
-      {/* 星期选择滑块 */}
-      <div className="flex justify-between items-center gap-1 mb-6 py-2 px-1 bg-[rgba(0,0,0,0.02)] rounded-lg overflow-x-auto">
-        {weekDays.map((day) => (
-          <button
-            key={day.value}
-            onClick={() => setActiveDay(day.value)}
-            className={`flex-1 py-2 text-xs rounded transition-all text-center min-w-[40px] ${
-              activeDay === day.value
-                ? 'bg-[var(--theme-accent-bg,rgba(0,0,0,0.05))] font-bold border-b-2 border-[var(--theme-accent)]'
-                : 'opacity-60'
-            }`}
-          >
-            {day.label}
-          </button>
-        ))}
-      </div>
+      {/* 星期选择 */}
+<div
+  className="mb-7 flex items-end justify-between gap-1 border-b pb-2"
+  style={{
+    borderColor: 'var(--card-border)'
+  }}
+>
+  {weekDays.map((day) => {
+    const isActive = activeDay === day.value;
+
+    return (
+      <button
+        key={day.value}
+        type="button"
+        onClick={() => setActiveDay(day.value)}
+        className="relative min-w-[38px] flex-1 pb-2 text-center transition-all"
+        style={{
+          color: isActive
+            ? 'var(--text-main)'
+            : 'var(--text-sub)',
+          opacity: isActive ? 1 : 0.62
+        }}
+      >
+        <span
+          className={`font-serif text-xs ${
+            isActive ? 'font-semibold' : 'font-normal'
+          }`}
+        >
+          {day.label}
+        </span>
+
+        {isActive && (
+          <span
+            className="absolute bottom-[-3px] left-1/2 h-[5px] w-[5px] -translate-x-1/2 rounded-full"
+            style={{
+              backgroundColor: 'var(--accent-color)'
+            }}
+          />
+        )}
+      </button>
+    );
+  })}
+</div>
+
 
       {/* 拟物化撕裂票根日程卡片区 */}
       <div className="flex-1 mb-8">
