@@ -11,7 +11,8 @@ import {
   Users,
   Leaf,
   Ticket,
-  MailOpen // 👈 引入信封提问箱图标
+  MailOpen, // 👈 引入信封提问箱图标
+  Clock // 👈 引入作息时钟图标
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
@@ -258,24 +259,34 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Row 6: Travel & Planner Horizontal Row */}
-        <div className="col-span-2 flex gap-4">
+        {/* Row 6: Travel, Planner & Rhythm Horizontal Row */}
+        <div className="col-span-2 flex gap-3">
           <GlassCard
             delay={delay + 90}
             onClick={() => onOpenApp('travel')}
-            className="flex-1 cursor-pointer items-center justify-center gap-3 p-4 flex text-left"
+            className="flex-1 cursor-pointer items-center justify-center gap-2 p-3 flex text-left"
           >
             <Compass className="h-4 w-4 opacity-80" />
-            <h4 className="text-sm font-bold">Travel</h4>
+            <h4 className="text-sm font-bold truncate">Travel</h4>
           </GlassCard>
 
           <GlassCard
             delay={delay + 100}
             onClick={() => onOpenApp('planner')}
-            className="flex-1 cursor-pointer items-center justify-center gap-3 p-4 flex text-left"
+            className="flex-1 cursor-pointer items-center justify-center gap-2 p-3 flex text-left"
           >
             <Calendar className="h-4 w-4 opacity-80" />
-            <h4 className="text-sm font-bold">Planner</h4>
+            <h4 className="text-sm font-bold truncate">Planner</h4>
+          </GlassCard>
+
+          {/* 👈 新增 Rhythm (时光作息) 入口 */}
+          <GlassCard
+            delay={delay + 105}
+            onClick={() => onOpenApp('rhythm')}
+            className="flex-1 cursor-pointer items-center justify-center gap-2 p-3 flex text-left"
+          >
+            <Clock className="h-4 w-4 opacity-80" />
+            <h4 className="text-sm font-bold truncate">Rhythm</h4>
           </GlassCard>
         </div>
       </div>
@@ -290,4 +301,5 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
 };
 
 export default AppGrid;
+
 
