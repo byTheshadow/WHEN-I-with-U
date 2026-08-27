@@ -17,6 +17,7 @@ import ImaginariumApp from './apps/imaginarium/ImaginariumApp';
 import EnsembleApp from './apps/ensemble/EnsembleApp';
 import HabitatApp from './apps/habitat/HabitatApp';
 import EphemeraApp from './apps/ephemera/EphemeraApp';
+import AskBoxApp from './apps/askbox/AskBoxApp'; // 👈 引入提问箱
 import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import { Settings as SettingsIcon } from 'lucide-react';
@@ -59,7 +60,8 @@ const REGISTERED_APPS = [
   'imaginarium',
   'ensemble',
   'habitat',
-  'ephemera'
+  'ephemera',
+  'askbox' // 👈 注册
 ];
 
 export const App = () => {
@@ -323,6 +325,12 @@ export const App = () => {
         {currentApp === 'ephemera' && (
           <ErrorBoundary>
             <EphemeraApp onBackHub={() => openApp('hub')} />
+          </ErrorBoundary>
+        )}
+
+        {currentApp === 'askbox' && (
+          <ErrorBoundary>
+            <AskBoxApp onBackHub={() => openApp('hub')} />
           </ErrorBoundary>
         )}
 

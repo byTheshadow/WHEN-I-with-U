@@ -215,7 +215,6 @@ db.version(11).stores({
   imaginariumSummaries: '++id, chatId, createdAt'
 });
 
-// 🛠️ Version 12: 羁绊大群 (The Ensemble) 逻辑表定义
 db.version(12).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -243,13 +242,11 @@ db.version(12).stores({
   imaginariumMessages: '++id, chatId, senderId, timestamp',
   imaginariumSummaries: '++id, chatId, createdAt',
 
-  // 👈 羁绊大群 (The Ensemble) 专属表
   ensembleChats: '++id, title, createdAt, updatedAt',
   ensembleMessages: '++id, chatId, senderId, timestamp',
   ensembleSummaries: '++id, chatId, createdAt'
 });
 
-// 🛠️ 新增 Version 13
 db.version(13).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -277,7 +274,6 @@ db.version(13).stores({
   imaginariumMessages: '++id, chatId, senderId, timestamp',
   imaginariumSummaries: '++id, chatId, createdAt',
 
-  // 👈 羁绊大群 (The Ensemble) 专属表
   ensembleChats: '++id, title, createdAt, updatedAt',
   ensembleMessages: '++id, chatId, senderId, timestamp',
   ensembleSummaries: '++id, chatId, createdAt',
@@ -285,7 +281,6 @@ db.version(13).stores({
   snapshots: '++id, characterId, createdAt, linkedChatId, timestamp', 
 });
 
-// 🛠️ Version 14: 共生生态瓶 (The Living Habitat) 逻辑表定义
 db.version(14).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -317,12 +312,10 @@ db.version(14).stores({
   ensembleMessages: '++id, chatId, senderId, timestamp',
   ensembleSummaries: '++id, chatId, createdAt',
 
-  // 👈 Version 14 新增表
   habitats: '++id, name, type, guardianCharacterId, createdAt',
   habitatLogs: '++id, habitatId, logType, timestamp'
 });
 
-// 🛠️ Version 15: 时光票根影集 (The Ephemera) 逻辑表定义
 db.version(15).stores({
   profile: 'id, name, handle, bio, location, joined, avatar, banner',
   pinnedGallery: 'id, title, caption, photos',
@@ -357,7 +350,6 @@ db.version(15).stores({
   habitats: '++id, name, type, guardianCharacterId, createdAt',
   habitatLogs: '++id, habitatId, logType, timestamp',
 
-  // 👈 Version 15 新增票根数据表
   ephemeras: '++id, characterId, templateType, title, createdAt'
 });
 
@@ -401,6 +393,49 @@ db.version(16).stores({
   dailyOfferings: 'date, characterId, createdAt'
 });
 
+// 🛠️ Version 17: 提问箱 (AskBox) 逻辑表定义
+db.version(17).stores({
+  profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText, typingStyle, isBgDimmed, soundEnabled',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+  travels: '++id, characterId, status, createdAt',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId, timestamp',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt',
+  stickers: '++id, name, url, category, createdAt',
+
+  imaginariumChats: '++id, title, createdAt, updatedAt',
+  imaginariumMessages: '++id, chatId, senderId, timestamp',
+  imaginariumSummaries: '++id, chatId, createdAt',
+
+  ensembleChats: '++id, title, createdAt, updatedAt',
+  ensembleMessages: '++id, chatId, senderId, timestamp',
+  ensembleSummaries: '++id, chatId, createdAt',
+
+  habitats: '++id, name, type, guardianCharacterId, createdAt',
+  habitatLogs: '++id, habitatId, logType, timestamp',
+
+  ephemeras: '++id, characterId, templateType, title, createdAt',
+
+  dailyOfferingImages: '++id, createdAt, updatedAt',
+  dailyOfferings: 'date, characterId, createdAt',
+
+  // 👈 Version 17 新增提问箱数据表
+  askBoxQuestions: '++id, characterId, sender, isAnonymous, content, reply, replyAt, needPassword, password, isPasswordUnlocked, createdAt'
+});
 
 export default db;
 

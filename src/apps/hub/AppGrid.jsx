@@ -10,7 +10,8 @@ import {
   Sparkles,
   Users,
   Leaf,
-  Ticket // 👈 引入票根图标
+  Ticket,
+  MailOpen // 👈 引入信封提问箱图标
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
@@ -19,22 +20,36 @@ import db from '../../db';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   const [habitatCount, setHabitatCount] = useState(0);
+  const [askCount, setAskCount] = useState(0); // 👈 提问箱待解锁/未回复计数
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadHabitatCount = async () => {
+    const loadStats = async () => {
       try {
-        const count = await db.habitats.count();
+        const hCount = await db.habitats.count();
+        // 获取未回复或未被密码解锁的提问箱数量
+        const unansweredCount = await db.askBoxQuestions
+          .filter(q => {
+            if (q.sender === 'user') {
+              return !q.reply; // 用户提问但 NPC 还没回
+            } else {
+              // NPC提问，user还没回
+              return !q.reply;
+            }
+          })
+          .count();
+
         if (isMounted) {
-          setHabitatCount(count);
+          setHabitatCount(hCount);
+          setAskCount(unansweredCount);
         }
       } catch (error) {
-        console.error('读取生态瓶数量失败：', error);
+        console.error('读取提问箱与生态瓶数据失败：', error);
       }
     };
 
-    void loadHabitatCount();
+    void loadStats();
     return () => {
       isMounted = false;
     };
@@ -191,9 +206,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Row 5: Ephemera (Left) & Travel/Planner Column (Right) -> 完美闭合对称 */}
+        {/* Row 5: Ephemera (Left) & Ask Box (Right) */}
         <GlassCard
-          delay={delay + 90}
+          delay={delay + 80}
           onClick={() => onOpenApp('ephemera')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
@@ -214,22 +229,52 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        <div className="flex flex-col gap-4">
-          <GlassCard
-            delay={delay + 80}
-            onClick={() => onOpenApp('travel')}
-            className="flex flex-1 cursor-pointer items-center gap-3 p-4 text-left"
+        {/* Ask Box - 提问箱 */}
+        <GlassCard
+          delay={delay + 85}
+          onClick={() => onOpenApp('askbox')}
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left border-dashed"
+          style={{ borderColor: 'var(--text-muted)' }}
+        >
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Compass className="h-5 w-5 opacity-80" />
+            <MailOpen
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-sm font-bold">Ask Box</h4>
+              {askCount > 0 && (
+                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              )}
+            </div>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+              {askCount > 0 ? `${askCount} letters waiting` : 'Anonymity Box'}
+            </p>
+          </div>
+        </GlassCard>
+
+        {/* Row 6: Travel & Planner Horizontal Row */}
+        <div className="col-span-2 flex gap-4">
+          <GlassCard
+            delay={delay + 90}
+            onClick={() => onOpenApp('travel')}
+            className="flex-1 cursor-pointer items-center justify-center gap-3 p-4 flex text-left"
+          >
+            <Compass className="h-4 w-4 opacity-80" />
             <h4 className="text-sm font-bold">Travel</h4>
           </GlassCard>
 
           <GlassCard
             delay={delay + 100}
             onClick={() => onOpenApp('planner')}
-            className="flex flex-1 cursor-pointer items-center gap-3 p-4 text-left"
+            className="flex-1 cursor-pointer items-center justify-center gap-3 p-4 flex text-left"
           >
-            <Calendar className="h-5 w-5 opacity-80" />
+            <Calendar className="h-4 w-4 opacity-80" />
             <h4 className="text-sm font-bold">Planner</h4>
           </GlassCard>
         </div>
@@ -245,3 +290,4 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
 };
 
 export default AppGrid;
+
