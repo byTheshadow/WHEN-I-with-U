@@ -928,6 +928,118 @@ export const checkAndTriggerAutoMessage = async () => {
       return;
     }
 
+    // 7. 随机决定动作类型
+    const rand = Math.random();
+    let actionType = '';
+    
+    if (rand < 0.40) {
+      actionType = 'message';
+    } else if (rand < 0.70) {
+      actionType = 'diary';
+    } else {
+      actionType = 'homeBoard';
+    }
+
+    // 声明外层变量，供分支外使用
+    let character = null;
+    let generatedId = null;
+
+    if (actionType === 'message') {
+      const allChats = await db.chats.toArray();
+      if (allChats.length > 0) {
+        // 随机选择一个对话实体
+        const selectedChat = allChats[Math.floor(Math.random() * allChats.length)];
+        
+        // 寻找对应开启了主动消息的角色
+        character = activeCharacters.find(c => c.id === selectedChat.characterId);
+        if (!character) {
+          // 兜底找一下任意该角色数据
+          character = await db.characters.get(selectedChat.characterId);
+        }
+
+        if (character) {
+          console.log(`[AutoScheduler] 决定在聊天窗 ${selectedChat.title} (ID: ${selectedChat.id}) 中主动发送聊天消息。`);
+          generatedId = await generateCompanionProactiveMessage(selectedChat.id);
+        } else {
+          console.log('[AutoScheduler] 无法定位对应聊天窗的角色设定，降级为生成主页留言。');
+          actionType = 'homeBoard';
+        }
+      } else {
+        console.log('[AutoScheduler] 未找到任何对话聊天窗，降级为生成主页留言。');
+        actionType = 'homeBoard';
+      }
+    }
+
+    // 处理日记或主页留言板生成
+    if (actionType === 'diary') {
+      character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+      generatedId = await generateCompanionProactiveDiary(character.id);
+    } else if (actionType === 'homeBoard') {
+      character = activeCharacters[Math.floor(Math.random() * activeCharacters.length)];
+      generatedId = await generateCharacterHomeBoardMessage(character.id);
+    }
+
+    // 只有确实生成成功后，才更新冷却时间
+    if (generatedId !== null && generatedId !== undefined && character) {
+      try {
+        await updateLockscreenMediaSession(
+          character.name,
+          `最新${actionType === 'diary' ? '日记' : (actionType === 'message' ? '消息' : '动态')}: 已更新`
+        );
+      } catch (err) {
+        console.warn(
+          '[Lockscreen] 更新锁屏卡片失败，但不影响主动内容的生成：',
+          err
+        );
+      }
+
+      // 更新冷却时间
+      const nextCooldownMs = getRandomCooldownMs(frequency);
+
+      await db.settings.put({
+        key: 'lastAutoMessageTimestamp',
+        value: now
+      });
+
+      await db.settings.put({
+        key: 'autoMessageCooldownMs',
+        value: nextCooldownMs
+      });
+
+      await db.settings.put({
+        key: 'autoMessageFrequencyApplied',
+        value: frequency
+      });
+
+      console.log(
+        `[AutoScheduler] 已成功触发 ${actionType}：${character.name}；下次最早触发时间约为 ${Math.round(nextCooldownMs / 60000)} 分钟后。`
+      );
+    } else {
+      console.warn(
+        `[AutoScheduler] ${actionType} 未能成功触发（可能被发送冷却拦截或网络请求未成功），未更新冷却时间，将在后续轮询中重试。`
+      );
+    }
+
+  } catch (err) {
+    console.error('[AutoScheduler] 主动任务触发失败：', err);
+  } finally {
+    isAutoMessageTriggering = false;
+  }
+};
+
+
+    // 6. 获取允许接收主动消息的角色。
+    // 兼容旧角色数据：字段缺失时，默认认为开启。
+    const activeCharacters = await db.characters
+      .filter((character) => character.isAutoMessageActive !== false)
+      .toArray();
+
+    if (!activeCharacters.length) {
+      console.log('[AutoScheduler] 跳过检查：未找到任何开启了主动消息特权的角色。');
+      isAutoMessageTriggering = false;
+      return;
+    }
+
     // 6. 随机决定是：“主动在特定聊天窗口发消息(message)”、还是“写日记(diary)”、或是“在主页写留言随笔(homeBoard)”。
     const rand = Math.random();
     let actionType = '';
