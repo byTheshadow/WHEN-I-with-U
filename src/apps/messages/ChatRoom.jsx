@@ -122,28 +122,57 @@ export const ChatRoom = ({
     return () => onRoomStateChange?.(false);
   }, [onRoomStateChange]);
 
-  useEffect(() => {
-    loadChatData();
+ useEffect(() => {
+  // 切换聊天室时，不继承上一个聊天室的打字状态
+  setIsAiTyping(false);
 
-    // 延迟 400ms 激活保活机制与事件流监听，避开转场 CPU 计算最高峰，提升丝滑感
-    const loadTimer = setTimeout(() => {
-      setIsPrioritizedLoaded(true);
-    }, 400);
+  loadChatData();
 
-    const unsubscribe = subscribeAiEvents((event) => {
-      if (event.chatId !== chatId) return;
-      if (event.type === 'AI_TYPING_START') setIsAiTyping(true);
-      if (event.type === 'AI_TYPING_END') setIsAiTyping(false);
-      if (event.type === 'NEW_MESSAGE' || event.type === 'CHAT_SUMMARY_UPDATED') {
-        loadChatData();
-      }
-    });
+  const unsubscribe = subscribeAiEvents((event) => {
+    // 不是当前聊天室的事件，不处理
+    if (event.chatId !== chatId) return;
 
-    return () => {
-      clearTimeout(loadTimer);
-      unsubscribe();
-    };
-  }, [chatId]);
+    if (event.type === 'AI_TYPING_START') {
+      setIsAiTyping(true);
+      return;
+    }
+
+    if (event.type === 'AI_TYPING_END') {
+      setIsAiTyping(false);
+      return;
+    }
+
+    if (event.type === 'NEW_MESSAGE') {
+      // 收到正式消息时，肯定不应继续展示“正在输入”
+      setIsAiTyping(false);
+      loadChatData();
+      return;
+    }
+
+    if (event.type === 'CHAT_SUMMARY_UPDATED') {
+      loadChatData();
+    }
+  });
+
+  // App / 浏览器标签页切到后台时，立即关掉当前 UI 的打字指示器。
+  // 避免后台任务暂停、事件没送达后，回来仍卡在“正在输入”。
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      setIsAiTyping(false);
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  return () => {
+    unsubscribe();
+    document.removeEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    );
+  };
+}, [chatId]);
+
 
     // 监听其他模块写入本地消息，以及 AI 的外部打字状态事件
   useEffect(() => {
