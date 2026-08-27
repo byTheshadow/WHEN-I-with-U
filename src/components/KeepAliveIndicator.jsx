@@ -58,6 +58,10 @@ export const KeepAliveIndicator = ({
   const [newTitle, setNewTitle] = useState('');
   const [newUrl, setNewUrl] = useState('');
 
+  const positionRef = useRef(position);
+
+  
+
   const dragRef = useRef({
     pointerId: null,
     startX: 0,
@@ -66,6 +70,11 @@ export const KeepAliveIndicator = ({
     originY: 0,
     moved: false
   });
+
+  useEffect(() => {
+  positionRef.current = position;
+}, [position]);
+
 
   const playlist = Array.isArray(audioConfig?.playlist)
     ? audioConfig.playlist
@@ -129,69 +138,8 @@ export const KeepAliveIndicator = ({
     };
   }, []);
 
-  useEffect(() => {
-    const handlePointerMove = (event) => {
-      const drag = dragRef.current;
-
-      if (drag.pointerId !== event.pointerId) return;
-
-      const deltaX = event.clientX - drag.startX;
-      const deltaY = event.clientY - drag.startY;
-
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-        drag.moved = true;
-        setIsDragging(true);
-      }
-
-      if (!drag.moved) return;
-
-      setPosition(
-        clampPosition({
-          x: drag.originX + deltaX,
-          y: drag.originY + deltaY
-        })
-      );
-    };
-
-    const handlePointerUp = async (event) => {
-      const drag = dragRef.current;
-
-      if (drag.pointerId !== event.pointerId) return;
-
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-
-      if (drag.moved) {
-        const nextPosition = clampPosition(position);
-
-        setPosition(nextPosition);
-
-        try {
-          await db.settings.put({
-            key: POSITION_KEY,
-            value: nextPosition
-          });
-        } catch (error) {
-          console.warn('Unable to save keep-alive widget position:', error);
-        }
-      } else {
-        setIsOpen((current) => !current);
-      }
-
-      dragRef.current.pointerId = null;
-      setIsDragging(false);
-    };
-
-    if (dragRef.current.pointerId !== null) {
-      window.addEventListener('pointermove', handlePointerMove);
-      window.addEventListener('pointerup', handlePointerUp);
-    }
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [position]);
+  
+   
 
   if (!isVisible) return null;
 
@@ -215,20 +163,91 @@ export const KeepAliveIndicator = ({
     }
   };
 
-  const handlePointerDown = (event) => {
-    if (event.button !== undefined && event.button !== 0) return;
+ const handlePointerDown = (event) => {
+  if (event.button !== undefined && event.button !== 0) return;
 
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: position.x,
-      originY: position.y,
-      moved: false
-    };
-
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+  dragRef.current = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: positionRef.current.x,
+    originY: positionRef.current.y,
+    moved: false
   };
+
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+};
+
+const handlePointerMove = (event) => {
+  const drag = dragRef.current;
+
+  if (drag.pointerId !== event.pointerId) return;
+
+  const deltaX = event.clientX - drag.startX;
+  const deltaY = event.clientY - drag.startY;
+
+  if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+    drag.moved = true;
+    setIsDragging(true);
+  }
+
+  if (!drag.moved) return;
+
+  const nextPosition = clampPosition({
+    x: drag.originX + deltaX,
+    y: drag.originY + deltaY
+  });
+
+  positionRef.current = nextPosition;
+  setPosition(nextPosition);
+};
+
+const handlePointerUp = async (event) => {
+  const drag = dragRef.current;
+
+  if (drag.pointerId !== event.pointerId) return;
+
+  const didMove = drag.moved;
+  const nextPosition = clampPosition(positionRef.current);
+
+  dragRef.current.pointerId = null;
+  dragRef.current.moved = false;
+
+  setIsDragging(false);
+
+  event.currentTarget.releasePointerCapture?.(event.pointerId);
+
+  if (!didMove) {
+    setIsOpen((current) => !current);
+    return;
+  }
+
+  positionRef.current = nextPosition;
+  setPosition(nextPosition);
+
+  try {
+    await db.settings.put({
+      key: POSITION_KEY,
+      value: nextPosition
+    });
+  } catch (error) {
+    console.warn(
+      'Unable to save keep-alive widget position:',
+      error
+    );
+  }
+};
+
+const handlePointerCancel = (event) => {
+  if (dragRef.current.pointerId !== event.pointerId) return;
+
+  dragRef.current.pointerId = null;
+  dragRef.current.moved = false;
+
+  setIsDragging(false);
+
+  event.currentTarget.releasePointerCapture?.(event.pointerId);
+};
 
   const handleAddTrack = async (event) => {
     event.preventDefault();
@@ -503,9 +522,12 @@ export const KeepAliveIndicator = ({
           touchAction: 'none'
         }}
       >
-        <button
-          type="button"
-          onPointerDown={handlePointerDown}
+      <button
+  type="button"
+  onPointerDown={handlePointerDown}
+  onPointerMove={handlePointerMove}
+  onPointerUp={handlePointerUp}
+  onPointerCancel={handlePointerCancel}
           className={`relative flex h-14 w-14 items-center justify-center rounded-full border shadow-xl transition-transform ${
             isDragging ? 'scale-95' : 'active:scale-90'
           }`}
