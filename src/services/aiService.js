@@ -1069,6 +1069,68 @@ export const stopAutoMessageScheduler = () => {
   console.log('[AutoScheduler] AI 主动消息调度器已停止。');
 };
 
+const buildUserReturnContext = (messages) => {
+  const userMessages = messages
+    .filter((message) => (
+      message.sender === 'user' &&
+      message.type !== 'error' &&
+      message.timestamp
+    ));
+
+  if (userMessages.length < 2) {
+    return '';
+  }
+
+  const latestUserMessage = userMessages[userMessages.length - 1];
+  const previousUserMessage = userMessages[userMessages.length - 2];
+
+  const latestTime = new Date(latestUserMessage.timestamp).getTime();
+  const previousTime = new Date(previousUserMessage.timestamp).getTime();
+
+  if (Number.isNaN(latestTime) || Number.isNaN(previousTime)) {
+    return '';
+  }
+
+  const elapsedMs = latestTime - previousTime;
+
+  // 时间异常、间隔过短时无需提及，避免 AI 对每一句话都问候。
+  if (elapsedMs < 30 * 60 * 1000) {
+    return '';
+  }
+
+  const totalMinutes = Math.floor(elapsedMs / (60 * 1000));
+
+  let elapsedText = '';
+
+  if (totalMinutes < 60) {
+    elapsedText = `大约 ${totalMinutes} 分钟`;
+  } else if (totalMinutes < 24 * 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    elapsedText = minutes >= 15
+      ? `大约 ${hours} 小时 ${minutes} 分钟`
+      : `大约 ${hours} 小时`;
+  } else {
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const remainingHours = Math.floor((totalMinutes % (24 * 60)) / 60);
+
+    elapsedText = remainingHours >= 6
+      ? `大约 ${days} 天 ${remainingHours} 小时`
+      : `大约 ${days} 天`;
+  }
+
+  return `
+【用户再次出现的时间线索】
+- 用户距离上一次发来消息，已过去约 ${elapsedText}。
+- 这是可自然使用的情境线索，而不是每次都必须复述的信息。
+- 若这段间隔对当前语境有意义，你可以结合角色设定、用户近期状态与当前话题，自然表达关心、询问近况，或分享这段时间里自己想说的话。
+- 不要机械地逐字复述“你离开了多久”，不要因此责备、质问、制造压力，也不要每次都以此作为回复开头。
+- 若用户明确说明了离开的原因，应以用户说明为准，不要重复追问。
+`;
+};
+
+
 
 export const triggerAiResponse = async (chatId) => {
   if (!chatId || activeAiRequests.has(chatId)) return;
@@ -1089,19 +1151,26 @@ export const triggerAiResponse = async (chatId) => {
     const systemPrompt = await buildChatSystemPrompt(chatId, chat, character);
 
     const recentMsgs = await db.messages
-      .where('chatId')
-      .equals(chatId)
-      .sortBy('timestamp');
+  .where('chatId')
+  .equals(chatId)
+  .sortBy('timestamp');
 
-  
+const userReturnContext = buildUserReturnContext(recentMsgs);
+
 const historyContext = buildHistoryContext(
   recentMsgs
     .filter((message) => message.type !== 'error')
     .slice(-15)
 );
 
+const finalSystemPrompt = `${systemPrompt}${userReturnContext}`;
 
-    const result = await fetchAiCompletion(systemPrompt, historyContext, apiConfig);
+const result = await fetchAiCompletion(
+  finalSystemPrompt,
+  historyContext,
+  apiConfig
+);
+
     const nowIso = new Date().toISOString();
 
     let messageIds = [];
