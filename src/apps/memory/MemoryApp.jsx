@@ -12,20 +12,24 @@ import {
   Upload
 } from 'lucide-react';
 
-
 import GlassCard from '../../components/GlassCard';
-
 import db from '../../db';
 
 import MemoryCard from './MemoryCard';
+import MemoryExportModal from './MemoryExportModal';
+import MemoryImportModal from './MemoryImportModal';
+import MemoryRevisionModal from './MemoryRevisionModal';
+
 import {
   MEMORY_STATUS_OPTIONS,
-  MEMORY_STATUSES,
   MEMORY_TYPE_OPTIONS
 } from './memoryConstants';
+
 import {
+  acceptMemoryCandidate,
   archiveMemory,
   createMemory,
+  dismissMemoryCandidate,
   getChatMemory,
   getChatMemoryCandidates,
   permanentlyDeleteMemory,
@@ -33,9 +37,8 @@ import {
   updateMemory,
   withdrawMemory
 } from './memoryService';
-import {
-  runMemoryProcessingNow
-} from './memoryScheduler';
+
+import { runMemoryProcessingNow } from './memoryScheduler';
 
 import './memory.css';
 
@@ -60,27 +63,36 @@ export const MemoryApp = ({ onBackHub }) => {
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [memories, setMemories] = useState([]);
   const [candidates, setCandidates] = useState([]);
+
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('active');
   const [searchQuery, setSearchQuery] = useState('');
+
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState('');
   const [noticeMessage, setNoticeMessage] = useState('');
+
   const [editingMemory, setEditingMemory] = useState(null);
+  const [revisionMemory, setRevisionMemory] = useState(null);
+
   const [showEditor, setShowEditor] = useState(false);
   const [showCandidates, setShowCandidates] = useState(false);
   const [showChatPicker, setShowChatPicker] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-const [showExportModal, setShowExportModal] = useState(false);
-const [revisionMemory, setRevisionMemory] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const [form, setForm] = useState(EMPTY_FORM);
- 
 
   const selectedChat = useMemo(
     () => chats.find((chat) => chat.id === selectedChatId) || null,
     [chats, selectedChatId]
+  );
+
+  const pendingCandidates = useMemo(
+    () => candidates.filter((candidate) => candidate.status === 'pending'),
+    [candidates]
   );
 
   const loadChats = useCallback(async () => {
@@ -90,10 +102,7 @@ const [revisionMemory, setRevisionMemory] = useState(null);
 
       setChats(sorted);
 
-      if (
-        selectedChatId === null &&
-        sorted.length > 0
-      ) {
+      if (selectedChatId === null && sorted.length > 0) {
         setSelectedChatId(sorted[0].id);
       }
     } catch (error) {
@@ -141,24 +150,27 @@ const [revisionMemory, setRevisionMemory] = useState(null);
 
     return memories.filter((memory) => {
       const matchesType = (
-        selectedType === 'all' ||
-        memory.type === selectedType
+        selectedType === 'all'
+        || memory.type === selectedType
       );
 
       const matchesStatus = (
-        selectedStatus === 'all' ||
-        memory.status === selectedStatus
+        selectedStatus === 'all'
+        || memory.status === selectedStatus
       );
 
       const text = [
         memory.title,
         memory.content,
         memory.type
-      ].filter(Boolean).join(' ').toLowerCase();
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
-      return matchesType &&
-        matchesStatus &&
-        (!query || text.includes(query));
+      return matchesType
+        && matchesStatus
+        && (!query || text.includes(query));
     });
   }, [
     memories,
@@ -166,6 +178,11 @@ const [revisionMemory, setRevisionMemory] = useState(null);
     selectedStatus,
     selectedType
   ]);
+
+  const resetMessages = () => {
+    setNoticeMessage('');
+    setErrorMessage('');
+  };
 
   const openCreateEditor = () => {
     setEditingMemory(null);
@@ -209,6 +226,7 @@ const [revisionMemory, setRevisionMemory] = useState(null);
           },
           { note: '用户在记忆空间中修改。' }
         );
+
         setNoticeMessage('记忆已更新。');
       } else {
         await createMemory({
@@ -218,11 +236,14 @@ const [revisionMemory, setRevisionMemory] = useState(null);
           type: form.type,
           importance: form.importance
         });
+
         setNoticeMessage('记忆已保存。');
       }
 
       setShowEditor(false);
+      setEditingMemory(null);
       setForm(EMPTY_FORM);
+
       await loadMemoryData();
     } catch (error) {
       setErrorMessage(error?.message || '保存记忆失败。');
@@ -235,6 +256,7 @@ const [revisionMemory, setRevisionMemory] = useState(null);
         memory.memoryId,
         { note: '用户在记忆空间中撤回。' }
       );
+
       setNoticeMessage('记忆已撤回。');
       await loadMemoryData();
     } catch (error) {
@@ -248,6 +270,7 @@ const [revisionMemory, setRevisionMemory] = useState(null);
         memory.memoryId,
         { note: '用户在记忆空间中恢复。' }
       );
+
       setNoticeMessage('记忆已恢复。');
       await loadMemoryData();
     } catch (error) {
@@ -261,6 +284,7 @@ const [revisionMemory, setRevisionMemory] = useState(null);
         memory.memoryId,
         { note: '用户在记忆空间中归档。' }
       );
+
       setNoticeMessage('记忆已归档。');
       await loadMemoryData();
     } catch (error) {
@@ -268,34 +292,44 @@ const [revisionMemory, setRevisionMemory] = useState(null);
     }
   };
 
+  const handleDelete = async (memory) => {
+    try {
+      await permanentlyDeleteMemory(memory.memoryId);
+      setNoticeMessage('记忆已永久删除。');
+      await loadMemoryData();
+    } catch (error) {
+      setErrorMessage(error?.message || '删除记忆失败。');
+    }
+  };
+
   const handleAcceptCandidate = async (candidate) => {
-  try {
-    await acceptMemoryCandidate(candidate.candidateId);
-    setNoticeMessage('这段片段已采纳为正式记忆。');
-    await loadMemoryData();
-  } catch (error) {
-    setErrorMessage(error?.message || '采纳候选失败。');
-  }
-};
+    try {
+      await acceptMemoryCandidate(candidate.candidateId);
+      setNoticeMessage('这段片段已采纳为正式记忆。');
+      await loadMemoryData();
+    } catch (error) {
+      setErrorMessage(error?.message || '采纳候选失败。');
+    }
+  };
 
-const handleDismissCandidate = async (candidate) => {
-  try {
-    await dismissMemoryCandidate(
-      candidate.candidateId,
-      { note: '用户在记忆空间中忽略。' }
-    );
-    setNoticeMessage('这段片段已从待确认列表移除。');
-    await loadMemoryData();
-  } catch (error) {
-    setErrorMessage(error?.message || '忽略候选失败。');
-  }
-};
+  const handleDismissCandidate = async (candidate) => {
+    try {
+      await dismissMemoryCandidate(
+        candidate.candidateId,
+        { note: '用户在记忆空间中忽略。' }
+      );
 
-
-  
+      setNoticeMessage('这段片段已从待确认列表移除。');
+      await loadMemoryData();
+    } catch (error) {
+      setErrorMessage(error?.message || '忽略候选失败。');
+    }
+  };
 
   const handleProcessNow = async () => {
-    if (!selectedChatId || isProcessing) return;
+    if (!selectedChatId || isProcessing) {
+      return;
+    }
 
     setIsProcessing(true);
     setErrorMessage('');
@@ -315,13 +349,6 @@ const handleDismissCandidate = async (candidate) => {
     } finally {
       setIsProcessing(false);
     }
-  };
-
- 
-
-  const resetMessages = () => {
-    setNoticeMessage('');
-    setErrorMessage('');
   };
 
   const statusOptions = [
@@ -382,13 +409,16 @@ const handleDismissCandidate = async (candidate) => {
               {selectedChat ? getChatLabel(selectedChat) : '请选择消息框'}
             </strong>
           </div>
+
           <Filter className="memory-icon" />
         </button>
 
         {showChatPicker && (
           <div className="memory-chat-picker">
             {chats.length === 0 ? (
-              <p className="memory-empty-copy">还没有可以整理的消息框。</p>
+              <p className="memory-empty-copy">
+                还没有可以整理的消息框。
+              </p>
             ) : (
               chats.map((chat) => (
                 <button
@@ -426,9 +456,7 @@ const handleDismissCandidate = async (candidate) => {
 
           <div>
             <span className="memory-overview-number">
-              {candidates.filter(
-                (candidate) => candidate.status === 'pending'
-              ).length}
+              {pendingCandidates.length}
             </span>
             <span className="memory-overview-label">待确认片段</span>
           </div>
@@ -454,23 +482,22 @@ const handleDismissCandidate = async (candidate) => {
             </button>
 
             <button
-  type="button"
-  onClick={() => setShowImportModal(true)}
-  className="memory-tool-button"
->
-  <Upload className="memory-icon" />
-  导入
-</button>
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="memory-tool-button"
+            >
+              <Upload className="memory-icon" />
+              导入
+            </button>
 
-<button
-  type="button"
-  onClick={() => setShowExportModal(true)}
-  className="memory-tool-button"
->
-  <Download className="memory-icon" />
-  导出
-</button>
-
+            <button
+              type="button"
+              onClick={() => setShowExportModal(true)}
+              className="memory-tool-button"
+            >
+              <Download className="memory-icon" />
+              导出
+            </button>
 
             <button
               type="button"
@@ -487,7 +514,10 @@ const handleDismissCandidate = async (candidate) => {
       {errorMessage && (
         <div className="memory-message memory-message-error">
           <span>{errorMessage}</span>
-          <button type="button" onClick={() => setErrorMessage('')}>
+          <button
+            type="button"
+            onClick={() => setErrorMessage('')}
+          >
             知道了
           </button>
         </div>
@@ -496,7 +526,10 @@ const handleDismissCandidate = async (candidate) => {
       {noticeMessage && (
         <div className="memory-message memory-message-success">
           <span>{noticeMessage}</span>
-          <button type="button" onClick={() => setNoticeMessage('')}>
+          <button
+            type="button"
+            onClick={() => setNoticeMessage('')}
+          >
             收起
           </button>
         </div>
@@ -575,6 +608,7 @@ const handleDismissCandidate = async (candidate) => {
                     : '记忆档案'}
                 </h2>
               </div>
+
               <span className="memory-list-count">
                 {visibleMemories.length} 页
               </span>
@@ -607,17 +641,8 @@ const handleDismissCandidate = async (candidate) => {
                     onWithdraw={handleWithdraw}
                     onRestore={handleRestore}
                     onArchive={handleArchive}
-                   onDelete={async (memory) => {
-  try {
-    await permanentlyDeleteMemory(memory.memoryId);
-    setNoticeMessage('记忆已永久删除。');
-    await loadMemoryData();
-  } catch (error) {
-    setErrorMessage(error?.message || '删除记忆失败。');
-  }
-}}
-
-                    onViewRevisions={(memory) => setRevisionMemory(memory)}
+                    onDelete={handleDelete}
+                    onViewRevisions={(item) => setRevisionMemory(item)}
                   />
                 ))}
               </div>
@@ -634,61 +659,62 @@ const handleDismissCandidate = async (candidate) => {
                 <span className="memory-eyebrow">UNFINISHED NOTES</span>
                 <h2>尚未定稿的片段</h2>
               </div>
+
               <span className="memory-candidate-count">
-                {candidates.filter(
-                  (candidate) => candidate.status === 'pending'
-                ).length}
+                {pendingCandidates.length}
               </span>
             </button>
 
-            {candidates.filter(
-  (candidate) => candidate.status === 'pending'
-).length === 0 ? (
-  <p className="memory-empty-copy">
-    目前没有等待确认的片段。
-  </p>
-) : (
-  candidates
-    .filter((candidate) => candidate.status === 'pending')
-    .map((candidate) => (
-      <div
-        className="memory-candidate-item"
-        key={candidate.candidateId || candidate.id}
-      >
-        <span className="memory-candidate-type">
-          {MEMORY_TYPE_OPTIONS.find(
-            (item) => item.id === candidate.type
-          )?.label || '待整理'}
-        </span>
+            {showCandidates && (
+              <>
+                {pendingCandidates.length === 0 ? (
+                  <p className="memory-empty-copy">
+                    目前没有等待确认的片段。
+                  </p>
+                ) : (
+                  pendingCandidates.map((candidate) => (
+                    <div
+                      className="memory-candidate-item"
+                      key={candidate.candidateId || candidate.id}
+                    >
+                      <span className="memory-candidate-type">
+                        {MEMORY_TYPE_OPTIONS.find(
+                          (item) => item.id === candidate.type
+                        )?.label || '待整理'}
+                      </span>
 
-        <strong>{candidate.title || '未命名片段'}</strong>
+                      <strong>{candidate.title || '未命名片段'}</strong>
+                      <p>{candidate.content}</p>
 
-        <p>{candidate.content}</p>
+                      <small>
+                        优先程度 {candidate.priority || 3} / 5
+                      </small>
 
-        <small>
-          优先程度 {candidate.priority || 3} / 5
-        </small>
+                      <div className="memory-candidate-actions">
+                        <button
+                          type="button"
+                          className="memory-inline-button"
+                          onClick={() => handleAcceptCandidate(candidate)}
+                        >
+                          采纳为记忆
+                        </button>
 
-        <div className="memory-candidate-actions">
-          <button
-            type="button"
-            className="memory-inline-button"
-            onClick={() => handleAcceptCandidate(candidate)}
-          >
-            采纳为记忆
-          </button>
-
-          <button
-            type="button"
-            className="memory-candidate-dismiss-button"
-            onClick={() => handleDismissCandidate(candidate)}
-          >
-            忽略此片段
-          </button>
-        </div>
-      </div>
-    ))
-)}
+                        <button
+                          type="button"
+                          className="memory-candidate-dismiss-button"
+                          onClick={() => handleDismissCandidate(candidate)}
+                        >
+                          忽略此片段
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </>
+            )}
+          </section>
+        </>
+      )}
 
       {!selectedChat && (
         <div className="memory-empty-state memory-empty-state-large">
@@ -712,6 +738,7 @@ const handleDismissCandidate = async (candidate) => {
                   {editingMemory ? '修订这一页' : '写下一页记忆'}
                 </h2>
               </div>
+
               <button
                 type="button"
                 className="memory-modal-close"
@@ -721,38 +748,10 @@ const handleDismissCandidate = async (candidate) => {
               </button>
             </div>
 
-            {showImportModal && (
-  <MemoryImportModal
-    chats={chats}
-    initialChatId={selectedChatId}
-    onClose={() => setShowImportModal(false)}
-    onCompleted={async (message) => {
-      setShowImportModal(false);
-      setNoticeMessage(message);
-      await loadMemoryData();
-    }}
-    onError={(message) => setErrorMessage(message)}
-  />
-)}
-
-{showExportModal && (
-  <MemoryExportModal
-    currentChat={selectedChat}
-    onClose={() => setShowExportModal(false)}
-    onCompleted={(message) => setNoticeMessage(message)}
-    onError={(message) => setErrorMessage(message)}
-  />
-)}
-
-{revisionMemory && (
-  <MemoryRevisionModal
-    memory={revisionMemory}
-    onClose={() => setRevisionMemory(null)}
-  />
-)}
-
-
-            <form onSubmit={handleSaveMemory} className="memory-editor-form">
+            <form
+              onSubmit={handleSaveMemory}
+              className="memory-editor-form"
+            >
               <label>
                 <span>标题</span>
                 <input
@@ -820,7 +819,11 @@ const handleDismissCandidate = async (candidate) => {
                 >
                   取消
                 </button>
-                <button type="submit" className="memory-primary-button">
+
+                <button
+                  type="submit"
+                  className="memory-primary-button"
+                >
                   保存这一页
                 </button>
               </div>
@@ -829,9 +832,38 @@ const handleDismissCandidate = async (candidate) => {
         </div>
       )}
 
-    
+      {showImportModal && (
+        <MemoryImportModal
+          chats={chats}
+          initialChatId={selectedChatId}
+          onClose={() => setShowImportModal(false)}
+          onCompleted={async (message) => {
+            setShowImportModal(false);
+            setNoticeMessage(message);
+            await loadMemoryData();
+          }}
+          onError={(message) => setErrorMessage(message)}
+        />
+      )}
+
+      {showExportModal && (
+        <MemoryExportModal
+          currentChat={selectedChat}
+          onClose={() => setShowExportModal(false)}
+          onCompleted={(message) => setNoticeMessage(message)}
+          onError={(message) => setErrorMessage(message)}
+        />
+      )}
+
+      {revisionMemory && (
+        <MemoryRevisionModal
+          memory={revisionMemory}
+          onClose={() => setRevisionMemory(null)}
+        />
+      )}
     </div>
   );
 };
 
 export default MemoryApp;
+
