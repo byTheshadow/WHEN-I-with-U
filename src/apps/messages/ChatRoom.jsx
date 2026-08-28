@@ -37,6 +37,11 @@ import StickerCard from './components/cards/StickerCard';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
 
+import {
+  cancelPendingScheduledMessagesForChat
+} from './scheduledMessageService';
+
+
 import ParallelOrbit from './components/ParallelOrbit';
 
 export const ChatRoom = ({
@@ -258,8 +263,24 @@ useEffect(() => {
     const payload = { ...newMsg };
     delete payload.id;
 
-    const msgId = await db.messages.add(payload);
+       const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
+
+    // 用户提前回来继续说话时，取消此前 AI 预约的“稍后联系”。
+    // 这样不会在用户已经发言后仍收到过时的追问。
+    try {
+      await cancelPendingScheduledMessagesForChat(
+        chatId,
+        'user_sent_new_message'
+      );
+    } catch (scheduleError) {
+      // 取消失败不应阻止用户自己的消息正常发出。
+      console.warn(
+        '[ScheduledMessage] 取消旧预约失败：',
+        scheduleError
+      );
+    }
+
 
     // 播放发送提示音
     playMessageSound('send');

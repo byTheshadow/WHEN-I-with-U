@@ -1,5 +1,10 @@
 import db from '../db';
 import { updateLockscreenMediaSession } from './lockscreenService';
+import {
+  extractScheduledMessageDirective,
+  createScheduledMessage
+} from '../apps/messages/scheduledMessageService';
+
 
 
 const listeners = new Set();
@@ -678,6 +683,30 @@ ${stickerInstruction}
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
 2. 如果你想发送多条连续气泡消息，请使用 "|||" 将不同气泡隔开（例如：你好呀 ||| 今天过得怎么样？）。如果不需要分气泡，则直接连续输出正文，禁止随意堆砌 "|||"。
+
+
+【稍后主动联系机制】
+
+在极少数自然、合理且符合角色主动性的场景里，你可以决定稍后再次联系用户。
+例如：用户说自己会在一段时间后回来、正在忙碌、即将结束某件事、准备出门，
+或你们有值得自然延续的话题，以及用户需要你的提醒等。
+
+若你决定稍后主动联系，只能在整段回复的最后一行单独输出：
+
+[SCHEDULE_MESSAGE: 分钟数 | 简短联系意图]
+
+示例：
+[SCHEDULE_MESSAGE: 30 | 用户正在忙，稍后关心对方是否忙完并提醒休息]
+
+严格规则：
+1. 分钟数必须是 15 到 1440 之间的整数。
+2. 一次回复最多只能使用一次该指令。
+3. 绝大多数回复不应使用该指令；没有充分、自然理由时不要输出。
+4. 该指令不会展示给用户，因此不得在正文中解释或提及它。
+5. 意图只描述稍后联系的原因，不要提前写出完整的未来消息。
+6. 用户明确表示不希望被打扰、准备休息或需要安静时，不得使用该指令。
+7. 除此机制外，不得输出任何未注册的方括号指令。
+
 `;
 };
 
@@ -1212,15 +1241,26 @@ const result = await fetchAiCompletion(
         errorCode: result.code
       });
     } else {
-      const parsedMessages = await parseAiResponseToMessages(result.content);
+     const {
+  content: visibleReplyContent,
+  schedule: scheduledMessage
+} = extractScheduledMessageDirective(result.content);
 
-      const safeParsedMessages = parsedMessages.length > 0
+const parsedMessages = await parseAiResponseToMessages(
+  visibleReplyContent
+);
+
+
+            const safeParsedMessages = parsedMessages.length > 0
         ? parsedMessages
-        : [{
-            type: 'text',
-            content: result.content,
-            metadata: {}
-          }];
+        : visibleReplyContent
+          ? [{
+              type: 'text',
+              content: visibleReplyContent,
+              metadata: {}
+            }]
+          : [];
+
 
       for (const msgData of safeParsedMessages) {
         const newMessagePayload = {
@@ -1246,6 +1286,26 @@ const result = await fetchAiCompletion(
         const newMessageId = await db.messages.add(newMessagePayload);
         messageIds.push(newMessageId);
       }
+
+            // AI 仅在本次正常回复中明确留下有效预约指令时，
+      // 才创建稍后联系计划。该指令不会出现在用户可见气泡中。
+      if (scheduledMessage && messageIds.length > 0) {
+        try {
+          await createScheduledMessage({
+            chatId,
+            characterId: character.id,
+            delayMinutes: scheduledMessage.delayMinutes,
+            intent: scheduledMessage.intent
+          });
+        } catch (scheduleError) {
+          // 预约失败不能影响当前已经成功写入的正常聊天回复。
+          console.warn(
+            '[ScheduledMessage] 创建对话预约失败，但当前回复已正常保存：',
+            scheduleError
+          );
+        }
+      }
+
 
       preview = safeParsedMessages.find((message) => message.type === 'text')?.content
         || safeParsedMessages[0]?.content

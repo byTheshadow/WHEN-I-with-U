@@ -47,6 +47,11 @@ import {
   stopTravelPostcardScheduler
 } from './apps/travels/travelPostcardScheduler';
 
+import {
+  startScheduledMessageScheduler,
+  stopScheduledMessageScheduler
+} from './apps/messages/scheduledMessageService';
+
 import './apps/daily-offering/daily-offering.css';
 import './apps/manual/manual.css';
 
@@ -103,17 +108,20 @@ export const App = () => {
   // 缓存当前角色ID，用于传递给 RhythmApp 子应用
   const [activeCharacterId, setActiveCharacterId] = useState(null);
 
-  useEffect(() => {
+   useEffect(() => {
     void requestNotificationPermission();
 
     startAutoMessageScheduler();
     startTravelPostcardScheduler();
+    startScheduledMessageScheduler();
 
     return () => {
       stopAutoMessageScheduler();
       stopTravelPostcardScheduler();
+      stopScheduledMessageScheduler();
     };
   }, []);
+
 
   // 👈 新增：开门与切回应用时触发 AI 作息/待办提醒自检
   useEffect(() => {
