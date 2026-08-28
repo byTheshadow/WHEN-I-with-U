@@ -1,13 +1,17 @@
 import db from '../../db';
 import {
-  MEMORY_CANDIDATE_STATUSES,
-  MEMORY_CONFIDENCES,
-  MEMORY_JOB_STATUSES,
-  MEMORY_REVISION_ACTIONS,
-  MEMORY_SOURCE_KINDS,
-  MEMORY_SOURCE_STATES,
-  MEMORY_STATUSES
-} from './memoryConstants';
+  acceptMemoryCandidate,
+  archiveMemory,
+  createMemory,
+  dismissMemoryCandidate,
+  getChatMemory,
+  getChatMemoryCandidates,
+  permanentlyDeleteMemory,
+  restoreMemory,
+  updateMemory,
+  withdrawMemory
+} from './memoryService';
+
 
 const createStableId = (prefix) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -500,4 +504,144 @@ export const createPendingMemoryCandidate = async ({
   await db.memoryCandidates.add(candidate);
 
   return candidate;
+};
+export const acceptMemoryCandidate = async (
+  candidateId,
+  {
+    title,
+    content,
+    type,
+    importance,
+    note = '由待确认记忆采纳。'
+  } = {}
+) => {
+  if (!candidateId) {
+    throw new Error('缺少待确认记忆标识。');
+  }
+
+  const candidate = await db.memoryCandidates
+    .where('candidateId')
+    .equals(candidateId)
+    .first();
+
+  if (!candidate) {
+    throw new Error('未找到待确认记忆。');
+  }
+
+  if (candidate.status !== MEMORY_CANDIDATE_STATUSES.PENDING) {
+    throw new Error('这条候选记忆已被处理。');
+  }
+
+  const now = toIsoNow();
+
+  const memory = {
+    memoryId: createStableId('memory'),
+    chatId: candidate.chatId,
+    title: normalizeText(title === undefined ? candidate.title : title),
+    content: normalizeText(content === undefined ? candidate.content : content),
+    type: type || candidate.type || 'fact',
+    status: MEMORY_STATUSES.ACTIVE,
+    importance: normalizeImportance(
+      importance === undefined ? candidate.priority : importance
+    ),
+    confidence: MEMORY_CONFIDENCES.CONFIRMED,
+    sourceMessageIds: normalizeSourceMessageIds(candidate.sourceMessageIds),
+    sourceMessageTimestamps: Array.isArray(candidate.sourceMessageTimestamps)
+      ? candidate.sourceMessageTimestamps.filter(Boolean)
+      : [],
+    sourceState: MEMORY_SOURCE_STATES.AVAILABLE,
+    sourceKind: candidate.sourceKind || MEMORY_SOURCE_KINDS.CONVERSATION,
+    createdAt: now,
+    updatedAt: now,
+    lastUsedAt: null,
+    useCount: 0
+  };
+
+  assertMemoryContent(memory.content);
+
+  await db.transaction(
+    'rw',
+    db.memories,
+    db.memoryCandidates,
+    db.memoryRevisions,
+    async () => {
+      await db.memories.add(memory);
+
+      await db.memoryRevisions.add(createRevisionPayload({
+        memoryId: memory.memoryId,
+        chatId: memory.chatId,
+        action: MEMORY_REVISION_ACTIONS.CREATED,
+        snapshot: memory,
+        createdAt: now,
+        note
+      }));
+
+      await db.memoryCandidates.update(candidate.id, {
+        ...candidate,
+        status: MEMORY_CANDIDATE_STATUSES.ACCEPTED,
+        acceptedMemoryId: memory.memoryId,
+        updatedAt: now
+      });
+    }
+  );
+
+  return memory;
+};
+
+export const dismissMemoryCandidate = async (
+  candidateId,
+  { note = '' } = {}
+) => {
+  if (!candidateId) {
+    throw new Error('缺少待确认记忆标识。');
+  }
+
+  const candidate = await db.memoryCandidates
+    .where('candidateId')
+    .equals(candidateId)
+    .first();
+
+  if (!candidate) {
+    throw new Error('未找到待确认记忆。');
+  }
+
+  const now = toIsoNow();
+
+  await db.memoryCandidates.update(candidate.id, {
+    ...candidate,
+    status: MEMORY_CANDIDATE_STATUSES.DISMISSED,
+    dismissedNote: normalizeText(note),
+    updatedAt: now
+  });
+
+  return {
+    ...candidate,
+    status: MEMORY_CANDIDATE_STATUSES.DISMISSED,
+    dismissedNote: normalizeText(note),
+    updatedAt: now
+  };
+};
+
+export const getPendingMemoryCandidates = async (chatId) => {
+  assertChatId(chatId);
+
+  const candidates = await db.memoryCandidates
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  return candidates
+    .filter((candidate) => (
+      candidate.status === MEMORY_CANDIDATE_STATUSES.PENDING
+    ))
+    .sort((a, b) => {
+      const priorityDifference = Number(b.priority || 0) - Number(a.priority || 0);
+
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return new Date(b.updatedAt || b.createdAt || 0).getTime()
+        - new Date(a.updatedAt || a.createdAt || 0).getTime();
+    });
 };

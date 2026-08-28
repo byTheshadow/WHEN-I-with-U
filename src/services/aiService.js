@@ -5,6 +5,8 @@ import {
   createScheduledMessage
 } from '../apps/messages/scheduledMessageService';
 import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
+import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+
 
 
 
@@ -1374,9 +1376,14 @@ if (!result.error) {
     }
 
     // 只有真实 AI 回复成功时，才触发自动总结。
-    if (!result.error) {
-      void checkAndTriggerAutoSummary(chatId, character, apiConfig);
-    }
+if (!result.error) {
+  void checkAndTriggerAutoSummary(chatId, character, apiConfig);
+
+  // 记忆整理是独立、延迟、非阻塞的后台任务。
+  // 它不写入聊天消息，也不会影响当前回复。
+  void scheduleMemoryProcessing(chatId);
+}
+
   } catch (err) {
     console.error('Background AI task error:', err);
 

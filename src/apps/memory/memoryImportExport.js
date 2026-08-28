@@ -348,6 +348,79 @@ export const createMemoryImportPreview = async ({
   };
 };
 
+const createImportIdMap = async ({
+  targetChatId,
+  memories,
+  candidates,
+  revisions
+}) => {
+  const incomingMemoryIds = memories
+    .map((item) => cleanText(item.memoryId))
+    .filter(Boolean);
+
+  const incomingCandidateIds = candidates
+    .map((item) => cleanText(item.candidateId))
+    .filter(Boolean);
+
+  const incomingRevisionIds = revisions
+    .map((item) => cleanText(item.revisionId))
+    .filter(Boolean);
+
+  const [
+    existingMemories,
+    existingCandidates,
+    existingRevisions
+  ] = await Promise.all([
+    incomingMemoryIds.length > 0
+      ? db.memories.where('memoryId').anyOf(incomingMemoryIds).toArray()
+      : [],
+    incomingCandidateIds.length > 0
+      ? db.memoryCandidates.where('candidateId').anyOf(incomingCandidateIds).toArray()
+      : [],
+    incomingRevisionIds.length > 0
+      ? db.memoryRevisions.where('revisionId').anyOf(incomingRevisionIds).toArray()
+      : []
+  ]);
+
+  const memoryIdMap = new Map();
+  const candidateIdMap = new Map();
+  const revisionIdMap = new Map();
+
+  for (const existingMemory of existingMemories) {
+    if (existingMemory.chatId !== targetChatId) {
+      memoryIdMap.set(
+        existingMemory.memoryId,
+        createStableId('memory')
+      );
+    }
+  }
+
+  for (const existingCandidate of existingCandidates) {
+    if (existingCandidate.chatId !== targetChatId) {
+      candidateIdMap.set(
+        existingCandidate.candidateId,
+        createStableId('memory_candidate')
+      );
+    }
+  }
+
+  for (const existingRevision of existingRevisions) {
+    if (existingRevision.chatId !== targetChatId) {
+      revisionIdMap.set(
+        existingRevision.revisionId,
+        createStableId('memory_revision')
+      );
+    }
+  }
+
+  return {
+    memoryIdMap,
+    candidateIdMap,
+    revisionIdMap
+  };
+};
+
+
 export const importMemoryData = async ({
   parsedImport,
   targetChatId,
@@ -365,24 +438,52 @@ export const importMemoryData = async ({
     throw new Error('无效的记忆导入模式。');
   }
 
-  const normalizedMemories = parsedImport.memories.map((memory) => (
-    normalizeMemory(memory, targetChatId)
-  ));
+  const idMap = await createImportIdMap({
+  targetChatId,
+  memories: parsedImport.memories,
+  candidates: parsedImport.candidates,
+  revisions: parsedImport.revisions
+});
 
-  const normalizedCandidates = parsedImport.candidates.map((candidate) => (
-    normalizeCandidate(candidate, targetChatId)
-  ));
+const normalizedMemories = parsedImport.memories.map((memory) => {
+  const normalized = normalizeMemory(memory, targetChatId);
 
-  const normalizedRevisions = parsedImport.revisions
-    .filter((revision) => cleanText(revision.memoryId))
-    .map((revision) => ({
+  return {
+    ...normalized,
+    memoryId: idMap.memoryIdMap.get(normalized.memoryId)
+      || normalized.memoryId
+  };
+});
+
+const normalizedCandidates = parsedImport.candidates.map((candidate) => {
+  const normalized = normalizeCandidate(candidate, targetChatId);
+
+  return {
+    ...normalized,
+    candidateId: idMap.candidateIdMap.get(normalized.candidateId)
+      || normalized.candidateId
+  };
+});
+
+const normalizedRevisions = parsedImport.revisions
+  .filter((revision) => cleanText(revision.memoryId))
+  .map((revision) => {
+    const originalMemoryId = cleanText(revision.memoryId);
+    const originalRevisionId = cleanText(revision.revisionId);
+
+    return {
       ...revision,
-      revisionId: cleanText(revision.revisionId) || createStableId('memory_revision'),
-      memoryId: cleanText(revision.memoryId),
+      revisionId: idMap.revisionIdMap.get(originalRevisionId)
+        || originalRevisionId
+        || createStableId('memory_revision'),
+      memoryId: idMap.memoryIdMap.get(originalMemoryId)
+        || originalMemoryId,
       chatId: targetChatId,
       action: cleanText(revision.action) || MEMORY_REVISION_ACTIONS.IMPORTED,
       createdAt: revision.createdAt || nowIso()
-    }));
+    };
+  });
+
 
   const counts = {
     insertedMemories: 0,
