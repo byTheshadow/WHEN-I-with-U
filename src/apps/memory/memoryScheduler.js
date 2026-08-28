@@ -12,7 +12,7 @@ import {
 import {
   MEMORY_JOB_STATUSES,
   MEMORY_STATUSES,
-  MEMORY_CANDIDATE_PROPOSALS,
+  MEMORY_CANDIDATE_PROPOSALS
 
 } from './memoryConstants';
 
@@ -208,8 +208,6 @@ const calculateTextSimilarity = (left, right) => {
     rightTokens.length
   );
 };
-
-const getExistingMemoryContentSet = async (chatId) => {
 
 
 const getExistingMemoryContentSet = async (chatId) => {
