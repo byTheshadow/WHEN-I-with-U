@@ -575,6 +575,39 @@ const fetchAiCompletionWithTools = async ({
   }
 };
 
+const saveAiErrorMessage = async (chatId, character, result) => {
+  const nowIso = new Date().toISOString();
+
+  return db.messages.add({
+    chatId,
+    characterId: character.id,
+    sender: 'character',
+    type: 'error',
+    content: result.message,
+    metadata: {
+      errorCode: result.code,
+      errorMessage: result.message
+    },
+    versions: [
+      {
+        type: 'error',
+        content: result.message,
+        metadata: {
+          errorCode: result.code,
+          errorMessage: result.message
+        },
+        errorCode: result.code,
+        errorMessage: result.message,
+        timestamp: nowIso
+      }
+    ],
+    currentVersionIndex: 0,
+    isRead: true,
+    timestamp: nowIso
+  });
+};
+
+
 
 const getSafeChatMemoryContext = async ({
   chatId,
