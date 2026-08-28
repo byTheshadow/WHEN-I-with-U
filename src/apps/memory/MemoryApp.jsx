@@ -971,8 +971,6 @@ const handleDelete = async (memory) => {
             </div>
           </section>
 
-          
-
           <section className="memory-list-section">
             <div className="memory-section-heading">
               <div>
@@ -1031,8 +1029,6 @@ const handleDelete = async (memory) => {
           </section>
 
           <section className="memory-candidate-section">
-            
-
             <button
               type="button"
               className="memory-candidate-heading"
@@ -1166,9 +1162,7 @@ const handleDelete = async (memory) => {
               </>
             )}
           </section>
-           </div>
         </>
-        
       )}
 
       {!selectedChat && (
@@ -1356,5 +1350,7 @@ const handleDelete = async (memory) => {
 };
 
 export default MemoryApp;
+
+
 
 
