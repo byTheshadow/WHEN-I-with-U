@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from 'react';
+
 import {
   ArrowLeft,
   Send,
@@ -26,6 +33,12 @@ import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
 import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
+import McpToolApprovalModal from './mcp/McpToolApprovalModal';
+
+import {
+  registerMcpToolApprovalHandler,
+} from '../../services/mcp/mcpApprovalCoordinator';
+
 
 
 import TextCard from './components/cards/TextCard';
@@ -65,6 +78,9 @@ export const ChatRoom = ({
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
+    const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
+  const mcpApprovalResolverRef = useRef(null);
+
 
   // 控制是否展示平行轨迹页面的状态，默认为 false
   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
@@ -125,6 +141,59 @@ export const ChatRoom = ({
 
   const scrollAreaRef = useRef(null);
   const inputRef = useRef(null); 
+    const closePendingMcpApproval = useCallback((result) => {
+    const resolver = mcpApprovalResolverRef.current;
+
+    mcpApprovalResolverRef.current = null;
+    setPendingMcpApproval(null);
+
+    resolver?.(result);
+  }, []);
+
+  const handleMcpToolApprovalRequest = useCallback(
+    (request) =>
+      new Promise((resolve) => {
+        /*
+         * 同一个聊天不应同时出现两份授权请求。
+         * 若理论上发生重叠，旧请求安全拒绝。
+         */
+        if (mcpApprovalResolverRef.current) {
+          mcpApprovalResolverRef.current({
+            decision: 'deny',
+            scope: 'once',
+          });
+        }
+
+        mcpApprovalResolverRef.current = resolve;
+        setPendingMcpApproval(request);
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    const unregister = registerMcpToolApprovalHandler(
+      chatId,
+      handleMcpToolApprovalRequest,
+    );
+
+    return () => {
+      unregister();
+
+      /*
+       * 用户离开 ChatRoom 时，不能让后台 AI 永远等待。
+       * 未完成请求以“拒绝本次”安全结束。
+       */
+      if (mcpApprovalResolverRef.current) {
+        mcpApprovalResolverRef.current({
+          decision: 'deny',
+          scope: 'once',
+        });
+
+        mcpApprovalResolverRef.current = null;
+      }
+    };
+  }, [chatId, handleMcpToolApprovalRequest]);
+
 
   useEffect(() => {
     onRoomStateChange?.(true);
@@ -1082,6 +1151,12 @@ useEffect(() => {
         onClose={() => setShowStickerModal(false)}
         onSelectSticker={(sticker) => handleSendSticker(sticker)}
       />
+
+      <McpToolApprovalModal
+  request={pendingMcpApproval}
+  onResolve={closePendingMcpApproval}
+/>
+
     </div>
   );
 };

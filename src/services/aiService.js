@@ -6,6 +6,12 @@ import {
 } from '../apps/messages/scheduledMessageService';
 import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
 import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+import { runAiToolOrchestrator } from './aiToolOrchestrator';
+
+import {
+  requestMcpToolApproval,
+} from './mcp/mcpApprovalCoordinator';
+
 
 
 
@@ -570,53 +576,115 @@ const fetchAiCompletionWithTools = async ({
 };
 
 
-const saveAiErrorMessage = async (chatId, character, result) => {
-  const nowIso = new Date().toISOString();
-
-  return db.messages.add({
-    chatId,
-    characterId: character.id,
-    sender: 'character',
-    type: 'error',
-    content: result.message,
-    metadata: {
-      errorCode: result.code,
-      errorMessage: result.message
-    },
-    versions: [
-      {
-        type: 'error',
-        content: result.message,
-        metadata: {
-          errorCode: result.code,
-          errorMessage: result.message
-        },
-        errorCode: result.code,
-        errorMessage: result.message,
-        timestamp: nowIso
-      }
-    ],
-    currentVersionIndex: 0,
-    isRead: true,
-    timestamp: nowIso
-  });
-};
-const getSafeChatMemoryContext = async ({
-  chatId,
-  userText = '',
-  recentMessages = []
+const fetchAiCompletionWithTools = async ({
+  systemPrompt = '',
+  messages = [],
+  apiConfig: configOverride = null,
+  tools = [],
 }) => {
+  const apiSettings = configOverride
+    ? null
+    : await db.settings.get('apiConfig');
+
+  const apiConfig = configOverride || apiSettings?.value || {};
+
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+    return {
+      error: true,
+      code: 'CONFIG_MISSING',
+      message: '请先在系统设置中配置有效的 API Base URL 与 API Key。',
+    };
+  }
+
+  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
+  const normalizedMessages = systemPrompt
+    ? [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ]
+    : messages;
+
+  const requestBody = {
+    model: apiConfig.model || 'gpt-3.5-turbo',
+    messages: normalizedMessages,
+  };
+
+  if (Array.isArray(tools) && tools.length > 0) {
+    requestBody.tools = tools;
+    requestBody.tool_choice = 'auto';
+  }
+
   try {
-    return await getChatMemoryContext({
-      chatId,
-      userText,
-      recentMessages
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
     });
+
+    if (!response.ok) {
+      let errorDetail = response.statusText || '请求未成功';
+
+      try {
+        const errorData = await response.json();
+
+        errorDetail =
+          errorData?.error?.message ||
+          errorData?.message ||
+          errorDetail;
+      } catch {
+        // 保留 HTTP 状态文本。
+      }
+
+      return {
+        error: true,
+        code: `HTTP_${response.status}`,
+        message: `[API Error ${response.status}] ${errorDetail}`,
+      };
+    }
+
+    const data = await response.json();
+    const message = data?.choices?.[0]?.message || null;
+
+    if (!message) {
+      return {
+        error: true,
+        code: 'EMPTY_RESPONSE',
+        message: 'AI 未返回有效回复，请检查当前模型或 API 服务状态。',
+      };
+    }
+
+    const content = String(message.content || '').trim();
+
+    const hasToolCalls =
+      Array.isArray(message.tool_calls) &&
+      message.tool_calls.length > 0;
+
+    if (!content && !hasToolCalls) {
+      return {
+        error: true,
+        code: 'EMPTY_RESPONSE',
+        message: 'AI 返回内容为空，请检查当前模型或 API 服务状态。',
+      };
+    }
+
+    return {
+      error: false,
+      content,
+      message,
+    };
   } catch (error) {
-    console.warn('[Memory] Chat memory retrieval skipped safely:', error);
-    return '';
+    return {
+      error: true,
+      code: 'NETWORK_ERROR',
+      message: `网络请求失败: ${error?.message || '未知错误'}`,
+    };
   }
 };
+
 
 
 const buildChatSystemPrompt = async (chatId, chat, character) => {
@@ -1400,7 +1468,9 @@ const result = await runAiToolOrchestrator({
   chatId,
   characterId: character.id,
   requestAiCompletion: fetchAiCompletionWithTools,
+  requestToolApproval: requestMcpToolApproval,
 });
+
 
 
     const nowIso = new Date().toISOString();
@@ -1619,7 +1689,9 @@ const result = await runAiToolOrchestrator({
   chatId,
   characterId: character.id,
   requestAiCompletion: fetchAiCompletionWithTools,
+  requestToolApproval: requestMcpToolApproval,
 });
+
 
 
     const nowIso = new Date().toISOString();
