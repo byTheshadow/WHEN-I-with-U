@@ -101,27 +101,56 @@ const Toggle = ({
   disabled = false,
   label,
   onChange,
+  showState = true,
 }) => (
-  <button
-    type="button"
-    role="switch"
-    aria-checked={checked}
-    aria-label={label}
-    disabled={disabled}
-    onClick={() => onChange(!checked)}
-    className={`relative h-6 w-11 rounded-full transition-colors ${
-      checked
-        ? 'bg-rose-500'
-        : 'bg-black/15 dark:bg-white/15'
-    } disabled:cursor-not-allowed disabled:opacity-40`}
-  >
-    <span
-      className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-        checked ? 'translate-x-6' : 'translate-x-1'
-      }`}
-    />
-  </button>
+  <div className="flex shrink-0 items-center gap-2">
+    {showState && (
+      <span
+        className={`whitespace-nowrap text-[10px] font-semibold ${
+          checked
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-[var(--text-muted)] opacity-70'
+        }`}
+      >
+        {checked ? '已启用' : '未启用'}
+      </span>
+    )}
+
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="relative h-7 w-12 shrink-0 rounded-full border transition-all disabled:cursor-not-allowed disabled:opacity-40"
+      style={{
+        background: checked
+          ? 'var(--accent-color)'
+          : 'var(--control-soft-bg)',
+        borderColor: checked
+          ? 'var(--accent-color)'
+          : 'var(--text-muted)',
+      }}
+    >
+      <span
+        className="absolute top-[3px] h-[19px] w-[19px] rounded-full shadow-md transition-transform"
+        style={{
+          transform: checked
+            ? 'translateX(24px)'
+            : 'translateX(3px)',
+          background: checked
+            ? 'var(--accent-foreground)'
+            : 'var(--text-main)',
+          border: checked
+            ? '1px solid transparent'
+            : '1px solid var(--divider)',
+        }}
+      />
+    </button>
+  </div>
 );
+
 
 const StatusMark = ({ status }) => {
   if (status === 'connecting') {
