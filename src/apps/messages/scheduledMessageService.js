@@ -1,9 +1,20 @@
 import db from '../../db';
 
 const SCHEDULE_PATTERN =
-  /\s*\[SCHEDULE_MESSAGE:\s*(\d{1,4})\s*(?:\|\s*([^\]]*))?\]\s*/gi;
+  /\s*\[SCHEDULE_MESSAGE:\s*(\d{1,4})(?:\s*\|\s*([^\]]*))?\]\s*/gi;
 
-const MIN_DELAY_MINUTES = 15;
+const SCHEDULE_TYPES = {
+  REMINDER: 'reminder',
+  FOLLOW_UP: 'follow_up'
+};
+
+const CANCEL_POLICIES = {
+  KEEP: 'keep',
+  CANCEL_IF_USER_REPLIES: 'cancel_if_user_replies'
+};
+
+
+const MIN_DELAY_MINUTES = 10;
 const MAX_DELAY_MINUTES = 24 * 60;
 const SCHEDULER_INTERVAL_MS = 60 * 1000;
 
@@ -81,8 +92,7 @@ const getMessageContentForContext = (message) => {
  * 返回：
  * - content: 可直接展示给用户的正文
  * - schedule: AI 有效预约时的计划数据，否则为 null
- *
- * 一次回复只接受一个预约指令，避免模型重复安排多次触达。
+
  */
 export const extractScheduledMessageDirective = (rawText) => {
   const originalText = String(rawText || '');
@@ -91,7 +101,7 @@ export const extractScheduledMessageDirective = (rawText) => {
   const content = originalText
     .replace(
       SCHEDULE_PATTERN,
-      (fullMatch, delayValue, rawIntent) => {
+      (fullMatch, delayValue, rawPayload = '') => {
         if (matchedSchedule) {
           return '';
         }
@@ -106,9 +116,32 @@ export const extractScheduledMessageDirective = (rawText) => {
           return '';
         }
 
+        const parts = String(rawPayload)
+          .split('|')
+          .map((part) => part.trim());
+
+        const declaredType = parts[0];
+
+        const scheduleType = (
+          declaredType === SCHEDULE_TYPES.REMINDER ||
+          declaredType === SCHEDULE_TYPES.FOLLOW_UP
+        )
+          ? declaredType
+          : SCHEDULE_TYPES.FOLLOW_UP;
+
+        const intent = (
+          scheduleType === declaredType
+            ? parts.slice(1).join(' | ')
+            : parts.join(' | ')
+        ).trim();
+
         matchedSchedule = {
           delayMinutes,
-          intent: normalizeText(rawIntent).slice(0, 240)
+          scheduleType,
+          cancelPolicy: scheduleType === SCHEDULE_TYPES.REMINDER
+            ? CANCEL_POLICIES.KEEP
+            : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES,
+          intent: intent.slice(0, 240)
         };
 
         return '';
@@ -127,21 +160,40 @@ export const extractScheduledMessageDirective = (rawText) => {
  * 普通 AI 对话回复成功后调用。
  * 每个 chat 只保留一条 pending 预约；新计划会替代旧计划。
  */
+
 export const createScheduledMessage = async ({
   chatId,
   characterId,
   delayMinutes,
-  intent = ''
+  intent = '',
+  scheduleType = SCHEDULE_TYPES.FOLLOW_UP,
+  cancelPolicy = null
 }) => {
+
   if (!chatId || !characterId) {
     return null;
   }
 
   const normalizedDelay = normalizeDelayMinutes(delayMinutes);
 
+
   if (!normalizedDelay) {
     return null;
   }
+
+  const normalizedScheduleType = (
+  scheduleType === SCHEDULE_TYPES.REMINDER ||
+  scheduleType === SCHEDULE_TYPES.FOLLOW_UP
+)
+  ? scheduleType
+  : SCHEDULE_TYPES.FOLLOW_UP;
+
+const normalizedCancelPolicy = normalizedScheduleType === SCHEDULE_TYPES.REMINDER
+  ? CANCEL_POLICIES.KEEP
+  : (
+      cancelPolicy || CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+    );
+
 
   const nowIso = getNowIso();
   const scheduledFor = new Date(
@@ -155,22 +207,34 @@ export const createScheduledMessage = async ({
     db.scheduledMessages,
     async () => {
       // 不删除历史计划，以便保留原因；仅取消尚未执行的旧计划。
-      await db.scheduledMessages
-        .where('chatId')
-        .equals(chatId)
-        .and((item) => item.status === 'pending')
-        .modify({
-          status: 'cancelled',
-          cancelledReason: 'replaced_by_new_schedule',
-          updatedAt: nowIso
-        });
 
-      scheduleId = await db.scheduledMessages.add({
-        chatId,
-        characterId,
-        intent: normalizeText(intent),
-        scheduledFor,
-        status: 'pending',
+     if (normalizedScheduleType === SCHEDULE_TYPES.FOLLOW_UP) {
+  await db.scheduledMessages
+    .where('chatId')
+    .equals(chatId)
+    .and((item) => (
+      item.status === 'pending' &&
+      (
+        item.scheduleType || SCHEDULE_TYPES.FOLLOW_UP
+      ) === SCHEDULE_TYPES.FOLLOW_UP
+    ))
+    .modify({
+      status: 'cancelled',
+      cancelledReason: 'replaced_by_new_follow_up',
+      updatedAt: nowIso
+    });
+}
+
+
+     await db.scheduledMessages.add({
+  chatId,
+  characterId,
+  scheduleType: normalizedScheduleType,
+  cancelPolicy: normalizedCancelPolicy,
+  intent: normalizeText(intent),
+  scheduledFor,
+  status: 'pending',
+
         attemptCount: 0,
         sentMessageId: null,
         cancelledReason: '',
@@ -205,7 +269,18 @@ export const cancelPendingScheduledMessagesForChat = async (
   return db.scheduledMessages
     .where('chatId')
     .equals(chatId)
-    .and((item) => item.status === 'pending')
+  .and((item) => (
+  item.status === 'pending' &&
+  (
+    item.cancelPolicy ||
+    (
+      item.scheduleType === SCHEDULE_TYPES.REMINDER
+        ? CANCEL_POLICIES.KEEP
+        : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+    )
+  ) === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+))
+
     .modify({
       status: 'cancelled',
       cancelledReason: reason,
@@ -411,25 +486,31 @@ const executeScheduledMessage = async (scheduledMessage) => {
       return;
     }
 
-    // 用户已在计划创建后重新发言，但因某种边界情况没有取消计划时，
-    // 到期阶段再做一次保护，避免过时的“稍后问候”仍然发出。
     const createdAtTime = new Date(
       scheduledMessage.createdAt
     ).getTime();
 
-    const userReturnedAfterScheduling = recentMessages.some((message) => (
-      message.sender === 'user' &&
-      new Date(message.timestamp).getTime() > createdAtTime
-    ));
+   const cancelPolicy = scheduledMessage.cancelPolicy || (
+  scheduledMessage.scheduleType === SCHEDULE_TYPES.REMINDER
+    ? CANCEL_POLICIES.KEEP
+    : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+);
 
-    if (userReturnedAfterScheduling) {
-      await db.scheduledMessages.update(scheduledMessage.id, {
-        status: 'cancelled',
-        cancelledReason: 'user_sent_message_after_schedule',
-        updatedAt: getNowIso()
-      });
-      return;
-    }
+if (cancelPolicy === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES) {
+  const userReturnedAfterScheduling = recentMessages.some((message) => (
+    message.sender === 'user' &&
+    new Date(message.timestamp).getTime() > createdAtTime
+  ));
+
+  if (userReturnedAfterScheduling) {
+    await db.scheduledMessages.update(scheduledMessage.id, {
+      status: 'cancelled',
+      cancelledReason: 'user_sent_message_after_schedule',
+      updatedAt: getNowIso()
+    });
+    return;
+  }
+}
 
     const result = await fetchScheduledMessageCompletion({
       chat,

@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  BookOpen 
+  BookOpen,
+  ReceiptText,
 } from 'lucide-react';
 import db from '../../db';
 import { triggerAiResponse, rerollAiResponse, subscribeAiEvents, playMessageSound } from '../../services/aiService';
@@ -24,6 +25,8 @@ import ChatHeaderBar from './components/ChatHeaderBar';
 import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
 import ChatSettingsModal from './components/ChatSettingsModal';
+import ScheduledMessageArchive from './components/ScheduledMessageArchive';
+
 
 import TextCard from './components/cards/TextCard';
 import ImageCard from './components/cards/ImageCard';
@@ -59,6 +62,7 @@ export const ChatRoom = ({
   const [quotedMsg, setQuotedMsg] = useState(null);
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
+  const [showScheduledArchive, setShowScheduledArchive] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
 
@@ -462,18 +466,36 @@ useEffect(() => {
 
          
 
-          <button
-            type="button"
-            onClick={() => setShowChatSettings(true)}
-            className="rounded-full p-2 opacity-85 hover:opacity-100 transition-opacity"
-            style={{
-              background: 'var(--control-soft-bg)',
-              color: 'var(--text-main)'
-            }}
-            title="对话空间设置"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+  <button
+    type="button"
+    onClick={() => setShowScheduledArchive(true)}
+    className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+    style={{
+      background: 'var(--control-soft-bg)',
+      color: 'var(--text-main)'
+    }}
+    title="查看稍后联系存档"
+    aria-label="查看稍后联系存档"
+  >
+    <ReceiptText className="h-4 w-4" />
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setShowChatSettings(true)}
+    className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+    style={{
+      background: 'var(--control-soft-bg)',
+      color: 'var(--text-main)'
+    }}
+    title="对话空间设置"
+    aria-label="打开对话空间设置"
+  >
+    <Settings className="h-4 w-4" />
+  </button>
+</div>
+
         </div>
 
         <ChatHeaderBar
@@ -1042,6 +1064,15 @@ useEffect(() => {
           onUpdatedUserPersona={loadChatData}
         />
       )}
+
+      {showScheduledArchive && (
+  <ScheduledMessageArchive
+    chatId={chatId}
+    character={character}
+    onClose={() => setShowScheduledArchive(false)}
+  />
+)}
+
 
       
 
