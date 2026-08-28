@@ -60,6 +60,19 @@ const getSafeInputSchema = (inputSchema) => {
 export const buildMcpToolDefinitions = async () => {
   const enabledTools = await getEnabledMcpTools();
 
+  console.log('[MCP] 已启用工具数量:', enabledTools.length);
+  console.log(
+    '[MCP] 已启用工具:',
+    enabledTools.map((tool) => ({
+      connectionId: tool.connectionId,
+      toolName: tool.toolName,
+      enabled: tool.enabled,
+      isAvailable: tool.isAvailable,
+      connectionStatus: tool.connection?.status,
+    })),
+  );
+
+
   const registry = new Map();
 
   const tools = enabledTools.map((tool, index) => {
@@ -427,6 +440,8 @@ export const runAiToolOrchestrator = async ({
   }
 
   const { tools, registry } = await buildMcpToolDefinitions();
+console.log('[MCP] 传给 AI 的工具定义数量:', tools.length);
+console.log('[MCP] 传给 AI 的工具:', tools);
 
   // 没有任何已启用工具时，完全沿用原有普通 AI 请求。
   if (tools.length === 0) {
