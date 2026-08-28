@@ -10,11 +10,21 @@ const getCurrentMessageContent = (message) => {
   const currentVersionIndex = Number(message.currentVersionIndex);
 
   if (
+    versions.length > 0 &&
     Number.isInteger(currentVersionIndex) &&
-    versions[currentVersionIndex] &&
-    typeof versions[currentVersionIndex].content === 'string'
+    versions[currentVersionIndex]
   ) {
-    return normalizeText(versions[currentVersionIndex].content);
+    const currentVersion = versions[currentVersionIndex];
+
+    if (typeof currentVersion === 'string') {
+      return normalizeText(currentVersion);
+    }
+
+    return normalizeText(
+      currentVersion.content ||
+      currentVersion.text ||
+      currentVersion.message
+    );
   }
 
   return normalizeText(message.content);
@@ -27,7 +37,7 @@ const isUsableMessage = (message) => {
     message &&
     message.type !== 'error' &&
     content &&
-    ['user', 'character'].includes(message.sender)
+    ['user', 'character', 'ai', 'assistant'].includes(message.sender)
   );
 };
 
@@ -35,37 +45,37 @@ const HIGH_PRIORITY_PATTERNS = [
   {
     type: 'expression_rule',
     priority: 5,
-    pattern: /(记住|请记得|别忘了|不要忘记).{0,60}/i
+    pattern: /(记住|请记得|别忘了|不要忘记).{0,80}/i
   },
   {
     type: 'expression_rule',
     priority: 5,
-    pattern: /(不要再|别再|不要这样|别这样|不喜欢你).{0,60}/i
+    pattern: /(不要再|别再|不要这样|别这样|不喜欢你).{0,80}/i
   },
   {
     type: 'preference',
     priority: 4,
-    pattern: /(我喜欢|我不喜欢|我讨厌|我更希望|我习惯).{0,80}/i
+    pattern: /(我喜欢|我不喜欢|我讨厌|我更希望|我习惯).{0,100}/i
   },
   {
     type: 'relationship',
     priority: 4,
-    pattern: /(我们现在是|我们的关系|从今天起|以后我们).{0,80}/i
+    pattern: /(我们的关系|我们现在是|从今天起|以后我们|叫我).{0,100}/i
   },
   {
     type: 'fact',
     priority: 4,
-    pattern: /(我已经|我决定|我辞职|我搬家|我毕业|我生病|我确诊|我失业).{0,80}/i
+    pattern: /(我已经|我决定|我辞职|我搬家|我毕业|我生病|我确诊|我失业).{0,100}/i
   },
   {
     type: 'episode',
     priority: 4,
-    pattern: /(约好了|答应你|说定了|下次我们|我们约定).{0,80}/i
+    pattern: /(约好了|答应你|说定了|下次我们|我们约定).{0,100}/i
   },
   {
     type: 'emotion',
     priority: 4,
-    pattern: /(我很难过|我很害怕|我很崩溃|我撑不住了|我好累|我很开心).{0,80}/i
+    pattern: /(我很难过|我很害怕|我很崩溃|我撑不住了|我好累|我很开心).{0,100}/i
   }
 ];
 
@@ -94,7 +104,7 @@ export const inspectMemorySignals = (messages = []) => {
   }
 
   const highestPriority = signals.reduce(
-    (currentHighest, signal) => Math.max(currentHighest, signal.priority),
+    (highest, signal) => Math.max(highest, signal.priority),
     0
   );
 
@@ -110,14 +120,15 @@ export const buildMemorySourceBatch = (
   messages = [],
   maxMessages = 40
 ) => {
-  const usableMessages = getUsableMessages(messages)
-    .slice(-maxMessages);
+  const usableMessages = getUsableMessages(messages).slice(-maxMessages);
 
-  return usableMessages.map((message) => ({
-    id: message.id,
-    sender: message.sender,
-    type: message.type || 'text',
-    timestamp: message.timestamp || '',
-    content: getCurrentMessageContent(message).slice(0, 1200)
-  }));
+  return usableMessages
+    .map((message) => ({
+      id: message.id,
+      sender: message.sender,
+      type: message.type || 'text',
+      timestamp: message.timestamp || '',
+      content: getCurrentMessageContent(message).slice(0, 1200)
+    }))
+    .filter((message) => message.id !== undefined && message.content);
 };
