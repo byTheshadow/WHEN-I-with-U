@@ -28,6 +28,8 @@ import GlassCard from '../../components/GlassCard';
 import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
+import BondConnection from './mcp/BondConnection';
+
 
 import db from '../../db';
 import {
@@ -926,6 +928,8 @@ export const SettingsPage = ({
 
       {/* 5. 今日留物设置组件（已装配） */}
       <DailyOfferingSettings />
+
+      <BondConnection />
 
       {/* 6. GitHub 备份云端抽屉组件（全新装配） */}
       <GitHubBackupSettings />

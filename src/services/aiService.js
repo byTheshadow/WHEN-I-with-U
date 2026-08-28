@@ -461,6 +461,115 @@ const fetchAiCompletion = async (systemPrompt, historyContext = [], configOverri
   }
 };
 
+const fetchAiCompletionWithTools = async ({
+  systemPrompt = '',
+  messages = [],
+  apiConfig: configOverride = null,
+  tools = [],
+}) => {
+  const apiSettings = configOverride
+    ? null
+    : await db.settings.get('apiConfig');
+
+  const apiConfig = configOverride || apiSettings?.value || {};
+
+  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+    return {
+      error: true,
+      code: 'CONFIG_MISSING',
+      message: '请先在系统设置中配置有效的 API Base URL 与 API Key。',
+    };
+  }
+
+  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
+  const normalizedMessages = systemPrompt
+    ? [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ]
+    : messages;
+
+  const requestBody = {
+    model: apiConfig.model || 'gpt-3.5-turbo',
+    messages: normalizedMessages,
+  };
+
+  if (Array.isArray(tools) && tools.length > 0) {
+    requestBody.tools = tools;
+    requestBody.tool_choice = 'auto';
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      let errorDetail = response.statusText || '请求未成功';
+
+      try {
+        const errorData = await response.json();
+        errorDetail =
+          errorData?.error?.message ||
+          errorData?.message ||
+          errorDetail;
+      } catch {
+        // 保留 HTTP 状态文本。
+      }
+
+      return {
+        error: true,
+        code: `HTTP_${response.status}`,
+        message: `[API Error ${response.status}] ${errorDetail}`,
+      };
+    }
+
+    const data = await response.json();
+    const message = data?.choices?.[0]?.message || null;
+
+    if (!message) {
+      return {
+        error: true,
+        code: 'EMPTY_RESPONSE',
+        message: 'AI 未返回有效回复，请检查当前模型或 API 服务状态。',
+      };
+    }
+
+    const content = String(message.content || '').trim();
+
+    const hasToolCalls =
+      Array.isArray(message.tool_calls) &&
+      message.tool_calls.length > 0;
+
+    if (!content && !hasToolCalls) {
+      return {
+        error: true,
+        code: 'EMPTY_RESPONSE',
+        message: 'AI 返回内容为空，请检查当前模型或 API 服务状态。',
+      };
+    }
+
+    return {
+      error: false,
+      content,
+      message,
+    };
+  } catch (error) {
+    return {
+      error: true,
+      code: 'NETWORK_ERROR',
+      message: `网络请求失败: ${error?.message || '未知错误'}`,
+    };
+  }
+};
+
+
 const saveAiErrorMessage = async (chatId, character, result) => {
   const nowIso = new Date().toISOString();
 
@@ -1284,11 +1393,15 @@ const memoryContext = await getSafeChatMemoryContext({
 
 const finalSystemPrompt = `${systemPrompt}${userReturnContext}${memoryContext}`;
 
-const result = await fetchAiCompletion(
-  finalSystemPrompt,
+const result = await runAiToolOrchestrator({
+  systemPrompt: finalSystemPrompt,
   historyContext,
-  apiConfig
-);
+  apiConfig,
+  chatId,
+  characterId: character.id,
+  requestAiCompletion: fetchAiCompletionWithTools,
+});
+
 
     const nowIso = new Date().toISOString();
 
@@ -1499,11 +1612,15 @@ const memoryContext = await getSafeChatMemoryContext({
 
 const finalSystemPrompt = `${systemPrompt}${memoryContext}`;
 
-const result = await fetchAiCompletion(
-  finalSystemPrompt,
+const result = await runAiToolOrchestrator({
+  systemPrompt: finalSystemPrompt,
   historyContext,
-  apiConfig
-);
+  apiConfig,
+  chatId,
+  characterId: character.id,
+  requestAiCompletion: fetchAiCompletionWithTools,
+});
+
 
     const nowIso = new Date().toISOString();
 

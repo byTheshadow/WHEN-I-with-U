@@ -249,9 +249,11 @@ const sendJsonRpcRequest = async ({
     }
 
     return {
-      payload,
-      sessionId: responseSessionId || session?.sessionId || null,
-    };
+  payload,
+  requestId,
+  sessionId: responseSessionId || session?.sessionId || null,
+};
+
   } catch (error) {
     if (error?.name === 'AbortError') {
       throw createMcpError(
@@ -302,10 +304,11 @@ export const initializeMcpClient = async (connection) => {
     },
   });
 
-  const initializeResult = normalizeJsonRpcResult(
-    initializeRequest.payload,
-    initializeRequest.payload?.id,
-  );
+  normalizeJsonRpcResult(
+  response.payload,
+  response.requestId,
+);
+
 
   if (!initializeResult?.protocolVersion) {
     throw createMcpError(
@@ -347,10 +350,11 @@ export const listMcpTools = async (connection, cursor = null) => {
     session,
   });
 
-  const result = normalizeJsonRpcResult(
-    response.payload,
-    response.payload?.id,
-  );
+ normalizeJsonRpcResult(
+  response.payload,
+  response.requestId,
+);
+
 
   return {
     tools: Array.isArray(result?.tools) ? result.tools : [],
@@ -382,10 +386,11 @@ export const callMcpTool = async ({
     session,
   });
 
-  const result = normalizeJsonRpcResult(
-    response.payload,
-    response.payload?.id,
-  );
+  normalizeJsonRpcResult(
+  response.payload,
+  response.requestId,
+);
+
 
   return {
     content: Array.isArray(result?.content) ? result.content : [],
