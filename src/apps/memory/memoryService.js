@@ -1,16 +1,15 @@
 import db from '../../db';
+
 import {
-  acceptMemoryCandidate,
-  archiveMemory,
-  createMemory,
-  dismissMemoryCandidate,
-  getChatMemory,
-  getChatMemoryCandidates,
-  permanentlyDeleteMemory,
-  restoreMemory,
-  updateMemory,
-  withdrawMemory
-} from './memoryService';
+  MEMORY_CANDIDATE_STATUSES,
+  MEMORY_CONFIDENCES,
+  MEMORY_JOB_STATUSES,
+  MEMORY_REVISION_ACTIONS,
+  MEMORY_SOURCE_KINDS,
+  MEMORY_SOURCE_STATES,
+  MEMORY_STATUSES
+} from './memoryConstants';
+
 
 
 const createStableId = (prefix) => {
