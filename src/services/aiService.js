@@ -1646,7 +1646,7 @@ const autoSendGuide = `
         // 主动消息要求最多 80 字，但不能让服务端默认 token 上限
         // 在一句话中间切断。300 tokens 足够容纳正常中文消息、
         // 卡片语法与少量模型输出冗余。
-        max_tokens: 300
+        max_tokens: 1000
       })
     });
 

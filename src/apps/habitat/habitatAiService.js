@@ -65,7 +65,7 @@ const callLLM = async (systemPrompt, userPrompt) => {
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.8,
-      max_tokens: 150
+      max_tokens: 1000
     })
   });
 

@@ -61,7 +61,7 @@ export const ephemeraAiService = {
             { role: 'user', content: prompt }
           ],
           temperature: 0.8,
-          max_tokens: 150
+          max_tokens: 1000
         })
       });
 
