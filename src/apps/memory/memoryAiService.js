@@ -384,6 +384,7 @@ const buildSystemPrompt = () => `
 5. 阶段性摘要只用于理解语境，不是可独立引用的证据；每一条输出都必须引用本次对话片段中的 sourceMessageIds。
 6. 明确、稳定且有充分对话依据的内容放入 memories。
 7. 可能变化、含义不完整、存在冲突或需要用户确认的内容放入 candidates。
+7.1 当用户明确表示“不是 X，是 Y”“我之前说错了”“更正一下”或要求以新说法为准时，优先将新说法保留为可用于更正旧理解的候选；不要把旧说法与新说法同时写成两个同等确定的长期事实。
 8. 每项必须引用至少一个 sourceMessageIds；不能引用的内容不要输出。
 9. sourceMessageIds 只能使用本次对话片段中实际提供的数字 ID，不能编造。
 10. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
@@ -495,10 +496,16 @@ ${JSON.stringify(sourceMessages)}
     : [];
 
   return {
-    memories,
-    candidates,
-    sourceMessageIds: sourceMessages
-      .map((message) => Number(message.id))
-      .filter(Number.isFinite)
-  };
+  memories,
+  candidates,
+
+  // scheduler 仅用于判断“不是 X，是 Y”“我之前说错了”等
+  // 明确更正语义；不会把此字段写进正式记忆数据库。
+  sourceMessages,
+
+  sourceMessageIds: sourceMessages
+    .map((message) => Number(message.id))
+    .filter(Number.isFinite)
+};
+
 };

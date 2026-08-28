@@ -10,9 +10,14 @@ const ACTION_LABELS = {
   [MEMORY_REVISION_ACTIONS.WITHDRAWN]: '已撤回',
   [MEMORY_REVISION_ACTIONS.RESTORED]: '已恢复',
   [MEMORY_REVISION_ACTIONS.ARCHIVED]: '已归档',
+  [MEMORY_REVISION_ACTIONS.DORMANT]: '暂不调用',
+  [MEMORY_REVISION_ACTIONS.CORRECTED]: '已被更正',
+  [MEMORY_REVISION_ACTIONS.SUPERSEDED]: '已由新理解替代',
+  [MEMORY_REVISION_ACTIONS.CANDIDATE_ACCEPTED]: '候选已采纳',
   [MEMORY_REVISION_ACTIONS.DELETED]: '永久删除',
   [MEMORY_REVISION_ACTIONS.IMPORTED]: '导入记录'
 };
+
 
 const formatDateTime = (value) => {
   if (!value) return '时间未记录';
@@ -154,9 +159,24 @@ export const MemoryRevisionModal = ({
                     <p>{snapshot.content}</p>
                   )}
 
+                  {snapshot.status && (
+  <span className="memory-revision-status">
+    状态：{snapshot.status}
+  </span>
+)}
+
+
                   {revision.note && (
                     <small>说明：{revision.note}</small>
                   )}
+
+{snapshot.supersededByMemoryId && (
+  <small>
+    后续替代记录：{snapshot.supersededByMemoryId}
+  </small>
+)}
+
+
                 </article>
               );
             })}

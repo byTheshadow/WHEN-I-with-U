@@ -1,6 +1,7 @@
 import db from '../../db';
 
 import {
+  MEMORY_CANDIDATE_PROPOSALS,
   MEMORY_CANDIDATE_STATUSES,
   MEMORY_CONFIDENCES,
   MEMORY_JOB_STATUSES,
@@ -9,6 +10,9 @@ import {
   MEMORY_SOURCE_STATES,
   MEMORY_STATUSES
 } from './memoryConstants';
+import {
+  normalizeComparableText
+} from './memoryQuality';
 
 const createStableId = (prefix) => {
   if (
@@ -45,6 +49,18 @@ const normalizeSourceMessageIds = (value) => {
   return value
     .map((id) => Number(id))
     .filter((id) => Number.isFinite(id));
+};
+
+const normalizeMemoryIdList = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(
+    value
+      .map((memoryId) => normalizeText(memoryId))
+      .filter(Boolean)
+  )];
 };
 
 const isValidChatId = (chatId) => (
@@ -187,6 +203,10 @@ export const createMemory = async ({
   sourceMessageTimestamps = [],
   sourceState = MEMORY_SOURCE_STATES.USER_CREATED,
   sourceKind = MEMORY_SOURCE_KINDS.USER_CREATED,
+  supersedesMemoryId = null,
+  supersededByMemoryId = null,
+  duplicateOfMemoryId = null,
+  conflictWithMemoryIds = [],
   note = ''
 }) => {
   assertChatId(chatId);
@@ -212,7 +232,21 @@ export const createMemory = async ({
     sourceKind,
     createdAt: now,
     updatedAt: now,
+
+    normalizedContent: normalizeComparableText(content),
+
+    userEditedAt: null,
+    userConfirmedAt: confidence === MEMORY_CONFIDENCES.USER_WRITTEN
+      ? now
+      : null,
+
+    supersedesMemoryId: normalizeText(supersedesMemoryId) || null,
+    supersededByMemoryId: normalizeText(supersededByMemoryId) || null,
+    duplicateOfMemoryId: normalizeText(duplicateOfMemoryId) || null,
+    conflictWithMemoryIds: normalizeMemoryIdList(conflictWithMemoryIds),
+
     lastUsedAt: null,
+    lastRetrievedAt: null,
     useCount: 0
   };
 
@@ -284,6 +318,25 @@ export const updateMemory = async (
       : Array.isArray(updates.sourceMessageTimestamps)
         ? updates.sourceMessageTimestamps.filter(Boolean)
         : [],
+    supersedesMemoryId: updates.supersedesMemoryId === undefined
+      ? currentMemory.supersedesMemoryId || null
+      : normalizeText(updates.supersedesMemoryId) || null,
+    supersededByMemoryId: updates.supersededByMemoryId === undefined
+      ? currentMemory.supersededByMemoryId || null
+      : normalizeText(updates.supersededByMemoryId) || null,
+    duplicateOfMemoryId: updates.duplicateOfMemoryId === undefined
+      ? currentMemory.duplicateOfMemoryId || null
+      : normalizeText(updates.duplicateOfMemoryId) || null,
+    conflictWithMemoryIds: updates.conflictWithMemoryIds === undefined
+      ? normalizeMemoryIdList(currentMemory.conflictWithMemoryIds)
+      : normalizeMemoryIdList(updates.conflictWithMemoryIds),
+
+    normalizedContent: normalizeComparableText(nextContent),
+
+    // 通过记忆空间的编辑动作，视为用户主动修订。
+    // 后续 AI 整理只能提出更新候选，不能静默覆盖此记录。
+    userEditedAt: now,
+    userConfirmedAt: currentMemory.userConfirmedAt || now,
     updatedAt: now
   };
 
@@ -324,6 +377,8 @@ export const setMemoryStatus = async (
   const actionByStatus = {
     [MEMORY_STATUSES.WITHDRAWN]: MEMORY_REVISION_ACTIONS.WITHDRAWN,
     [MEMORY_STATUSES.ARCHIVED]: MEMORY_REVISION_ACTIONS.ARCHIVED,
+    [MEMORY_STATUSES.DORMANT]: MEMORY_REVISION_ACTIONS.DORMANT,
+    [MEMORY_STATUSES.CORRECTED]: MEMORY_REVISION_ACTIONS.CORRECTED,
     [MEMORY_STATUSES.ACTIVE]: MEMORY_REVISION_ACTIONS.RESTORED
   };
 
@@ -335,7 +390,10 @@ export const setMemoryStatus = async (
     updatedAt: now,
     withdrawnAt: status === MEMORY_STATUSES.WITHDRAWN
       ? now
-      : null
+      : null,
+    correctedAt: status === MEMORY_STATUSES.CORRECTED
+      ? now
+      : currentMemory.correctedAt || null
   };
 
   await db.transaction(
@@ -513,8 +571,6 @@ export const ensureMemoryJob = async (chatId) => {
     await db.memoryJobs.add(job);
     return job;
   } catch (error) {
-    // memoryJobs.chatId 有唯一索引；并发首次调用时，
-    // 另一条调用链可能已先一步创建了任务记录。
     const concurrentJob = await getMemoryJob(chatId);
 
     if (concurrentJob) {
@@ -536,6 +592,7 @@ export const destroyChatWithMemories = async (chatId) => {
     db.memoryCandidates,
     db.memoryRevisions,
     db.memoryJobs,
+    db.scheduledMessages,
     async () => {
       await db.messages
         .where('chatId')
@@ -555,6 +612,11 @@ export const destroyChatWithMemories = async (chatId) => {
         .delete();
 
       await db.memoryJobs
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
+      await db.scheduledMessages
         .where('chatId')
         .equals(chatId)
         .delete();
@@ -602,7 +664,13 @@ export const createPendingMemoryCandidate = async ({
   priority = 3,
   sourceMessageIds = [],
   sourceMessageTimestamps = [],
-  sourceKind = MEMORY_SOURCE_KINDS.CONVERSATION
+  sourceKind = MEMORY_SOURCE_KINDS.CONVERSATION,
+
+  proposalType = MEMORY_CANDIDATE_PROPOSALS.CREATE,
+  targetMemoryId = null,
+  relatedMemoryIds = [],
+  similarityScore = 0,
+  conflictReason = ''
 }) => {
   assertChatId(chatId);
   assertMemoryContent(content);
@@ -617,6 +685,30 @@ export const createPendingMemoryCandidate = async ({
     type,
     priority: normalizeImportance(priority),
     status: MEMORY_CANDIDATE_STATUSES.PENDING,
+
+    proposalType: Object.values(MEMORY_CANDIDATE_PROPOSALS).includes(
+      proposalType
+    )
+      ? proposalType
+      : MEMORY_CANDIDATE_PROPOSALS.CREATE,
+
+    targetMemoryId: normalizeText(targetMemoryId) || null,
+
+    relatedMemoryIds: Array.isArray(relatedMemoryIds)
+      ? [...new Set(
+          relatedMemoryIds
+            .map((id) => normalizeText(id))
+            .filter(Boolean)
+        )]
+      : [],
+
+    similarityScore: Math.max(
+      0,
+      Math.min(1, Number(similarityScore) || 0)
+    ),
+
+    conflictReason: normalizeText(conflictReason),
+
     sourceMessageIds: normalizeSourceMessageIds(sourceMessageIds),
     sourceMessageTimestamps: Array.isArray(sourceMessageTimestamps)
       ? sourceMessageTimestamps.filter(Boolean)
@@ -660,6 +752,31 @@ export const acceptMemoryCandidate = async (
 
   const now = toIsoNow();
 
+  const nextTitle = normalizeText(
+    title === undefined ? candidate.title : title
+  );
+
+  const nextContent = normalizeText(
+    content === undefined ? candidate.content : content
+  );
+
+  assertMemoryContent(nextContent);
+
+  const nextType = type || candidate.type || 'fact';
+
+  const nextImportance = normalizeImportance(
+    importance === undefined
+      ? candidate.priority
+      : importance
+  );
+
+  const proposalType = candidate.proposalType
+    || MEMORY_CANDIDATE_PROPOSALS.CREATE;
+
+  const targetMemory = candidate.targetMemoryId
+    ? await getMemoryById(candidate.targetMemoryId)
+    : null;
+
   const sourceMessageIds = normalizeSourceMessageIds(
     candidate.sourceMessageIds
   );
@@ -667,43 +784,51 @@ export const acceptMemoryCandidate = async (
   const sourceKind = candidate.sourceKind
     || MEMORY_SOURCE_KINDS.CONVERSATION;
 
-  const memory = {
+  const createAcceptedMemoryPayload = ({
+    supersedesMemoryId = null
+  } = {}) => ({
     memoryId: createStableId('memory'),
     chatId: candidate.chatId,
-    title: normalizeText(
-      title === undefined
-        ? candidate.title
-        : title
-    ),
-    content: normalizeText(
-      content === undefined
-        ? candidate.content
-        : content
-    ),
-    type: type || candidate.type || 'fact',
+    title: nextTitle,
+    content: nextContent,
+    type: nextType,
     status: MEMORY_STATUSES.ACTIVE,
-    importance: normalizeImportance(
-      importance === undefined
-        ? candidate.priority
-        : importance
-    ),
+    importance: nextImportance,
+
+    // 用户主动点击采纳，故不再只是 AI 推测。
     confidence: MEMORY_CONFIDENCES.CONFIRMED,
+
     sourceMessageIds,
-    sourceMessageTimestamps: Array.isArray(candidate.sourceMessageTimestamps)
+    sourceMessageTimestamps: Array.isArray(
+      candidate.sourceMessageTimestamps
+    )
       ? candidate.sourceMessageTimestamps.filter(Boolean)
       : [],
+
     sourceState: getSourceStateFromData({
       sourceKind,
       sourceMessageIds
     }),
+
     sourceKind,
+    normalizedContent: normalizeComparableText(nextContent),
+
+    userEditedAt: null,
+    userConfirmedAt: now,
+
+    supersedesMemoryId,
+    supersededByMemoryId: null,
+    duplicateOfMemoryId: null,
+    conflictWithMemoryIds: [],
+
     createdAt: now,
     updatedAt: now,
     lastUsedAt: null,
+    lastRetrievedAt: null,
     useCount: 0
-  };
+  });
 
-  assertMemoryContent(memory.content);
+  let acceptedMemory = null;
 
   await db.transaction(
     'rw',
@@ -711,6 +836,74 @@ export const acceptMemoryCandidate = async (
     db.memoryCandidates,
     db.memoryRevisions,
     async () => {
+      if (
+        proposalType === MEMORY_CANDIDATE_PROPOSALS.DUPLICATE &&
+        targetMemory
+      ) {
+        await db.memoryCandidates.update(candidate.id, {
+          ...candidate,
+          status: MEMORY_CANDIDATE_STATUSES.ACCEPTED,
+          acceptedMemoryId: targetMemory.memoryId,
+          acceptedAsDuplicate: true,
+          updatedAt: now
+        });
+
+        acceptedMemory = targetMemory;
+        return;
+      }
+
+      if (
+        proposalType === MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING &&
+        targetMemory
+      ) {
+        const nextTargetMemory = {
+          ...targetMemory,
+          title: nextTitle,
+          content: nextContent,
+          type: nextType,
+          importance: nextImportance,
+          confidence: MEMORY_CONFIDENCES.CONFIRMED,
+
+          normalizedContent: normalizeComparableText(nextContent),
+
+          // 由用户采纳候选，视为一次用户确认。
+          userConfirmedAt: now,
+          updatedAt: now
+        };
+
+        await db.memoryRevisions.add(createRevisionPayload({
+          memoryId: targetMemory.memoryId,
+          chatId: targetMemory.chatId,
+          action: MEMORY_REVISION_ACTIONS.EDITED,
+          snapshot: targetMemory,
+          createdAt: now,
+          note: `${note} 已更新原有记忆。`
+        }));
+
+        await db.memories.update(targetMemory.id, nextTargetMemory);
+
+        await db.memoryCandidates.update(candidate.id, {
+          ...candidate,
+          status: MEMORY_CANDIDATE_STATUSES.ACCEPTED,
+          acceptedMemoryId: targetMemory.memoryId,
+          updatedAt: now
+        });
+
+        acceptedMemory = nextTargetMemory;
+        return;
+      }
+
+      const shouldCorrectTarget = (
+        proposalType === MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING &&
+        targetMemory
+      );
+
+      const memory = createAcceptedMemoryPayload({
+        supersedesMemoryId: shouldCorrectTarget
+          ? targetMemory.memoryId
+          : null
+      });
+
       await db.memories.add(memory);
 
       await db.memoryRevisions.add(createRevisionPayload({
@@ -722,21 +915,50 @@ export const acceptMemoryCandidate = async (
         note
       }));
 
+      if (shouldCorrectTarget) {
+        const correctedTarget = {
+          ...targetMemory,
+          status: MEMORY_STATUSES.CORRECTED,
+          supersededByMemoryId: memory.memoryId,
+          correctedAt: now,
+          updatedAt: now
+        };
+
+        await db.memoryRevisions.add(createRevisionPayload({
+          memoryId: targetMemory.memoryId,
+          chatId: targetMemory.chatId,
+          action: MEMORY_REVISION_ACTIONS.SUPERSEDED,
+          snapshot: targetMemory,
+          createdAt: now,
+          note: `已由记忆「${memory.title || memory.content.slice(0, 24)}」更正。`
+        }));
+
+        await db.memories.update(
+          targetMemory.id,
+          correctedTarget
+        );
+      }
+
       await db.memoryCandidates.update(candidate.id, {
         ...candidate,
         status: MEMORY_CANDIDATE_STATUSES.ACCEPTED,
         acceptedMemoryId: memory.memoryId,
         updatedAt: now
       });
+
+      acceptedMemory = memory;
     }
   );
 
-  // 对会话来源，在事务提交后核对消息是否仍真实存在。
-  if (sourceKind === MEMORY_SOURCE_KINDS.CONVERSATION) {
-    await refreshMemorySourceState(memory.memoryId);
+  if (
+    acceptedMemory &&
+    sourceKind === MEMORY_SOURCE_KINDS.CONVERSATION &&
+    !acceptedMemory.acceptedAsDuplicate
+  ) {
+    await refreshMemorySourceState(acceptedMemory.memoryId);
   }
 
-  return getMemoryById(memory.memoryId);
+  return acceptedMemory;
 };
 
 export const dismissMemoryCandidate = async (

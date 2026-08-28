@@ -25,15 +25,21 @@ export const MEMORY_STATUSES = {
   TEMPORARY: 'temporary',
   DORMANT: 'dormant',
   ARCHIVED: 'archived',
-  WITHDRAWN: 'withdrawn'
+  WITHDRAWN: 'withdrawn',
+  CORRECTED: 'corrected',
 };
 
 export const MEMORY_STATUS_OPTIONS = [
   { id: MEMORY_STATUSES.ACTIVE, label: '生效中' },
   { id: MEMORY_STATUSES.TEMPORARY, label: '暂时记录' },
-  { id: MEMORY_STATUSES.DORMANT, label: '暂不调用' },
+  { id: MEMORY_STATUSES.DORMANT, label: '已被更正或暂不调用' },
   { id: MEMORY_STATUSES.ARCHIVED, label: '已归档' },
-  { id: MEMORY_STATUSES.WITHDRAWN, label: '已撤回' }
+  { id: MEMORY_STATUSES.WITHDRAWN, label: '已撤回' },
+  {
+  id: MEMORY_STATUSES.CORRECTED,
+  label: '已被更正'
+},
+
 ];
 
 export const MEMORY_CONFIDENCES = {
@@ -58,6 +64,8 @@ export const MEMORY_SOURCE_STATES = {
   USER_CREATED: 'user_created'
 };
 
+
+
 export const MEMORY_SOURCE_KINDS = {
   CONVERSATION: 'conversation',
   SUMMARY_ASSISTED: 'summary_assisted',
@@ -70,6 +78,23 @@ export const MEMORY_CANDIDATE_STATUSES = {
   ACCEPTED: 'accepted',
   DISMISSED: 'dismissed',
   EXPIRED: 'expired'
+};
+
+
+export const MEMORY_CANDIDATE_PROPOSALS = {
+  CREATE: 'create',
+  DUPLICATE: 'duplicate',
+  UPDATE_EXISTING: 'update_existing',
+  CORRECT_EXISTING: 'correct_existing',
+  CONFLICT: 'conflict'
+};
+
+export const MEMORY_CANDIDATE_PROPOSAL_LABELS = {
+  [MEMORY_CANDIDATE_PROPOSALS.CREATE]: '待确认的新片段',
+  [MEMORY_CANDIDATE_PROPOSALS.DUPLICATE]: '疑似重复记录',
+  [MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING]: '建议更新已有记忆',
+  [MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING]: '用户说法正在更正旧理解',
+  [MEMORY_CANDIDATE_PROPOSALS.CONFLICT]: '与既有理解存在冲突'
 };
 
 export const MEMORY_JOB_STATUSES = {
@@ -85,6 +110,10 @@ export const MEMORY_REVISION_ACTIONS = {
   WITHDRAWN: 'withdrawn',
   RESTORED: 'restored',
   ARCHIVED: 'archived',
+  DORMANT: 'dormant',
+CORRECTED: 'corrected',
+SUPERSEDED: 'superseded',
+CANDIDATE_ACCEPTED: 'candidate_accepted',
   DELETED: 'deleted',
   IMPORTED: 'imported'
 };

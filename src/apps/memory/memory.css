@@ -823,9 +823,10 @@
     gap: 1.5rem;
   }
 
-  .memory-card-details {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+ .memory-card-details {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 
   .memory-modal-backdrop {
     align-items: center;
@@ -1180,3 +1181,118 @@
   text-decoration: underline;
 }
 
+.memory-candidate-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.memory-candidate-label-row .memory-candidate-type {
+  margin-bottom: 0;
+}
+
+.memory-candidate-proposal {
+  padding: 0.18rem 0.35rem;
+  color: var(--text-sub);
+  border: 1px solid var(--divider);
+  border-radius: 99px;
+  font-size: 0.5rem;
+}
+
+.memory-candidate-item-update {
+  border-left: 2px solid var(--accent-color);
+}
+
+.memory-candidate-item-correction {
+  border-left: 2px solid var(--accent-color);
+  background: color-mix(
+    in srgb,
+    var(--accent-color) 8%,
+    var(--control-soft-bg)
+  );
+}
+
+.memory-candidate-item-conflict {
+  border-left: 2px solid var(--text-muted);
+}
+
+.memory-candidate-item-duplicate {
+  opacity: 0.72;
+  border-left: 2px solid var(--divider);
+}
+
+.memory-candidate-reason {
+  padding: 0.5rem 0.6rem;
+  color: var(--text-muted);
+  background: color-mix(
+    in srgb,
+    var(--control-soft-bg) 72%,
+    transparent
+  );
+  border-left: 1px solid var(--divider);
+  font-size: 0.6rem !important;
+}
+
+.memory-candidate-target {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.6rem;
+  background: color-mix(
+    in srgb,
+    var(--accent-color) 6%,
+    transparent
+  );
+  border: 1px solid var(--divider);
+}
+
+.memory-candidate-target span {
+  color: var(--text-muted);
+  font-size: 0.52rem;
+}
+
+.memory-candidate-target strong {
+  overflow: hidden;
+  color: var(--text-sub);
+  font-family: inherit;
+  font-size: 0.63rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-candidate-target small {
+  color: var(--text-muted);
+  font-size: 0.5rem;
+}
+
+.memory-card-relation {
+  margin: 0.55rem 0 0;
+  padding-left: 0.55rem;
+  color: var(--text-muted);
+  border-left: 1px solid var(--divider);
+  font-size: 0.6rem;
+  line-height: 1.5;
+}
+
+.memory-card-relation-corrected {
+  color: var(--text-sub);
+  border-left-color: var(--accent-color);
+}
+
+.memory-action-disabled {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.42rem;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  opacity: 0.7;
+}
+
+.memory-revision-status {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.55rem;
+}

@@ -27,9 +27,12 @@ import MemoryImportModal from './MemoryImportModal';
 import MemoryRevisionModal from './MemoryRevisionModal';
 
 import {
+  MEMORY_CANDIDATE_PROPOSAL_LABELS,
+  MEMORY_CANDIDATE_PROPOSALS,
   MEMORY_STATUS_OPTIONS,
   MEMORY_TYPE_OPTIONS
 } from './memoryConstants';
+
 
 import {
   acceptMemoryCandidate,
@@ -75,6 +78,45 @@ const getChatLabel = (chat) => (
   chat?.title || `消息框 ${chat?.id ?? ''}`
 );
 
+const getCandidateProposalLabel = (candidate) => (
+  MEMORY_CANDIDATE_PROPOSAL_LABELS[
+    candidate?.proposalType
+  ] || MEMORY_CANDIDATE_PROPOSAL_LABELS[
+    MEMORY_CANDIDATE_PROPOSALS.CREATE
+  ]
+);
+
+const getCandidateProposalClassName = (candidate) => {
+  const proposalType = candidate?.proposalType;
+
+  if (
+    proposalType === MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
+  ) {
+    return 'memory-candidate-item-correction';
+  }
+
+  if (
+    proposalType === MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
+  ) {
+    return 'memory-candidate-item-update';
+  }
+
+  if (
+    proposalType === MEMORY_CANDIDATE_PROPOSALS.CONFLICT
+  ) {
+    return 'memory-candidate-item-conflict';
+  }
+
+  if (
+    proposalType === MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
+  ) {
+    return 'memory-candidate-item-duplicate';
+  }
+
+  return '';
+};
+
+
 const getProcessingResultMessage = (result) => {
   if (!result) {
     return '本次记忆整理已完成。';
@@ -105,6 +147,10 @@ const getProcessingResultMessage = (result) => {
   const memoryCount = Number(result.createdMemories || 0);
   const candidateCount = Number(result.createdCandidates || 0);
   const duplicateCount = Number(result.skippedDuplicates || 0);
+  const updateCount = Number(result.proposedUpdates || 0);
+const correctionCount = Number(result.proposedCorrections || 0);
+const conflictCount = Number(result.proposedConflicts || 0);
+
 
   const parts = [];
 
@@ -119,6 +165,18 @@ const getProcessingResultMessage = (result) => {
   if (duplicateCount > 0) {
     parts.push(`跳过 ${duplicateCount} 条重复内容`);
   }
+  if (updateCount > 0) {
+  parts.push(`提出 ${updateCount} 条更新建议`);
+}
+
+if (correctionCount > 0) {
+  parts.push(`提出 ${correctionCount} 条更正建议`);
+}
+
+if (conflictCount > 0) {
+  parts.push(`保留 ${conflictCount} 条待判断冲突`);
+}
+
 
   if (parts.length === 0) {
     return '整理完成，但没有发现适合新增的长期记忆。';
@@ -173,6 +231,16 @@ export const MemoryApp = ({
     )),
     [candidates]
   );
+
+  const memoryById = useMemo(
+  () => new Map(
+    memories
+      .filter((memory) => memory?.memoryId)
+      .map((memory) => [memory.memoryId, memory])
+  ),
+  [memories]
+);
+
 
   const loadChats = useCallback(async () => {
     try {
@@ -490,43 +558,35 @@ export const MemoryApp = ({
     }
   };
 
-  const handleDelete = async (memory) => {
-    if (!memory || processingMemoryId) {
-      return;
+
+const handleDelete = async (memory) => {
+  if (!memory || processingMemoryId) {
+    return;
+  }
+
+  setProcessingMemoryId(memory.memoryId);
+  setErrorMessage('');
+  setNoticeMessage('');
+
+  try {
+    await permanentlyDeleteMemory(memory.memoryId);
+
+    if (revisionMemory?.memoryId === memory.memoryId) {
+      setRevisionMemory(null);
     }
 
-    const confirmed = window.confirm(
-      '确定永久删除这条记忆吗？它的全部修订记录也会被一并删除，且无法恢复。'
+    setNoticeMessage('记忆及其修订记录已永久删除。');
+
+    await loadMemoryData();
+  } catch (error) {
+    setErrorMessage(
+      error?.message || '删除记忆失败。'
     );
+  } finally {
+    setProcessingMemoryId(null);
+  }
+};
 
-    if (!confirmed) {
-      return;
-    }
-
-    setProcessingMemoryId(memory.memoryId);
-    setErrorMessage('');
-    setNoticeMessage('');
-
-    try {
-      await permanentlyDeleteMemory(memory.memoryId);
-
-      if (
-        revisionMemory?.memoryId === memory.memoryId
-      ) {
-        setRevisionMemory(null);
-      }
-
-      setNoticeMessage('记忆及其修订记录已永久删除。');
-
-      await loadMemoryData();
-    } catch (error) {
-      setErrorMessage(
-        error?.message || '删除记忆失败。'
-      );
-    } finally {
-      setProcessingMemoryId(null);
-    }
-  };
 
   const handleAcceptCandidate = async (candidate) => {
     if (!candidate || processingCandidateId) {
@@ -1002,25 +1062,60 @@ export const MemoryApp = ({
                     );
 
                     return (
-                      <div
-                        className="memory-candidate-item"
-                        key={candidate.candidateId || candidate.id}
-                      >
-                        <span className="memory-candidate-type">
-                          {MEMORY_TYPE_OPTIONS.find(
-                            (item) => item.id === candidate.type
-                          )?.label || '待整理'}
-                        </span>
+                     <div
+  className={[
+    'memory-candidate-item',
+    getCandidateProposalClassName(candidate)
+  ].filter(Boolean).join(' ')}
+  key={candidate.candidateId || candidate.id}
+>
+
+                       <div className="memory-candidate-label-row">
+  <span className="memory-candidate-type">
+    {MEMORY_TYPE_OPTIONS.find(
+      (item) => item.id === candidate.type
+    )?.label || '待整理'}
+  </span>
+
+  <span className="memory-candidate-proposal">
+    {getCandidateProposalLabel(candidate)}
+  </span>
+</div>
 
                         <strong>
                           {candidate.title || '未命名片段'}
                         </strong>
 
-                        <p>{candidate.content}</p>
+                       <p>{candidate.content}</p>
 
-                        <small>
-                          优先程度 {candidate.priority || 3} / 5
-                        </small>
+{candidate.conflictReason && (
+  <p className="memory-candidate-reason">
+    {candidate.conflictReason}
+  </p>
+)}
+
+{candidate.targetMemoryId && (
+  <div className="memory-candidate-target">
+    <span>关联档案</span>
+
+    <strong>
+      {memoryById.get(candidate.targetMemoryId)?.title
+        || memoryById.get(candidate.targetMemoryId)?.content
+        || '原有记忆已不在当前列表'}
+    </strong>
+
+    {candidate.similarityScore > 0 && (
+      <small>
+        相似程度 {Math.round(candidate.similarityScore * 100)}%
+      </small>
+    )}
+  </div>
+)}
+
+<small>
+  优先程度 {candidate.priority || 3} / 5
+</small>
+
 
                         <div className="memory-candidate-actions">
                           <button
@@ -1031,9 +1126,22 @@ export const MemoryApp = ({
                             }}
                             disabled={isCandidateProcessing}
                           >
-                            {isCandidateProcessing
-                              ? '处理中...'
-                              : '采纳为记忆'}
+                          {isCandidateProcessing
+  ? '处理中...'
+  : candidate.proposalType ===
+    MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
+    ? '更新已有记忆'
+    : candidate.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
+      ? '更正旧理解'
+      : candidate.proposalType ===
+        MEMORY_CANDIDATE_PROPOSALS.CONFLICT
+        ? '保留这条新理解'
+        : candidate.proposalType ===
+          MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
+          ? '确认重复'
+          : '采纳为记忆'}
+
                           </button>
 
                           <button

@@ -44,6 +44,7 @@ const formatDate = (value) => {
   }).replace(/\//g, '.');
 };
 
+
 const getSourceLabel = (memory) => {
   if (memory.sourceState === 'available') {
     const count = Array.isArray(memory.sourceMessageIds)
@@ -72,13 +73,38 @@ const getSourceLabel = (memory) => {
   return '来源未完整记录';
 };
 
+const getAuthorityLabel = (memory) => {
+  if (
+    memory.confidence === 'user_written' ||
+    memory.userEditedAt
+  ) {
+    return '用户手动维护';
+  }
+
+  if (memory.userConfirmedAt) {
+    return '用户确认';
+  }
+
+  if (memory.confidence === 'confirmed') {
+    return '已确认';
+  }
+
+  if (memory.confidence === 'inferred') {
+    return 'AI 整理推断';
+  }
+
+  return '待确认理解';
+};
+
 const isInactive = (status) => (
   [
     MEMORY_STATUSES.WITHDRAWN,
     MEMORY_STATUSES.ARCHIVED,
-    MEMORY_STATUSES.DORMANT
+    MEMORY_STATUSES.DORMANT,
+    MEMORY_STATUSES.CORRECTED
   ].includes(status)
 );
+
 
 export const MemoryCard = ({
   memory,
@@ -185,11 +211,26 @@ export const MemoryCard = ({
             {memory.content}
           </p>
 
-          <div className="memory-card-meta">
-            <span>{confidenceLabel}</span>
-            <span>{formatDate(memory.updatedAt || memory.createdAt)}</span>
-            <span>{getSourceLabel(memory)}</span>
-          </div>
+          {memory.status === MEMORY_STATUSES.CORRECTED && (
+  <p className="memory-card-relation memory-card-relation-corrected">
+    这一页已被后来的理解更正，不再参与聊天参考。
+  </p>
+)}
+
+{memory.status === MEMORY_STATUSES.DORMANT &&
+  memory.supersededByMemoryId && (
+    <p className="memory-card-relation">
+      这一页已由后来的记忆替代。
+    </p>
+  )}
+
+
+         <div className="memory-card-meta">
+  <span>{getAuthorityLabel(memory)}</span>
+  <span>{confidenceLabel}</span>
+  <span>{formatDate(memory.updatedAt || memory.createdAt)}</span>
+  <span>{getSourceLabel(memory)}</span>
+</div>
         </div>
 
         <div className="memory-card-actions">
@@ -215,26 +256,31 @@ export const MemoryCard = ({
             <span>编辑</span>
           </button>
 
-          {memory.status === MEMORY_STATUSES.WITHDRAWN ||
-          memory.status === MEMORY_STATUSES.ARCHIVED ? (
-            <button
-              type="button"
-              onClick={() => setConfirmAction({ type: 'restore' })}
-              className="memory-action-button"
-            >
-              <RotateCcw className="memory-action-icon" />
-              <span>恢复</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmAction({ type: 'withdraw' })}
-              className="memory-action-button"
-            >
-              <Undo2 className="memory-action-icon" />
-              <span>撤回</span>
-            </button>
-          )}
+         {memory.status === MEMORY_STATUSES.WITHDRAWN ||
+memory.status === MEMORY_STATUSES.ARCHIVED ? (
+  <button
+    type="button"
+    onClick={() => setConfirmAction({ type: 'restore' })}
+    className="memory-action-button"
+  >
+    <RotateCcw className="memory-action-icon" />
+    <span>恢复</span>
+  </button>
+) : memory.status === MEMORY_STATUSES.CORRECTED ? (
+  <span className="memory-action-disabled">
+    已被更正
+  </span>
+) : (
+  <button
+    type="button"
+    onClick={() => setConfirmAction({ type: 'withdraw' })}
+    className="memory-action-button"
+  >
+    <Undo2 className="memory-action-icon" />
+    <span>撤回</span>
+  </button>
+)}
+
 
           <button
             type="button"
@@ -276,6 +322,21 @@ export const MemoryCard = ({
               </span>
             </div>
 
+            <div>
+  <span className="memory-detail-label">被参考次数</span>
+  <span className="memory-detail-value">
+    {Number(memory.useCount || 0)} 次
+  </span>
+</div>
+
+<div>
+  <span className="memory-detail-label">维护权重</span>
+  <span className="memory-detail-value">
+    {getAuthorityLabel(memory)}
+  </span>
+</div>
+
+
             <button
               type="button"
               className="memory-revision-link"
@@ -285,17 +346,19 @@ export const MemoryCard = ({
               查看修订记录
             </button>
 
-            {memory.status !== MEMORY_STATUSES.ARCHIVED &&
-            memory.status !== MEMORY_STATUSES.WITHDRAWN && (
-              <button
-                type="button"
-                className="memory-revision-link"
-                onClick={() => setConfirmAction({ type: 'archive' })}
-              >
-                <Archive className="memory-action-icon" />
-                归档但保留
-              </button>
-            )}
+           {memory.status !== MEMORY_STATUSES.ARCHIVED &&
+memory.status !== MEMORY_STATUSES.WITHDRAWN &&
+memory.status !== MEMORY_STATUSES.CORRECTED && (
+  <button
+    type="button"
+    className="memory-revision-link"
+    onClick={() => setConfirmAction({ type: 'archive' })}
+  >
+    <Archive className="memory-action-icon" />
+    归档但保留
+  </button>
+)}
+
           </div>
         )}
       </article>

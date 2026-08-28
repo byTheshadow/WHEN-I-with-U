@@ -691,6 +691,146 @@ db.version(22).stores({
 });
 
 
+db.version(23).stores({
+    profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText, typingStyle, isBgDimmed, soundEnabled',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+  travels: '++id, characterId, status, createdAt',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId, timestamp',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt',
+  stickers: '++id, name, url, category, createdAt',
+
+  imaginariumChats: '++id, title, createdAt, updatedAt',
+  imaginariumMessages: '++id, chatId, senderId, timestamp',
+  imaginariumSummaries: '++id, chatId, createdAt',
+
+  ensembleChats: '++id, title, createdAt, updatedAt',
+  ensembleMessages: '++id, chatId, senderId, timestamp',
+  ensembleSummaries: '++id, chatId, createdAt',
+
+  habitats: '++id, name, type, guardianCharacterId, createdAt',
+  habitatLogs: '++id, habitatId, logType, timestamp',
+
+  ephemeras: '++id, characterId, templateType, title, createdAt',
+
+  dailyOfferingImages: '++id, createdAt, updatedAt',
+  dailyOfferings: 'date, characterId, createdAt',
+
+  askBoxQuestions: '++id, characterId, sender, isAnonymous, content, reply, replyAt, needPassword, password, isPasswordUnlocked, createdAt',
+
+  parallelOrbits: '++id, chatId, characterId, timestamp',
+
+  schedules: '++id, characterId, title, dayOfWeek, startTime, endTime, category, date, weeks, createdAt',
+
+   // 对话内由 AI 自主安排的稍后联系计划。
+  scheduledMessages: '++id, chatId, characterId, status, scheduledFor, createdAt',
+  memories: '++id, &memoryId, chatId, type, status, importance, confidence, createdAt, updatedAt, sourceState',
+  memoryCandidates: '++id, &candidateId, chatId, type, status, priority, createdAt, updatedAt',
+
+  // 每次人工或系统修订保留一份快照。
+  memoryRevisions: '++id, &revisionId, memoryId, chatId, action, createdAt',
+
+  // 每个聊天窗仅保留一条任务状态记录。
+  memoryJobs: '++id, &chatId, status, nextRunAt, lastProcessedMessageId, updatedAt',
+
+  // 仅放全局记忆模块设置，不放 API Key。
+  memorySettings: 'key',
+
+  memories: `
+    ++id,
+    &memoryId,
+    chatId,
+    type,
+    status,
+    importance,
+    confidence,
+    createdAt,
+    updatedAt,
+    sourceState,
+    normalizedContent,
+    supersededByMemoryId,
+    supersedesMemoryId,
+    duplicateOfMemoryId,
+    [chatId+status],
+    [chatId+type+status],
+    [chatId+normalizedContent]
+  `,
+
+  memoryCandidates: `
+    ++id,
+    &candidateId,
+    chatId,
+    type,
+    status,
+    priority,
+    proposalType,
+    targetMemoryId,
+    createdAt,
+    updatedAt,
+    [chatId+status],
+    [chatId+proposalType],
+    [chatId+targetMemoryId]
+  `,
+
+  memoryRevisions: '++id, &revisionId, memoryId, chatId, action, createdAt',
+  memoryJobs: '++id, &chatId, status, nextRunAt, lastProcessedMessageId, updatedAt'
+}).upgrade(async (tx) => {
+  const now = new Date().toISOString();
+
+  await tx.table('memories').toCollection().modify((memory) => {
+    const normalizedContent = String(memory.content || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[，。！？；：“”‘’、,.!?;:()[\]{}]/g, '');
+
+    if (memory.status === 'corrected') {
+      memory.status = 'dormant';
+    }
+
+    memory.normalizedContent = memory.normalizedContent || normalizedContent;
+    memory.sourceKind = memory.sourceKind || 'conversation';
+    memory.useCount = Number(memory.useCount || 0);
+    memory.lastUsedAt = memory.lastUsedAt || null;
+    memory.lastRetrievedAt = memory.lastRetrievedAt || null;
+    memory.userEditedAt = memory.userEditedAt || null;
+    memory.userConfirmedAt = memory.userConfirmedAt || null;
+    memory.supersedesMemoryId = memory.supersedesMemoryId || null;
+    memory.supersededByMemoryId = memory.supersededByMemoryId || null;
+    memory.duplicateOfMemoryId = memory.duplicateOfMemoryId || null;
+    memory.conflictWithMemoryIds = Array.isArray(memory.conflictWithMemoryIds)
+      ? memory.conflictWithMemoryIds
+      : [];
+    memory.updatedAt = memory.updatedAt || now;
+  });
+
+  await tx.table('memoryCandidates').toCollection().modify((candidate) => {
+    candidate.proposalType = candidate.proposalType || 'create';
+    candidate.targetMemoryId = candidate.targetMemoryId || null;
+    candidate.relatedMemoryIds = Array.isArray(candidate.relatedMemoryIds)
+      ? candidate.relatedMemoryIds
+      : [];
+    candidate.similarityScore = Number(candidate.similarityScore || 0);
+    candidate.conflictReason = candidate.conflictReason || '';
+  });
+});
+
+
+
 export default db;
 
 

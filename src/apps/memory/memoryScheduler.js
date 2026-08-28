@@ -4,12 +4,16 @@ import {
   createMemory,
   createPendingMemoryCandidate,
   ensureMemoryJob,
+  getChatMemory,
   getMemoryJob
 } from './memoryService';
 
+
 import {
   MEMORY_JOB_STATUSES,
-  MEMORY_STATUSES
+  MEMORY_STATUSES,
+  MEMORY_CANDIDATE_PROPOSALS,
+
 } from './memoryConstants';
 
 import {
@@ -21,6 +25,10 @@ import {
   getUsableMessages,
   inspectMemorySignals
 } from './memorySignals';
+import {
+  decideMemoryProposal,
+  normalizeComparableText
+} from './memoryQuality';
 
 const activeMemoryJobs = new Set();
 const pendingTimers = new Map();
@@ -145,12 +153,64 @@ const scheduleTimer = ({
   return timer;
 };
 
-const normalizeComparableText = (value) => (
-  String(value || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-);
+
+
+const tokenizeComparableText = (value) => {
+  const text = normalizeComparableText(value);
+
+  if (!text) {
+    return [];
+  }
+
+  const tokens = new Set();
+
+  // 英文、数字及以空白分开的短语。
+  text
+    .split(/[\s/\\|_-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2)
+    .forEach((token) => tokens.add(token));
+
+  // 中文没有天然空格，以连续中文的二元词组进行近似匹配。
+  const chineseChunks = text.match(/[\u4e00-\u9fff]{2,}/g) || [];
+
+  chineseChunks.forEach((chunk) => {
+    for (let index = 0; index < chunk.length - 1; index += 1) {
+      tokens.add(chunk.slice(index, index + 2));
+    }
+  });
+
+  return [...tokens];
+};
+
+const calculateTextSimilarity = (left, right) => {
+  const leftTokens = tokenizeComparableText(left);
+  const rightTokens = tokenizeComparableText(right);
+
+  if (leftTokens.length === 0 || rightTokens.length === 0) {
+    return 0;
+  }
+
+  const rightTokenSet = new Set(rightTokens);
+
+  const overlapCount = leftTokens.filter((token) => (
+    rightTokenSet.has(token)
+  )).length;
+
+  /*
+   * 使用较大集合做分母：
+   * - 两段完全相同的文本为 1；
+   * - 短句只是完整长句的一部分时，不会被错误判为完全重复；
+   * - 适合作为“是否需要提出更新/冲突候选”的保守阈值依据。
+   */
+  return overlapCount / Math.max(
+    leftTokens.length,
+    rightTokens.length
+  );
+};
+
+const getExistingMemoryContentSet = async (chatId) => {
+
 
 const getExistingMemoryContentSet = async (chatId) => {
   const [
@@ -173,54 +233,148 @@ const getExistingMemoryContentSet = async (chatId) => {
       .filter(Boolean)
   );
 };
-
 const persistExtractionResult = async ({
   chatId,
   extraction,
   lastProcessedMessageId
 }) => {
-  const existingContents = await getExistingMemoryContentSet(chatId);
+  const [
+    existingMemories,
+    existingCandidates
+  ] = await Promise.all([
+    getChatMemory(chatId),
+    db.memoryCandidates
+      .where('chatId')
+      .equals(chatId)
+      .toArray()
+  ]);
+
+  const existingContents = new Set(
+    [...existingMemories, ...existingCandidates]
+      .map((item) => normalizeComparableText(item.content))
+      .filter(Boolean)
+  );
+
+  const sourceTextById = new Map();
+
+  for (const source of extraction.sourceMessages || []) {
+    sourceTextById.set(Number(source.id), String(source.content || ''));
+  }
 
   let createdMemories = 0;
   let createdCandidates = 0;
   let skippedDuplicates = 0;
+  let proposedUpdates = 0;
+  let proposedCorrections = 0;
+  let proposedConflicts = 0;
+
+  const getSourceTexts = (item) => (
+    (item.sourceMessageIds || [])
+      .map((id) => sourceTextById.get(Number(id)))
+      .filter(Boolean)
+  );
 
   for (const memory of extraction.memories || []) {
     const comparableContent = normalizeComparableText(memory.content);
 
+    if (!comparableContent || existingContents.has(comparableContent)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    const proposal = decideMemoryProposal({
+      incomingMemory: memory,
+      existingMemories,
+      sourceTexts: getSourceTexts(memory)
+    });
+
+    if (proposal.proposalType === MEMORY_CANDIDATE_PROPOSALS.CREATE) {
+      const createdMemory = await createMemory({
+        chatId,
+        title: memory.title,
+        content: memory.content,
+        type: memory.type,
+        status: MEMORY_STATUSES.ACTIVE,
+        importance: memory.importance,
+        confidence: memory.confidence,
+        sourceMessageIds: memory.sourceMessageIds,
+        sourceMessageTimestamps: memory.sourceMessageTimestamps,
+        sourceState: memory.sourceState,
+        sourceKind: memory.sourceKind,
+        note: '由对话整理形成。'
+      });
+
+      existingMemories.push(createdMemory);
+      existingContents.add(comparableContent);
+      createdMemories += 1;
+      continue;
+    }
+
     if (
-      !comparableContent ||
-      existingContents.has(comparableContent)
+      proposal.proposalType === MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
     ) {
       skippedDuplicates += 1;
       continue;
     }
 
-    await createMemory({
+    await createPendingMemoryCandidate({
       chatId,
       title: memory.title,
       content: memory.content,
       type: memory.type,
-      status: MEMORY_STATUSES.ACTIVE,
-      importance: memory.importance,
-      confidence: memory.confidence,
+      priority: memory.importance,
       sourceMessageIds: memory.sourceMessageIds,
       sourceMessageTimestamps: memory.sourceMessageTimestamps,
-      sourceState: memory.sourceState,
       sourceKind: memory.sourceKind,
-      note: '由对话整理形成。'
+
+      proposalType: proposal.proposalType,
+      targetMemoryId: proposal.targetMemoryId,
+      relatedMemoryIds: proposal.relatedMemoryIds,
+      similarityScore: proposal.similarityScore,
+      conflictReason: proposal.conflictReason
     });
 
     existingContents.add(comparableContent);
-    createdMemories += 1;
+    createdCandidates += 1;
+
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
+    ) {
+      proposedUpdates += 1;
+    }
+
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
+    ) {
+      proposedCorrections += 1;
+    }
+
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CONFLICT
+    ) {
+      proposedConflicts += 1;
+    }
   }
 
   for (const candidate of extraction.candidates || []) {
     const comparableContent = normalizeComparableText(candidate.content);
 
+    if (!comparableContent || existingContents.has(comparableContent)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    const proposal = decideMemoryProposal({
+      incomingMemory: candidate,
+      existingMemories,
+      sourceTexts: getSourceTexts(candidate)
+    });
+
     if (
-      !comparableContent ||
-      existingContents.has(comparableContent)
+      proposal.proposalType === MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
     ) {
       skippedDuplicates += 1;
       continue;
@@ -234,11 +388,38 @@ const persistExtractionResult = async ({
       priority: candidate.priority,
       sourceMessageIds: candidate.sourceMessageIds,
       sourceMessageTimestamps: candidate.sourceMessageTimestamps,
-      sourceKind: candidate.sourceKind
+      sourceKind: candidate.sourceKind,
+
+      proposalType: proposal.proposalType,
+      targetMemoryId: proposal.targetMemoryId,
+      relatedMemoryIds: proposal.relatedMemoryIds,
+      similarityScore: proposal.similarityScore,
+      conflictReason: proposal.conflictReason
     });
 
     existingContents.add(comparableContent);
     createdCandidates += 1;
+
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
+    ) {
+      proposedUpdates += 1;
+    }
+
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
+    ) {
+      proposedCorrections += 1;
+    }
+
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CONFLICT
+    ) {
+      proposedConflicts += 1;
+    }
   }
 
   await updateMemoryJob(chatId, {
@@ -253,9 +434,13 @@ const persistExtractionResult = async ({
   return {
     createdMemories,
     createdCandidates,
-    skippedDuplicates
+    skippedDuplicates,
+    proposedUpdates,
+    proposedCorrections,
+    proposedConflicts
   };
 };
+
 
 const scheduleContinuationIfNeeded = async ({
   chatId,
@@ -478,6 +663,9 @@ export const runMemoryProcessing = async (
       createdMemories: persisted.createdMemories,
       createdCandidates: persisted.createdCandidates,
       skippedDuplicates: persisted.skippedDuplicates,
+      proposedUpdates: persisted.proposedUpdates,
+proposedCorrections: persisted.proposedCorrections,
+proposedConflicts: persisted.proposedConflicts,
       sourceMessageCount: sourceBatch.length,
       lastProcessedMessageId,
       continuationScheduled
