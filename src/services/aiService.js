@@ -1615,7 +1615,7 @@ const autoSendGuide = `
 要求：
 - 直接发信，不要表现出系统正在调用你。
 - 回复要轻柔、贴心，不要带有客服味道，更不要使用 Emoji。
-- 字数控制在 80 字以内。
+- 字数控制在 100 字以内。
 `;
 
 
@@ -1632,7 +1632,7 @@ const autoSendGuide = `
     // 开启打字动画状态
     notifyListeners({ chatId, type: 'AI_TYPING_START' });
 
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+        const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1641,7 +1641,12 @@ const autoSendGuide = `
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
         messages: finalMessages,
-        temperature: 0.8
+        temperature: 0.8,
+
+        // 主动消息要求最多 80 字，但不能让服务端默认 token 上限
+        // 在一句话中间切断。300 tokens 足够容纳正常中文消息、
+        // 卡片语法与少量模型输出冗余。
+        max_tokens: 300
       })
     });
 
@@ -1650,43 +1655,112 @@ const autoSendGuide = `
     }
 
     const data = await res.json();
-    const replyText = data?.choices?.[0]?.message?.content || '';
 
-    if (!replyText.trim()) {
+    const finishReason = data?.choices?.[0]?.finish_reason;
+    const replyText = String(
+      data?.choices?.[0]?.message?.content || ''
+    ).trim();
+
+    // 如果这里打印 length，说明此前确实是 API 输出长度限制导致截断。
+    if (finishReason === 'length') {
+      console.warn(
+        '[ProactiveMessage] AI 输出因 token 长度限制而结束。'
+      );
+    }
+
+    if (!replyText) {
+      console.warn('[ProactiveMessage] AI 返回了空内容，未创建消息。');
       return null;
     }
 
-    // 解析出的一气呵成气泡列表
-    const proactiveMsgs = await parseAiResponseToMessages(replyText);
-    
-    let lastInsertedId = null;
+    const parsedMessages = await parseAiResponseToMessages(replyText);
 
-    // 写入数据库
-    for (const item of proactiveMsgs) {
-      const payload = {
-        chatId,
-        characterId: chat.characterId,
-        sender: 'character',
-        type: item.type || 'text',
-        content: item.content,
-        metadata: item.metadata || {},
-        isRead: false,
-        timestamp: new Date().toISOString()
-      };
+    // 当 AI 返回的内容不含普通文本、或卡片解析未得到结果时，
+    // 必须保留原始回复，避免“AI 已回复但数据库没有可显示文本”。
+    const proactiveMessages = parsedMessages.length > 0
+      ? parsedMessages
+      : [
+          {
+            type: 'text',
+            content: replyText,
+            metadata: {}
+          }
+        ];
 
-      lastInsertedId = await db.messages.add(payload);
+    const nowIso = new Date().toISOString();
+    const insertedMessageIds = [];
+
+    await db.transaction('rw', db.messages, db.chats, async () => {
+      for (const item of proactiveMessages) {
+        const type = item?.type || 'text';
+        const content = String(item?.content || '').trim();
+        const metadata = item?.metadata || {};
+
+        // 空文本没有任何视觉内容，不能创建空气泡。
+        // 非文本卡片可由自己的 metadata 提供实际内容。
+        if (type === 'text' && !content) {
+          continue;
+        }
+
+        const payload = {
+          chatId,
+          characterId: chat.characterId,
+          sender: 'character',
+          type,
+          content,
+          metadata,
+
+          // 与普通 AI 回复统一，保证以后重 roll、
+          // 版本切换以及历史数据读取都兼容。
+          versions: [
+            {
+              type,
+              content,
+              metadata,
+              timestamp: nowIso
+            }
+          ],
+          currentVersionIndex: 0,
+
+          isRead: false,
+          timestamp: nowIso
+        };
+
+        const insertedId = await db.messages.add(payload);
+        insertedMessageIds.push(insertedId);
+      }
+
+      if (insertedMessageIds.length > 0) {
+        await db.chats.update(chatId, {
+          updatedAt: nowIso
+        });
+      }
+    });
+
+    if (insertedMessageIds.length === 0) {
+      console.warn(
+        '[ProactiveMessage] 未得到可展示的消息内容，未发送空白气泡。'
+      );
+      return null;
     }
 
-    // 更新聊天的更新时间
-    await db.chats.update(chatId, { updatedAt: new Date().toISOString() });
-
-    // 播放接收消息音效
     playMessageSound('receive');
 
-    // 广播新消息通知，让正在打开的聊天窗立即刷新
-    notifyListeners({ chatId, type: 'NEW_MESSAGE' });
+    notifyListeners({
+      type: 'NEW_MESSAGE',
+      chatId,
+      characterId: character.id,
+      characterName: character.name,
+      characterAvatar: character.avatar || '',
+      messageIds: insertedMessageIds,
+      preview: proactiveMessages.find((message) => message.type === 'text')
+        ?.content || proactiveMessages[0]?.content || '发来了一条消息',
+      timestamp: nowIso,
+      isCurrentPageVisible: isDocumentVisible()
+    });
 
-    return lastInsertedId;
+    return insertedMessageIds[insertedMessageIds.length - 1];
+
 
   } catch (err) {
     console.error('[ProactiveMessage] AI 主动发送聊天消息失败:', err);
