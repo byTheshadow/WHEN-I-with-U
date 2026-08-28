@@ -676,12 +676,8 @@ db.version(22).stores({
   schedules: '++id, characterId, title, dayOfWeek, startTime, endTime, category, date, weeks, createdAt',
 
    // 对话内由 AI 自主安排的稍后联系计划。
-  scheduledMessages: '++id, chatId, characterId, status, scheduledFor, createdAt'
-
-  // 记忆归属只以 chatId 为边界，不以 characterId 为边界。
+  scheduledMessages: '++id, chatId, characterId, status, scheduledFor, createdAt',
   memories: '++id, &memoryId, chatId, type, status, importance, confidence, createdAt, updatedAt, sourceState',
-
-  // AI 或本地信号生成的待确认候选，不会直接进入聊天 Prompt。
   memoryCandidates: '++id, &candidateId, chatId, type, status, priority, createdAt, updatedAt',
 
   // 每次人工或系统修订保留一份快照。
