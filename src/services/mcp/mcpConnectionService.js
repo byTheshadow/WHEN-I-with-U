@@ -521,36 +521,71 @@ export const deleteMcpConnection = async (connectionId) => {
 
 export const getEnabledMcpTools = async () => {
   const allConnections = await db.mcpConnections.toArray();
-
-  const enabledConnections = allConnections.filter(
-    (connection) => connection.enabled === true,
-  );
-
-  if (enabledConnections.length === 0) {
-    return [];
-  }
-  const connectionById = new Map(
-    enabledConnections.map((connection) => [connection.id, connection]),
-  );
-
   const allTools = await db.mcpTools.toArray();
 
-  return allTools
+  console.log(
+    '[MCP] 全部连接状态:',
+    allConnections.map((connection) => ({
+      id: connection.id,
+      name: connection.name,
+      enabled: connection.enabled,
+      status: connection.status,
+      endpoint: connection.endpoint,
+    })),
+  );
+
+  console.log(
+    '[MCP] 全部工具状态:',
+    allTools.map((tool) => ({
+      id: tool.id,
+      connectionId: tool.connectionId,
+      toolName: tool.toolName,
+      displayName: tool.displayName,
+      enabled: tool.enabled,
+      isAvailable: tool.isAvailable,
+      riskLevel: tool.riskLevel,
+    })),
+  );
+
+  const enabledConnections = allConnections.filter(
+    (connection) =>
+      connection.enabled === true &&
+      connection.status === 'connected',
+  );
+
+  const connectionById = new Map(
+    enabledConnections.map((connection) => [
+      connection.id,
+      connection,
+    ]),
+  );
+
+  const enabledTools = allTools
     .filter((tool) => {
       const connection = connectionById.get(tool.connectionId);
 
-      return Boolean(
-        connection &&
-          tool.enabled &&
-          tool.isAvailable !== false &&
-          connection.status === CONNECTION_STATUSES.CONNECTED,
+      return (
+        Boolean(connection) &&
+        tool.enabled === true &&
+        tool.isAvailable !== false
       );
     })
     .map((tool) => ({
       ...tool,
       connection: connectionById.get(tool.connectionId),
     }));
+
+  console.log(
+    '[MCP] 筛选后可用工具:',
+    enabledTools.map((tool) => ({
+      toolName: tool.toolName,
+      connectionName: tool.connection?.name,
+    })),
+  );
+
+  return enabledTools;
 };
+
 
 export {
   CONNECTION_STATUSES,
