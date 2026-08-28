@@ -971,7 +971,7 @@ const handleDelete = async (memory) => {
             </div>
           </section>
 
-          <div className="memory-editorial-grid">
+          
 
           <section className="memory-list-section">
             <div className="memory-section-heading">
