@@ -829,6 +829,163 @@ db.version(23).stores({
   });
 });
 
+db.version(24).stores({
+  profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText, typingStyle, isBgDimmed, soundEnabled',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+
+  travels: '++id, characterId, status, createdAt',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId, timestamp',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt',
+  stickers: '++id, name, url, category, createdAt',
+
+  imaginariumChats: '++id, title, createdAt, updatedAt',
+  imaginariumMessages: '++id, chatId, senderId, timestamp',
+  imaginariumSummaries: '++id, chatId, createdAt',
+
+  ensembleChats: '++id, title, createdAt, updatedAt',
+  ensembleMessages: '++id, chatId, senderId, timestamp',
+  ensembleSummaries: '++id, chatId, createdAt',
+
+  habitats: '++id, name, type, guardianCharacterId, createdAt',
+  habitatLogs: '++id, habitatId, logType, timestamp',
+
+  ephemeras: '++id, characterId, templateType, title, createdAt',
+
+  dailyOfferingImages: '++id, createdAt, updatedAt',
+  dailyOfferings: 'date, characterId, createdAt',
+
+  askBoxQuestions: '++id, characterId, sender, isAnonymous, content, reply, replyAt, needPassword, password, isPasswordUnlocked, createdAt',
+
+  parallelOrbits: '++id, chatId, characterId, timestamp',
+
+  schedules: '++id, characterId, title, dayOfWeek, startTime, endTime, category, date, weeks, createdAt',
+
+  scheduledMessages: '++id, chatId, characterId, status, scheduledFor, createdAt',
+
+  memories: `
+    ++id,
+    &memoryId,
+    chatId,
+    type,
+    status,
+    importance,
+    confidence,
+    createdAt,
+    updatedAt,
+    sourceState,
+    normalizedContent,
+    supersededByMemoryId,
+    supersedesMemoryId,
+    duplicateOfMemoryId,
+    [chatId+status],
+    [chatId+type+status],
+    [chatId+normalizedContent]
+  `,
+
+  memoryCandidates: `
+    ++id,
+    &candidateId,
+    chatId,
+    type,
+    status,
+    priority,
+    proposalType,
+    targetMemoryId,
+    createdAt,
+    updatedAt,
+    [chatId+status],
+    [chatId+proposalType],
+    [chatId+targetMemoryId]
+  `,
+
+  memoryRevisions: '++id, &revisionId, memoryId, chatId, action, createdAt',
+  memoryJobs: '++id, &chatId, status, nextRunAt, lastProcessedMessageId, updatedAt',
+  memorySettings: 'key',
+
+  /*
+   * The Bond Connection
+   *
+   * 所有连接与工具配置仅保存在当前用户的 IndexedDB。
+   * 认证信息未来可保存于 mcpConnections.auth，但绝不进入导出文件。
+   */
+  mcpConnections: `
+    &id,
+    enabled,
+    endpoint,
+    transport,
+    status,
+    createdAt,
+    updatedAt
+  `,
+
+  /*
+   * 每个 MCP Server 发现的工具，以及用户对单个工具的本地开关与风险标记。
+   */
+  mcpTools: `
+    &id,
+    connectionId,
+    toolName,
+    enabled,
+    riskLevel,
+    updatedAt,
+    [connectionId+toolName]
+  `,
+
+  /*
+   * 用户明确作出的调用授权。
+   *
+   * scope:
+   * - once：仅本次，实际不持久化
+   * - chat：当前聊天
+   * - character：当前角色
+   * - global：全局
+   */
+  mcpPermissions: `
+    &id,
+    connectionId,
+    toolName,
+    chatId,
+    characterId,
+    decision,
+    scope,
+    updatedAt,
+    [connectionId+toolName],
+    [chatId+connectionId+toolName],
+    [characterId+connectionId+toolName]
+  `,
+
+  /*
+   * 仅记录调用摘要和状态，不能保存聊天全文、认证 Token 或敏感工具结果。
+   */
+  mcpActivities: `
+    ++id,
+    connectionId,
+    toolName,
+    chatId,
+    characterId,
+    status,
+    createdAt,
+    [connectionId+createdAt],
+    [chatId+createdAt]
+  `
+});
 
 
 export default db;
