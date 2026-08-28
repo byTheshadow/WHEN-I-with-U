@@ -4,6 +4,8 @@ import GlassCard from '../../components/GlassCard';
 import ConfirmModal from '../../components/ConfirmModal';
 import db from '../../db';
 import { subscribeAiEvents } from '../../services/aiService';
+import { destroyChatWithMemories } from '../memory/memoryService';
+
 
 import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
@@ -58,12 +60,17 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   };
 
   const handleDeleteChatEntity = async (chatId) => {
-    if (!chatId) return;
-    await db.chats.delete(chatId);
-    await db.messages.where('chatId').equals(chatId).delete();
+  if (!chatId) return;
+
+  try {
+    await destroyChatWithMemories(chatId);
     setDeletingChatTarget(null);
-    loadData();
-  };
+    await loadData();
+  } catch (error) {
+    console.error('[MessagesApp] destroy chat with memories failed:', error);
+  }
+};
+
 
   const filteredChats = chats.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -293,15 +300,16 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         />
       )}
 
-      <ConfirmModal
-        isOpen={!!deletingChatTarget}
-        title="抹去共同记忆"
-        message={`确定要彻底销毁与“${deletingChatTarget?.title}”的对话实体吗？此操作不可逆，聊天记录与心绪总结将一并抹去。`}
-        confirmText="彻底抹去"
-        cancelText="留存"
-        onCancel={() => setDeletingChatTarget(null)}
-        onConfirm={() => handleDeleteChatEntity(deletingChatTarget.id)}
-      />
+     <ConfirmModal
+  isOpen={!!deletingChatTarget}
+  title="抹去对话实体"
+  message={`确定要彻底销毁“${deletingChatTarget?.title}”吗？此操作不可逆。本消息框的聊天记录、阶段性总结、长期记忆、待确认候选与修订记录都会一并永久删除。`}
+  confirmText="彻底抹去"
+  cancelText="留存"
+  onCancel={() => setDeletingChatTarget(null)}
+  onConfirm={() => handleDeleteChatEntity(deletingChatTarget.id)}
+/>
+
     </div>
   );
 };

@@ -4,6 +4,7 @@ import {
   extractScheduledMessageDirective,
   createScheduledMessage
 } from '../apps/messages/scheduledMessageService';
+import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
 
 
 
@@ -489,6 +490,23 @@ const saveAiErrorMessage = async (chatId, character, result) => {
     timestamp: nowIso
   });
 };
+const getSafeChatMemoryContext = async ({
+  chatId,
+  userText = '',
+  recentMessages = []
+}) => {
+  try {
+    return await getChatMemoryContext({
+      chatId,
+      userText,
+      recentMessages
+    });
+  } catch (error) {
+    console.warn('[Memory] Chat memory retrieval skipped safely:', error);
+    return '';
+  }
+};
+
 
 const buildChatSystemPrompt = async (chatId, chat, character) => {
   const enabledWorldBooks = await db.worldBooks
@@ -1204,7 +1222,6 @@ export const triggerAiResponse = async (chatId) => {
   .where('chatId')
   .equals(chatId)
   .sortBy('timestamp');
-
 const userReturnContext = buildUserReturnContext(recentMsgs);
 
 const historyContext = buildHistoryContext(
@@ -1213,7 +1230,22 @@ const historyContext = buildHistoryContext(
     .slice(-15)
 );
 
-const finalSystemPrompt = `${systemPrompt}${userReturnContext}`;
+const latestUserMessage = [...recentMsgs]
+  .reverse()
+  .find((message) => (
+    message.sender === 'user' &&
+    message.type !== 'error' &&
+    typeof message.content === 'string' &&
+    message.content.trim()
+  ));
+
+const memoryContext = await getSafeChatMemoryContext({
+  chatId,
+  userText: latestUserMessage?.content || '',
+  recentMessages: recentMsgs
+});
+
+const finalSystemPrompt = `${systemPrompt}${userReturnContext}${memoryContext}`;
 
 const result = await fetchAiCompletion(
   finalSystemPrompt,
@@ -1399,14 +1431,35 @@ export const rerollAiResponse = async (chatId, messageId) => {
       ? allMessages.slice(0, targetIndex)
       : allMessages;
 
-    const historyContext = buildHistoryContext(
+  const historyContext = buildHistoryContext(
   historyMessages
     .filter((message) => message.type !== 'error')
     .slice(-15)
 );
 
+const latestUserMessage = [...historyMessages]
+  .reverse()
+  .find((message) => (
+    message.sender === 'user' &&
+    message.type !== 'error' &&
+    typeof message.content === 'string' &&
+    message.content.trim()
+  ));
 
-    const result = await fetchAiCompletion(systemPrompt, historyContext, apiConfig);
+const memoryContext = await getSafeChatMemoryContext({
+  chatId,
+  userText: latestUserMessage?.content || '',
+  recentMessages: historyMessages
+});
+
+const finalSystemPrompt = `${systemPrompt}${memoryContext}`;
+
+const result = await fetchAiCompletion(
+  finalSystemPrompt,
+  historyContext,
+  apiConfig
+);
+
     const nowIso = new Date().toISOString();
 
     const currentVersions = Array.isArray(targetMsg.versions) && targetMsg.versions.length > 0
