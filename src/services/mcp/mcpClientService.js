@@ -304,9 +304,9 @@ export const initializeMcpClient = async (connection) => {
     },
   });
 
-  normalizeJsonRpcResult(
-  response.payload,
-  response.requestId,
+ const initializeResult = normalizeJsonRpcResult(
+  initializeRequest.payload,
+  initializeRequest.requestId,
 );
 
 
@@ -350,19 +350,18 @@ export const listMcpTools = async (connection, cursor = null) => {
     session,
   });
 
- normalizeJsonRpcResult(
+const result = normalizeJsonRpcResult(
   response.payload,
   response.requestId,
 );
 
-
-  return {
-    tools: Array.isArray(result?.tools) ? result.tools : [],
-    nextCursor: result?.nextCursor || null,
-    serverInfo: session.serverInfo,
-    capabilities: session.capabilities,
-  };
+return {
+  tools: Array.isArray(result?.tools) ? result.tools : [],
+  nextCursor: result?.nextCursor || null,
+  serverInfo: session.serverInfo,
+  capabilities: session.capabilities,
 };
+
 
 
 export const callMcpTool = async ({
@@ -386,19 +385,18 @@ export const callMcpTool = async ({
     session,
   });
 
-  normalizeJsonRpcResult(
+const result = normalizeJsonRpcResult(
   response.payload,
   response.requestId,
 );
 
-
-  return {
-    content: Array.isArray(result?.content) ? result.content : [],
-    isError: result?.isError === true,
-    structuredContent: result?.structuredContent,
-    rawResult: result,
-  };
+return {
+  content: Array.isArray(result?.content) ? result.content : [],
+  isError: result?.isError === true,
+  structuredContent: result?.structuredContent,
+  rawResult: result,
 };
+
 
 export const getMcpClientSession = (connection) => getSession(connection);
 
