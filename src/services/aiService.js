@@ -576,6 +576,30 @@ const fetchAiCompletionWithTools = async ({
 };
 
 
+const getSafeChatMemoryContext = async ({
+  chatId,
+  userText = '',
+  recentMessages = [],
+}) => {
+  try {
+    return await getChatMemoryContext({
+      chatId,
+      userText,
+      recentMessages,
+    });
+  } catch (error) {
+    console.warn(
+      '[Memory] Chat memory retrieval skipped safely:',
+      error,
+    );
+
+    /*
+     * 记忆检索异常不应阻断正常聊天、重生成或后台主动消息。
+     * 系统提示词拼接时需要字符串，因此安全降级为空字符串。
+     */
+    return '';
+  }
+};
 
 
 
