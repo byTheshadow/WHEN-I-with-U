@@ -12,18 +12,28 @@ const getDayPeriod = (hours) => {
 
 const getCurrentWeekNum = async () => {
   const saved = await db.settings.get('term_start_date');
-  if (!saved?.value) return 1;
+
+  if (!saved?.value) {
+    return 1;
+  }
 
   try {
     const now = new Date();
     const start = new Date(saved.value);
+
     start.setHours(0, 0, 0, 0);
     now.setHours(0, 0, 0, 0);
 
     const diffTime = now - start;
-    if (diffTime < 0) return 1;
 
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffTime < 0) {
+      return 1;
+    }
+
+    const diffDays = Math.floor(
+      diffTime / (1000 * 60 * 60 * 24)
+    );
+
     return Math.floor(diffDays / 7) + 1;
   } catch {
     return 1;
@@ -31,169 +41,230 @@ const getCurrentWeekNum = async () => {
 };
 
 /**
- * 触发基于日程和 Todo 的 AI 贴心主动提醒与问候
+ * 基于日程和 Todo 触发 AI 主动提醒。
  */
-export async function triggerRhythmActiveReminder(chatId, character, force = false) {
+export async function triggerRhythmActiveReminder(
+  chatId,
+  character,
+  force = false
+) {
   if (!character || !chatId) {
-    return { status: 'no_character_or_chat' };
+    return {
+      status: 'no_character_or_chat'
+    };
   }
 
-  // 1. 冷却检查（4小时冷却限制）
   const now = Date.now();
-  const COOLDOWN_MS = 4 * 60 * 60 * 1000;
-  const lastTimeSetting = await db.settings.get('lastRhythmReminderTime');
-  const lastTime = lastTimeSetting ? Number(lastTimeSetting.value) : 0;
+  const cooldownMs = 4 * 60 * 60 * 1000;
 
-  if (!force && now - lastTime < COOLDOWN_MS) {
-    return { status: 'cooldown' };
-  }
+  try {
+    const lastTimeSetting = await db.settings.get(
+      'lastRhythmReminderTime'
+    );
 
-  // 2. 读取 API 配置
-  const apiSettings = await db.settings.get('apiConfig');
-  const apiConfig = apiSettings?.value || {};
+    const lastTime = Number(lastTimeSetting?.value || 0);
 
-  if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-    return { status: 'no_api_config' };
-  }
-
-  // 3. 收集未完成待办
-  const overdueTodos = await db.todos
-    .where('isCompleted')
-    .equals(0)
-    .toArray();
-
-  const pendingTodos = overdueTodos.filter((t) => {
-    if (!t.dueDate) return false;
-    const d = new Date(t.dueDate);
-    return d <= now;
-  });
-
-  // 4. 收集用户日程
-  const todayDayOfWeek = new Date().getDay() || 7;
-  const currentWeek = await getCurrentWeekNum();
-  const currentHHMM = new Date().toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  const todayDateStr = new Date().toISOString().split('T')[0];
-
-  const allSchedules = await db.schedules
-    .where('characterId')
-    .equals(character.id)
-    .toArray();
-
-  const activeSchedules = allSchedules.filter((s) => {
-    if (s.isRepeating) {
-      const dowMatches = Number(s.dayOfWeek) === todayDayOfWeek;
-
-      if (s.category === 'course') {
-        return (
-          dowMatches &&
-          Array.isArray(s.weeks) &&
-          s.weeks.includes(currentWeek)
-        );
-      }
-
-      return dowMatches;
+    if (!force && now - lastTime < cooldownMs) {
+      return {
+        status: 'cooldown'
+      };
     }
 
-    return s.date === todayDateStr;
-  });
+    const apiSettings = await db.settings.get('apiConfig');
+    const apiConfig = apiSettings?.value || {};
 
-  let currentSchedule = null;
-  let upcomingSchedule = null;
-
-  activeSchedules.forEach((s) => {
-    if (currentHHMM >= s.startTime && currentHHMM <= s.endTime) {
-      currentSchedule = s;
-    } else if (s.startTime > currentHHMM) {
-      if (!upcomingSchedule || s.startTime < upcomingSchedule.startTime) {
-        upcomingSchedule = s;
-      }
+    if (!apiConfig.baseUrl || !apiConfig.apiKey) {
+      return {
+        status: 'no_api_config'
+      };
     }
-  });
 
-  // 5. 组装 AI 上下文
-  const hours = new Date().getHours();
-  const periodStr = getDayPeriod(hours);
+    const overdueTodos = await db.todos
+      .where('isCompleted')
+      .equals(0)
+      .toArray();
 
-  let todoContext = '';
-  if (pendingTodos.length > 0) {
-    todoContext =
-      '用户有待办：\n' +
-      pendingTodos
-        .slice(0, 2)
-        .map((t) => `- ${t.title}`)
-        .join('\n');
-  }
+    const pendingTodos = overdueTodos.filter((todo) => {
+      if (!todo?.dueDate) {
+        return false;
+      }
 
-  let scheduleContext = '';
-  if (currentSchedule) {
-    const typeTxt = currentSchedule.category === 'course' ? '课程' : '安排';
+      const dueDate = new Date(todo.dueDate);
 
-    scheduleContext =
-      `用户当前正在进行《${currentSchedule.title}》这一${typeTxt}` +
-      (currentSchedule.location
-        ? `，地点在 ${currentSchedule.location}`
-        : '') +
-      '。';
-  } else if (upcomingSchedule) {
-    const typeTxt = upcomingSchedule.category === 'course' ? '课程' : '安排';
+      return !Number.isNaN(dueDate.getTime()) && dueDate <= now;
+    });
 
-    scheduleContext =
-      `用户预计在 ${upcomingSchedule.startTime} 开始《${upcomingSchedule.title}》这一${typeTxt}。`;
-  }
+    const currentDate = new Date();
+    const todayDayOfWeek = currentDate.getDay() || 7;
+    const currentWeek = await getCurrentWeekNum();
 
-  // 6. 调用 AI 接口构建 prompt
-  const systemPrompt = `你是一个深爱并陪伴用户的虚拟角色「${character.name}」。
+    const currentHHMM = currentDate.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    const todayDateStr = currentDate.toISOString().split('T')[0];
+
+    const allSchedules = await db.schedules
+      .where('characterId')
+      .equals(character.id)
+      .toArray();
+
+    const activeSchedules = allSchedules.filter((schedule) => {
+      if (!schedule) {
+        return false;
+      }
+
+      if (schedule.isRepeating) {
+        const dayMatches =
+          Number(schedule.dayOfWeek) === todayDayOfWeek;
+
+        if (schedule.category === 'course') {
+          return (
+            dayMatches &&
+            Array.isArray(schedule.weeks) &&
+            schedule.weeks.includes(currentWeek)
+          );
+        }
+
+        return dayMatches;
+      }
+
+      return schedule.date === todayDateStr;
+    });
+
+    let currentSchedule = null;
+    let upcomingSchedule = null;
+
+    activeSchedules.forEach((schedule) => {
+      if (!schedule.startTime || !schedule.endTime) {
+        return;
+      }
+
+      if (
+        currentHHMM >= schedule.startTime &&
+        currentHHMM <= schedule.endTime
+      ) {
+        currentSchedule = schedule;
+        return;
+      }
+
+      if (schedule.startTime > currentHHMM) {
+        if (
+          !upcomingSchedule ||
+          schedule.startTime < upcomingSchedule.startTime
+        ) {
+          upcomingSchedule = schedule;
+        }
+      }
+    });
+
+    const periodStr = getDayPeriod(currentDate.getHours());
+
+    let todoContext = '';
+
+    if (pendingTodos.length > 0) {
+      todoContext =
+        '用户有待办：\n' +
+        pendingTodos
+          .slice(0, 2)
+          .map((todo) => `- ${todo.title || '未命名待办'}`)
+          .join('\n');
+    }
+
+    let scheduleContext = '';
+
+    if (currentSchedule) {
+      const typeText =
+        currentSchedule.category === 'course'
+          ? '课程'
+          : '安排';
+
+      scheduleContext =
+        `用户当前正在进行《${
+          currentSchedule.title || '一项安排'
+        }》这一${typeText}` +
+        (currentSchedule.location
+          ? `，地点在 ${currentSchedule.location}`
+          : '') +
+        '。';
+    } else if (upcomingSchedule) {
+      const typeText =
+        upcomingSchedule.category === 'course'
+          ? '课程'
+          : '安排';
+
+      scheduleContext =
+        `用户预计在 ${upcomingSchedule.startTime} 开始《${
+          upcomingSchedule.title || '一项安排'
+        }》这一${typeText}。`;
+    }
+
+    const systemPrompt = `你是一个深爱并陪伴用户的虚拟角色「${character.name}」。
 性格人设：${character.bio || '体贴细腻'}。
 
 现在是 ${periodStr} 的 ${currentHHMM}。
-${scheduleContext ? `【用户当前日程】：${scheduleContext}` : '【用户当前日程】：目前没有特定安排，属于空闲时段。'}
+${
+  scheduleContext
+    ? `【用户当前日程】：${scheduleContext}`
+    : '【用户当前日程】：目前没有特定安排，属于空闲时段。'
+}
 ${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
 
-以第一人称口吻写一段简短暖心的日常寄语（50字以内）。
+以第一人称口吻写一段简短暖心的日常寄语，控制在 50 字以内。
+
 要求：
 - 严禁使用任何 Emoji。
 - 充满生活气与浪漫感，不能表现得像系统日程弹窗。
-- 如果用户处于工作、通勤或课程中，送上温和叮咛或表达你在等他/她；如果有未完成待办，可以用生活化的方式关切地提起它（例如：“看见便利贴上还有事情没勾掉呢，要我陪你吗”）。
-- 直接输出寄语内容，不要带有任何格式和发件人标签。`;
+- 如果用户处于工作、通勤或课程中，送上温和叮咛或表达你在等他或她。
+- 如果有未完成待办，可以用生活化的方式自然关切地提起它。
+- 不要提及系统、日程表、提醒、API、模型、定时器或任何技术实现。
+- 直接输出完整寄语内容，不要带格式、标题、发件人标签或 Markdown。`;
 
-  try {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('ai-typing-status', {
-          detail: { chatId, typing: true }
+          detail: {
+            chatId,
+            typing: true
+          }
         })
       );
     }
 
     const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiConfig.apiKey}`
       },
-            body: JSON.stringify({
+      body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'system', content: systemPrompt }],
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          }
+        ],
         temperature: 0.85,
 
-        // 给兼容接口足够的输出空间，避免在句子中间结束。
-        // 实际文案仍由 prompt 限制在 50 字以内。
+        // 给兼容 API 足够输出空间，避免中文句子中途截断。
+        // 实际字数仍由 Prompt 限制在 50 字以内。
         max_tokens: 1000
       })
     });
 
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw new Error(
+        `API 请求失败：${response.status} ${response.statusText}`
+      );
     }
 
-       const resJson = await response.json();
-
-    const choice = resJson?.choices?.[0];
+    const responseData = await response.json();
+    const choice = responseData?.choices?.[0];
     const finishReason = choice?.finish_reason;
 
     let replyText = String(
@@ -210,117 +281,105 @@ ${todoContext ? `【用户待办提醒】：${todoContext}` : ''}
       );
     }
 
-    console.log('[RhythmScheduler] AI 原始回复:', {
+    console.log('[RhythmScheduler] AI 原始回复：', {
       replyText,
       finishReason
     });
 
     replyText = replyText.replace(/["'“”]/g, '').trim();
 
-
-      if (replyText) {
-      const nowIso = new Date().toISOString();
-
-      const metadata = {
-        isAutoGenerated: true,
-        source: 'rhythm-reminder'
-      };
-
-      const messagePayload = {
-        chatId,
-        characterId: character.id,
-        sender: 'character',
-        type: 'text',
-
-        // ChatRoom 实际读取的是 content。
-        content: replyText,
-
-        metadata,
-
-        // 与普通 AI 消息保持一致。
-        versions: [
-          {
-            type: 'text',
-            content: replyText,
-            metadata,
-            timestamp: nowIso
-          }
-        ],
-        currentVersionIndex: 0,
-
-        isRead: false,
-        timestamp: nowIso
-      };
-
-      let messageId = null;
-
-      await db.transaction(
-        'rw',
-        db.messages,
-        db.settings,
-        db.chats,
-        async () => {
-          messageId = await db.messages.add(messagePayload);
-
-          await db.settings.put({
-            key: 'lastRhythmReminderTime',
-            value: String(now)
-          });
-
-          await db.chats.update(chatId, {
-            updatedAt: nowIso
-          });
-        }
-      );
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('new-local-message-inserted', {
-            detail: {
-              chatId,
-              messageId
-            }
-          })
-        );
-      }
-
+    if (!replyText) {
       return {
-        status: 'success',
-        messageId,
-        text: replyText
+        status: 'empty_response'
       };
     }
 
+    const nowIso = new Date().toISOString();
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('new-local-message-inserted', {
-            detail: { chatId }
-          })
-        );
+    const metadata = {
+      isAutoGenerated: true,
+      source: 'rhythm-reminder'
+    };
+
+    const messagePayload = {
+      chatId,
+      characterId: character.id,
+      sender: 'character',
+      type: 'text',
+
+      // ChatRoom 使用 message.content 渲染文本。
+      // 缺少此字段会导致出现空气泡。
+      content: replyText,
+
+      metadata,
+
+      // 与普通 AI 回复使用一致的版本结构。
+      versions: [
+        {
+          type: 'text',
+          content: replyText,
+          metadata,
+          timestamp: nowIso
+        }
+      ],
+      currentVersionIndex: 0,
+
+      isRead: false,
+      timestamp: nowIso
+    };
+
+    let messageId = null;
+
+    await db.transaction(
+      'rw',
+      db.messages,
+      db.settings,
+      db.chats,
+      async () => {
+        messageId = await db.messages.add(messagePayload);
+
+        await db.settings.put({
+          key: 'lastRhythmReminderTime',
+          value: String(now)
+        });
+
+        await db.chats.update(chatId, {
+          updatedAt: nowIso
+        });
       }
+    );
 
-      return {
-        status: 'success',
-        text: replyText
-      };
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('new-local-message-inserted', {
+          detail: {
+            chatId,
+            messageId
+          }
+        })
+      );
     }
 
     return {
-      status: 'empty_response'
+      status: 'success',
+      messageId,
+      text: replyText
     };
-  } catch (err) {
-    console.error('[RhythmReminder] 触发失败:', err);
+  } catch (error) {
+    console.error('[RhythmReminder] 触发失败：', error);
 
     return {
       status: 'error',
-      error: err.message
+      error: error?.message || 'unknown_error'
     };
   } finally {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('ai-typing-status', {
-          detail: { chatId, typing: false }
+          detail: {
+            chatId,
+            typing: false
+          }
         })
       );
     }
