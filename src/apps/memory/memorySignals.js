@@ -1,13 +1,19 @@
-const normalizeText = (value) => String(value || '').trim();
+const normalizeText = (value) => (
+  String(value || '').trim()
+);
 
 const getCurrentMessageContent = (message) => {
-  if (!message) return '';
+  if (!message) {
+    return '';
+  }
 
   const versions = Array.isArray(message.versions)
     ? message.versions
     : [];
 
-  const currentVersionIndex = Number(message.currentVersionIndex);
+  const currentVersionIndex = Number(
+    message.currentVersionIndex
+  );
 
   if (
     versions.length > 0 &&
@@ -30,6 +36,15 @@ const getCurrentMessageContent = (message) => {
   return normalizeText(message.content);
 };
 
+const isSupportedSender = (sender) => (
+  [
+    'user',
+    'character',
+    'ai',
+    'assistant'
+  ].includes(sender)
+);
+
 const isUsableMessage = (message) => {
   const content = getCurrentMessageContent(message);
 
@@ -37,7 +52,7 @@ const isUsableMessage = (message) => {
     message &&
     message.type !== 'error' &&
     content &&
-    ['user', 'character', 'ai', 'assistant'].includes(message.sender)
+    isSupportedSender(message.sender)
   );
 };
 
@@ -80,31 +95,56 @@ const HIGH_PRIORITY_PATTERNS = [
 ];
 
 export const getUsableMessages = (messages = []) => (
-  messages.filter(isUsableMessage)
+  (Array.isArray(messages) ? messages : [])
+    .filter(isUsableMessage)
 );
 
 export const inspectMemorySignals = (messages = []) => {
   const usableMessages = getUsableMessages(messages);
   const signals = [];
+  const signalKeys = new Set();
 
   for (const message of usableMessages) {
     const content = getCurrentMessageContent(message);
 
     for (const rule of HIGH_PRIORITY_PATTERNS) {
-      if (!rule.pattern.test(content)) continue;
+      const matched = content.match(rule.pattern);
+
+      if (!matched) {
+        continue;
+      }
+
+      const excerpt = normalizeText(
+        matched[0] || content.slice(0, 180)
+      ).slice(0, 180);
+
+      const signalKey = [
+        message.id,
+        rule.type,
+        excerpt
+      ].join('|');
+
+      if (signalKeys.has(signalKey)) {
+        continue;
+      }
+
+      signalKeys.add(signalKey);
 
       signals.push({
         messageId: message.id,
         sender: message.sender,
         type: rule.type,
         priority: rule.priority,
-        excerpt: content.slice(0, 180)
+        excerpt
       });
     }
   }
 
   const highestPriority = signals.reduce(
-    (highest, signal) => Math.max(highest, signal.priority),
+    (highest, signal) => Math.max(
+      highest,
+      Number(signal.priority) || 0
+    ),
     0
   );
 
@@ -116,11 +156,36 @@ export const inspectMemorySignals = (messages = []) => {
   };
 };
 
+const getMessageOrder = (message, fallbackIndex) => {
+  const numericId = Number(message?.id);
+
+  if (Number.isFinite(numericId)) {
+    return numericId;
+  }
+
+  return fallbackIndex;
+};
+
 export const buildMemorySourceBatch = (
   messages = [],
   maxMessages = 40
 ) => {
-  const usableMessages = getUsableMessages(messages).slice(-maxMessages);
+  const safeMaxMessages = Math.max(
+    1,
+    Math.floor(Number(maxMessages) || 40)
+  );
+
+  const usableMessages = getUsableMessages(messages)
+    .map((message, index) => ({
+      message,
+      index,
+      order: getMessageOrder(message, index)
+    }))
+    .sort((a, b) => a.order - b.order)
+    // 关键：cursor 模式下必须从最早的未处理消息开始。
+    // 不能使用 slice(-safeMaxMessages)，否则会跳过较早消息。
+    .slice(0, safeMaxMessages)
+    .map(({ message }) => message);
 
   return usableMessages
     .map((message) => ({
@@ -128,7 +193,12 @@ export const buildMemorySourceBatch = (
       sender: message.sender,
       type: message.type || 'text',
       timestamp: message.timestamp || '',
-      content: getCurrentMessageContent(message).slice(0, 1200)
+      content: getCurrentMessageContent(message)
+        .slice(0, 1200)
     }))
-    .filter((message) => message.id !== undefined && message.content);
+    .filter((message) => (
+      message.id !== undefined &&
+      message.id !== null &&
+      message.content
+    ));
 };

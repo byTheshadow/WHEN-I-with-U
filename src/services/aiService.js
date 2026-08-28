@@ -1712,37 +1712,63 @@ export const generateCompanionProactiveMessage = async (chatId) => {
         return null;
       }
     }
-// 2. 组装对话的历史上下文 payload
-const historyPayload = recentMessages.map((m) => {
-  if (m.sender === 'user') {
-    return { role: 'user', content: m.content };
-  } else {
-    return { role: 'assistant', content: m.content };
-  }
-});
 
-// 3. 组装当前聊天窗口专属的 System Prompt
+// 2. 主动消息也使用与普通回复一致的历史格式。
+// 过滤错误气泡，避免把错误内容送回模型。
+const historyPayload = buildHistoryContext(
+  recentMessages
+    .filter((message) => message.type !== 'error')
+    .slice(-15)
+);
+
+// 3. 组装当前聊天窗口专属的基础 System Prompt。
 const systemPrompt = await buildChatSystemPrompt(
   chatId,
   chat,
   character
 );
 
-// 4. 组装主动发送场景的微指引
+// 4. 找到最近一条有效用户消息，作为记忆相关性检索线索。
+const latestUserMessage = [...recentMessages]
+  .reverse()
+  .find((message) => (
+    message.sender === 'user' &&
+    message.type !== 'error' &&
+    typeof message.content === 'string' &&
+    message.content.trim()
+  ));
+
+// 5. 主动消息也读取当前 chatId 的长期记忆。
+// getSafeChatMemoryContext 内部已安全降级：
+// 记忆读取失败不会阻塞主动消息。
+const memoryContext = await getSafeChatMemoryContext({
+  chatId,
+  userText: latestUserMessage?.content || '',
+  recentMessages
+});
+
+// 6. 主动发送场景的微指引。
 const autoSendGuide = `
 【注意：这是你作为伴侣的主动发起的对话触达】
 由于用户有一段时间没有说话了，请你基于当下的时间背景（${getFormattedRealTime()}），结合你们之前的聊天上下文，主动给用户发一条问候、分享一下你此刻在做的事情、或者延续之前的某个话题。
+
 要求：
 - 直接发信，不要表现出系统正在调用你。
 - 回复要轻柔、贴心，不要带有客服味道，更不要使用 Emoji。
+- 只在自然相关时使用共同记忆，不要逐条复述，也不要让用户感到被监控。
 - 字数控制在 100 字以内。
 `;
 
+const finalSystemPrompt = `${systemPrompt}${memoryContext}${autoSendGuide}`;
 
-    const finalMessages = [
-      { role: 'system', content: systemPrompt + '\n' + autoSendGuide },
-      ...historyPayload
-    ];
+const finalMessages = [
+  {
+    role: 'system',
+    content: finalSystemPrompt
+  },
+  ...historyPayload
+];
+
 
     // 如果历史记录为空，提供一个初始 user 提示，引导 AI 发起第一句话
     if (finalMessages.length === 1) {

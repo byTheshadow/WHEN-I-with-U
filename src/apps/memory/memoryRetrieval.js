@@ -1,54 +1,108 @@
 import db from '../../db';
+
 import {
-  MEMORY_STATUSES,
   RECALLABLE_MEMORY_STATUSES
 } from './memoryConstants';
 
 const MAX_MEMORIES = 18;
 const MAX_CONTEXT_LENGTH = 12000;
 
-const normalizeText = (value) => String(value || '').trim();
+const normalizeText = (value) => (
+  String(value || '').trim()
+);
 
-const tokenize = (value) => normalizeText(value)
-  .toLowerCase()
-  .split(/[\s,，。！？；：、“”‘’（）()、/\\|.!?;:]+/)
-  .map((token) => token.trim())
-  .filter((token) => token.length >= 2);
+/**
+ * 为英文、数字和中文文本生成可用于匹配的词元。
+ *
+ * 中文通常没有空格分词，因此除了按标点切分外，
+ * 还会为连续中文文本生成二元词组。
+ */
+const tokenize = (value) => {
+  const text = normalizeText(value).toLowerCase();
 
-const getMemoryText = (memory) => [
-  memory.title,
-  memory.content,
-  memory.type
-].filter(Boolean).join(' ');
+  if (!text) {
+    return [];
+  }
+
+  const terms = new Set();
+
+  // 兼容英文、数字、带空格短语以及被标点分隔的文本。
+  text
+    .split(/[\s,，。！？；：、“”‘’（）()、/\\|.!?;:]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2)
+    .forEach((token) => {
+      terms.add(token);
+    });
+
+  // 对连续中文文本进行二元切分。
+  // 例如“连续追问”会产生“连续”“续追”“追问”。
+  const chineseChunks = text.match(/[\u4e00-\u9fff]{2,}/g) || [];
+
+  chineseChunks.forEach((chunk) => {
+    for (let index = 0; index < chunk.length - 1; index += 1) {
+      terms.add(chunk.slice(index, index + 2));
+    }
+  });
+
+  return [...terms];
+};
+
+const getMemoryText = (memory) => (
+  [
+    memory.title,
+    memory.content,
+    memory.type
+  ]
+    .filter(Boolean)
+    .join(' ')
+);
+
+const getConfidenceScore = (confidence) => ({
+  user_written: 1,
+  confirmed: 0.95,
+  inferred: 0.7,
+  suggested: 0.45
+}[confidence] || 0.4);
 
 const calculateRelevance = (memory, queryTokens) => {
   const memoryTokens = tokenize(getMemoryText(memory));
 
-  if (queryTokens.length === 0 || memoryTokens.length === 0) {
+  if (
+    queryTokens.length === 0 ||
+    memoryTokens.length === 0
+  ) {
     return 0;
   }
 
   const matchedCount = queryTokens.filter((token) => (
     memoryTokens.some((memoryToken) => (
-      memoryToken.includes(token) || token.includes(memoryToken)
+      memoryToken.includes(token) ||
+      token.includes(memoryToken)
     ))
   )).length;
 
   const keywordScore = matchedCount / queryTokens.length;
   const importanceScore = Number(memory.importance || 3) / 5;
-  const confidenceScore = {
-    user_written: 1,
-    confirmed: 0.95,
-    inferred: 0.7,
-    suggested: 0.45
-  }[memory.confidence] || 0.4;
+  const confidenceScore = getConfidenceScore(memory.confidence);
 
-  const updatedAt = new Date(memory.updatedAt || memory.createdAt || 0).getTime();
+  const updatedAt = new Date(
+    memory.updatedAt ||
+    memory.createdAt ||
+    0
+  ).getTime();
+
   const ageDays = Number.isFinite(updatedAt)
-    ? Math.max(0, (Date.now() - updatedAt) / 86400000)
+    ? Math.max(
+        0,
+        (Date.now() - updatedAt) / 86400000
+      )
     : 365;
 
-  const recencyScore = Math.max(0, 1 - ageDays / 365);
+  const recencyScore = Math.max(
+    0,
+    1 - ageDays / 365
+  );
 
   return (
     keywordScore * 0.55 +
@@ -74,13 +128,42 @@ const formatMemoryForPrompt = (memory) => {
     ? ''
     : '；原始消息依据当前不可完整查看';
 
-  return `- [${getTypeLabel(memory.type)}] ${memory.title
-    ? `${memory.title}：`
-    : ''}${memory.content}${sourceNotice}`;
+  return `- [${getTypeLabel(memory.type)}] ${
+    memory.title
+      ? `${memory.title}：`
+      : ''
+  }${memory.content}${sourceNotice}`;
 };
 
+const isRecallableMemory = (memory, chatId) => (
+  memory &&
+  memory.chatId === chatId &&
+  RECALLABLE_MEMORY_STATUSES.includes(memory.status)
+);
+
+const getRecentMessageText = (recentMessages) => (
+  (Array.isArray(recentMessages)
+    ? recentMessages
+    : []
+  )
+    .filter((message) => (
+      message &&
+      message.type !== 'error'
+    ))
+    .slice(-6)
+    .map((message) => (
+      message.content ||
+      ''
+    ))
+    .join(' ')
+);
+
 export const getRecallableChatMemories = async (chatId) => {
-  if (chatId === undefined || chatId === null) {
+  if (
+    chatId === undefined ||
+    chatId === null ||
+    chatId === ''
+  ) {
     return [];
   }
 
@@ -90,9 +173,7 @@ export const getRecallableChatMemories = async (chatId) => {
     .toArray();
 
   return memories.filter((memory) => (
-    RECALLABLE_MEMORY_STATUSES.includes(memory.status) &&
-    memory.status !== MEMORY_STATUSES.WITHDRAWN &&
-    memory.status !== MEMORY_STATUSES.ARCHIVED
+    isRecallableMemory(memory, chatId)
   ));
 };
 
@@ -101,29 +182,48 @@ export const getChatMemoryContext = async ({
   userText = '',
   recentMessages = []
 }) => {
+  if (
+    chatId === undefined ||
+    chatId === null ||
+    chatId === ''
+  ) {
+    return '';
+  }
+
   const memories = await getRecallableChatMemories(chatId);
 
   if (memories.length === 0) {
     return '';
   }
 
-  const recentText = recentMessages
-    .slice(-6)
-    .map((message) => message.content || '')
-    .join(' ');
+  const recentText = getRecentMessageText(recentMessages);
 
-  const queryTokens = tokenize(`${userText} ${recentText}`);
+  const queryTokens = tokenize(
+    `${userText} ${recentText}`
+  );
 
   const rankedMemories = memories
     .map((memory) => ({
       memory,
-      score: calculateRelevance(memory, queryTokens)
+      score: calculateRelevance(
+        memory,
+        queryTokens
+      )
     }))
     .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
 
-      return new Date(b.memory.updatedAt || 0).getTime()
-        - new Date(a.memory.updatedAt || 0).getTime();
+      return new Date(
+        b.memory.updatedAt ||
+        b.memory.createdAt ||
+        0
+      ).getTime() - new Date(
+        a.memory.updatedAt ||
+        a.memory.createdAt ||
+        0
+      ).getTime();
     })
     .filter(({ score }) => score > 0.05)
     .slice(0, MAX_MEMORIES);
@@ -131,6 +231,18 @@ export const getChatMemoryContext = async ({
   if (rankedMemories.length === 0) {
     return '';
   }
+
+  const selectedMemories = rankedMemories.map(
+    ({ memory }) => memory
+  );
+
+  // 使用统计是辅助信息，不能阻塞正常聊天。
+  void markMemoriesUsed(selectedMemories).catch((error) => {
+    console.warn(
+      '[Memory] Failed to mark recalled memories as used:',
+      error
+    );
+  });
 
   let context = `
 【仅供当前消息框回复参考的共同记忆】
@@ -140,14 +252,15 @@ export const getChatMemoryContext = async ({
 不要逐条复述这些记录，也不要利用它们向用户施压、催促或制造愧疚。
 `;
 
-  for (const { memory } of rankedMemories) {
+  for (const memory of selectedMemories) {
     const line = formatMemoryForPrompt(memory);
+    const nextContext = `${context}\n${line}`;
 
-    if (`${context}\n${line}`.length > MAX_CONTEXT_LENGTH) {
+    if (nextContext.length > MAX_CONTEXT_LENGTH) {
       break;
     }
 
-    context += `\n${line}`;
+    context = nextContext;
   }
 
   return context;
@@ -155,23 +268,46 @@ export const getChatMemoryContext = async ({
 
 export const markMemoriesUsed = async (memories = []) => {
   const ids = memories
-    .map((memory) => memory.id)
-    .filter((id) => id !== undefined && id !== null);
+    .map((memory) => memory?.id)
+    .filter((id) => (
+      id !== undefined &&
+      id !== null
+    ));
 
-  if (ids.length === 0) return;
+  if (ids.length === 0) {
+    return;
+  }
 
+  const uniqueIds = [...new Set(ids)];
   const now = new Date().toISOString();
 
-  await db.transaction('rw', db.memories, async () => {
-    for (const id of ids) {
-      const memory = await db.memories.get(id);
+  await db.transaction(
+    'rw',
+    db.memories,
+    async () => {
+      for (const id of uniqueIds) {
+        const memory = await db.memories.get(id);
 
-      if (!memory) continue;
+        if (!memory) {
+          continue;
+        }
 
-      await db.memories.update(id, {
-        lastUsedAt: now,
-        useCount: Number(memory.useCount || 0) + 1
-      });
+        // 记忆可能在检索完成后被撤回或归档。
+        // 使用统计不应继续更新这类记忆。
+        if (
+          !RECALLABLE_MEMORY_STATUSES.includes(
+            memory.status
+          )
+        ) {
+          continue;
+        }
+
+        await db.memories.update(id, {
+          lastUsedAt: now,
+          useCount: Number(memory.useCount || 0) + 1
+        });
+      }
     }
-  });
+  );
 };
+

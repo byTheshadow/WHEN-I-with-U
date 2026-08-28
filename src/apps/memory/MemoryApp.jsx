@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+
 import {
   ArrowLeft,
   BookOpen,
@@ -33,12 +39,15 @@ import {
   getChatMemory,
   getChatMemoryCandidates,
   permanentlyDeleteMemory,
+  refreshChatMemorySourceStates,
   restoreMemory,
   updateMemory,
   withdrawMemory
 } from './memoryService';
 
-import { runMemoryProcessingNow } from './memoryScheduler';
+import {
+  runMemoryProcessingNow
+} from './memoryScheduler';
 
 import './memory.css';
 
@@ -49,16 +58,78 @@ const EMPTY_FORM = {
   importance: 3
 };
 
-const sortChats = (items) => [...items].sort((a, b) => (
-  new Date(b.updatedAt || 0).getTime()
-  - new Date(a.updatedAt || 0).getTime()
-));
-
-const getChatLabel = (chat) => (
-  chat?.title || `消息框 ${chat?.id || ''}`
+const isValidChatId = (chatId) => (
+  chatId !== null &&
+  chatId !== undefined &&
+  chatId !== ''
 );
 
-export const MemoryApp = ({ onBackHub }) => {
+const sortChats = (items) => (
+  [...items].sort((a, b) => (
+    new Date(b.updatedAt || 0).getTime()
+    - new Date(a.updatedAt || 0).getTime()
+  ))
+);
+
+const getChatLabel = (chat) => (
+  chat?.title || `消息框 ${chat?.id ?? ''}`
+);
+
+const getProcessingResultMessage = (result) => {
+  if (!result) {
+    return '本次记忆整理已完成。';
+  }
+
+  if (result.error) {
+    return result.error;
+  }
+
+  if (result.skipped) {
+    const messageByReason = {
+      no_usable_messages: '当前没有可用于整理的有效消息。',
+      no_valid_source_batch: '当前没有可用于整理的有效消息。',
+      checkpoint_not_reached:
+        '尚未达到自动整理阈值；你可以继续聊天后再试。',
+      document_hidden:
+        '页面当前不在前台，暂未执行自动整理。',
+      already_running_or_invalid:
+        '当前消息框的记忆整理正在进行中。'
+    };
+
+    return (
+      messageByReason[result.reason]
+      || '本次没有执行新的记忆整理。'
+    );
+  }
+
+  const memoryCount = Number(result.createdMemories || 0);
+  const candidateCount = Number(result.createdCandidates || 0);
+  const duplicateCount = Number(result.skippedDuplicates || 0);
+
+  const parts = [];
+
+  if (memoryCount > 0) {
+    parts.push(`新增 ${memoryCount} 条正式记忆`);
+  }
+
+  if (candidateCount > 0) {
+    parts.push(`新增 ${candidateCount} 条待确认片段`);
+  }
+
+  if (duplicateCount > 0) {
+    parts.push(`跳过 ${duplicateCount} 条重复内容`);
+  }
+
+  if (parts.length === 0) {
+    return '整理完成，但没有发现适合新增的长期记忆。';
+  }
+
+  return `整理完成：${parts.join('，')}。`;
+};
+
+export const MemoryApp = ({
+  onBackHub
+}) => {
   const [chats, setChats] = useState([]);
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [memories, setMemories] = useState([]);
@@ -70,6 +141,9 @@ export const MemoryApp = ({ onBackHub }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSavingMemory, setIsSavingMemory] = useState(false);
+  const [processingCandidateId, setProcessingCandidateId] = useState(null);
+  const [processingMemoryId, setProcessingMemoryId] = useState(null);
 
   const [errorMessage, setErrorMessage] = useState('');
   const [noticeMessage, setNoticeMessage] = useState('');
@@ -86,12 +160,17 @@ export const MemoryApp = ({ onBackHub }) => {
   const [form, setForm] = useState(EMPTY_FORM);
 
   const selectedChat = useMemo(
-    () => chats.find((chat) => chat.id === selectedChatId) || null,
+    () => (
+      chats.find((chat) => chat.id === selectedChatId)
+      || null
+    ),
     [chats, selectedChatId]
   );
 
   const pendingCandidates = useMemo(
-    () => candidates.filter((candidate) => candidate.status === 'pending'),
+    () => candidates.filter((candidate) => (
+      candidate.status === 'pending'
+    )),
     [candidates]
   );
 
@@ -102,17 +181,30 @@ export const MemoryApp = ({ onBackHub }) => {
 
       setChats(sorted);
 
-      if (selectedChatId === null && sorted.length > 0) {
-        setSelectedChatId(sorted[0].id);
-      }
+      setSelectedChatId((currentChatId) => {
+        if (
+          isValidChatId(currentChatId) &&
+          sorted.some((chat) => chat.id === currentChatId)
+        ) {
+          return currentChatId;
+        }
+
+        return sorted.length > 0
+          ? sorted[0].id
+          : null;
+      });
     } catch (error) {
       setErrorMessage('读取消息框失败。');
-      console.error('[MemoryApp] load chats failed:', error);
+
+      console.error(
+        '[MemoryApp] load chats failed:',
+        error
+      );
     }
-  }, [selectedChatId]);
+  }, []);
 
   const loadMemoryData = useCallback(async () => {
-    if (selectedChatId === null || selectedChatId === undefined) {
+    if (!isValidChatId(selectedChatId)) {
       setMemories([]);
       setCandidates([]);
       return;
@@ -122,7 +214,17 @@ export const MemoryApp = ({ onBackHub }) => {
     setErrorMessage('');
 
     try {
-      const [memoryList, candidateList] = await Promise.all([
+      /*
+       * 在显示档案前刷新来源状态。
+       * 若原始聊天消息已删除，卡片可以及时显示
+       * “原始消息已删除”或“原始消息部分缺失”。
+       */
+      await refreshChatMemorySourceStates(selectedChatId);
+
+      const [
+        memoryList,
+        candidateList
+      ] = await Promise.all([
         getChatMemory(selectedChatId),
         getChatMemoryCandidates(selectedChatId)
       ]);
@@ -130,8 +232,14 @@ export const MemoryApp = ({ onBackHub }) => {
       setMemories(memoryList);
       setCandidates(candidateList);
     } catch (error) {
-      setErrorMessage(error?.message || '读取记忆失败。');
-      console.error('[MemoryApp] load memory data failed:', error);
+      setErrorMessage(
+        error?.message || '读取记忆失败。'
+      );
+
+      console.error(
+        '[MemoryApp] load memory data failed:',
+        error
+      );
     } finally {
       setIsLoading(false);
     }
@@ -150,13 +258,13 @@ export const MemoryApp = ({ onBackHub }) => {
 
     return memories.filter((memory) => {
       const matchesType = (
-        selectedType === 'all'
-        || memory.type === selectedType
+        selectedType === 'all' ||
+        memory.type === selectedType
       );
 
       const matchesStatus = (
-        selectedStatus === 'all'
-        || memory.status === selectedStatus
+        selectedStatus === 'all' ||
+        memory.status === selectedStatus
       );
 
       const text = [
@@ -168,9 +276,11 @@ export const MemoryApp = ({ onBackHub }) => {
         .join(' ')
         .toLowerCase();
 
-      return matchesType
-        && matchesStatus
-        && (!query || text.includes(query));
+      return (
+        matchesType &&
+        matchesStatus &&
+        (!query || text.includes(query))
+      );
     });
   }, [
     memories,
@@ -184,28 +294,63 @@ export const MemoryApp = ({ onBackHub }) => {
     setErrorMessage('');
   };
 
+  const closeEditor = () => {
+    setShowEditor(false);
+    setEditingMemory(null);
+    setForm(EMPTY_FORM);
+  };
+
+  const selectChat = (chatId) => {
+    setSelectedChatId(chatId);
+    setShowChatPicker(false);
+    setShowCandidates(false);
+    setSelectedType('all');
+    setSelectedStatus('active');
+    setSearchQuery('');
+    closeEditor();
+    setRevisionMemory(null);
+    resetMessages();
+  };
+
   const openCreateEditor = () => {
+    if (!isValidChatId(selectedChatId)) {
+      setErrorMessage('请先选择一个消息框。');
+      return;
+    }
+
     setEditingMemory(null);
     setForm(EMPTY_FORM);
     setShowEditor(true);
   };
 
   const openEditEditor = (memory) => {
+    if (!memory) {
+      return;
+    }
+
     setEditingMemory(memory);
+
     setForm({
       title: memory.title || '',
       content: memory.content || '',
       type: memory.type || 'fact',
       importance: memory.importance || 3
     });
+
     setShowEditor(true);
   };
 
   const handleSaveMemory = async (event) => {
     event.preventDefault();
 
-    if (!selectedChatId) {
-      setErrorMessage('请先选择一个消息框。');
+    if (
+      !isValidChatId(selectedChatId) ||
+      isSavingMemory
+    ) {
+      if (!isValidChatId(selectedChatId)) {
+        setErrorMessage('请先选择一个消息框。');
+      }
+
       return;
     }
 
@@ -213,6 +358,10 @@ export const MemoryApp = ({ onBackHub }) => {
       setErrorMessage('记忆内容不能为空。');
       return;
     }
+
+    setIsSavingMemory(true);
+    setErrorMessage('');
+    setNoticeMessage('');
 
     try {
       if (editingMemory) {
@@ -224,7 +373,9 @@ export const MemoryApp = ({ onBackHub }) => {
             type: form.type,
             importance: form.importance
           },
-          { note: '用户在记忆空间中修改。' }
+          {
+            note: '用户在记忆空间中修改。'
+          }
         );
 
         setNoticeMessage('记忆已更新。');
@@ -240,94 +391,205 @@ export const MemoryApp = ({ onBackHub }) => {
         setNoticeMessage('记忆已保存。');
       }
 
-      setShowEditor(false);
-      setEditingMemory(null);
-      setForm(EMPTY_FORM);
+      closeEditor();
 
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '保存记忆失败。');
+      setErrorMessage(
+        error?.message || '保存记忆失败。'
+      );
+    } finally {
+      setIsSavingMemory(false);
     }
   };
 
   const handleWithdraw = async (memory) => {
+    if (!memory || processingMemoryId) {
+      return;
+    }
+
+    setProcessingMemoryId(memory.memoryId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
     try {
       await withdrawMemory(
         memory.memoryId,
-        { note: '用户在记忆空间中撤回。' }
+        {
+          note: '用户在记忆空间中撤回。'
+        }
       );
 
       setNoticeMessage('记忆已撤回。');
+
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '撤回记忆失败。');
+      setErrorMessage(
+        error?.message || '撤回记忆失败。'
+      );
+    } finally {
+      setProcessingMemoryId(null);
     }
   };
 
   const handleRestore = async (memory) => {
+    if (!memory || processingMemoryId) {
+      return;
+    }
+
+    setProcessingMemoryId(memory.memoryId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
     try {
       await restoreMemory(
         memory.memoryId,
-        { note: '用户在记忆空间中恢复。' }
+        {
+          note: '用户在记忆空间中恢复。'
+        }
       );
 
       setNoticeMessage('记忆已恢复。');
+
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '恢复记忆失败。');
+      setErrorMessage(
+        error?.message || '恢复记忆失败。'
+      );
+    } finally {
+      setProcessingMemoryId(null);
     }
   };
 
   const handleArchive = async (memory) => {
+    if (!memory || processingMemoryId) {
+      return;
+    }
+
+    setProcessingMemoryId(memory.memoryId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
     try {
       await archiveMemory(
         memory.memoryId,
-        { note: '用户在记忆空间中归档。' }
+        {
+          note: '用户在记忆空间中归档。'
+        }
       );
 
       setNoticeMessage('记忆已归档。');
+
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '归档记忆失败。');
+      setErrorMessage(
+        error?.message || '归档记忆失败。'
+      );
+    } finally {
+      setProcessingMemoryId(null);
     }
   };
 
   const handleDelete = async (memory) => {
+    if (!memory || processingMemoryId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '确定永久删除这条记忆吗？它的全部修订记录也会被一并删除，且无法恢复。'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setProcessingMemoryId(memory.memoryId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
     try {
       await permanentlyDeleteMemory(memory.memoryId);
-      setNoticeMessage('记忆已永久删除。');
+
+      if (
+        revisionMemory?.memoryId === memory.memoryId
+      ) {
+        setRevisionMemory(null);
+      }
+
+      setNoticeMessage('记忆及其修订记录已永久删除。');
+
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '删除记忆失败。');
+      setErrorMessage(
+        error?.message || '删除记忆失败。'
+      );
+    } finally {
+      setProcessingMemoryId(null);
     }
   };
 
   const handleAcceptCandidate = async (candidate) => {
+    if (!candidate || processingCandidateId) {
+      return;
+    }
+
+    setProcessingCandidateId(candidate.candidateId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
     try {
       await acceptMemoryCandidate(candidate.candidateId);
-      setNoticeMessage('这段片段已采纳为正式记忆。');
+
+      setNoticeMessage(
+        '这段片段已采纳为正式记忆。'
+      );
+
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '采纳候选失败。');
+      setErrorMessage(
+        error?.message || '采纳候选失败。'
+      );
+    } finally {
+      setProcessingCandidateId(null);
     }
   };
 
   const handleDismissCandidate = async (candidate) => {
+    if (!candidate || processingCandidateId) {
+      return;
+    }
+
+    setProcessingCandidateId(candidate.candidateId);
+    setErrorMessage('');
+    setNoticeMessage('');
+
     try {
       await dismissMemoryCandidate(
         candidate.candidateId,
-        { note: '用户在记忆空间中忽略。' }
+        {
+          note: '用户在记忆空间中忽略。'
+        }
       );
 
-      setNoticeMessage('这段片段已从待确认列表移除。');
+      setNoticeMessage(
+        '这段片段已从待确认列表移除。'
+      );
+
       await loadMemoryData();
     } catch (error) {
-      setErrorMessage(error?.message || '忽略候选失败。');
+      setErrorMessage(
+        error?.message || '忽略候选失败。'
+      );
+    } finally {
+      setProcessingCandidateId(null);
     }
   };
 
   const handleProcessNow = async () => {
-    if (!selectedChatId || isProcessing) {
+    if (
+      !isValidChatId(selectedChatId) ||
+      isProcessing
+    ) {
       return;
     }
 
@@ -336,23 +598,41 @@ export const MemoryApp = ({ onBackHub }) => {
     setNoticeMessage('');
 
     try {
-      const result = await runMemoryProcessingNow(selectedChatId);
+      const result = await runMemoryProcessingNow(
+        selectedChatId
+      );
 
       if (result?.error) {
         setErrorMessage(result.error);
       } else {
-        setNoticeMessage('本次记忆整理已完成。');
+        setNoticeMessage(
+          getProcessingResultMessage(result)
+        );
+
         await loadMemoryData();
       }
     } catch (error) {
-      setErrorMessage(error?.message || '记忆整理失败。');
+      setErrorMessage(
+        error?.message || '记忆整理失败。'
+      );
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const handleImportCompleted = async (message) => {
+    setShowImportModal(false);
+    setNoticeMessage(message || '记忆导入完成。');
+
+    await loadChats();
+    await loadMemoryData();
+  };
+
   const statusOptions = [
-    { id: 'all', label: '全部状态' },
+    {
+      id: 'all',
+      label: '全部状态'
+    },
     ...MEMORY_STATUS_OPTIONS
   ];
 
@@ -372,15 +652,23 @@ export const MemoryApp = ({ onBackHub }) => {
         </button>
 
         <div className="memory-header-mark">
-          <span className="memory-kicker">PRIVATE ARCHIVE</span>
-          <span className="memory-page-number">01</span>
+          <span className="memory-kicker">
+            PRIVATE ARCHIVE
+          </span>
+          <span className="memory-page-number">
+            01
+          </span>
         </div>
       </header>
 
       <section className="memory-intro">
         <div>
-          <p className="memory-eyebrow">MEMORY ROOM</p>
+          <p className="memory-eyebrow">
+            MEMORY ROOM
+          </p>
+
           <h1>共同生活留下的页片</h1>
+
           <p className="memory-intro-text">
             只属于当前消息框的理解、片段与约定。
             你可以查看、修订，也可以让某些记忆安静地退场。
@@ -399,14 +687,19 @@ export const MemoryApp = ({ onBackHub }) => {
         <button
           type="button"
           className="memory-chat-selector"
-          onClick={() => setShowChatPicker((value) => !value)}
+          onClick={() => {
+            setShowChatPicker((value) => !value);
+          }}
         >
           <div className="memory-chat-selector-copy">
             <span className="memory-chat-selector-kicker">
               THIS ARCHIVE BELONGS TO
             </span>
+
             <strong>
-              {selectedChat ? getChatLabel(selectedChat) : '请选择消息框'}
+              {selectedChat
+                ? getChatLabel(selectedChat)
+                : '请选择消息框'}
             </strong>
           </div>
 
@@ -430,14 +723,15 @@ export const MemoryApp = ({ onBackHub }) => {
                       ? 'memory-chat-option-active'
                       : ''
                   ].join(' ')}
-                  onClick={() => {
-                    setSelectedChatId(chat.id);
-                    setShowChatPicker(false);
-                    resetMessages();
-                  }}
+                  onClick={() => selectChat(chat.id)}
                 >
                   <span>{getChatLabel(chat)}</span>
-                  <small>{chat.mode === 'rp' ? 'RP' : 'REAL'}</small>
+
+                  <small>
+                    {chat.mode === 'rp'
+                      ? 'RP'
+                      : 'REAL'}
+                  </small>
                 </button>
               ))
             )}
@@ -451,14 +745,18 @@ export const MemoryApp = ({ onBackHub }) => {
             <span className="memory-overview-number">
               {memories.length}
             </span>
-            <span className="memory-overview-label">已保存记忆</span>
+            <span className="memory-overview-label">
+              已保存记忆
+            </span>
           </div>
 
           <div>
             <span className="memory-overview-number">
               {pendingCandidates.length}
             </span>
-            <span className="memory-overview-label">待确认片段</span>
+            <span className="memory-overview-label">
+              待确认片段
+            </span>
           </div>
 
           <div className="memory-overview-actions">
@@ -478,7 +776,9 @@ export const MemoryApp = ({ onBackHub }) => {
               disabled={isProcessing}
             >
               <Sparkles className="memory-icon" />
-              {isProcessing ? '整理中' : '立即整理'}
+              {isProcessing
+                ? '整理中'
+                : '立即整理'}
             </button>
 
             <button
@@ -501,11 +801,17 @@ export const MemoryApp = ({ onBackHub }) => {
 
             <button
               type="button"
-              onClick={loadMemoryData}
+              onClick={() => {
+                void loadMemoryData();
+              }}
               className="memory-tool-button"
               title="刷新"
+              disabled={isLoading}
             >
-              <RefreshCw className="memory-icon" />
+              <RefreshCw className={[
+                'memory-icon',
+                isLoading ? 'memory-spin' : ''
+              ].join(' ')} />
             </button>
           </div>
         </section>
@@ -514,6 +820,7 @@ export const MemoryApp = ({ onBackHub }) => {
       {errorMessage && (
         <div className="memory-message memory-message-error">
           <span>{errorMessage}</span>
+
           <button
             type="button"
             onClick={() => setErrorMessage('')}
@@ -526,6 +833,7 @@ export const MemoryApp = ({ onBackHub }) => {
       {noticeMessage && (
         <div className="memory-message memory-message-success">
           <span>{noticeMessage}</span>
+
           <button
             type="button"
             onClick={() => setNoticeMessage('')}
@@ -540,9 +848,12 @@ export const MemoryApp = ({ onBackHub }) => {
           <section className="memory-filter-section">
             <div className="memory-search-box">
               <Search className="memory-icon" />
+
               <input
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                }}
                 placeholder="在这间消息框里寻找一页..."
                 aria-label="搜索记忆"
               />
@@ -584,7 +895,9 @@ export const MemoryApp = ({ onBackHub }) => {
                 <button
                   type="button"
                   key={item.id}
-                  onClick={() => setSelectedStatus(item.id)}
+                  onClick={() => {
+                    setSelectedStatus(item.id);
+                  }}
                   className={[
                     'memory-status-button',
                     selectedStatus === item.id
@@ -601,7 +914,10 @@ export const MemoryApp = ({ onBackHub }) => {
           <section className="memory-list-section">
             <div className="memory-section-heading">
               <div>
-                <span className="memory-eyebrow">THE COLLECTION</span>
+                <span className="memory-eyebrow">
+                  THE COLLECTION
+                </span>
+
                 <h2>
                   {selectedStatus === 'active'
                     ? '正在生长的记忆'
@@ -623,6 +939,7 @@ export const MemoryApp = ({ onBackHub }) => {
               <div className="memory-empty-state">
                 <FilePlus2 className="memory-empty-icon" />
                 <p>这里还没有符合条件的记忆。</p>
+
                 <button
                   type="button"
                   onClick={openCreateEditor}
@@ -642,7 +959,9 @@ export const MemoryApp = ({ onBackHub }) => {
                     onRestore={handleRestore}
                     onArchive={handleArchive}
                     onDelete={handleDelete}
-                    onViewRevisions={(item) => setRevisionMemory(item)}
+                    onViewRevisions={(item) => {
+                      setRevisionMemory(item);
+                    }}
                   />
                 ))}
               </div>
@@ -653,10 +972,15 @@ export const MemoryApp = ({ onBackHub }) => {
             <button
               type="button"
               className="memory-candidate-heading"
-              onClick={() => setShowCandidates((value) => !value)}
+              onClick={() => {
+                setShowCandidates((value) => !value);
+              }}
             >
               <div>
-                <span className="memory-eyebrow">UNFINISHED NOTES</span>
+                <span className="memory-eyebrow">
+                  UNFINISHED NOTES
+                </span>
+
                 <h2>尚未定稿的片段</h2>
               </div>
 
@@ -672,43 +996,60 @@ export const MemoryApp = ({ onBackHub }) => {
                     目前没有等待确认的片段。
                   </p>
                 ) : (
-                  pendingCandidates.map((candidate) => (
-                    <div
-                      className="memory-candidate-item"
-                      key={candidate.candidateId || candidate.id}
-                    >
-                      <span className="memory-candidate-type">
-                        {MEMORY_TYPE_OPTIONS.find(
-                          (item) => item.id === candidate.type
-                        )?.label || '待整理'}
-                      </span>
+                  pendingCandidates.map((candidate) => {
+                    const isCandidateProcessing = (
+                      processingCandidateId === candidate.candidateId
+                    );
 
-                      <strong>{candidate.title || '未命名片段'}</strong>
-                      <p>{candidate.content}</p>
+                    return (
+                      <div
+                        className="memory-candidate-item"
+                        key={candidate.candidateId || candidate.id}
+                      >
+                        <span className="memory-candidate-type">
+                          {MEMORY_TYPE_OPTIONS.find(
+                            (item) => item.id === candidate.type
+                          )?.label || '待整理'}
+                        </span>
 
-                      <small>
-                        优先程度 {candidate.priority || 3} / 5
-                      </small>
+                        <strong>
+                          {candidate.title || '未命名片段'}
+                        </strong>
 
-                      <div className="memory-candidate-actions">
-                        <button
-                          type="button"
-                          className="memory-inline-button"
-                          onClick={() => handleAcceptCandidate(candidate)}
-                        >
-                          采纳为记忆
-                        </button>
+                        <p>{candidate.content}</p>
 
-                        <button
-                          type="button"
-                          className="memory-candidate-dismiss-button"
-                          onClick={() => handleDismissCandidate(candidate)}
-                        >
-                          忽略此片段
-                        </button>
+                        <small>
+                          优先程度 {candidate.priority || 3} / 5
+                        </small>
+
+                        <div className="memory-candidate-actions">
+                          <button
+                            type="button"
+                            className="memory-inline-button"
+                            onClick={() => {
+                              void handleAcceptCandidate(candidate);
+                            }}
+                            disabled={isCandidateProcessing}
+                          >
+                            {isCandidateProcessing
+                              ? '处理中...'
+                              : '采纳为记忆'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="memory-candidate-dismiss-button"
+                            onClick={() => {
+                              void handleDismissCandidate(candidate);
+                            }}
+                            disabled={isCandidateProcessing}
+                          >
+                            忽略此片段
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </>
             )}
@@ -719,7 +1060,9 @@ export const MemoryApp = ({ onBackHub }) => {
       {!selectedChat && (
         <div className="memory-empty-state memory-empty-state-large">
           <BookOpen className="memory-empty-icon" />
-          <p>先选择一个消息框，才能翻阅它留下的记忆。</p>
+          <p>
+            先选择一个消息框，才能翻阅它留下的记忆。
+          </p>
         </div>
       )}
 
@@ -733,16 +1076,22 @@ export const MemoryApp = ({ onBackHub }) => {
           >
             <div className="memory-modal-header">
               <div>
-                <span className="memory-eyebrow">EDITING ROOM</span>
+                <span className="memory-eyebrow">
+                  EDITING ROOM
+                </span>
+
                 <h2 id="memory-editor-title">
-                  {editingMemory ? '修订这一页' : '写下一页记忆'}
+                  {editingMemory
+                    ? '修订这一页'
+                    : '写下一页记忆'}
                 </h2>
               </div>
 
               <button
                 type="button"
                 className="memory-modal-close"
-                onClick={() => setShowEditor(false)}
+                onClick={closeEditor}
+                disabled={isSavingMemory}
               >
                 关闭
               </button>
@@ -754,43 +1103,58 @@ export const MemoryApp = ({ onBackHub }) => {
             >
               <label>
                 <span>标题</span>
+
                 <input
                   value={form.title}
-                  onChange={(event) => setForm({
-                    ...form,
-                    title: event.target.value
-                  })}
+                  onChange={(event) => {
+                    setForm({
+                      ...form,
+                      title: event.target.value
+                    });
+                  }}
                   maxLength={80}
                   placeholder="给这段记忆一个名字"
+                  disabled={isSavingMemory}
                 />
               </label>
 
               <label>
                 <span>内容</span>
+
                 <textarea
                   value={form.content}
-                  onChange={(event) => setForm({
-                    ...form,
-                    content: event.target.value
-                  })}
+                  onChange={(event) => {
+                    setForm({
+                      ...form,
+                      content: event.target.value
+                    });
+                  }}
                   maxLength={500}
                   rows={6}
                   placeholder="写下希望未来聊天可以理解的事情..."
                   required
+                  disabled={isSavingMemory}
                 />
               </label>
 
               <label>
                 <span>记忆类型</span>
+
                 <select
                   value={form.type}
-                  onChange={(event) => setForm({
-                    ...form,
-                    type: event.target.value
-                  })}
+                  onChange={(event) => {
+                    setForm({
+                      ...form,
+                      type: event.target.value
+                    });
+                  }}
+                  disabled={isSavingMemory}
                 >
                   {MEMORY_TYPE_OPTIONS.map((item) => (
-                    <option key={item.id} value={item.id}>
+                    <option
+                      key={item.id}
+                      value={item.id}
+                    >
                       {item.label}
                     </option>
                   ))}
@@ -798,16 +1162,22 @@ export const MemoryApp = ({ onBackHub }) => {
               </label>
 
               <label>
-                <span>重要程度：{form.importance} / 5</span>
+                <span>
+                  重要程度：{form.importance} / 5
+                </span>
+
                 <input
                   type="range"
                   min="1"
                   max="5"
                   value={form.importance}
-                  onChange={(event) => setForm({
-                    ...form,
-                    importance: Number(event.target.value)
-                  })}
+                  onChange={(event) => {
+                    setForm({
+                      ...form,
+                      importance: Number(event.target.value)
+                    });
+                  }}
+                  disabled={isSavingMemory}
                 />
               </label>
 
@@ -815,7 +1185,8 @@ export const MemoryApp = ({ onBackHub }) => {
                 <button
                   type="button"
                   className="memory-secondary-button"
-                  onClick={() => setShowEditor(false)}
+                  onClick={closeEditor}
+                  disabled={isSavingMemory}
                 >
                   取消
                 </button>
@@ -823,8 +1194,11 @@ export const MemoryApp = ({ onBackHub }) => {
                 <button
                   type="submit"
                   className="memory-primary-button"
+                  disabled={isSavingMemory}
                 >
-                  保存这一页
+                  {isSavingMemory
+                    ? '保存中...'
+                    : '保存这一页'}
                 </button>
               </div>
             </form>
@@ -837,12 +1211,10 @@ export const MemoryApp = ({ onBackHub }) => {
           chats={chats}
           initialChatId={selectedChatId}
           onClose={() => setShowImportModal(false)}
-          onCompleted={async (message) => {
-            setShowImportModal(false);
-            setNoticeMessage(message);
-            await loadMemoryData();
+          onCompleted={handleImportCompleted}
+          onError={(message) => {
+            setErrorMessage(message);
           }}
-          onError={(message) => setErrorMessage(message)}
         />
       )}
 
@@ -850,8 +1222,12 @@ export const MemoryApp = ({ onBackHub }) => {
         <MemoryExportModal
           currentChat={selectedChat}
           onClose={() => setShowExportModal(false)}
-          onCompleted={(message) => setNoticeMessage(message)}
-          onError={(message) => setErrorMessage(message)}
+          onCompleted={(message) => {
+            setNoticeMessage(message);
+          }}
+          onError={(message) => {
+            setErrorMessage(message);
+          }}
         />
       )}
 
@@ -866,4 +1242,5 @@ export const MemoryApp = ({ onBackHub }) => {
 };
 
 export default MemoryApp;
+
 

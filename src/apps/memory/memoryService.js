@@ -10,14 +10,17 @@ import {
   MEMORY_STATUSES
 } from './memoryConstants';
 
-
-
 const createStableId = (prefix) => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return `${prefix}_${crypto.randomUUID()}`;
   }
 
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  return `${prefix}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
 };
 
 const toIsoNow = () => new Date().toISOString();
@@ -35,11 +38,37 @@ const normalizeImportance = (value) => {
 const normalizeText = (value) => String(value || '').trim();
 
 const normalizeSourceMessageIds = (value) => {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
 
   return value
     .map((id) => Number(id))
     .filter((id) => Number.isFinite(id));
+};
+
+const isValidChatId = (chatId) => (
+  chatId !== null &&
+  chatId !== undefined &&
+  chatId !== ''
+);
+
+const assertChatId = (chatId) => {
+  if (!isValidChatId(chatId)) {
+    throw new Error('缺少消息框标识，无法处理记忆。');
+  }
+};
+
+const assertMemoryContent = (content) => {
+  if (!normalizeText(content)) {
+    throw new Error('记忆内容不能为空。');
+  }
+};
+
+const assertMemoryStatus = (status) => {
+  if (!Object.values(MEMORY_STATUSES).includes(status)) {
+    throw new Error('无效的记忆状态。');
+  }
 };
 
 const createRevisionPayload = ({
@@ -59,15 +88,45 @@ const createRevisionPayload = ({
   createdAt
 });
 
-const assertChatId = (chatId) => {
-  if (chatId === null || chatId === undefined || chatId === '') {
-    throw new Error('缺少消息框标识，无法处理记忆。');
+const getSourceStateFromData = ({
+  sourceKind,
+  sourceMessageIds
+}) => {
+  if (
+    sourceKind === MEMORY_SOURCE_KINDS.IMPORTED ||
+    sourceKind === MEMORY_SOURCE_KINDS.USER_CREATED
+  ) {
+    return sourceKind === MEMORY_SOURCE_KINDS.IMPORTED
+      ? MEMORY_SOURCE_STATES.IMPORTED_WITHOUT_SOURCE
+      : MEMORY_SOURCE_STATES.USER_CREATED;
   }
+
+  return sourceMessageIds.length > 0
+    ? MEMORY_SOURCE_STATES.AVAILABLE
+    : MEMORY_SOURCE_STATES.IMPORTED_WITHOUT_SOURCE;
 };
 
-const assertMemoryContent = (content) => {
-  if (!normalizeText(content)) {
-    throw new Error('记忆内容不能为空。');
+const deleteMemoryRevisionsForChatInTransaction = async (chatId) => {
+  const memories = await db.memories
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const memoryIds = memories
+    .map((memory) => memory.memoryId)
+    .filter(Boolean);
+
+  await db.memoryRevisions
+    .where('chatId')
+    .equals(chatId)
+    .delete();
+
+  // chatId 意外不一致时，仍按关联 memoryId 兜底清理修订。
+  for (const memoryId of memoryIds) {
+    await db.memoryRevisions
+      .where('memoryId')
+      .equals(memoryId)
+      .delete();
   }
 };
 
@@ -88,13 +147,20 @@ export const getChatMemory = async (chatId) => {
 };
 
 export const getMemoryById = async (memoryId) => {
-  if (!memoryId) return null;
+  if (!memoryId) {
+    return null;
+  }
 
-  return db.memories.where('memoryId').equals(memoryId).first();
+  return db.memories
+    .where('memoryId')
+    .equals(memoryId)
+    .first();
 };
 
 export const getMemoryRevisions = async (memoryId) => {
-  if (!memoryId) return [];
+  if (!memoryId) {
+    return [];
+  }
 
   const revisions = await db.memoryRevisions
     .where('memoryId')
@@ -125,6 +191,7 @@ export const createMemory = async ({
 }) => {
   assertChatId(chatId);
   assertMemoryContent(content);
+  assertMemoryStatus(status);
 
   const now = toIsoNow();
 
@@ -187,6 +254,13 @@ export const updateMemory = async (
 
   assertMemoryContent(nextContent);
 
+  if (
+    updates.status !== undefined &&
+    !Object.values(MEMORY_STATUSES).includes(updates.status)
+  ) {
+    throw new Error('无效的记忆状态。');
+  }
+
   const now = toIsoNow();
 
   const nextMemory = {
@@ -199,6 +273,9 @@ export const updateMemory = async (
     importance: updates.importance === undefined
       ? currentMemory.importance
       : normalizeImportance(updates.importance),
+    confidence: updates.confidence === undefined
+      ? currentMemory.confidence
+      : updates.confidence,
     sourceMessageIds: updates.sourceMessageIds === undefined
       ? currentMemory.sourceMessageIds
       : normalizeSourceMessageIds(updates.sourceMessageIds),
@@ -207,7 +284,6 @@ export const updateMemory = async (
       : Array.isArray(updates.sourceMessageTimestamps)
         ? updates.sourceMessageTimestamps.filter(Boolean)
         : [],
-    confidence: updates.confidence || MEMORY_CONFIDENCES.USER_WRITTEN,
     updatedAt: now
   };
 
@@ -237,6 +313,8 @@ export const setMemoryStatus = async (
   status,
   { note = '' } = {}
 ) => {
+  assertMemoryStatus(status);
+
   const currentMemory = await getMemoryById(memoryId);
 
   if (!currentMemory) {
@@ -250,6 +328,7 @@ export const setMemoryStatus = async (
   };
 
   const now = toIsoNow();
+
   const nextMemory = {
     ...currentMemory,
     status,
@@ -304,14 +383,8 @@ export const permanentlyDeleteMemory = async (memoryId) => {
     db.memories,
     db.memoryRevisions,
     async () => {
-      await db.memoryRevisions.add(createRevisionPayload({
-        memoryId: currentMemory.memoryId,
-        chatId: currentMemory.chatId,
-        action: MEMORY_REVISION_ACTIONS.DELETED,
-        snapshot: currentMemory
-      }));
-
       await db.memories.delete(currentMemory.id);
+
       await db.memoryRevisions
         .where('memoryId')
         .equals(currentMemory.memoryId)
@@ -343,7 +416,15 @@ export const refreshMemorySourceState = async (memoryId) => {
   }
 
   const sourceMessages = await db.messages.bulkGet(sourceMessageIds);
-  const existingCount = sourceMessages.filter(Boolean).length;
+
+  const validSourceMessages = sourceMessages.filter(
+    (message) => (
+      message &&
+      message.chatId === memory.chatId
+    )
+  );
+
+  const existingCount = validSourceMessages.length;
 
   let sourceState = MEMORY_SOURCE_STATES.AVAILABLE;
 
@@ -361,6 +442,7 @@ export const refreshMemorySourceState = async (memoryId) => {
     };
 
     await db.memories.update(memory.id, nextMemory);
+
     return nextMemory;
   }
 
@@ -384,7 +466,8 @@ export const getChatMemoryCandidates = async (chatId) => {
     .toArray();
 
   return candidates.sort((a, b) => {
-    const priorityDifference = Number(b.priority || 0) - Number(a.priority || 0);
+    const priorityDifference = Number(b.priority || 0)
+      - Number(a.priority || 0);
 
     if (priorityDifference !== 0) {
       return priorityDifference;
@@ -398,7 +481,10 @@ export const getChatMemoryCandidates = async (chatId) => {
 export const getMemoryJob = async (chatId) => {
   assertChatId(chatId);
 
-  return db.memoryJobs.where('chatId').equals(chatId).first();
+  return db.memoryJobs
+    .where('chatId')
+    .equals(chatId)
+    .first();
 };
 
 export const ensureMemoryJob = async (chatId) => {
@@ -423,9 +509,20 @@ export const ensureMemoryJob = async (chatId) => {
     updatedAt: now
   };
 
-  await db.memoryJobs.add(job);
+  try {
+    await db.memoryJobs.add(job);
+    return job;
+  } catch (error) {
+    // memoryJobs.chatId 有唯一索引；并发首次调用时，
+    // 另一条调用链可能已先一步创建了任务记录。
+    const concurrentJob = await getMemoryJob(chatId);
 
-  return job;
+    if (concurrentJob) {
+      return concurrentJob;
+    }
+
+    throw error;
+  }
 };
 
 export const destroyChatWithMemories = async (chatId) => {
@@ -440,11 +537,28 @@ export const destroyChatWithMemories = async (chatId) => {
     db.memoryRevisions,
     db.memoryJobs,
     async () => {
-      await db.messages.where('chatId').equals(chatId).delete();
-      await db.memories.where('chatId').equals(chatId).delete();
-      await db.memoryCandidates.where('chatId').equals(chatId).delete();
-      await db.memoryRevisions.where('chatId').equals(chatId).delete();
-      await db.memoryJobs.where('chatId').equals(chatId).delete();
+      await db.messages
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
+      await deleteMemoryRevisionsForChatInTransaction(chatId);
+
+      await db.memories
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
+      await db.memoryCandidates
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
+      await db.memoryJobs
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
       await db.chats.delete(chatId);
     }
   );
@@ -460,10 +574,22 @@ export const clearChatMemoryData = async (chatId) => {
     db.memoryRevisions,
     db.memoryJobs,
     async () => {
-      await db.memories.where('chatId').equals(chatId).delete();
-      await db.memoryCandidates.where('chatId').equals(chatId).delete();
-      await db.memoryRevisions.where('chatId').equals(chatId).delete();
-      await db.memoryJobs.where('chatId').equals(chatId).delete();
+      await deleteMemoryRevisionsForChatInTransaction(chatId);
+
+      await db.memories
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
+      await db.memoryCandidates
+        .where('chatId')
+        .equals(chatId)
+        .delete();
+
+      await db.memoryJobs
+        .where('chatId')
+        .equals(chatId)
+        .delete();
     }
   );
 };
@@ -504,6 +630,7 @@ export const createPendingMemoryCandidate = async ({
 
   return candidate;
 };
+
 export const acceptMemoryCandidate = async (
   candidateId,
   {
@@ -533,23 +660,43 @@ export const acceptMemoryCandidate = async (
 
   const now = toIsoNow();
 
+  const sourceMessageIds = normalizeSourceMessageIds(
+    candidate.sourceMessageIds
+  );
+
+  const sourceKind = candidate.sourceKind
+    || MEMORY_SOURCE_KINDS.CONVERSATION;
+
   const memory = {
     memoryId: createStableId('memory'),
     chatId: candidate.chatId,
-    title: normalizeText(title === undefined ? candidate.title : title),
-    content: normalizeText(content === undefined ? candidate.content : content),
+    title: normalizeText(
+      title === undefined
+        ? candidate.title
+        : title
+    ),
+    content: normalizeText(
+      content === undefined
+        ? candidate.content
+        : content
+    ),
     type: type || candidate.type || 'fact',
     status: MEMORY_STATUSES.ACTIVE,
     importance: normalizeImportance(
-      importance === undefined ? candidate.priority : importance
+      importance === undefined
+        ? candidate.priority
+        : importance
     ),
     confidence: MEMORY_CONFIDENCES.CONFIRMED,
-    sourceMessageIds: normalizeSourceMessageIds(candidate.sourceMessageIds),
+    sourceMessageIds,
     sourceMessageTimestamps: Array.isArray(candidate.sourceMessageTimestamps)
       ? candidate.sourceMessageTimestamps.filter(Boolean)
       : [],
-    sourceState: MEMORY_SOURCE_STATES.AVAILABLE,
-    sourceKind: candidate.sourceKind || MEMORY_SOURCE_KINDS.CONVERSATION,
+    sourceState: getSourceStateFromData({
+      sourceKind,
+      sourceMessageIds
+    }),
+    sourceKind,
     createdAt: now,
     updatedAt: now,
     lastUsedAt: null,
@@ -584,7 +731,12 @@ export const acceptMemoryCandidate = async (
     }
   );
 
-  return memory;
+  // 对会话来源，在事务提交后核对消息是否仍真实存在。
+  if (sourceKind === MEMORY_SOURCE_KINDS.CONVERSATION) {
+    await refreshMemorySourceState(memory.memoryId);
+  }
+
+  return getMemoryById(memory.memoryId);
 };
 
 export const dismissMemoryCandidate = async (
@@ -606,19 +758,16 @@ export const dismissMemoryCandidate = async (
 
   const now = toIsoNow();
 
-  await db.memoryCandidates.update(candidate.id, {
-    ...candidate,
-    status: MEMORY_CANDIDATE_STATUSES.DISMISSED,
-    dismissedNote: normalizeText(note),
-    updatedAt: now
-  });
-
-  return {
+  const nextCandidate = {
     ...candidate,
     status: MEMORY_CANDIDATE_STATUSES.DISMISSED,
     dismissedNote: normalizeText(note),
     updatedAt: now
   };
+
+  await db.memoryCandidates.update(candidate.id, nextCandidate);
+
+  return nextCandidate;
 };
 
 export const getPendingMemoryCandidates = async (chatId) => {
@@ -634,7 +783,8 @@ export const getPendingMemoryCandidates = async (chatId) => {
       candidate.status === MEMORY_CANDIDATE_STATUSES.PENDING
     ))
     .sort((a, b) => {
-      const priorityDifference = Number(b.priority || 0) - Number(a.priority || 0);
+      const priorityDifference = Number(b.priority || 0)
+        - Number(a.priority || 0);
 
       if (priorityDifference !== 0) {
         return priorityDifference;
@@ -644,3 +794,4 @@ export const getPendingMemoryCandidates = async (chatId) => {
         - new Date(a.updatedAt || a.createdAt || 0).getTime();
     });
 };
+

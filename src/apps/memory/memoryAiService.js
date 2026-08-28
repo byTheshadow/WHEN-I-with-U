@@ -1,5 +1,9 @@
 import db from '../../db';
-import { buildMemorySourceBatch } from './memorySignals';
+
+import {
+  buildMemorySourceBatch
+} from './memorySignals';
+
 import {
   MEMORY_CANDIDATE_STATUSES,
   MEMORY_CONFIDENCES,
@@ -11,7 +15,9 @@ const MAX_SOURCE_MESSAGES = 40;
 const MAX_MEMORY_ITEMS = 6;
 const MAX_CANDIDATE_ITEMS = 4;
 
-const normalizeText = (value) => String(value || '').trim();
+const normalizeText = (value) => (
+  String(value || '').trim()
+);
 
 const stripJsonFence = (value) => (
   normalizeText(value)
@@ -24,26 +30,64 @@ const stripJsonFence = (value) => (
 const parseJsonObject = (content) => {
   const cleaned = stripJsonFence(content);
 
+  if (!cleaned) {
+    throw new Error('记忆整理服务返回了空内容。');
+  }
+
   try {
-    return JSON.parse(cleaned);
-  } catch {
+    const parsed = JSON.parse(cleaned);
+
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error('记忆整理服务没有返回 JSON 对象。');
+    }
+
+    return parsed;
+  } catch (initialError) {
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
 
-    if (firstBrace < 0 || lastBrace <= firstBrace) {
+    if (
+      firstBrace < 0 ||
+      lastBrace <= firstBrace
+    ) {
       throw new Error('记忆整理服务没有返回有效 JSON。');
     }
 
-    return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    try {
+      const parsed = JSON.parse(
+        cleaned.slice(firstBrace, lastBrace + 1)
+      );
+
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        Array.isArray(parsed)
+      ) {
+        throw new Error('记忆整理服务没有返回 JSON 对象。');
+      }
+
+      return parsed;
+    } catch {
+      throw new Error('记忆整理服务没有返回有效 JSON。');
+    }
   }
 };
 
 const normalizeImportance = (value) => {
   const numberValue = Number(value);
 
-  if (!Number.isFinite(numberValue)) return 3;
+  if (!Number.isFinite(numberValue)) {
+    return 3;
+  }
 
-  return Math.max(1, Math.min(5, Math.round(numberValue)));
+  return Math.max(
+    1,
+    Math.min(5, Math.round(numberValue))
+  );
 };
 
 const isAllowedMemoryType = (value) => (
@@ -64,7 +108,12 @@ const getSummaryReference = (summary) => {
     return summary
       .slice(-3)
       .map((item) => (
-        normalizeText(item?.content || item?.text || item?.summary || item)
+        normalizeText(
+          item?.content ||
+          item?.text ||
+          item?.summary ||
+          item
+        )
       ))
       .filter(Boolean)
       .join('\n')
@@ -74,17 +123,34 @@ const getSummaryReference = (summary) => {
   return normalizeText(summary).slice(0, 1800);
 };
 
-const normalizeMessageIds = (ids, allowedIds) => {
-  if (!Array.isArray(ids)) return [];
+const normalizeMessageIds = (
+  ids,
+  allowedIds
+) => {
+  if (!Array.isArray(ids)) {
+    return [];
+  }
 
-  return ids
-    .map(Number)
-    .filter((id) => Number.isFinite(id) && allowedIds.has(id));
+  return [
+    ...new Set(
+      ids
+        .map(Number)
+        .filter((id) => (
+          Number.isFinite(id) &&
+          allowedIds.has(id)
+        ))
+    )
+  ];
 };
 
-const normalizeMemoryItem = (item, sourceMessages) => {
+const normalizeMemoryItem = (
+  item,
+  sourceMessages
+) => {
   const validMessageIds = new Set(
-    sourceMessages.map((message) => message.id)
+    sourceMessages
+      .map((message) => Number(message.id))
+      .filter(Number.isFinite)
   );
 
   const sourceMessageIds = normalizeMessageIds(
@@ -93,14 +159,18 @@ const normalizeMemoryItem = (item, sourceMessages) => {
   );
 
   const sourceMessageTimestamps = sourceMessages
-    .filter((message) => sourceMessageIds.includes(message.id))
+    .filter((message) => (
+      sourceMessageIds.includes(Number(message.id))
+    ))
     .map((message) => message.timestamp)
     .filter(Boolean);
 
   return {
     title: normalizeText(item?.title).slice(0, 80),
     content: normalizeText(item?.content).slice(0, 500),
-    type: isAllowedMemoryType(item?.type) ? item.type : 'fact',
+    type: isAllowedMemoryType(item?.type)
+      ? item.type
+      : 'fact',
     importance: normalizeImportance(item?.importance),
     confidence: item?.confidence === 'confirmed'
       ? MEMORY_CONFIDENCES.CONFIRMED
@@ -114,12 +184,20 @@ const normalizeMemoryItem = (item, sourceMessages) => {
   };
 };
 
-const normalizeCandidateItem = (item, sourceMessages) => {
-  const normalized = normalizeMemoryItem(item, sourceMessages);
+const normalizeCandidateItem = (
+  item,
+  sourceMessages
+) => {
+  const normalized = normalizeMemoryItem(
+    item,
+    sourceMessages
+  );
 
   return {
     ...normalized,
-    priority: normalizeImportance(item?.priority || normalized.importance),
+    priority: normalizeImportance(
+      item?.priority || normalized.importance
+    ),
     status: MEMORY_CANDIDATE_STATUSES.PENDING
   };
 };
@@ -129,58 +207,116 @@ const getApiConfig = async () => {
   const apiConfig = apiSettings?.value || {};
 
   if (!apiConfig.baseUrl || !apiConfig.apiKey) {
-    throw new Error('尚未配置可用的 API Base URL 或 API Key。');
+    throw new Error(
+      '尚未配置可用的 API Base URL 或 API Key。'
+    );
   }
 
   return apiConfig;
 };
 
-const requestMemoryCompletion = async ({
-  systemPrompt,
-  userPrompt
-}) => {
-  const apiConfig = await getApiConfig();
-  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+const getErrorDetail = async (response) => {
+  let detail = response.statusText || '请求未成功';
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiConfig.apiKey}`
-    },
-    body: JSON.stringify({
-      model: apiConfig.model || 'gpt-3.5-turbo',
-      temperature: 0.2,
-      response_format: {
-        type: 'json_object'
+  try {
+    const errorData = await response.json();
+
+    detail = (
+      errorData?.error?.message ||
+      errorData?.message ||
+      detail
+    );
+  } catch {
+    // 部分 API 返回 HTML 或纯文本错误页，保留状态文本。
+  }
+
+  return detail;
+};
+
+const isResponseFormatUnsupported = ({
+  status,
+  detail
+}) => {
+  const normalizedDetail = normalizeText(detail).toLowerCase();
+
+  if (!normalizedDetail) {
+    return false;
+  }
+
+  return (
+    normalizedDetail.includes('response_format') ||
+    normalizedDetail.includes('json_object') ||
+    (
+      status === 400 &&
+      (
+        normalizedDetail.includes('json mode') ||
+        normalizedDetail.includes('unsupported parameter')
+      )
+    )
+  );
+};
+
+const requestCompletion = async ({
+  apiConfig,
+  systemPrompt,
+  userPrompt,
+  useJsonResponseFormat = true
+}) => {
+  const baseUrl = String(apiConfig.baseUrl)
+    .replace(/\/$/, '');
+
+  const requestBody = {
+    model: apiConfig.model || 'gpt-3.5-turbo',
+    temperature: 0.2,
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt
       },
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ]
-    })
-  });
+      {
+        role: 'user',
+        content: userPrompt
+      }
+    ]
+  };
+
+  if (useJsonResponseFormat) {
+    requestBody.response_format = {
+      type: 'json_object'
+    };
+  }
+
+  const response = await fetch(
+    `${baseUrl}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiConfig.apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    }
+  );
 
   if (!response.ok) {
-    let detail = response.statusText || '请求未成功';
+    const detail = await getErrorDetail(response);
 
-    try {
-      const errorData = await response.json();
-      detail = errorData?.error?.message || errorData?.message || detail;
-    } catch {
-      // 保留 HTTP 状态文本。
-    }
+    const error = new Error(
+      `[API Error ${response.status}] ${detail}`
+    );
 
-    throw new Error(`[API Error ${response.status}] ${detail}`);
+    error.status = response.status;
+    error.detail = detail;
+    error.responseFormatUnsupported = isResponseFormatUnsupported({
+      status: response.status,
+      detail
+    });
+
+    throw error;
   }
 
   const payload = await response.json();
+
   const content = normalizeText(
     payload?.choices?.[0]?.message?.content
   );
@@ -189,39 +325,52 @@ const requestMemoryCompletion = async ({
     throw new Error('记忆整理服务返回了空内容。');
   }
 
-  return parseJsonObject(content);
+  return content;
 };
 
-export const extractMemoryFromConversation = async ({
-  chatId,
-  messages = []
+const requestMemoryCompletion = async ({
+  systemPrompt,
+  userPrompt
 }) => {
-  if (chatId === undefined || chatId === null) {
-    throw new Error('缺少消息框标识。');
+  const apiConfig = await getApiConfig();
+
+  try {
+    const content = await requestCompletion({
+      apiConfig,
+      systemPrompt,
+      userPrompt,
+      useJsonResponseFormat: true
+    });
+
+    return parseJsonObject(content);
+  } catch (error) {
+    /*
+     * 某些 OpenAI 兼容接口支持聊天请求，但不支持
+     * response_format: { type: 'json_object' }。
+     *
+     * 只在明确的参数不兼容情形下降级；
+     * 网络、鉴权、模型不可用等错误不应重复请求。
+     */
+    if (!error?.responseFormatUnsupported) {
+      throw error;
+    }
+
+    console.warn(
+      '[Memory] API does not support response_format; retrying without it.'
+    );
+
+    const content = await requestCompletion({
+      apiConfig,
+      systemPrompt,
+      userPrompt,
+      useJsonResponseFormat: false
+    });
+
+    return parseJsonObject(content);
   }
+};
 
-  const chat = await db.chats.get(chatId);
-
-  if (!chat) {
-    throw new Error('目标消息框不存在。');
-  }
-
-  const sourceMessages = buildMemorySourceBatch(
-    messages,
-    MAX_SOURCE_MESSAGES
-  );
-
-  if (sourceMessages.length === 0) {
-    return {
-      memories: [],
-      candidates: [],
-      sourceMessageIds: []
-    };
-  }
-
-  const summaryReference = getSummaryReference(chat.summary);
-
-  const systemPrompt = `
+const buildSystemPrompt = () => `
 你负责整理私人数字陪伴空间中的长期共同记忆。
 
 你的职责不是写聊天回复。不要使用角色口吻，不要安慰用户，不要添加抒情语言。
@@ -232,12 +381,14 @@ export const extractMemoryFromConversation = async ({
 2. 用户当前明确表达的事实、偏好、边界、纠正和约定优先。
 3. 不要把一次性寒暄、普通问题、无依据的猜测或角色编造内容写成长期事实。
 4. 不要记录敏感隐私细节，除非用户明确要求记住，且内容对持续陪伴确实必要。
-5. 明确、稳定且有充分对话依据的内容放入 memories。
-6. 可能变化、含义不完整、存在冲突或需要用户确认的内容放入 candidates。
-7. 每项必须引用 sourceMessageIds；不能引用的内容不要输出。
-8. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
-9. 不得使用 Emoji。
-10. 只输出严格 JSON，不要 Markdown，不要解释。
+5. 阶段性摘要只用于理解语境，不是可独立引用的证据；每一条输出都必须引用本次对话片段中的 sourceMessageIds。
+6. 明确、稳定且有充分对话依据的内容放入 memories。
+7. 可能变化、含义不完整、存在冲突或需要用户确认的内容放入 candidates。
+8. 每项必须引用至少一个 sourceMessageIds；不能引用的内容不要输出。
+9. sourceMessageIds 只能使用本次对话片段中实际提供的数字 ID，不能编造。
+10. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
+11. 不得使用 Emoji。
+12. 只输出严格 JSON，不要 Markdown，不要解释。
 
 JSON 格式：
 {
@@ -263,6 +414,47 @@ JSON 格式：
 }
 `;
 
+export const extractMemoryFromConversation = async ({
+  chatId,
+  messages = []
+}) => {
+  if (
+    chatId === undefined ||
+    chatId === null ||
+    chatId === ''
+  ) {
+    throw new Error('缺少消息框标识。');
+  }
+
+  const chat = await db.chats.get(chatId);
+
+  if (!chat) {
+    throw new Error('目标消息框不存在。');
+  }
+
+  /*
+   * 即使调用者已经传入批次，也再次经过来源消息构建函数：
+   * - 统一过滤错误和空消息；
+   * - 限制最多 40 条；
+   * - 确保传给模型的数据格式稳定。
+   */
+  const sourceMessages = buildMemorySourceBatch(
+    messages,
+    MAX_SOURCE_MESSAGES
+  );
+
+  if (sourceMessages.length === 0) {
+    return {
+      memories: [],
+      candidates: [],
+      sourceMessageIds: []
+    };
+  }
+
+  const summaryReference = getSummaryReference(chat.summary);
+
+  const systemPrompt = buildSystemPrompt();
+
   const userPrompt = `
 阶段性摘要仅用于理解上下文，不能作为单独证据：
 ${summaryReference || '无'}
@@ -276,27 +468,37 @@ ${JSON.stringify(sourceMessages)}
     userPrompt
   });
 
+  const memories = Array.isArray(result?.memories)
+    ? result.memories
+      .map((item) => normalizeMemoryItem(
+        item,
+        sourceMessages
+      ))
+      .filter((item) => (
+        item.content &&
+        item.sourceMessageIds.length > 0
+      ))
+      .slice(0, MAX_MEMORY_ITEMS)
+    : [];
+
+  const candidates = Array.isArray(result?.candidates)
+    ? result.candidates
+      .map((item) => normalizeCandidateItem(
+        item,
+        sourceMessages
+      ))
+      .filter((item) => (
+        item.content &&
+        item.sourceMessageIds.length > 0
+      ))
+      .slice(0, MAX_CANDIDATE_ITEMS)
+    : [];
+
   return {
-    memories: Array.isArray(result?.memories)
-      ? result.memories
-        .map((item) => normalizeMemoryItem(item, sourceMessages))
-        .filter((item) => (
-          item.content &&
-          item.sourceMessageIds.length > 0
-        ))
-        .slice(0, MAX_MEMORY_ITEMS)
-      : [],
-
-    candidates: Array.isArray(result?.candidates)
-      ? result.candidates
-        .map((item) => normalizeCandidateItem(item, sourceMessages))
-        .filter((item) => (
-          item.content &&
-          item.sourceMessageIds.length > 0
-        ))
-        .slice(0, MAX_CANDIDATE_ITEMS)
-      : [],
-
-    sourceMessageIds: sourceMessages.map((message) => message.id)
+    memories,
+    candidates,
+    sourceMessageIds: sourceMessages
+      .map((message) => Number(message.id))
+      .filter(Number.isFinite)
   };
 };
