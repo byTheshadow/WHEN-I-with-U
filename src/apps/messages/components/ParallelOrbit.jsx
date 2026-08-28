@@ -45,29 +45,58 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
     }
   };
 
-  const handleGenerate = async (force = false) => {
-    setIsLoading(true);
-    setErrorMsg('');
+ const handleGenerate = async ({
+  forceGenerate = false,
+  source = 'page-open'
+} = {}) => {
+  setIsLoading(true);
+  setErrorMsg('');
 
-    try {
-      const result = await checkAndTriggerParallelOrbit(chatId, force);
-      setTriggerStatus(result.status);
+  try {
+    const result = await checkAndTriggerParallelOrbit(chatId, {
+      forceGenerate,
+      source
+    });
 
-      if (result.status === 'success') {
-        await loadLogs();
-      } else if (result.status === 'active_chatting') {
-        setErrorMsg('对方当前正专注于与你的聊天中，独处轨迹暂时不会更新。');
-      } else if (result.status === 'cooldown' && !force) {
-        setErrorMsg('他/她刚记录过生活不久，此时正在继续他的日常。');
-      } else if (result.status === 'error') {
-        setErrorMsg(`记录失败: ${result.error}`);
-      }
-    } catch (err) {
-      setErrorMsg(`生成出错: ${err.message}`);
-    } finally {
-      setIsLoading(false);
+    setTriggerStatus(result.status);
+
+    if (result.status === 'success' || result.status === 'backfill_success') {
+      await loadLogs();
+      return;
     }
-  };
+
+    if (result.status === 'active_chatting') {
+      setErrorMsg('对方当前正专注于与你的聊天中，独处轨迹暂时不会更新。');
+      return;
+    }
+
+    if (
+      (result.status === 'cooldown' || result.status === 'backfill_cooldown') &&
+      !forceGenerate
+    ) {
+      setErrorMsg('这一页刚刚记录过，对方正在继续自己的日常。');
+      return;
+    }
+
+    if (result.status === 'backfill_not_needed') {
+      return;
+    }
+
+    if (result.status === 'no_user_activity') {
+      setErrorMsg('从一段对话开始后，这里会逐渐留下对方独处时的生活切片。');
+      return;
+    }
+
+    if (result.status === 'error') {
+      setErrorMsg(`记录失败：${result.error}`);
+    }
+  } catch (err) {
+    setErrorMsg(`生成出错：${err.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleDeleteActiveLog = async () => {
     if (!activeLog) return;
@@ -85,10 +114,19 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
     }
   };
 
-  useEffect(() => {
-    loadLogs();
-    handleGenerate(false);
-  }, [chatId]);
+useEffect(() => {
+  loadLogs();
+
+  // 页面打开时自检：
+  // - 超过 10 小时未聊天：按真实时间段补写有限历史记录；
+  // - 正常独处超过 10 分钟且冷却结束：生成一条此刻轨迹；
+  // - 正在密集聊天或刚生成过：不重复生成。
+  handleGenerate({
+    forceGenerate: false,
+    source: 'page-open'
+  });
+}, [chatId]);
+
 
   const renderRichText = (text) => {
     if (!text) return '';
@@ -310,7 +348,11 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
 
         <button
           type="button"
-          onClick={() => handleGenerate(true)}
+         onClick={() => handleGenerate({
+  forceGenerate: true,
+  source: 'manual'
+})}
+
           disabled={isLoading}
           className="flex items-center justify-center p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all disabled:opacity-40"
           style={{
@@ -404,7 +446,11 @@ export default function ParallelOrbit({ chatId, character, onBack }) {
 
                   {triggerStatus === 'cooldown' && (
                     <button
-                      onClick={() => handleGenerate(true)}
+                      onClick={() => handleGenerate({
+  forceGenerate: true,
+  source: 'manual'
+})}
+
                       className="mt-1.5 text-[9px] font-bold uppercase tracking-wider underline opacity-90 block hover:opacity-100"
                     >
                       Force Update / 强制同步日常

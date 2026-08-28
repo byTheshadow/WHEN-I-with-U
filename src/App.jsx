@@ -52,6 +52,11 @@ import {
   startScheduledMessageScheduler,
   stopScheduledMessageScheduler
 } from './apps/messages/scheduledMessageService';
+import {
+  startParallelOrbitScheduler,
+  stopParallelOrbitScheduler
+} from './services/parallelOrbitScheduler';
+
 
 import './apps/daily-offering/daily-offering.css';
 import './apps/manual/manual.css';
@@ -110,19 +115,22 @@ export const App = () => {
   // 缓存当前角色ID，用于传递给 RhythmApp 子应用
   const [activeCharacterId, setActiveCharacterId] = useState(null);
 
-   useEffect(() => {
-    void requestNotificationPermission();
+  useEffect(() => {
+  void requestNotificationPermission();
 
-    startAutoMessageScheduler();
-    startTravelPostcardScheduler();
-    startScheduledMessageScheduler();
+  startAutoMessageScheduler();
+  startTravelPostcardScheduler();
+  startScheduledMessageScheduler();
+  startParallelOrbitScheduler();
 
-    return () => {
-      stopAutoMessageScheduler();
-      stopTravelPostcardScheduler();
-      stopScheduledMessageScheduler();
-    };
-  }, []);
+  return () => {
+    stopAutoMessageScheduler();
+    stopTravelPostcardScheduler();
+    stopScheduledMessageScheduler();
+    stopParallelOrbitScheduler();
+  };
+}, []);
+
 
 
   // 👈 新增：开门与切回应用时触发 AI 作息/待办提醒自检
