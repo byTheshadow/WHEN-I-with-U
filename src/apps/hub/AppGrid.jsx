@@ -62,7 +62,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
       </h3>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* Row 1: Messages (col-span-2) - 保持不变 */}
+        {/* Row 1: Messages (不变) */}
         <GlassCard
           delay={delay}
           tone="ink"
@@ -84,29 +84,25 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* --- 杂志排版区块 1 --- */}
-
-        {/* Snapshots (左侧长卡片 - row-span-2) */}
+        {/* Row 2: 两个标准方块 */}
         <GlassCard
-          delay={delay + 25}
+          delay={delay + 20}
           onClick={() => onOpenApp('snapshots')}
-          className="group col-span-1 row-span-2 flex cursor-pointer flex-col justify-between p-4 text-left"
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
             <Camera className="h-5 w-5 text-[var(--text-main)] opacity-90" />
           </div>
-          <div className="mt-8 flex flex-col gap-1.5">
-            <div className="w-6 border-t-[1.5px] border-[var(--text-main)] mb-1 opacity-20 group-hover:opacity-40 transition-opacity"></div>
+          <div>
             <h4 className="text-sm font-bold">Snapshots</h4>
-            <p className="text-[10px] uppercase tracking-wider opacity-50">
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
               Polaroid Feed
             </p>
           </div>
         </GlassCard>
 
-        {/* Pebbling (右侧上方小方块) */}
         <GlassCard
-          delay={delay + 40}
+          delay={delay + 30}
           onClick={() => onOpenApp('pebbling')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
@@ -121,7 +117,38 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Imaginarium (右侧下方小方块) */}
+        {/* Row 3: Living Habitat 变宽版 (打破网格节奏的杂志感) */}
+        <GlassCard
+          delay={delay + 40}
+          onClick={() => onOpenApp('habitat')}
+          className="group col-span-2 flex cursor-pointer items-center justify-between p-4 text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: 'var(--control-soft-bg)' }}
+            >
+              <Leaf
+                className="h-5 w-5 opacity-90"
+                style={{ color: 'var(--text-main)' }}
+              />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold">Living Habitat</h4>
+              <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
+                {habitatCount > 0
+                  ? `${habitatCount} lives breathing`
+                  : 'Adopt a new life'}
+              </p>
+            </div>
+          </div>
+          {/* 杂志感小装饰 */}
+          <div className="font-mono text-[9px] uppercase tracking-widest opacity-30 pr-2 transition-opacity group-hover:opacity-60">
+            Bio-Sync
+          </div>
+        </GlassCard>
+
+        {/* Row 4: 两个标准方块 */}
         <GlassCard
           delay={delay + 50}
           onClick={() => onOpenApp('imaginarium')}
@@ -144,90 +171,33 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* The Ensemble (横向宽卡片 - col-span-2) */}
         <GlassCard
           delay={delay + 60}
           onClick={() => onOpenApp('ensemble')}
-          className="group col-span-2 flex cursor-pointer items-center justify-between p-4 text-left"
-        >
-          <div className="flex items-center gap-4">
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-2xl"
-              style={{ backgroundColor: 'var(--control-soft-bg)' }}
-            >
-              <Users
-                className="h-5 w-5 opacity-90"
-                style={{ color: 'var(--text-main)' }}
-              />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold">The Ensemble</h4>
-              <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
-                Bonded Group
-              </p>
-            </div>
-          </div>
-          <div className="mr-2 opacity-0 group-hover:opacity-30 transition-opacity">
-            <div className="h-1.5 w-1.5 rounded-full bg-[var(--text-main)]"></div>
-          </div>
-        </GlassCard>
-
-        {/* --- 杂志排版区块 2 --- */}
-
-        {/* Living Habitat (左侧上方小方块) */}
-        <GlassCard
-          delay={delay + 70}
-          onClick={() => onOpenApp('habitat')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Leaf
+            <Users
               className="h-5 w-5 opacity-90"
               style={{ color: 'var(--text-main)' }}
             />
           </div>
           <div>
-            <h4 className="text-sm font-bold">Living Habitat</h4>
+            <h4 className="text-sm font-bold">The Ensemble</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
-              {habitatCount > 0
-                ? `${habitatCount} lives breathing`
-                : 'Adopt a new life'}
+              Bonded Group
             </p>
           </div>
         </GlassCard>
 
-        {/* Memory Room (右侧长卡片 - row-span-2) */}
+        {/* Row 5: 两个标准方块 */}
         <GlassCard
-          delay={delay + 75}
-          onClick={() => onOpenApp('memory')}
-          className="group col-span-1 row-span-2 flex cursor-pointer flex-col justify-between p-4 text-left"
-        >
-          <div
-            className="flex h-12 w-12 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
-          >
-            <Archive
-              className="h-5 w-5 opacity-90"
-              style={{ color: 'var(--text-main)' }}
-            />
-          </div>
-          <div className="mt-8 flex flex-col gap-1.5">
-            <div className="w-6 border-t-[1.5px] border-[var(--text-main)] mb-1 opacity-20 group-hover:opacity-40 transition-opacity"></div>
-            <h4 className="text-sm font-bold">Memory Room</h4>
-            <p className="text-[10px] uppercase tracking-wider opacity-40">
-              Private Archive
-            </p>
-          </div>
-        </GlassCard>
-
-        {/* Diaries (左侧下方小方块) */}
-        <GlassCard
-          delay={delay + 80}
+          delay={delay + 70}
           onClick={() => onOpenApp('diaries')}
-          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+          className="flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
@@ -243,9 +213,29 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
         
-        {/* --- 杂志排版区块 3 --- */}
+        <GlassCard
+          delay={delay + 80}
+          onClick={() => onOpenApp('memory')}
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+        >
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Archive
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold">Memory Room</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
+              Private Archive
+            </p>
+          </div>
+        </GlassCard>
 
-        {/* Ephemera (左侧小方块) */}
+        {/* Row 6: Ephemera + 假App占位 (营造留白) */}
         <GlassCard
           delay={delay + 90}
           onClick={() => onOpenApp('ephemera')}
@@ -268,17 +258,25 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* 杂志排版视觉占位符 (不可点击，填充右上空白处，增加氛围感) */}
-        <div className="flex aspect-square pointer-events-none select-none flex-col items-center justify-center p-4 text-center opacity-40">
-          <div className="mb-3 w-6 border-t-[1.5px] border-[var(--text-main)]"></div>
-          <span className="font-mono text-[9px] uppercase leading-relaxed tracking-[0.3em]">
-            Index<br />
-            <span className="opacity-50">Vol.1</span>
-          </span>
-          <div className="mt-3 w-6 border-t-[1.5px] border-[var(--text-main)]"></div>
+        {/* 杂志排版占位符 (不可点击，用克制的排版填补空白) */}
+        <div className="flex aspect-square select-none flex-col justify-between p-4 opacity-40">
+          <div className="flex w-full items-start justify-between border-b border-[var(--text-main)] pb-2 opacity-50">
+             <span className="font-mono text-[9px] tracking-widest">NO.01</span>
+             <span className="font-mono text-[9px]">///</span>
+          </div>
+          <div className="flex flex-col items-center text-center mt-2">
+             <p className="text-[10px] uppercase tracking-[0.3em] leading-relaxed">
+               Index<br/>Space
+             </p>
+          </div>
+          <div className="w-full border-t border-[var(--text-main)] pt-2 opacity-50 mt-auto">
+             <div className="font-mono text-[8px] text-center uppercase tracking-widest">
+               Curated
+             </div>
+          </div>
         </div>
 
-        {/* Ask Box - 提问箱 (横向宽卡片 - col-span-2) */}
+        {/* Row 7: Ask Box - 提问箱 (变宽版，解决原来右侧空的问题，稳住底部) */}
         <GlassCard
           delay={delay + 100}
           onClick={() => onOpenApp('askbox')}
@@ -299,7 +297,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-bold">Ask Box</h4>
                 {askCount > 0 && (
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                 )}
               </div>
               <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
@@ -307,12 +305,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               </p>
             </div>
           </div>
-          <div className="mr-2 opacity-0 group-hover:opacity-30 transition-opacity">
-            <div className="h-1.5 w-1.5 rounded-full bg-[var(--text-main)]"></div>
-          </div>
         </GlassCard>
 
-        {/* 底部功能工具横排 */}
+        {/* Row 8: 底部工具栏横排 */}
         <div className="col-span-2 flex gap-3">
           <GlassCard
             delay={delay + 110}
@@ -333,7 +328,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </GlassCard>
 
           <GlassCard
-            delay={delay + 125}
+            delay={delay + 130}
             onClick={() => onOpenApp('rhythm')}
             className="flex flex-1 cursor-pointer items-center justify-center gap-2 p-3 text-left"
           >
