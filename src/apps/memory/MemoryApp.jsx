@@ -1031,8 +1031,8 @@ const handleDelete = async (memory) => {
           </section>
 
           <section className="memory-candidate-section">
-            </div>
             
+
             <button
               type="button"
               className="memory-candidate-heading"
@@ -1166,7 +1166,9 @@ const handleDelete = async (memory) => {
               </>
             )}
           </section>
+           </div>
         </>
+        
       )}
 
       {!selectedChat && (
