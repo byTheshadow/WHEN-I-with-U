@@ -28,6 +28,7 @@ import ManualApp from './apps/manual/ManualApp';
 import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
 import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
+import MemoryApp from './apps/memory/MemoryApp';
 
 
 // 👈 导入新增的 Rhythm 模块
@@ -87,7 +88,8 @@ const REGISTERED_APPS = [
   'habitat',
   'ephemera',
   'askbox',
-  'rhythm'
+  'rhythm',
+  'memory'
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -533,6 +535,11 @@ if (result?.status === 'success') {
             />
           </ErrorBoundary>
         )}
+
+        {currentApp === 'memory' && (
+  <MemoryApp onBackHub={() => openApp('hub')} />
+)}
+
 
         {!REGISTERED_APPS.includes(currentApp) && (
           <ErrorBoundary>

@@ -1158,4 +1158,25 @@
   color: var(--text-muted);
   font-size: 0.55rem;
 }
+.memory-candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.memory-candidate-dismiss-button {
+  padding: 0.45rem 0.25rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.6rem;
+}
+
+.memory-candidate-dismiss-button:hover {
+  color: var(--text-main);
+  text-decoration: underline;
+}
 
