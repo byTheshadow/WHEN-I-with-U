@@ -257,8 +257,7 @@ const normalizeServerTool = (connectionId, tool, existingTool = null) => {
     updatedAt: timestamp,
   };
 };
-
-const sanitizeAuth = (auth = {}) => {
+const sanitizeAuth = (auth = {}, existingAuth = {}) => {
   const requestedType = normalizeText(auth?.type);
 
   if (requestedType === 'bearer') {
@@ -269,26 +268,65 @@ const sanitizeAuth = (auth = {}) => {
   }
 
   if (requestedType === 'oauth') {
+    const existingIsOAuth = existingAuth?.type === 'oauth';
+
     return {
       type: 'oauth',
-
-      /*
-       * Public Client：不保存 client_secret。
-       */
       clientId: normalizeText(auth.clientId),
-      authorizationEndpoint: normalizeText(auth.authorizationEndpoint),
+      authorizationEndpoint: normalizeText(
+        auth.authorizationEndpoint,
+      ),
       tokenEndpoint: normalizeText(auth.tokenEndpoint),
       scopes: normalizeText(auth.scopes),
       resource: normalizeText(auth.resource),
 
       /*
-       * 以下字段仅在当前设备 IndexedDB 内保存，
-       * 不会出现在导出文件中。
+       * 表单不会显示 token，因此仅在同一种 OAuth 配置编辑时继承。
+       * 若 Client ID、授权端点、Token 端点改变，旧 token 必须失效。
        */
-      accessToken: normalizeText(auth.accessToken),
-      refreshToken: normalizeText(auth.refreshToken),
-      tokenType: normalizeText(auth.tokenType),
-      expiresAt: auth.expiresAt || null,
+      accessToken:
+        existingIsOAuth &&
+        normalizeText(auth.clientId) ===
+          normalizeText(existingAuth.clientId) &&
+        normalizeText(auth.authorizationEndpoint) ===
+          normalizeText(existingAuth.authorizationEndpoint) &&
+        normalizeText(auth.tokenEndpoint) ===
+          normalizeText(existingAuth.tokenEndpoint)
+          ? normalizeText(existingAuth.accessToken)
+          : '',
+
+      refreshToken:
+        existingIsOAuth &&
+        normalizeText(auth.clientId) ===
+          normalizeText(existingAuth.clientId) &&
+        normalizeText(auth.authorizationEndpoint) ===
+          normalizeText(existingAuth.authorizationEndpoint) &&
+        normalizeText(auth.tokenEndpoint) ===
+          normalizeText(existingAuth.tokenEndpoint)
+          ? normalizeText(existingAuth.refreshToken)
+          : '',
+
+      tokenType:
+        existingIsOAuth &&
+        normalizeText(auth.clientId) ===
+          normalizeText(existingAuth.clientId) &&
+        normalizeText(auth.authorizationEndpoint) ===
+          normalizeText(existingAuth.authorizationEndpoint) &&
+        normalizeText(auth.tokenEndpoint) ===
+          normalizeText(existingAuth.tokenEndpoint)
+          ? normalizeText(existingAuth.tokenType)
+          : '',
+
+      expiresAt:
+        existingIsOAuth &&
+        normalizeText(auth.clientId) ===
+          normalizeText(existingAuth.clientId) &&
+        normalizeText(auth.authorizationEndpoint) ===
+          normalizeText(existingAuth.authorizationEndpoint) &&
+        normalizeText(auth.tokenEndpoint) ===
+          normalizeText(existingAuth.tokenEndpoint)
+          ? existingAuth.expiresAt || null
+          : null,
     };
   }
 
@@ -326,8 +364,9 @@ const makeConnectionRecord = (draft = {}, existing = null) => {
   );
 
   const auth = hasOwn(draft, 'auth')
-    ? sanitizeAuth(draft.auth)
-    : sanitizeAuth(existing?.auth);
+    ? sanitizeAuth(draft.auth, existing?.auth)
+    : sanitizeAuth(existing?.auth, existing?.auth);
+
 
   const bridge = {
     id: normalizeText(
@@ -409,15 +448,24 @@ const makeConnectionRecord = (draft = {}, existing = null) => {
     bridgeId: bridge.id,
     bridge,
 
-    source,
+      source,
 
     auth,
-        authStatus:
+
+    authStatus:
+
       auth.type === 'oauth'
-        ? existing?.authStatus || 'unauthorized'
+        ? auth.accessToken
+          ? existing?.authStatus || 'authorized'
+          : 'unauthorized'
         : 'not-required',
 
-    authUpdatedAt: existing?.authUpdatedAt || null,
+       authUpdatedAt:
+      auth.type === 'oauth' &&
+      JSON.stringify(auth) !== JSON.stringify(existing?.auth || {})
+        ? timestamp
+        : existing?.authUpdatedAt || null,
+
 
 
     enabled: hasOwn(draft, 'enabled')
@@ -725,9 +773,11 @@ export const deleteMcpConnection = async (connectionId) => {
     'rw',
     db.mcpConnections,
     db.mcpTools,
-    db.mcpPermissions,
+       db.mcpPermissions,
     db.mcpActivities,
+    db.mcpOAuthSessions,
     async () => {
+
       await db.mcpConnections.delete(connectionId);
 
       await db.mcpTools
@@ -740,10 +790,11 @@ export const deleteMcpConnection = async (connectionId) => {
         .equals(connectionId)
         .delete();
 
-      await db.mcpActivities
+           await db.mcpOAuthSessions
         .where('connectionId')
         .equals(connectionId)
         .delete();
+
     },
   );
 

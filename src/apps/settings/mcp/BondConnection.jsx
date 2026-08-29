@@ -4,55 +4,62 @@ import React, {
   useState,
 } from 'react';
 import {
+  BadgeCheck,
+  Bot,
+  Cable,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   CircleAlert,
+  CircleHelp,
   Download,
   ExternalLink,
+  FileCode2,
+  HardDrive,
+  KeyRound,
   Link2,
   LoaderCircle,
   LockKeyhole,
+  Play,
   Plus,
   Power,
-    Play,
   RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
   Trash2,
   Upload,
   Wrench,
   X,
   XCircle,
-  Bot,
-Cable,
-CircleHelp,
-FileCode2,
-HardDrive,
-
-
 } from 'lucide-react';
 
 import GlassCard from '../../../components/GlassCard';
 import ConfirmModal from '../../../components/ConfirmModal';
+
 import {
   getMcpTransportLabel,
 } from '../../../services/mcp/mcpTransportRegistry';
 
-
+import {
+  clearMcpOAuthAuthorization,
+  discoverMcpOAuthConfiguration,
+  getMcpOAuthStatus,
+  startMcpOAuthAuthorization,
+} from '../../../services/mcp/mcpOAuthService';
 
 import {
   createMcpConnection,
   deleteMcpConnection,
   getMcpConnections,
   getMcpToolsForConnection,
+  MCP_EXECUTION_MODES,
+  MCP_PROVIDERS,
+  MCP_TRANSPORTS,
   setMcpConnectionEnabled,
   setMcpToolEnabled,
   setMcpToolRiskLevel,
   testAndSyncMcpConnection,
   updateMcpConnection,
-  MCP_EXECUTION_MODES,
-MCP_PROVIDERS,
-MCP_TRANSPORTS,
-
 } from '../../../services/mcp/mcpConnectionService';
 
 import {
@@ -61,17 +68,9 @@ import {
   downloadMcpConnectionExport,
   parseMcpConnectionImport,
 } from '../../../services/mcp/mcpImportExportService';
+
 import ManualMcpToolCallModal from './ManualMcpToolCallModal';
 import McpActivityTrace from './McpActivityTrace';
-import {
-  clearMcpOAuthAuthorization,
-  getMcpOAuthStatus,
-  startMcpOAuthAuthorization,
-} from '../../../services/mcp/mcpOAuthService';
-
-
-
-
 
 const EMPTY_DRAFT = {
   name: '',
@@ -100,20 +99,56 @@ const EMPTY_DRAFT = {
   oauthResource: '',
 };
 
-
-
 const getStatusLabel = (status) => {
   switch (status) {
     case 'connected':
       return '已接通';
+
     case 'connecting':
       return '正在辨认';
+
     case 'error':
       return '未能接通';
+
     default:
       return '尚未测试';
   }
 };
+
+const getStatusClassName = (status) => {
+  switch (status) {
+    case 'connected':
+      return 'text-emerald-500';
+
+    case 'connecting':
+      return 'text-amber-500';
+
+    case 'error':
+      return 'text-rose-500';
+
+    default:
+      return 'opacity-50';
+  }
+};
+
+const getRiskLabel = (riskLevel) => {
+  switch (riskLevel) {
+    case 'read':
+      return '仅查看';
+
+    case 'write':
+      return '可能改变外部内容';
+
+    default:
+      return '尚未判断';
+  }
+};
+
+const parseLineList = (value = '') =>
+  String(value || '')
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 const Toggle = ({
   checked,
@@ -146,99 +181,23 @@ const Toggle = ({
   </button>
 );
 
-const getStatusClassName = (status) => {
-  switch (status) {
-    case 'connected':
-      return 'text-emerald-500';
-    case 'connecting':
-      return 'text-amber-500';
-    case 'error':
-      return 'text-rose-500';
-    default:
-      return 'opacity-50';
+const StatusMark = ({ status }) => {
+  if (status === 'connecting') {
+    return (
+      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+    );
   }
-};
 
-const getRiskLabel = (riskLevel) => {
-  switch (riskLevel) {
-    case 'read':
-      return '仅查看';
-    case 'write':
-      return '可能改变外部内容';
-    default:
-      return '尚未判断';
+  if (status === 'connected') {
+    return <CheckCircle2 className="h-3.5 w-3.5" />;
   }
+
+  if (status === 'error') {
+    return <XCircle className="h-3.5 w-3.5" />;
+  }
+
+  return <Link2 className="h-3.5 w-3.5" />;
 };
-
-const makeDraftFromConnection = (connection) => {
-  const isBridge =
-    connection?.transport === MCP_TRANSPORTS.BRIDGE_HTTP ||
-    connection?.executionMode === MCP_EXECUTION_MODES.USER_BRIDGE;
-
-  return {
-    name: connection?.name || '',
-    endpoint: connection?.endpoint || '',
-
-    connectionKind: isBridge ? 'bridge' : 'remote',
-
-    provider:
-      connection?.provider ||
-      (isBridge
-        ? MCP_PROVIDERS.BRIDGE
-        : MCP_PROVIDERS.GENERIC),
-
-    transport:
-      connection?.transport ||
-      (isBridge
-        ? MCP_TRANSPORTS.BRIDGE_HTTP
-        : MCP_TRANSPORTS.STREAMABLE_HTTP),
-
-    executionMode:
-      connection?.executionMode ||
-      (isBridge
-        ? MCP_EXECUTION_MODES.USER_BRIDGE
-        : MCP_EXECUTION_MODES.BROWSER_DIRECT),
-
-    bridgeLabel: connection?.bridge?.label || '',
-
-    sourceKind:
-      connection?.source?.kind === 'stdio'
-        ? 'stdio'
-        : 'endpoint',
-
-    stdioCommand: connection?.source?.command || '',
-    stdioArgsText: Array.isArray(connection?.source?.args)
-      ? connection.source.args.join('\n')
-      : '',
-
-    stdioEnvKeysText: Array.isArray(connection?.source?.envKeys)
-      ? connection.source.envKeys.join('\n')
-      : '',
-
-        authType:
-      connection?.auth?.type === 'oauth'
-        ? 'oauth'
-        : connection?.auth?.type === 'bearer'
-          ? 'bearer'
-          : 'none',
-
-    token: connection?.auth?.token || '',
-
-    oauthClientId: connection?.auth?.clientId || '',
-    oauthAuthorizationEndpoint:
-      connection?.auth?.authorizationEndpoint || '',
-    oauthTokenEndpoint: connection?.auth?.tokenEndpoint || '',
-    oauthScopes: connection?.auth?.scopes || '',
-    oauthResource: connection?.auth?.resource || '',
-
-  };
-};
-
-const parseLineList = (value = '') =>
-  String(value || '')
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 const updateDraftConnectionKind = (kind) => {
   if (kind === 'bridge') {
@@ -279,24 +238,69 @@ const getConnectionKindCopy = (kind) => {
   };
 };
 
+const makeDraftFromConnection = (connection) => {
+  const isBridge =
+    connection?.transport === MCP_TRANSPORTS.BRIDGE_HTTP ||
+    connection?.executionMode === MCP_EXECUTION_MODES.USER_BRIDGE;
 
+  return {
+    name: connection?.name || '',
+    endpoint: connection?.endpoint || '',
 
-const StatusMark = ({ status }) => {
-  if (status === 'connecting') {
-    return (
-      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-    );
-  }
+    connectionKind: isBridge ? 'bridge' : 'remote',
 
-  if (status === 'connected') {
-    return <CheckCircle2 className="h-3.5 w-3.5" />;
-  }
+    provider:
+      connection?.provider ||
+      (isBridge
+        ? MCP_PROVIDERS.BRIDGE
+        : MCP_PROVIDERS.GENERIC),
 
-  if (status === 'error') {
-    return <XCircle className="h-3.5 w-3.5" />;
-  }
+    transport:
+      connection?.transport ||
+      (isBridge
+        ? MCP_TRANSPORTS.BRIDGE_HTTP
+        : MCP_TRANSPORTS.STREAMABLE_HTTP),
 
-  return <Link2 className="h-3.5 w-3.5" />;
+    executionMode:
+      connection?.executionMode ||
+      (isBridge
+        ? MCP_EXECUTION_MODES.USER_BRIDGE
+        : MCP_EXECUTION_MODES.BROWSER_DIRECT),
+
+    bridgeLabel: connection?.bridge?.label || '',
+
+    sourceKind:
+      connection?.source?.kind === 'stdio'
+        ? 'stdio'
+        : 'endpoint',
+
+    stdioCommand: connection?.source?.command || '',
+
+    stdioArgsText: Array.isArray(connection?.source?.args)
+      ? connection.source.args.join('\n')
+      : '',
+
+    stdioEnvKeysText: Array.isArray(connection?.source?.envKeys)
+      ? connection.source.envKeys.join('\n')
+      : '',
+
+    authType:
+      connection?.auth?.type === 'oauth'
+        ? 'oauth'
+        : connection?.auth?.type === 'bearer'
+          ? 'bearer'
+          : 'none',
+
+    token: connection?.auth?.token || '',
+
+    oauthClientId: connection?.auth?.clientId || '',
+    oauthAuthorizationEndpoint:
+      connection?.auth?.authorizationEndpoint || '',
+    oauthTokenEndpoint:
+      connection?.auth?.tokenEndpoint || '',
+    oauthScopes: connection?.auth?.scopes || '',
+    oauthResource: connection?.auth?.resource || '',
+  };
 };
 
 export const BondConnection = () => {
@@ -313,13 +317,18 @@ export const BondConnection = () => {
   const [editingConnectionId, setEditingConnectionId] = useState(null);
 
   const [workingConnectionId, setWorkingConnectionId] = useState(null);
+
   const [notice, setNotice] = useState({
     type: 'idle',
     message: '',
   });
 
   const [deleteTarget, setDeleteTarget] = useState(null);
-    const [manualCallTarget, setManualCallTarget] = useState(null);
+  const [manualCallTarget, setManualCallTarget] = useState(null);
+
+  const showNotice = (type, message) => {
+    setNotice({ type, message });
+  };
 
   const loadConnections = async () => {
     try {
@@ -336,20 +345,17 @@ export const BondConnection = () => {
       setToolsByConnection(Object.fromEntries(toolEntries));
     } catch (error) {
       console.error('[MCP] 无法读取连接：', error);
-      setNotice({
-        type: 'error',
-        message: '无法读取已保存的外接连接。',
-      });
+
+      showNotice(
+        'error',
+        '无法读取已保存的外接连接。',
+      );
     }
   };
 
   useEffect(() => {
     void loadConnections();
   }, []);
-
-  const showNotice = (type, message) => {
-    setNotice({ type, message });
-  };
 
   const clearComposer = () => {
     setDraft(EMPTY_DRAFT);
@@ -391,102 +397,109 @@ export const BondConnection = () => {
       return;
     }
 
+    if (
+      draft.authType === 'oauth' &&
+      !draft.oauthClientId.trim()
+    ) {
+      showNotice('error', 'OAuth 连接需要填写 Client ID。');
+      return;
+    }
+
     setWorkingConnectionId(editingConnectionId || 'creating');
 
     try {
       const payload = {
-  name: draft.name,
-  endpoint: draft.endpoint,
+        name: draft.name,
+        endpoint: draft.endpoint,
 
-  provider: draft.provider,
-  transport: draft.transport,
-  executionMode: draft.executionMode,
+        provider: draft.provider,
+        transport: draft.transport,
+        executionMode: draft.executionMode,
 
-  bridge: {
-    label:
-      draft.connectionKind === 'bridge'
-        ? draft.bridgeLabel
-        : '',
-  },
+        bridge: {
+          label:
+            draft.connectionKind === 'bridge'
+              ? draft.bridgeLabel
+              : '',
+        },
 
-  source: {
-    kind:
-      draft.connectionKind === 'bridge' &&
-      draft.sourceKind === 'stdio'
-        ? 'stdio'
-        : 'endpoint',
+        source: {
+          kind:
+            draft.connectionKind === 'bridge' &&
+            draft.sourceKind === 'stdio'
+              ? 'stdio'
+              : 'endpoint',
 
-    command:
-      draft.connectionKind === 'bridge' &&
-      draft.sourceKind === 'stdio'
-        ? draft.stdioCommand
-        : '',
+          command:
+            draft.connectionKind === 'bridge' &&
+            draft.sourceKind === 'stdio'
+              ? draft.stdioCommand
+              : '',
 
-    args:
-      draft.connectionKind === 'bridge' &&
-      draft.sourceKind === 'stdio'
-        ? parseLineList(draft.stdioArgsText)
-        : [],
+          args:
+            draft.connectionKind === 'bridge' &&
+            draft.sourceKind === 'stdio'
+              ? parseLineList(draft.stdioArgsText)
+              : [],
 
-    envKeys:
-      draft.connectionKind === 'bridge' &&
-      draft.sourceKind === 'stdio'
-        ? parseLineList(draft.stdioEnvKeysText)
-        : [],
-  },
+          envKeys:
+            draft.connectionKind === 'bridge' &&
+            draft.sourceKind === 'stdio'
+              ? parseLineList(draft.stdioEnvKeysText)
+              : [],
+        },
 
-    auth: {
-    type: draft.authType,
+        auth: {
+          type: draft.authType,
 
-    token: draft.authType === 'bearer' ? draft.token : '',
+          token:
+            draft.authType === 'bearer'
+              ? draft.token
+              : '',
 
-    clientId:
-      draft.authType === 'oauth'
-        ? draft.oauthClientId
-        : '',
+          clientId:
+            draft.authType === 'oauth'
+              ? draft.oauthClientId
+              : '',
 
-    authorizationEndpoint:
-      draft.authType === 'oauth'
-        ? draft.oauthAuthorizationEndpoint
-        : '',
+          authorizationEndpoint:
+            draft.authType === 'oauth'
+              ? draft.oauthAuthorizationEndpoint
+              : '',
 
-    tokenEndpoint:
-      draft.authType === 'oauth'
-        ? draft.oauthTokenEndpoint
-        : '',
+          tokenEndpoint:
+            draft.authType === 'oauth'
+              ? draft.oauthTokenEndpoint
+              : '',
 
-    scopes:
-      draft.authType === 'oauth'
-        ? draft.oauthScopes
-        : '',
+          scopes:
+            draft.authType === 'oauth'
+              ? draft.oauthScopes
+              : '',
 
-    resource:
-      draft.authType === 'oauth'
-        ? draft.oauthResource
-        : '',
-  },
+          resource:
+            draft.authType === 'oauth'
+              ? draft.oauthResource
+              : '',
+        },
+      };
 
-};
+      const connection = editingConnectionId
+        ? await updateMcpConnection(
+            editingConnectionId,
+            payload,
+          )
+        : await createMcpConnection(payload);
 
-
-      let connection;
-
-      if (editingConnectionId) {
-        connection = await updateMcpConnection(
-          editingConnectionId,
-          payload,
-        );
-      } else {
-        connection = await createMcpConnection(payload);
-      }
-
-          if (draft.authType === 'oauth') {
+      /*
+       * OAuth 保存后应前往授权页，不能在没有 access token 时先测试。
+       */
+      if (draft.authType === 'oauth') {
         await startMcpOAuthAuthorization(connection.id);
         return;
       }
 
       const result = await testAndSyncMcpConnection(connection.id);
-
 
       setExpandedConnectionIds((previous) => {
         const next = new Set(previous);
@@ -513,16 +526,102 @@ export const BondConnection = () => {
     }
   };
 
+  const handleDiscoverOAuth = async () => {
+    if (!draft.endpoint.trim()) {
+      showNotice(
+        'error',
+        '请先填写 MCP 服务地址，再尝试自动发现 OAuth 配置。',
+      );
+      return;
+    }
+
+    setWorkingConnectionId('oauth-discovery');
+
+    try {
+      const discovered = await discoverMcpOAuthConfiguration(
+        draft.endpoint,
+      );
+
+      setDraft((previous) => ({
+        ...previous,
+        authType: 'oauth',
+
+        oauthAuthorizationEndpoint:
+          discovered.authorizationEndpoint,
+
+        oauthTokenEndpoint:
+          discovered.tokenEndpoint,
+
+        oauthResource: discovered.resource,
+
+        oauthScopes:
+          previous.oauthScopes ||
+          discovered.scopesSupported.join(' '),
+      }));
+
+      showNotice(
+        'success',
+        '已发现 OAuth 服务配置。请填写 Client ID，确认 Scope 后保存并授权。',
+      );
+    } catch (error) {
+      showNotice(
+        'error',
+        error?.message || '未能自动发现 OAuth 配置。',
+      );
+    } finally {
+      setWorkingConnectionId(null);
+    }
+  };
+
+  const handleOAuthAuthorization = async (connection) => {
+    setWorkingConnectionId(connection.id);
+
+    try {
+      await startMcpOAuthAuthorization(connection.id);
+    } catch (error) {
+      showNotice(
+        'error',
+        error?.message || '未能发起 OAuth 授权。',
+      );
+
+      setWorkingConnectionId(null);
+    }
+  };
+
+  const handleClearOAuthAuthorization = async (connection) => {
+    setWorkingConnectionId(connection.id);
+
+    try {
+      await clearMcpOAuthAuthorization(connection.id);
+      await loadConnections();
+
+      showNotice(
+        'success',
+        `已移除「${connection.name}」保存在本设备上的 OAuth 授权。`,
+      );
+    } catch (error) {
+      showNotice(
+        'error',
+        error?.message || '未能移除 OAuth 授权。',
+      );
+    } finally {
+      setWorkingConnectionId(null);
+    }
+  };
+
   const handleRetest = async (connection) => {
     setWorkingConnectionId(connection.id);
 
     try {
       const result = await testAndSyncMcpConnection(connection.id);
+
       await loadConnections();
 
       showNotice(
         'success',
-        `已重新同步，共找到 ${result.tools?.length || 0} 项工具。`,
+        `已重新同步，共找到 ${
+          result.tools?.length || 0
+        } 项工具。`,
       );
     } catch (error) {
       await loadConnections();
@@ -617,9 +716,6 @@ export const BondConnection = () => {
   const handleImportFile = async (event) => {
     const [file] = Array.from(event.target.files || []);
 
-    /*
-     * 同一个文件可再次选择。
-     */
     event.target.value = '';
 
     if (!file) return;
@@ -638,10 +734,6 @@ export const BondConnection = () => {
         toolPreferences: parsed.toolPreferences,
       });
 
-      /*
-       * 导入的连接即使测试成功，也不自动启用。
-       * 用户必须手动开启总连接开关。
-       */
       await setMcpConnectionEnabled(connection.id, false);
 
       setExpandedConnectionIds((previous) => {
@@ -654,7 +746,9 @@ export const BondConnection = () => {
 
       showNotice(
         'success',
-        `已导入「${result.connection?.name || connection.name}」。连接和工具目前保持关闭，请检查后自行开启。`,
+        `已导入「${
+          result.connection?.name || connection.name
+        }」。连接和工具目前保持关闭，请检查后自行开启。`,
       );
     } catch (error) {
       showNotice(
@@ -709,6 +803,7 @@ export const BondConnection = () => {
               <h3 className="font-serif text-sm font-bold">
                 The Bond Connection
               </h3>
+
               <p className="mt-1 text-[11px] leading-relaxed opacity-60">
                 让角色在你的允许下，借用一些来自外部的感官与工具。
               </p>
@@ -732,8 +827,9 @@ export const BondConnection = () => {
             border: '1px solid var(--divider)',
           }}
         >
-          可连接浏览器可访问的远程 MCP，也可使用你自行运行的 Bridge
-所提供的兼容入口。连接文件不会包含 Token；私密工具在首次调用时仍需要你的确认。
+          可连接浏览器可访问的远程 MCP，也可使用你自行运行的
+          Bridge 所提供的兼容入口。连接文件不会包含 Token；
+          私密工具在首次调用时仍需要你的确认。
         </div>
 
         {notice.type !== 'idle' && (
@@ -778,6 +874,7 @@ export const BondConnection = () => {
             ) : (
               <Upload className="h-3.5 w-3.5" />
             )}
+
             导入连接
           </button>
 
@@ -795,6 +892,7 @@ export const BondConnection = () => {
             }}
           >
             <Wrench className="mx-auto h-4 w-4 opacity-35" />
+
             <p className="mt-2 text-[11px] opacity-55">
               这里还没有接入任何外部工具。
             </p>
@@ -803,9 +901,25 @@ export const BondConnection = () => {
           <div className="space-y-3">
             {connections.map((connection) => {
               const tools = toolsByConnection[connection.id] || [];
-              const isExpanded = expandedConnectionIds.has(connection.id);
+              const isExpanded = expandedConnectionIds.has(
+                connection.id,
+              );
+
               const isWorking =
                 workingConnectionId === connection.id;
+
+              const oauthStatus =
+                connection.auth?.type === 'oauth'
+                  ? getMcpOAuthStatus(connection)
+                  : null;
+
+              const oauthStatusText = oauthStatus?.authorized
+                ? oauthStatus.expiringSoon
+                  ? 'OAuth 已授权，即将刷新'
+                  : 'OAuth 已授权'
+                : oauthStatus?.expired
+                  ? 'OAuth 已过期'
+                  : 'OAuth 尚未授权';
 
               return (
                 <section
@@ -844,34 +958,39 @@ export const BondConnection = () => {
                           {connection.name}
                         </p>
 
-                      <p className="mt-0.5 truncate text-[10px] opacity-45">
-  {connection.serverInfo?.name || connection.endpoint}
-</p>
+                        <p className="mt-0.5 truncate text-[10px] opacity-45">
+                          {connection.serverInfo?.name ||
+                            connection.endpoint}
+                        </p>
 
-<div className="mt-1 flex flex-wrap items-center gap-1.5">
-  <span
-    className="rounded-full px-1.5 py-0.5 text-[9px] opacity-60"
-    style={{
-      background: 'var(--card-bg-gradient)',
-      border: '1px solid var(--divider)',
-    }}
-  >
-    {getMcpTransportLabel(connection.transport)}
-  </span>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span
+                            className="rounded-full px-1.5 py-0.5 text-[9px] opacity-60"
+                            style={{
+                              background: 'var(--card-bg-gradient)',
+                              border: '1px solid var(--divider)',
+                            }}
+                          >
+                            {getMcpTransportLabel(
+                              connection.transport,
+                            )}
+                          </span>
 
-  {connection.executionMode === 'user-bridge' && (
-    <span
-      className="rounded-full px-1.5 py-0.5 text-[9px] opacity-60"
-      style={{
-        background: 'var(--card-bg-gradient)',
-        border: '1px solid var(--divider)',
-      }}
-    >
-      用户 Bridge
-    </span>
-  )}
-</div>
-
+                          {connection.executionMode ===
+                            MCP_EXECUTION_MODES.USER_BRIDGE && (
+                            <span
+                              className="rounded-full px-1.5 py-0.5 text-[9px] opacity-60"
+                              style={{
+                                background:
+                                  'var(--card-bg-gradient)',
+                                border:
+                                  '1px solid var(--divider)',
+                              }}
+                            >
+                              用户 Bridge
+                            </span>
+                          )}
+                        </div>
                       </button>
 
                       <Toggle
@@ -891,7 +1010,9 @@ export const BondConnection = () => {
                         onClick={() => toggleExpanded(connection.id)}
                         className="p-1 opacity-55"
                         aria-label={
-                          isExpanded ? '收起连接详情' : '展开连接详情'
+                          isExpanded
+                            ? '收起连接详情'
+                            : '展开连接详情'
                         }
                       >
                         {isExpanded ? (
@@ -901,6 +1022,86 @@ export const BondConnection = () => {
                         )}
                       </button>
                     </div>
+
+                    {oauthStatus && (
+                      <div
+                        className="mt-3 rounded-xl p-2.5"
+                        style={{
+                          background: 'var(--card-bg-gradient)',
+                          border: '1px solid var(--divider)',
+                        }}
+                      >
+                        <div className="flex items-start gap-2">
+                          {oauthStatus.authorized ? (
+                            <BadgeCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+                          ) : (
+                            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-medium">
+                              {oauthStatusText}
+                            </p>
+
+                            {oauthStatus.expiresAt && (
+                              <p className="mt-0.5 text-[9px] opacity-50">
+                                Token 到期：
+                                {new Date(
+                                  oauthStatus.expiresAt,
+                                ).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={workingConnectionId !== null}
+                            onClick={() =>
+                              handleOAuthAuthorization(connection)
+                            }
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[9px] font-medium disabled:opacity-55"
+                            style={{
+                              background: 'var(--control-soft-bg)',
+                              border: '1px solid var(--divider)',
+                            }}
+                          >
+                            {isWorking ? (
+                              <LoaderCircle className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <KeyRound className="h-3 w-3" />
+                            )}
+
+                            {oauthStatus.authorized
+                              ? '重新授权'
+                              : '开始授权'}
+                          </button>
+
+                          {(oauthStatus.authorized ||
+                            oauthStatus.hasRefreshToken) && (
+                            <button
+                              type="button"
+                              disabled={workingConnectionId !== null}
+                              onClick={() =>
+                                handleClearOAuthAuthorization(
+                                  connection,
+                                )
+                              }
+                              className="rounded-lg px-2.5 py-1.5 text-[9px] opacity-70 disabled:opacity-45"
+                              style={{
+                                background:
+                                  'var(--control-soft-bg)',
+                                border:
+                                  '1px solid var(--divider)',
+                              }}
+                            >
+                              移除授权
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {connection.status === 'error' &&
                       connection.lastError && (
@@ -913,7 +1114,9 @@ export const BondConnection = () => {
                   {isExpanded && (
                     <div
                       className="space-y-3 border-t px-3 pb-3 pt-3"
-                      style={{ borderColor: 'var(--divider)' }}
+                      style={{
+                        borderColor: 'var(--divider)',
+                      }}
                     >
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -923,7 +1126,8 @@ export const BondConnection = () => {
                           className="flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-medium disabled:opacity-45"
                           style={{
                             borderColor: 'var(--divider)',
-                            background: 'var(--card-bg-gradient)',
+                            background:
+                              'var(--card-bg-gradient)',
                           }}
                         >
                           {isWorking ? (
@@ -931,16 +1135,20 @@ export const BondConnection = () => {
                           ) : (
                             <RefreshCw className="h-3.5 w-3.5" />
                           )}
+
                           重新同步
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => openEditComposer(connection)}
+                          onClick={() =>
+                            openEditComposer(connection)
+                          }
                           className="flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-medium"
                           style={{
                             borderColor: 'var(--divider)',
-                            background: 'var(--card-bg-gradient)',
+                            background:
+                              'var(--card-bg-gradient)',
                           }}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -953,7 +1161,8 @@ export const BondConnection = () => {
                           className="flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-medium"
                           style={{
                             borderColor: 'var(--divider)',
-                            background: 'var(--card-bg-gradient)',
+                            background:
+                              'var(--card-bg-gradient)',
                           }}
                         >
                           <Download className="h-3.5 w-3.5" />
@@ -962,7 +1171,9 @@ export const BondConnection = () => {
 
                         <button
                           type="button"
-                          onClick={() => setDeleteTarget(connection)}
+                          onClick={() =>
+                            setDeleteTarget(connection)
+                          }
                           className="flex items-center gap-1.5 rounded-xl border border-rose-500/25 px-2.5 py-2 text-[10px] font-medium text-rose-500"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -970,44 +1181,49 @@ export const BondConnection = () => {
                         </button>
                       </div>
 
-
                       {connection.source?.kind === 'stdio' && (
-  <div
-    className="rounded-2xl p-3"
-    style={{
-      background: 'var(--card-bg-gradient)',
-      border: '1px solid var(--divider)',
-    }}
-  >
-    <div className="flex items-start gap-2">
-      <FileCode2 className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+                        <div
+                          className="rounded-2xl p-3"
+                          style={{
+                            background:
+                              'var(--card-bg-gradient)',
+                            border:
+                              '1px solid var(--divider)',
+                          }}
+                        >
+                          <div className="flex items-start gap-2">
+                            <FileCode2 className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
 
-      <div className="min-w-0">
-        <p className="text-[10px] font-medium">
-          交给 Bridge 的本机启动描述
-        </p>
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-medium">
+                                交给 Bridge 的本机启动描述
+                              </p>
 
-        <p className="mt-1 break-all font-mono text-[9px] leading-relaxed opacity-55">
-          {[connection.source.command, ...(connection.source.args || [])]
-            .filter(Boolean)
-            .join(' ')}
-        </p>
+                              <p className="mt-1 break-all font-mono text-[9px] leading-relaxed opacity-55">
+                                {[
+                                  connection.source.command,
+                                  ...(connection.source.args || []),
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                              </p>
 
-        {connection.source.envKeys?.length > 0 && (
-          <p className="mt-1 text-[9px] opacity-45">
-            需要由 Bridge 自行提供：
-            {connection.source.envKeys.join('、')}
-          </p>
-        )}
+                              {connection.source.envKeys?.length > 0 && (
+                                <p className="mt-1 text-[9px] opacity-45">
+                                  需要由 Bridge 自行提供：
+                                  {connection.source.envKeys.join('、')}
+                                </p>
+                              )}
 
-        <p className="mt-2 text-[9px] leading-relaxed opacity-45">
-          本应用不会运行这条命令，也不会保存任何环境变量值。
-        </p>
-      </div>
-    </div>
-  </div>
-)}
- <McpActivityTrace
+                              <p className="mt-2 text-[9px] leading-relaxed opacity-45">
+                                本应用不会运行这条命令，也不会保存任何环境变量值。
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <McpActivityTrace
                         connectionId={connection.id}
                       />
 
@@ -1026,8 +1242,10 @@ export const BondConnection = () => {
                               key={tool.id}
                               className="rounded-2xl px-3 py-2.5"
                               style={{
-                                background: 'var(--card-bg-gradient)',
-                                border: '1px solid var(--divider)',
+                                background:
+                                  'var(--card-bg-gradient)',
+                                border:
+                                  '1px solid var(--divider)',
                               }}
                             >
                               <div className="flex items-start gap-2">
@@ -1059,60 +1277,66 @@ export const BondConnection = () => {
                                 />
                               </div>
 
+                              <div className="mt-2 flex items-center gap-2">
+                                <select
+                                  value={tool.riskLevel || 'unknown'}
+                                  onChange={(event) =>
+                                    handleRiskChange(
+                                      tool,
+                                      event.target.value,
+                                    )
+                                  }
+                                  className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-[10px] outline-none"
+                                  style={{
+                                    background:
+                                      'var(--control-soft-bg)',
+                                    border:
+                                      '1px solid var(--divider)',
+                                    color: 'var(--text-main)',
+                                  }}
+                                >
+                                  <option value="read">
+                                    仅查看
+                                  </option>
 
-                                <div className="mt-2 flex items-center gap-2">
-  <select
-    value={tool.riskLevel || 'unknown'}
-    onChange={(event) =>
-      handleRiskChange(
-        tool,
-        event.target.value,
-      )
-    }
-    className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-[10px] outline-none"
-    style={{
-      background: 'var(--control-soft-bg)',
-      border: '1px solid var(--divider)',
-      color: 'var(--text-main)',
-    }}
-  >
-    <option value="read">仅查看</option>
-    <option value="write">
-      可能改变外部内容
-    </option>
-    <option value="unknown">
-      尚未判断
-    </option>
-  </select>
+                                  <option value="write">
+                                    可能改变外部内容
+                                  </option>
 
-  <button
-    type="button"
-    disabled={
-      connection.enabled !== true ||
-      tool.enabled !== true ||
-      tool.isAvailable === false
-    }
-    onClick={() =>
-      setManualCallTarget({
-        connection,
-        tool,
-      })
-    }
-    className="flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-    style={{
-      background: 'var(--control-soft-bg)',
-      borderColor: 'var(--divider)',
-    }}
-  >
-    <Play className="h-3 w-3" />
-    试用
-  </button>
-</div>
+                                  <option value="unknown">
+                                    尚未判断
+                                  </option>
+                                </select>
 
-<span className="mt-1.5 block text-[9px] opacity-45">
-  {getRiskLabel(tool.riskLevel)}
-</span>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    connection.enabled !== true ||
+                                    tool.enabled !== true ||
+                                    tool.isAvailable === false
+                                  }
+                                  onClick={() =>
+                                    setManualCallTarget({
+                                      connection,
+                                      tool,
+                                    })
+                                  }
+                                  className="flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+                                  style={{
+                                    background:
+                                      'var(--control-soft-bg)',
+                                    borderColor:
+                                      'var(--divider)',
+                                  }}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  试用
+                                </button>
+                              </div>
 
+                              <span className="mt-1.5 block text-[9px] opacity-45">
+                                {getRiskLabel(tool.riskLevel)}
+                              </span>
 
                               {tool.isAvailable === false && (
                                 <p className="mt-2 text-[10px] text-rose-500">
@@ -1156,8 +1380,10 @@ export const BondConnection = () => {
                     ? '整理这条连接'
                     : '添加一条连接'}
                 </p>
+
                 <p className="mt-1 text-[10px] leading-relaxed opacity-55">
-                  可直接连接远程 MCP，也可使用你自行运行的 Bridge 所提供的兼容入口。
+                  可直接连接远程 MCP，也可使用你自行运行的
+                  Bridge 所提供的兼容入口。
                 </p>
               </div>
 
@@ -1173,62 +1399,66 @@ export const BondConnection = () => {
 
             <div className="space-y-3 text-xs">
               <div>
+                <label className="mb-1 block text-[10px] opacity-60">
+                  连接方式
+                </label>
 
-        
-  <label className="mb-1 block text-[10px] opacity-60">
-    连接方式
-  </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    {
+                      id: 'remote',
+                      icon: Link2,
+                    },
+                    {
+                      id: 'bridge',
+                      icon: HardDrive,
+                    },
+                  ].map(({ id, icon: Icon }) => {
+                    const copy = getConnectionKindCopy(id);
+                    const active =
+                      draft.connectionKind === id;
 
-  <div className="grid grid-cols-2 gap-2">
-    {[
-      {
-        id: 'remote',
-        icon: Link2,
-      },
-      {
-        id: 'bridge',
-        icon: HardDrive,
-      },
-    ].map(({ id, icon: Icon }) => {
-      const copy = getConnectionKindCopy(id);
-      const active = draft.connectionKind === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() =>
+                          setDraft((previous) => ({
+                            ...previous,
+                            ...updateDraftConnectionKind(id),
+                          }))
+                        }
+                        className="rounded-2xl p-3 text-left transition-opacity"
+                        style={{
+                          background: active
+                            ? 'var(--control-soft-bg)'
+                            : 'var(--card-bg-gradient)',
 
-      return (
-        <button
-          key={id}
-          type="button"
-          onClick={() =>
-            setDraft((previous) => ({
-              ...previous,
-              ...updateDraftConnectionKind(id),
-            }))
-          }
-          className="rounded-2xl p-3 text-left transition-opacity"
-          style={{
-            background: active
-              ? 'var(--control-soft-bg)'
-              : 'var(--card-bg-gradient)',
-            border: active
-              ? '1px solid var(--accent-color)'
-              : '1px solid var(--divider)',
-          }}
-        >
-          <Icon className="h-3.5 w-3.5 opacity-65" />
-          <p className="mt-2 text-[10px] font-semibold">
-            {copy.title}
-          </p>
-          <p className="mt-1 text-[9px] leading-relaxed opacity-50">
-            {copy.description}
-          </p>
-        </button>
-      );
-    })}
-  </div>
-</div>
+                          border: active
+                            ? '1px solid var(--accent-color)'
+                            : '1px solid var(--divider)',
+                        }}
+                      >
+                        <Icon className="h-3.5 w-3.5 opacity-65" />
 
+                        <p className="mt-2 text-[10px] font-semibold">
+                          {copy.title}
+                        </p>
+
+                        <p className="mt-1 text-[9px] leading-relaxed opacity-50">
+                          {copy.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
                 <label className="mb-1 block text-[10px] opacity-60">
                   留给自己的名字
                 </label>
+
                 <input
                   value={draft.name}
                   onChange={(event) =>
@@ -1246,206 +1476,214 @@ export const BondConnection = () => {
                 />
               </div>
 
-             <div>
-  <label className="mb-1 block text-[10px] opacity-60">
-    {draft.connectionKind === 'bridge'
-      ? 'Bridge 暴露的 MCP 地址'
-      : 'MCP 地址'}
-  </label>
+              <div>
+                <label className="mb-1 block text-[10px] opacity-60">
+                  {draft.connectionKind === 'bridge'
+                    ? 'Bridge 暴露的 MCP 地址'
+                    : 'MCP 地址'}
+                </label>
 
-  <input
-    value={draft.endpoint}
-    onChange={(event) =>
-      setDraft((previous) => ({
-        ...previous,
-        endpoint: event.target.value,
-      }))
-    }
-    placeholder={
-      draft.connectionKind === 'bridge'
-        ? 'http://127.0.0.1:3000/mcp'
-        : 'https://example.com/mcp'
-    }
-    inputMode="url"
-    className="w-full rounded-xl p-3 outline-none"
-    style={{
-      background: 'var(--control-soft-bg)',
-      border: '1px solid var(--divider)',
-    }}
-  />
-</div>
+                <input
+                  value={draft.endpoint}
+                  onChange={(event) =>
+                    setDraft((previous) => ({
+                      ...previous,
+                      endpoint: event.target.value,
+                    }))
+                  }
+                  placeholder={
+                    draft.connectionKind === 'bridge'
+                      ? 'http://127.0.0.1:3000/mcp'
+                      : 'https://example.com/mcp'
+                  }
+                  inputMode="url"
+                  className="w-full rounded-xl p-3 outline-none"
+                  style={{
+                    background: 'var(--control-soft-bg)',
+                    border: '1px solid var(--divider)',
+                  }}
+                />
+              </div>
 
-{draft.connectionKind === 'bridge' && (
-  <>
-    <div>
-      <label className="mb-1 block text-[10px] opacity-60">
-        Bridge 名称
-      </label>
+              {draft.connectionKind === 'bridge' && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-[10px] opacity-60">
+                      Bridge 名称
+                    </label>
 
-      <input
-        value={draft.bridgeLabel}
-        onChange={(event) =>
-          setDraft((previous) => ({
-            ...previous,
-            bridgeLabel: event.target.value,
-          }))
-        }
-        placeholder="例如：我的桌面 Bridge"
-        className="w-full rounded-xl p-3 outline-none"
-        style={{
-          background: 'var(--control-soft-bg)',
-          border: '1px solid var(--divider)',
-        }}
-      />
-    </div>
+                    <input
+                      value={draft.bridgeLabel}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          bridgeLabel: event.target.value,
+                        }))
+                      }
+                      placeholder="例如：我的桌面 Bridge"
+                      className="w-full rounded-xl p-3 outline-none"
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    />
+                  </div>
 
-    <div
-      className="rounded-2xl p-3"
-      style={{
-        background: 'var(--control-soft-bg)',
-        border: '1px solid var(--divider)',
-      }}
-    >
-      <div className="flex items-start gap-2">
-        <HardDrive className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-65" />
+                  <div
+                    className="rounded-2xl p-3"
+                    style={{
+                      background: 'var(--control-soft-bg)',
+                      border: '1px solid var(--divider)',
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <HardDrive className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-65" />
 
-        <div>
-          <p className="text-[10px] font-medium">
-            你的 Bridge 需要做什么
-          </p>
+                      <div>
+                        <p className="text-[10px] font-medium">
+                          你的 Bridge 需要做什么
+                        </p>
 
-          <p className="mt-1 text-[9px] leading-relaxed opacity-50">
-            它应将本机工具、stdio MCP 或你自己的服务，暴露为可访问的标准 MCP HTTP 地址。
-            本应用不会启动程序、运行命令或读取本机环境变量。
-          </p>
+                        <p className="mt-1 text-[9px] leading-relaxed opacity-50">
+                          它应将本机工具、stdio MCP 或你自己的服务，
+                          暴露为可访问的标准 MCP HTTP 地址。
+                          本应用不会启动程序、运行命令或读取本机环境变量。
+                        </p>
 
-          <p className="mt-2 text-[9px] leading-relaxed opacity-45">
-            如果此应用通过 HTTPS 打开，浏览器可能阻止访问 HTTP 本机地址；
-            Bridge 需自行处理 HTTPS、CORS、Private Network Access 或浏览器限制。
-          </p>
-        </div>
-      </div>
-    </div>
+                        <p className="mt-2 text-[9px] leading-relaxed opacity-45">
+                          如果此应用通过 HTTPS 打开，浏览器可能阻止访问
+                          HTTP 本机地址；Bridge 需自行处理 HTTPS、CORS、
+                          Private Network Access 或浏览器限制。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-    <div>
-      <label className="mb-1 block text-[10px] opacity-60">
-        Bridge 来源
-      </label>
+                  <div>
+                    <label className="mb-1 block text-[10px] opacity-60">
+                      Bridge 来源
+                    </label>
 
-      <select
-        value={draft.sourceKind}
-        onChange={(event) =>
-          setDraft((previous) => ({
-            ...previous,
-            sourceKind: event.target.value,
-          }))
-        }
-        className="w-full rounded-xl p-3 text-xs outline-none"
-        style={{
-          background: 'var(--control-soft-bg)',
-          border: '1px solid var(--divider)',
-          color: 'var(--text-main)',
-        }}
-      >
-        <option value="endpoint">
-          仅连接 Bridge 已提供的 MCP 地址
-        </option>
+                    <select
+                      value={draft.sourceKind}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          sourceKind: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl p-3 text-xs outline-none"
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                        border: '1px solid var(--divider)',
+                        color: 'var(--text-main)',
+                      }}
+                    >
+                      <option value="endpoint">
+                        仅连接 Bridge 已提供的 MCP 地址
+                      </option>
 
-        <option value="stdio">
-          同时保留 stdio 启动描述
-        </option>
-      </select>
-    </div>
+                      <option value="stdio">
+                        同时保留 stdio 启动描述
+                      </option>
+                    </select>
+                  </div>
 
-    {draft.sourceKind === 'stdio' && (
-      <div
-        className="space-y-3 rounded-2xl p-3"
-        style={{
-          background: 'var(--control-soft-bg)',
-          border: '1px solid var(--divider)',
-        }}
-      >
-        <div className="flex items-start gap-2">
-          <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-55" />
+                  {draft.sourceKind === 'stdio' && (
+                    <div
+                      className="space-y-3 rounded-2xl p-3"
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-55" />
 
-          <p className="text-[9px] leading-relaxed opacity-50">
-            以下内容只是提供给你自己的 Bridge 或启动器参考。
-            浏览器不会执行这条命令；环境变量只填写名称，不填写值。
-          </p>
-        </div>
+                        <p className="text-[9px] leading-relaxed opacity-50">
+                          以下内容只是提供给你自己的 Bridge 或启动器参考。
+                          浏览器不会执行这条命令；环境变量只填写名称，
+                          不填写值。
+                        </p>
+                      </div>
 
-        <div>
-          <label className="mb-1 block text-[10px] opacity-60">
-            命令
-          </label>
+                      <div>
+                        <label className="mb-1 block text-[10px] opacity-60">
+                          命令
+                        </label>
 
-          <input
-            value={draft.stdioCommand}
-            onChange={(event) =>
-              setDraft((previous) => ({
-                ...previous,
-                stdioCommand: event.target.value,
-              }))
-            }
-            placeholder="例如：npx"
-            className="w-full rounded-xl p-3 font-mono text-xs outline-none"
-            style={{
-              background: 'var(--card-bg-gradient)',
-              border: '1px solid var(--divider)',
-            }}
-          />
-        </div>
+                        <input
+                          value={draft.stdioCommand}
+                          onChange={(event) =>
+                            setDraft((previous) => ({
+                              ...previous,
+                              stdioCommand: event.target.value,
+                            }))
+                          }
+                          placeholder="例如：npx"
+                          className="w-full rounded-xl p-3 font-mono text-xs outline-none"
+                          style={{
+                            background:
+                              'var(--card-bg-gradient)',
+                            border:
+                              '1px solid var(--divider)',
+                          }}
+                        />
+                      </div>
 
-        <div>
-          <label className="mb-1 block text-[10px] opacity-60">
-            参数，每行一项
-          </label>
+                      <div>
+                        <label className="mb-1 block text-[10px] opacity-60">
+                          参数，每行一项
+                        </label>
 
-          <textarea
-            value={draft.stdioArgsText}
-            onChange={(event) =>
-              setDraft((previous) => ({
-                ...previous,
-                stdioArgsText: event.target.value,
-              }))
-            }
-            placeholder={'-y\n@example/mcp-server'}
-            rows={3}
-            className="w-full resize-none rounded-xl p-3 font-mono text-xs outline-none"
-            style={{
-              background: 'var(--card-bg-gradient)',
-              border: '1px solid var(--divider)',
-            }}
-          />
-        </div>
+                        <textarea
+                          value={draft.stdioArgsText}
+                          onChange={(event) =>
+                            setDraft((previous) => ({
+                              ...previous,
+                              stdioArgsText: event.target.value,
+                            }))
+                          }
+                          placeholder={'-y\n@example/mcp-server'}
+                          rows={3}
+                          className="w-full resize-none rounded-xl p-3 font-mono text-xs outline-none"
+                          style={{
+                            background:
+                              'var(--card-bg-gradient)',
+                            border:
+                              '1px solid var(--divider)',
+                          }}
+                        />
+                      </div>
 
-        <div>
-          <label className="mb-1 block text-[10px] opacity-60">
-            需要的环境变量名称，每行一项
-          </label>
+                      <div>
+                        <label className="mb-1 block text-[10px] opacity-60">
+                          需要的环境变量名称，每行一项
+                        </label>
 
-          <textarea
-            value={draft.stdioEnvKeysText}
-            onChange={(event) =>
-              setDraft((previous) => ({
-                ...previous,
-                stdioEnvKeysText: event.target.value,
-              }))
-            }
-            placeholder={'API_KEY\nSERVICE_URL'}
-            rows={2}
-            className="w-full resize-none rounded-xl p-3 font-mono text-xs outline-none"
-            style={{
-              background: 'var(--card-bg-gradient)',
-              border: '1px solid var(--divider)',
-            }}
-          />
-        </div>
-      </div>
-    )}
-  </>
-)}
-
+                        <textarea
+                          value={draft.stdioEnvKeysText}
+                          onChange={(event) =>
+                            setDraft((previous) => ({
+                              ...previous,
+                              stdioEnvKeysText: event.target.value,
+                            }))
+                          }
+                          placeholder={'API_KEY\nSERVICE_URL'}
+                          rows={2}
+                          className="w-full resize-none rounded-xl p-3 font-mono text-xs outline-none"
+                          style={{
+                            background:
+                              'var(--card-bg-gradient)',
+                            border:
+                              '1px solid var(--divider)',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div
                 className="space-y-3 rounded-2xl p-3"
@@ -1465,13 +1703,14 @@ export const BondConnection = () => {
                 <select
                   value={draft.authType}
                   onChange={(event) => {
-                    const nextAuthType = event.target.value;
+                    const authType = event.target.value;
 
                     setDraft((previous) => ({
                       ...previous,
-                      authType: nextAuthType,
+                      authType,
+
                       token:
-                        nextAuthType === 'bearer'
+                        authType === 'bearer'
                           ? previous.token
                           : '',
                     }));
@@ -1509,11 +1748,33 @@ export const BondConnection = () => {
 
                 {draft.authType === 'oauth' && (
                   <div className="space-y-3">
-                    <p className="text-[9px] leading-relaxed opacity-55">
-                      使用 OAuth 2.1 Authorization Code + PKCE。
-                      请填写服务方为浏览器 Public Client 预先登记的 Client ID；
-                      不要填写或保存 Client Secret。
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+
+                      <p className="text-[9px] leading-relaxed opacity-55">
+                        使用 Authorization Code 与 PKCE。当前应用是
+                        Public Client，不接受、也不会保存 Client Secret。
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={workingConnectionId !== null}
+                      onClick={handleDiscoverOAuth}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[10px] font-medium disabled:opacity-55"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    >
+                      {workingConnectionId === 'oauth-discovery' ? (
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+
+                      从 MCP 地址自动发现 OAuth 配置
+                    </button>
 
                     <input
                       value={draft.oauthClientId}
@@ -1523,7 +1784,7 @@ export const BondConnection = () => {
                           oauthClientId: event.target.value,
                         }))
                       }
-                      placeholder="OAuth Client ID"
+                      placeholder="OAuth Client ID（必填）"
                       className="w-full rounded-xl p-3 text-xs outline-none"
                       style={{
                         background: 'var(--card-bg-gradient)',
@@ -1537,10 +1798,11 @@ export const BondConnection = () => {
                       onChange={(event) =>
                         setDraft((previous) => ({
                           ...previous,
-                          oauthAuthorizationEndpoint: event.target.value,
+                          oauthAuthorizationEndpoint:
+                            event.target.value,
                         }))
                       }
-                      placeholder="授权端点，例如 https://accounts.example.com/authorize"
+                      placeholder="Authorization Endpoint"
                       className="w-full rounded-xl p-3 text-xs outline-none"
                       style={{
                         background: 'var(--card-bg-gradient)',
@@ -1554,10 +1816,11 @@ export const BondConnection = () => {
                       onChange={(event) =>
                         setDraft((previous) => ({
                           ...previous,
-                          oauthTokenEndpoint: event.target.value,
+                          oauthTokenEndpoint:
+                            event.target.value,
                         }))
                       }
-                      placeholder="Token 端点，例如 https://accounts.example.com/token"
+                      placeholder="Token Endpoint"
                       className="w-full rounded-xl p-3 text-xs outline-none"
                       style={{
                         background: 'var(--card-bg-gradient)',
@@ -1573,7 +1836,7 @@ export const BondConnection = () => {
                           oauthScopes: event.target.value,
                         }))
                       }
-                      placeholder="Scope，使用空格分隔；可留空"
+                      placeholder="Scopes，使用空格分隔；可留空"
                       className="w-full rounded-xl p-3 text-xs outline-none"
                       style={{
                         background: 'var(--card-bg-gradient)',
@@ -1590,7 +1853,7 @@ export const BondConnection = () => {
                           oauthResource: event.target.value,
                         }))
                       }
-                      placeholder="OAuth Resource，可留空并默认使用 MCP 地址"
+                      placeholder="OAuth Resource；通常自动填写"
                       className="w-full rounded-xl p-3 text-xs outline-none"
                       style={{
                         background: 'var(--card-bg-gradient)',
@@ -1601,9 +1864,11 @@ export const BondConnection = () => {
                 )}
 
                 <p className="text-[9px] leading-relaxed opacity-50">
-                  认证信息仅保存在当前设备的浏览器中；导出连接时不会包含 Token、刷新 Token 或 OAuth 会话。
+                  Token、刷新 Token 与临时 PKCE 数据只保存在当前设备；
+                  导出连接配置时不会包含它们。
                 </p>
               </div>
+            </div>
 
             <button
               type="button"
@@ -1616,28 +1881,29 @@ export const BondConnection = () => {
               ) : (
                 <Power className="h-4 w-4" />
               )}
+
               {workingConnectionId
-                ? '正在辨认连接'
-                : editingConnectionId
-                  ? '保存并重新测试'
-                  : '保存并测试'}
+                ? '正在处理连接'
+                : draft.authType === 'oauth'
+                  ? '保存并前往授权'
+                  : editingConnectionId
+                    ? '保存并重新测试'
+                    : '保存并测试'}
             </button>
           </div>
         </div>
       )}
 
-     {manualCallTarget && (
-  <ManualMcpToolCallModal
-    connection={manualCallTarget.connection}
-    tool={manualCallTarget.tool}
-    onClose={() => {
-      setManualCallTarget(null);
-      void loadConnections();
-    }}
-  />
-)}
-
-
+      {manualCallTarget && (
+        <ManualMcpToolCallModal
+          connection={manualCallTarget.connection}
+          tool={manualCallTarget.tool}
+          onClose={() => {
+            setManualCallTarget(null);
+            void loadConnections();
+          }}
+        />
+      )}
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
