@@ -15,6 +15,7 @@ import {
   LockKeyhole,
   Plus,
   Power,
+    Play,
   RefreshCw,
   Trash2,
   Upload,
@@ -59,6 +60,9 @@ import {
   downloadMcpConnectionExport,
   parseMcpConnectionImport,
 } from '../../../services/mcp/mcpImportExportService';
+import ManualMcpToolCallModal from './ManualMcpToolCallModal';
+
+
 
 const EMPTY_DRAFT = {
   name: '',
@@ -289,6 +293,7 @@ export const BondConnection = () => {
   });
 
   const [deleteTarget, setDeleteTarget] = useState(null);
+    const [manualCallTarget, setManualCallTarget] = useState(null);
 
   const loadConnections = async () => {
     try {
@@ -993,35 +998,60 @@ export const BondConnection = () => {
                                 />
                               </div>
 
-                              <div className="mt-2 flex items-center gap-2">
-                                <select
-                                  value={tool.riskLevel || 'unknown'}
-                                  onChange={(event) =>
-                                    handleRiskChange(
-                                      tool,
-                                      event.target.value,
-                                    )
-                                  }
-                                  className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-[10px] outline-none"
-                                  style={{
-                                    background: 'var(--control-soft-bg)',
-                                    border: '1px solid var(--divider)',
-                                    color: 'var(--text-main)',
-                                  }}
-                                >
-                                  <option value="read">仅查看</option>
-                                  <option value="write">
-                                    可能改变外部内容
-                                  </option>
-                                  <option value="unknown">
-                                    尚未判断
-                                  </option>
-                                </select>
 
-                                <span className="text-[9px] opacity-45">
-                                  {getRiskLabel(tool.riskLevel)}
-                                </span>
-                              </div>
+                                <div className="mt-2 flex items-center gap-2">
+  <select
+    value={tool.riskLevel || 'unknown'}
+    onChange={(event) =>
+      handleRiskChange(
+        tool,
+        event.target.value,
+      )
+    }
+    className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-[10px] outline-none"
+    style={{
+      background: 'var(--control-soft-bg)',
+      border: '1px solid var(--divider)',
+      color: 'var(--text-main)',
+    }}
+  >
+    <option value="read">仅查看</option>
+    <option value="write">
+      可能改变外部内容
+    </option>
+    <option value="unknown">
+      尚未判断
+    </option>
+  </select>
+
+  <button
+    type="button"
+    disabled={
+      connection.enabled !== true ||
+      tool.enabled !== true ||
+      tool.isAvailable === false
+    }
+    onClick={() =>
+      setManualCallTarget({
+        connection,
+        tool,
+      })
+    }
+    className="flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+    style={{
+      background: 'var(--control-soft-bg)',
+      borderColor: 'var(--divider)',
+    }}
+  >
+    <Play className="h-3 w-3" />
+    试用
+  </button>
+</div>
+
+<span className="mt-1.5 block text-[9px] opacity-45">
+  {getRiskLabel(tool.riskLevel)}
+</span>
+
 
                               {tool.isAvailable === false && (
                                 <p className="mt-2 text-[10px] text-rose-500">
@@ -1430,6 +1460,15 @@ export const BondConnection = () => {
           </div>
         </div>
       )}
+
+      {manualCallTarget && (
+  <ManualMcpToolCallModal
+    connection={manualCallTarget.connection}
+    tool={manualCallTarget.tool}
+    onClose={() => setManualCallTarget(null)}
+  />
+)}
+
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}

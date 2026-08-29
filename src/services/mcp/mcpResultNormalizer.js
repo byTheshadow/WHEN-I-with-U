@@ -227,3 +227,18 @@ export const getMcpResultPreview = (toolResult = {}) => {
     isError: normalized.isError,
   };
 };
+export const makeMcpActivitySummary = (toolResult = {}) => {
+  const normalized = normalizeMcpToolResult(toolResult);
+
+  return {
+    ok: normalized.ok,
+    isError: normalized.isError,
+    itemTypes: normalized.items.map((item) => item.type),
+    textPreview: normalized.text.slice(0, 240),
+    hasText: normalized.hasText,
+    hasImage: normalized.hasImage,
+    hasAudio: normalized.hasAudio,
+    hasResource: normalized.hasResource,
+    hasUnknown: normalized.hasUnknown,
+  };
+};

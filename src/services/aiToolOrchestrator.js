@@ -13,6 +13,10 @@ import {
 import {
   makeMcpAiToolResult,
 } from './mcp/mcpResultNormalizer';
+import {
+  callMcpToolRuntime,
+} from './mcp/mcpRuntimeService';
+
 
 
 const MAX_TOOL_ROUNDS = 6;
@@ -360,11 +364,20 @@ const executeMcpToolCall = async ({
       status: 'calling',
     });
 
-    const toolResult = await callMcpTool({
-      connection: tool.connection,
-      toolName: tool.toolName,
-      arguments: toolArguments,
-    });
+   const runtimeResult = await callMcpToolRuntime({
+  connectionId: tool.connectionId,
+  toolName: tool.toolName,
+  arguments: toolArguments,
+  chatId,
+  characterId,
+  source,
+  automationId,
+  executorId,
+  requestApproval: requestToolApproval,
+});
+
+const toolResult = runtimeResult.rawResult;
+
 
     await addMcpActivity({
       connectionId: tool.connectionId,
