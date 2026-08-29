@@ -6,7 +6,42 @@ import {
   listMcpTools,
 } from './mcpClientService';
 
-const MCP_TRANSPORT = 'streamable-http';
+export const MCP_TRANSPORTS = {
+  STREAMABLE_HTTP: 'streamable-http',
+
+  /*
+   * 用户 Bridge 暴露标准 MCP HTTP Endpoint。
+   * 当前版本与 Streamable HTTP 共用真正的请求实现。
+   */
+  BRIDGE_HTTP: 'bridge-http',
+
+  /*
+   * 以下类型先作为连接数据模型和导入格式的兼容项。
+   * 在实际 Transport 实现前，不能被 testAndSyncMcpConnection 当作可用连接。
+   */
+  SSE: 'sse',
+  BRIDGE_WEBSOCKET: 'bridge-websocket',
+  CUSTOM: 'custom',
+};
+
+export const MCP_PROVIDERS = {
+  GENERIC: 'generic',
+  MODELSCOPE: 'modelscope',
+  BRIDGE: 'bridge',
+  CUSTOM: 'custom',
+};
+
+export const MCP_EXECUTION_MODES = {
+  BROWSER_DIRECT: 'browser-direct',
+  USER_BRIDGE: 'user-bridge',
+  USER_EXECUTOR: 'user-executor',
+};
+
+/*
+ * 保留旧导出，避免现有 import 立即失效。
+ */
+const MCP_TRANSPORT = MCP_TRANSPORTS.STREAMABLE_HTTP;
+
 
 const RISK_LEVELS = {
   READ: 'read',
@@ -40,6 +75,57 @@ const hasOwn = (object, key) =>
 
 const buildToolId = (connectionId, toolName) =>
   `mcp_tool_${connectionId}_${encodeURIComponent(toolName)}`;
+
+const getAllowedTransports = () => Object.values(MCP_TRANSPORTS);
+
+const normalizeTransport = (value, fallback = MCP_TRANSPORT) => {
+  return getAllowedTransports().includes(value)
+    ? value
+    : fallback;
+};
+
+const normalizeProvider = (value) => {
+  return Object.values(MCP_PROVIDERS).includes(value)
+    ? value
+    : MCP_PROVIDERS.GENERIC;
+};
+
+const normalizeExecutionMode = (value, transport) => {
+  if (Object.values(MCP_EXECUTION_MODES).includes(value)) {
+    return value;
+  }
+
+  if (transport === MCP_TRANSPORTS.BRIDGE_HTTP) {
+    return MCP_EXECUTION_MODES.USER_BRIDGE;
+  }
+
+  return MCP_EXECUTION_MODES.BROWSER_DIRECT;
+};
+
+const transportIsImplemented = (transport) => {
+  return [
+    MCP_TRANSPORTS.STREAMABLE_HTTP,
+    MCP_TRANSPORTS.BRIDGE_HTTP,
+  ].includes(transport);
+};
+
+const getTransportUnavailableMessage = (transport) => {
+  switch (transport) {
+    case MCP_TRANSPORTS.SSE:
+      return '此连接使用 SSE 兼容传输，但当前版本尚未完成对应客户端实现。';
+
+    case MCP_TRANSPORTS.BRIDGE_WEBSOCKET:
+      return '此连接使用 Bridge WebSocket 传输，但当前版本尚未配置与该 Bridge 匹配的协议适配器。';
+
+    case MCP_TRANSPORTS.CUSTOM:
+      return '此连接需要自定义传输适配器，当前版本尚未注册对应实现。';
+
+    default:
+      return '此 MCP 连接方式暂不可用。';
+  }
+};
+
+
 
 const normalizeEndpoint = (rawEndpoint = '') => {
   const endpoint = normalizeText(rawEndpoint);
@@ -196,6 +282,26 @@ const sanitizeAuth = (auth = {}) => {
 
 const makeConnectionRecord = (draft = {}, existing = null) => {
   const timestamp = nowIso();
+
+  const transport = normalizeTransport(
+    hasOwn(draft, 'transport')
+      ? draft.transport
+      : existing?.transport,
+  );
+
+  const provider = normalizeProvider(
+    hasOwn(draft, 'provider')
+      ? draft.provider
+      : existing?.provider,
+  );
+
+  const executionMode = normalizeExecutionMode(
+    hasOwn(draft, 'executionMode')
+      ? draft.executionMode
+      : existing?.executionMode,
+    transport,
+  );
+
   const endpoint = normalizeEndpoint(
     hasOwn(draft, 'endpoint') ? draft.endpoint : existing?.endpoint,
   );
@@ -203,6 +309,70 @@ const makeConnectionRecord = (draft = {}, existing = null) => {
   const auth = hasOwn(draft, 'auth')
     ? sanitizeAuth(draft.auth)
     : sanitizeAuth(existing?.auth);
+
+  const bridge = {
+    id: normalizeText(
+      hasOwn(draft, 'bridge')
+        ? draft.bridge?.id
+        : existing?.bridge?.id,
+    ) || null,
+
+    label: normalizeText(
+      hasOwn(draft, 'bridge')
+        ? draft.bridge?.label
+        : existing?.bridge?.label,
+    ),
+  };
+
+  const source = {
+    kind: normalizeText(
+      hasOwn(draft, 'source')
+        ? draft.source?.kind
+        : existing?.source?.kind,
+    ) || 'endpoint',
+
+    /*
+     * 仅保存用户提供给 Bridge 的 stdio 描述；
+     * 浏览器绝不会自行执行 command / args。
+     */
+    command: normalizeText(
+      hasOwn(draft, 'source')
+        ? draft.source?.command
+        : existing?.source?.command,
+    ),
+
+    args: Array.isArray(
+      hasOwn(draft, 'source')
+        ? draft.source?.args
+        : existing?.source?.args,
+    )
+      ? (
+        hasOwn(draft, 'source')
+          ? draft.source.args
+          : existing.source.args
+      )
+        .map((item) => normalizeText(item))
+        .filter(Boolean)
+      : [],
+
+    /*
+     * 不在此处接受环境变量值。
+     * 含密钥的 env 必须由用户 Bridge 自己保管。
+     */
+    envKeys: Array.isArray(
+      hasOwn(draft, 'source')
+        ? draft.source?.envKeys
+        : existing?.source?.envKeys,
+    )
+      ? (
+        hasOwn(draft, 'source')
+          ? draft.source.envKeys
+          : existing.source.envKeys
+      )
+        .map((key) => normalizeText(key))
+        .filter(Boolean)
+      : [],
+  };
 
   return {
     id: existing?.id || draft.id || createId('mcp_connection'),
@@ -213,7 +383,14 @@ const makeConnectionRecord = (draft = {}, existing = null) => {
       new URL(endpoint).hostname,
 
     endpoint,
-    transport: MCP_TRANSPORT,
+    provider,
+    transport,
+    executionMode,
+
+    bridgeId: bridge.id,
+    bridge,
+
+    source,
 
     auth,
     enabled: hasOwn(draft, 'enabled')
@@ -233,6 +410,7 @@ const makeConnectionRecord = (draft = {}, existing = null) => {
     updatedAt: timestamp,
   };
 };
+
 
 const syncMcpTools = async (connection, remoteTools = []) => {
   const existingTools = await db.mcpTools
@@ -356,14 +534,16 @@ export const updateMcpConnection = async (connectionId, patch = {}) => {
   );
 
   await db.mcpConnections.put(nextConnection);
+if (
+  nextConnection.endpoint !== existing.endpoint ||
+  nextConnection.transport !== existing.transport ||
+  nextConnection.executionMode !== existing.executionMode ||
+  nextConnection.auth?.token !== existing.auth?.token ||
+  nextConnection.auth?.type !== existing.auth?.type
+) {
+  await disconnectMcpClient(existing);
+}
 
-  if (
-    nextConnection.endpoint !== existing.endpoint ||
-    nextConnection.auth?.token !== existing.auth?.token ||
-    nextConnection.auth?.type !== existing.auth?.type
-  ) {
-    await disconnectMcpClient(existing);
-  }
 
   return nextConnection;
 };
@@ -436,6 +616,29 @@ export const testAndSyncMcpConnection = async (connectionId) => {
     throw new Error('未找到需要测试的 MCP 连接。');
   }
 
+  /*
+   * 当前已实际实现的传输：
+   * - streamable-http：浏览器直连的标准 HTTP MCP；
+   * - bridge-http：用户自行运行的 Bridge 暴露标准 HTTP MCP。
+   *
+   * SSE、WebSocket、custom 的数据模型可以先保存和导入，
+   * 但尚未有真正 Transport Adapter 时，不能错误地发起
+   * Streamable HTTP 请求，更不能显示为连接成功。
+   */
+  if (!transportIsImplemented(storedConnection.transport)) {
+    const message = getTransportUnavailableMessage(
+      storedConnection.transport,
+    );
+
+    await db.mcpConnections.update(connectionId, {
+      status: CONNECTION_STATUSES.IDLE,
+      lastError: message,
+      updatedAt: nowIso(),
+    });
+
+    throw new Error(message);
+  }
+
   const connectingAt = nowIso();
 
   await db.mcpConnections.update(connectionId, {
@@ -480,6 +683,7 @@ export const testAndSyncMcpConnection = async (connectionId) => {
     throw error;
   }
 };
+
 
 export const deleteMcpConnection = async (connectionId) => {
   const connection = await getMcpConnection(connectionId);
@@ -593,4 +797,8 @@ export {
   RISK_LEVELS,
   inferToolRiskLevel,
   normalizeEndpoint,
+  normalizeTransport,
+  normalizeProvider,
+  normalizeExecutionMode,
+  transportIsImplemented,
 };

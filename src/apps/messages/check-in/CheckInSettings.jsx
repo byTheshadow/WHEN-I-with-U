@@ -3,6 +3,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Check,
   MessageCircleMore,
@@ -102,6 +103,24 @@ export const CheckInSettings = ({
     };
   }, [isOpen]);
 
+  /*
+   * 弹窗开启时禁止页面背景滚动。
+   * 关闭或组件卸载时恢复原来的 body overflow。
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   const updateConfig = async (patch) => {
     if (!config || isSaving) {
       return;
@@ -146,14 +165,24 @@ export const CheckInSettings = ({
     });
   };
 
-  if (!isOpen) {
+  if (!isOpen || typeof document === 'undefined') {
     return null;
   }
 
-  return (
+  /*
+   * 使用 Portal 直接挂载到 body：
+   * 即使外层聊天界面有 transform、overflow: hidden、
+   * position 等布局，也不会裁切或影响该弹窗的位置。
+   */
+  return createPortal(
     <div
       className="check-in-settings-overlay"
       role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <section
         className="check-in-settings-panel"
@@ -166,6 +195,7 @@ export const CheckInSettings = ({
             <span className="check-in-settings-kicker">
               CROSS-CHAT PRESENCE
             </span>
+
             <h2 id="check-in-settings-title">
               角色来讯
             </h2>
@@ -192,6 +222,7 @@ export const CheckInSettings = ({
               <div className="check-in-setting-row">
                 <div className="check-in-setting-copy">
                   <strong>允许角色递来短笺</strong>
+
                   <p>
                     当你停留在某个对话里时，其他被允许的角色偶尔会从自己的窗口发来消息。
                   </p>
@@ -335,7 +366,8 @@ export const CheckInSettings = ({
           </div>
         )}
       </section>
-    </div>
+    </div>,
+    document.body
   );
 };
 

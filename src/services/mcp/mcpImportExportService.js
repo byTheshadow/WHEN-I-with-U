@@ -1,3 +1,4 @@
+
 import {
   createMcpConnection,
   getMcpToolsForConnection,
@@ -6,7 +7,8 @@ import {
 } from './mcpConnectionService';
 
 const MCP_EXPORT_FORMAT = 'when-i-with-u-mcp-connection';
-const MCP_EXPORT_VERSION = 1;
+const MCP_EXPORT_VERSION = 2;
+const LEGACY_MCP_EXPORT_VERSION = 1;
 
 const safeText = (value = '') => String(value || '').trim();
 
@@ -54,16 +56,53 @@ export const createMcpConnectionExport = async ({
     connection: {
       name: safeText(connection.name) || '未命名连接',
       endpoint: safeText(connection.endpoint),
-      transport: 'streamable-http',
+
+      provider: safeText(connection.provider) || 'generic',
+      transport: safeText(connection.transport) || 'streamable-http',
+      executionMode:
+        safeText(connection.executionMode) || 'browser-direct',
+
+      bridge:
+        connection.executionMode === 'user-bridge' ||
+        connection.provider === 'bridge'
+          ? {
+              id: safeText(connection.bridge?.id) || null,
+              label: safeText(connection.bridge?.label) || '',
+            }
+          : null,
 
       /*
-       * 不导出 token。
-       * 导入者若需要认证，必须自行填写自己的认证信息。
+       * 仅导出可安全分享的 stdio 描述。
+       * 不包含环境变量值。
        */
+      source:
+        connection.source?.kind === 'stdio'
+          ? {
+              kind: 'stdio',
+              command: safeText(connection.source.command),
+              args: Array.isArray(connection.source.args)
+                ? connection.source.args
+                    .map((item) => safeText(item))
+                    .filter(Boolean)
+                : [],
+              envKeys: Array.isArray(connection.source.envKeys)
+                ? connection.source.envKeys
+                    .map((item) => safeText(item))
+                    .filter(Boolean)
+                : [],
+            }
+          : {
+              kind: 'endpoint',
+            },
+
       authType:
         connection.auth?.type === 'bearer'
           ? 'user-provided'
-          : 'none',
+          : connection.auth?.type === 'oauth'
+            ? 'oauth-required'
+            : connection.auth?.type === 'bridge-managed'
+              ? 'bridge-managed'
+              : 'none',
     },
 
     tools: tools
@@ -118,9 +157,14 @@ export const parseMcpConnectionImport = async (file) => {
     throw new Error('该文件不是有效的 JSON 连接配置。');
   }
 
+  const isSupportedVersion = [
+    LEGACY_MCP_EXPORT_VERSION,
+    MCP_EXPORT_VERSION,
+  ].includes(payload?.version);
+
   if (
     payload?.format !== MCP_EXPORT_FORMAT ||
-    payload?.version !== MCP_EXPORT_VERSION
+    !isSupportedVersion
   ) {
     throw new Error('这不是可识别的 The Bond Connection 配置文件。');
   }
@@ -131,24 +175,70 @@ export const parseMcpConnectionImport = async (file) => {
     throw new Error('导入文件中没有 MCP 服务地址。');
   }
 
+  const legacyImport = payload.version === LEGACY_MCP_EXPORT_VERSION;
+
+  const transport = legacyImport
+    ? 'streamable-http'
+    : safeText(payload?.connection?.transport) || 'streamable-http';
+
+  const provider = legacyImport
+    ? 'generic'
+    : safeText(payload?.connection?.provider) || 'generic';
+
+  const executionMode = legacyImport
+    ? 'browser-direct'
+    : safeText(payload?.connection?.executionMode) || 'browser-direct';
+
+  const source = payload?.connection?.source || {};
+
   return {
     connection: {
       name: safeText(payload?.connection?.name) || '导入的连接',
       endpoint,
-      transport: 'streamable-http',
+
+      provider,
+      transport,
+      executionMode,
+
+      bridge: {
+        id: safeText(payload?.connection?.bridge?.id) || null,
+        label: safeText(payload?.connection?.bridge?.label) || '',
+      },
+
+      source: {
+        kind:
+          safeText(source.kind) === 'stdio'
+            ? 'stdio'
+            : 'endpoint',
+
+        command:
+          safeText(source.kind) === 'stdio'
+            ? safeText(source.command)
+            : '',
+
+        args:
+          safeText(source.kind) === 'stdio' &&
+          Array.isArray(source.args)
+            ? source.args.map((item) => safeText(item)).filter(Boolean)
+            : [],
+
+        envKeys:
+          safeText(source.kind) === 'stdio' &&
+          Array.isArray(source.envKeys)
+            ? source.envKeys
+                .map((item) => safeText(item))
+                .filter(Boolean)
+            : [],
+      },
 
       /*
-       * 导入时永远不恢复认证信息；
-       * 即使文件被人为改写，也不会读取 token。
+       * 无论导入文件内容为何，绝不恢复认证信息。
        */
       auth: {
         type: 'none',
         token: '',
       },
 
-      /*
-       * 新导入连接默认关闭，且需要先经过测试。
-       */
       enabled: false,
     },
 
@@ -159,7 +249,14 @@ export const parseMcpConnectionImport = async (file) => {
       : [],
 
     requiresAuthentication:
-      payload?.connection?.authType === 'user-provided',
+      payload?.connection?.authType === 'user-provided' ||
+      payload?.connection?.authType === 'oauth-required',
+
+    requiresBridge:
+      executionMode === 'user-bridge' ||
+      executionMode === 'user-executor' ||
+      transport === 'bridge-http' ||
+      transport === 'bridge-websocket',
   };
 };
 
