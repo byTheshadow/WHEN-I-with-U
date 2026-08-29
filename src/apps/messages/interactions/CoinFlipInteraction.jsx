@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { resolveInteractionMessage } from './interactionService';
 
+const ANIMATION_DURATION = 1900;
+
 export const CoinFlipInteraction = ({
   message,
   onResolved,
@@ -11,34 +13,35 @@ export const CoinFlipInteraction = ({
   );
 
   const status = message.metadata?.status || 'pending';
-  const resolvedSide = message.metadata?.result?.side || displaySide;
+  const storedSide = message.metadata?.result?.side || null;
+  const visibleSide = storedSide || displaySide || 'LIGHT';
   const isPending = status === 'pending';
 
   const handleFlip = async () => {
     if (!isPending || isAnimating) return;
 
-    setIsAnimating(true);
-
+    /*
+     * 先将随机结果写入数据库，再播放动画。
+     * 所以即使动画期间刷新，结果也不会被改写。
+     */
     const metadata = await resolveInteractionMessage({
       messageId: message.id,
     });
 
-    const nextSide = metadata?.result?.side;
+    const resolvedSide = metadata?.result?.side;
 
-    if (!nextSide) {
-      setIsAnimating(false);
+    if (!resolvedSide) {
       return;
     }
 
-    setDisplaySide(nextSide);
+    setDisplaySide(resolvedSide);
+    setIsAnimating(true);
 
     window.setTimeout(() => {
       setIsAnimating(false);
       onResolved?.();
-    }, 1500);
+    }, ANIMATION_DURATION);
   };
-
-  const visibleSide = resolvedSide || 'LIGHT';
 
   return (
     <article
@@ -53,46 +56,60 @@ export const CoinFlipInteraction = ({
 
       <button
         type="button"
+        className="interaction-coin-stage"
         onClick={handleFlip}
         disabled={!isPending || isAnimating}
-        className="interaction-coin-stage"
-        aria-label={isPending ? '抛起旧硬币' : `硬币结果：${visibleSide}`}
+        aria-label={
+          isPending
+            ? '抛起旧硬币'
+            : `旧硬币落在 ${visibleSide} 的一面`
+        }
       >
         <span
-          className={`interaction-coin-thrower ${
-            isAnimating ? 'interaction-coin-thrower--active' : ''
+          className={`interaction-coin-ground-shadow ${
+            isAnimating ? 'interaction-coin-ground-shadow--active' : ''
+          }`}
+        />
+
+        <span
+          className={`interaction-coin-flight ${
+            isAnimating ? 'interaction-coin-flight--active' : ''
           }`}
         >
           <span
-            className={`interaction-coin-disc interaction-coin-disc--${visibleSide.toLowerCase()} ${
-              isAnimating ? 'interaction-coin-disc--spinning' : ''
+            className={`interaction-coin-spin interaction-coin-spin--${visibleSide.toLowerCase()} ${
+              isAnimating ? 'interaction-coin-spin--active' : ''
             }`}
           >
-            <span className="interaction-coin-face interaction-coin-face--light">
-              <span>LIGHT</span>
-            </span>
+            <span className="interaction-coin-body">
+              <span className="interaction-coin-edge" />
 
-            <span className="interaction-coin-face interaction-coin-face--dark">
-              <span>DARK</span>
-            </span>
+              <span className="interaction-coin-face interaction-coin-face--light">
+                <span className="interaction-coin-inner-ring" />
+                <span className="interaction-coin-engraving">LIGHT</span>
+                <span className="interaction-coin-mark interaction-coin-mark--light">
+                  I
+                </span>
+              </span>
 
-            <span className="interaction-coin-rim" />
+              <span className="interaction-coin-face interaction-coin-face--dark">
+                <span className="interaction-coin-inner-ring" />
+                <span className="interaction-coin-engraving">DARK</span>
+                <span className="interaction-coin-mark interaction-coin-mark--dark">
+                  II
+                </span>
+              </span>
+            </span>
           </span>
         </span>
-
-        <span
-          className={`interaction-coin-shadow ${
-            isAnimating ? 'interaction-coin-shadow--active' : ''
-          }`}
-        />
       </button>
 
       <div className="interaction-footer">
         {isPending ? (
-          <span>轻触硬币，让它替这一刻落定。</span>
+          <span>轻触硬币，看它会落向哪一面。</span>
         ) : (
           <span>
-            落在 <strong>{visibleSide}</strong> 的一面。
+            它最后停在 <strong>{visibleSide}</strong>。
           </span>
         )}
       </div>

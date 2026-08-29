@@ -83,60 +83,119 @@
   position: relative;
   display: grid;
   width: 100%;
-  height: 148px;
+  height: 172px;
   place-items: center;
   overflow: hidden;
   border: 0;
   background:
     radial-gradient(
-      ellipse at center bottom,
-      color-mix(in srgb, var(--interaction-soft) 72%, transparent) 0%,
-      transparent 67%
+      ellipse at 50% 94%,
+      color-mix(in srgb, var(--interaction-soft) 78%, transparent) 0%,
+      transparent 62%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--interaction-paper) 70%, transparent),
+      transparent
     );
   cursor: pointer;
-  perspective: 720px;
+  perspective: 900px;
+  perspective-origin: 50% 42%;
 }
 
 .interaction-coin-stage:disabled {
   cursor: default;
 }
 
-.interaction-coin-thrower {
+.interaction-coin-stage:focus-visible {
+  outline: 1px solid var(--interaction-accent);
+  outline-offset: -4px;
+}
+
+.interaction-coin-ground-shadow {
+  position: absolute;
+  bottom: 25px;
+  left: 50%;
+  width: 92px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--interaction-shadow);
+  filter: blur(10px);
+  opacity: 0.24;
+  transform: translateX(-50%) scaleX(0.8);
+}
+
+.interaction-coin-ground-shadow--active {
+  animation: interactionCoinGroundShadow 1.9s
+    cubic-bezier(0.2, 0.74, 0.22, 1) both;
+}
+
+.interaction-coin-flight {
   position: relative;
   z-index: 1;
   display: block;
-  width: 86px;
-  height: 86px;
+  width: 92px;
+  height: 92px;
+  transform: translate3d(0, 0, 0);
   transform-style: preserve-3d;
 }
 
-.interaction-coin-thrower--active {
-  animation: interactionCoinThrow 1.45s cubic-bezier(0.2, 0.72, 0.24, 1)
-    both;
+.interaction-coin-flight--active {
+  animation: interactionCoinFlight 1.9s
+    cubic-bezier(0.2, 0.74, 0.22, 1) both;
 }
 
-.interaction-coin-disc {
+.interaction-coin-spin {
+  display: block;
+  width: 92px;
+  height: 92px;
+  transform: rotateX(-16deg) rotateY(0deg) rotateZ(-3deg);
+  transform-style: preserve-3d;
+}
+
+.interaction-coin-spin--dark {
+  transform: rotateX(-16deg) rotateY(180deg) rotateZ(-3deg);
+}
+
+.interaction-coin-spin--active.interaction-coin-spin--light {
+  animation: interactionCoinSpinLight 1.9s
+    cubic-bezier(0.18, 0.72, 0.22, 1) both;
+}
+
+.interaction-coin-spin--active.interaction-coin-spin--dark {
+  animation: interactionCoinSpinDark 1.9s
+    cubic-bezier(0.18, 0.72, 0.22, 1) both;
+}
+
+.interaction-coin-body {
   position: relative;
   display: block;
-  width: 82px;
-  height: 82px;
+  width: 88px;
+  height: 88px;
+  margin: 2px;
   border-radius: 50%;
-  transform: rotateX(-11deg) rotateY(0deg);
   transform-style: preserve-3d;
 }
 
-.interaction-coin-disc--dark {
-  transform: rotateX(-11deg) rotateY(180deg);
-}
-
-.interaction-coin-disc--spinning.interaction-coin-disc--light {
-  animation: interactionCoinSpinLight 1.45s cubic-bezier(0.18, 0.72, 0.26, 1)
-    both;
-}
-
-.interaction-coin-disc--spinning.interaction-coin-disc--dark {
-  animation: interactionCoinSpinDark 1.45s cubic-bezier(0.18, 0.72, 0.26, 1)
-    both;
+.interaction-coin-edge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 88px;
+  height: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--interaction-line) 85%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--interaction-ink) 22%, transparent);
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--interaction-paper-deep) 76%, var(--interaction-ink)) 0 2px,
+      color-mix(in srgb, var(--interaction-paper) 90%, var(--interaction-paper-deep)) 2px 4px
+    );
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--interaction-ink) 18%, transparent),
+    inset 0 1px 1px color-mix(in srgb, white 28%, transparent);
+  transform: translate(-50%, -50%) rotateX(90deg);
 }
 
 .interaction-coin-face {
@@ -152,82 +211,95 @@
 
 .interaction-coin-face::before {
   position: absolute;
-  inset: 8px;
+  inset: 6px;
   border: 1px solid currentColor;
   border-radius: inherit;
   content: '';
-  opacity: 0.42;
+  opacity: 0.34;
 }
 
 .interaction-coin-face::after {
   position: absolute;
-  width: 45px;
-  height: 45px;
+  inset: 13px;
   border: 1px dashed currentColor;
-  border-radius: 50%;
+  border-radius: inherit;
   content: '';
-  opacity: 0.24;
-}
-
-.interaction-coin-face span {
-  position: relative;
-  z-index: 1;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  opacity: 0.2;
 }
 
 .interaction-coin-face--light {
   background:
     radial-gradient(
-      circle at 35% 29%,
-      color-mix(in srgb, var(--card-bg) 95%, white),
-      var(--bg-surface-strong)
+      circle at 31% 25%,
+      color-mix(in srgb, var(--card-bg) 94%, white) 0%,
+      var(--interaction-paper) 38%,
+      var(--interaction-paper-deep) 100%
     );
-  color: var(--text-main);
-  transform: translateZ(4px);
+  box-shadow:
+    inset 4px 5px 9px color-mix(in srgb, white 50%, transparent),
+    inset -7px -8px 11px color-mix(in srgb, var(--interaction-ink) 13%, transparent),
+    0 3px 9px color-mix(in srgb, var(--interaction-ink) 18%, transparent);
+  color: var(--interaction-ink);
+  transform: translateZ(5px);
 }
 
 .interaction-coin-face--dark {
   background:
     radial-gradient(
-      circle at 35% 29%,
-      color-mix(in srgb, var(--text-main) 82%, var(--text-sub)),
-      var(--text-main)
+      circle at 31% 25%,
+      color-mix(in srgb, var(--text-sub) 86%, var(--text-main)) 0%,
+      var(--text-main) 57%,
+      color-mix(in srgb, var(--text-main) 92%, black) 100%
     );
+  box-shadow:
+    inset 4px 5px 10px color-mix(in srgb, white 14%, transparent),
+    inset -7px -8px 13px color-mix(in srgb, black 36%, transparent),
+    0 3px 9px color-mix(in srgb, var(--interaction-ink) 22%, transparent);
   color: var(--text-on-ink);
-  transform: rotateY(180deg) translateZ(4px);
+  transform: rotateY(180deg) translateZ(5px);
 }
 
-.interaction-coin-rim {
+.interaction-coin-inner-ring {
   position: absolute;
-  top: 50%;
+  width: 48px;
+  height: 48px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.28;
+}
+
+.interaction-coin-engraving {
+  position: relative;
+  z-index: 1;
+  margin-top: 19px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 0 color-mix(in srgb, white 26%, transparent);
+}
+
+.interaction-coin-mark {
+  position: absolute;
+  top: 21px;
   left: 50%;
-  width: 82px;
-  height: 8px;
-  border: 1px solid var(--interaction-line);
-  border-radius: 50%;
-  background: var(--interaction-paper-deep);
-  transform: translate(-50%, -50%) rotateX(90deg);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1;
+  transform: translateX(-50%);
 }
 
-.interaction-coin-shadow {
-  position: absolute;
-  bottom: 23px;
-  width: 82px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--interaction-shadow);
-  filter: blur(9px);
-  opacity: 0.22;
-  transform: scaleX(0.78);
+.interaction-coin-mark--light {
+  opacity: 0.74;
 }
 
-.interaction-coin-shadow--active {
-  animation: interactionCoinShadow 1.45s cubic-bezier(0.2, 0.72, 0.24, 1)
-    both;
+.interaction-coin-mark--dark {
+  opacity: 0.62;
 }
+
+/* Dice */
+
 
 /* Dice */
 
@@ -512,22 +584,37 @@
 }
 
 /* Motion */
-
-@keyframes interactionCoinThrow {
+@keyframes interactionCoinFlight {
   0% {
-    transform: translate3d(-13px, 9px, 0) scale(0.84);
+    transform: translate3d(-10px, 7px, 0) scale(0.88);
   }
 
-  38% {
-    transform: translate3d(8px, -56px, 0) scale(1.02);
+  9% {
+    transform: translate3d(-13px, 13px, 0) scale(0.86);
   }
 
-  65% {
-    transform: translate3d(2px, -10px, 0) scale(0.96);
+  30% {
+    transform: translate3d(8px, -66px, 18px) scale(1.03);
+  }
+
+  49% {
+    transform: translate3d(4px, -79px, 26px) scale(1.08);
+  }
+
+  68% {
+    transform: translate3d(-4px, -41px, 13px) scale(1.01);
   }
 
   84% {
-    transform: translate3d(0, 2px, 0) scale(1.03);
+    transform: translate3d(3px, 0, 0) scale(0.98);
+  }
+
+  91% {
+    transform: translate3d(-2px, -12px, 0) scale(1.02);
+  }
+
+  97% {
+    transform: translate3d(1px, 1px, 0) scale(0.995);
   }
 
   100% {
@@ -537,53 +624,101 @@
 
 @keyframes interactionCoinSpinLight {
   0% {
-    transform: rotateX(-11deg) rotateY(0deg) rotateZ(0deg);
+    transform: rotateX(-16deg) rotateY(0deg) rotateZ(-3deg);
   }
 
-  66% {
-    transform: rotateX(202deg) rotateY(1120deg) rotateZ(21deg);
+  12% {
+    transform: rotateX(16deg) rotateY(128deg) rotateZ(12deg);
+  }
+
+  49% {
+    transform: rotateX(207deg) rotateY(962deg) rotateZ(-28deg);
+  }
+
+  71% {
+    transform: rotateX(338deg) rotateY(1318deg) rotateZ(13deg);
+  }
+
+  84% {
+    transform: rotateX(8deg) rotateY(1432deg) rotateZ(-6deg);
+  }
+
+  91% {
+    transform: rotateX(-28deg) rotateY(1448deg) rotateZ(4deg);
   }
 
   100% {
-    transform: rotateX(-11deg) rotateY(1440deg) rotateZ(0deg);
+    transform: rotateX(-16deg) rotateY(1440deg) rotateZ(0deg);
   }
 }
 
 @keyframes interactionCoinSpinDark {
   0% {
-    transform: rotateX(-11deg) rotateY(0deg) rotateZ(0deg);
+    transform: rotateX(-16deg) rotateY(0deg) rotateZ(-3deg);
   }
 
-  66% {
-    transform: rotateX(202deg) rotateY(1120deg) rotateZ(-21deg);
+  12% {
+    transform: rotateX(16deg) rotateY(128deg) rotateZ(12deg);
+  }
+
+  49% {
+    transform: rotateX(207deg) rotateY(962deg) rotateZ(-28deg);
+  }
+
+  71% {
+    transform: rotateX(338deg) rotateY(1498deg) rotateZ(13deg);
+  }
+
+  84% {
+    transform: rotateX(8deg) rotateY(1612deg) rotateZ(-6deg);
+  }
+
+  91% {
+    transform: rotateX(-28deg) rotateY(1628deg) rotateZ(4deg);
   }
 
   100% {
-    transform: rotateX(-11deg) rotateY(1620deg) rotateZ(0deg);
+    transform: rotateX(-16deg) rotateY(1620deg) rotateZ(0deg);
   }
 }
 
-@keyframes interactionCoinShadow {
+@keyframes interactionCoinGroundShadow {
   0% {
-    opacity: 0.14;
-    transform: scaleX(0.55);
+    opacity: 0.24;
+    transform: translateX(-50%) scaleX(0.8);
   }
 
-  38% {
-    opacity: 0.08;
-    transform: scaleX(0.3);
+  29% {
+    opacity: 0.06;
+    transform: translateX(-50%) scaleX(0.28);
   }
 
-  73% {
-    opacity: 0.28;
-    transform: scaleX(1.04);
+  50% {
+    opacity: 0.045;
+    transform: translateX(-50%) scaleX(0.2);
+  }
+
+  68% {
+    opacity: 0.12;
+    transform: translateX(-50%) scaleX(0.49);
+  }
+
+  84% {
+    opacity: 0.34;
+    transform: translateX(-50%) scaleX(1.14);
+  }
+
+  91% {
+    opacity: 0.18;
+    transform: translateX(-50%) scaleX(0.66);
   }
 
   100% {
-    opacity: 0.22;
-    transform: scaleX(0.78);
+    opacity: 0.24;
+    transform: translateX(-50%) scaleX(0.8);
   }
 }
+
 
 @keyframes interactionDiceRoll {
   0% {
@@ -633,29 +768,25 @@
   }
 }
 
+
 @media (prefers-reduced-motion: reduce) {
-  .interaction-coin-thrower--active,
-  .interaction-coin-disc--spinning,
-  .interaction-coin-shadow--active,
+    .interaction-coin-flight--active,
+  .interaction-coin-spin--active,
+  .interaction-coin-ground-shadow--active,
   .interaction-dice-cube--rolling,
   .interaction-dice-shadow--active {
     animation: none;
   }
 
-  .interaction-coin-thrower--active {
+  .interaction-coin-flight--active {
     transform: none;
   }
 
-  .interaction-coin-disc--spinning.interaction-coin-disc--light {
-    transform: rotateX(-11deg) rotateY(0deg);
+  .interaction-coin-spin--active.interaction-coin-spin--light {
+    transform: rotateX(-16deg) rotateY(0deg);
   }
 
-  .interaction-coin-disc--spinning.interaction-coin-disc--dark {
-    transform: rotateX(-11deg) rotateY(180deg);
-  }
-
-  .interaction-dice-cube--rolling {
-    transform: rotateX(var(--dice-settled-x))
-      rotateY(var(--dice-settled-y));
+  .interaction-coin-spin--active.interaction-coin-spin--dark {
+    transform: rotateX(-16deg) rotateY(180deg);
   }
 }
