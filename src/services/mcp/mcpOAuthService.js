@@ -819,6 +819,7 @@ export const clearMcpOAuthAuthorization = async (connectionId) => {
   );
 };
 
+
 export const getMcpOAuthStatus = (connection = {}) => {
   if (connection?.auth?.type !== 'oauth') {
     return {
@@ -857,21 +858,5 @@ export const getMcpOAuthStatus = (connection = {}) => {
     expiringSoon,
     expiresAt: auth.expiresAt || null,
     hasRefreshToken,
-  };
-};
-
-
-  const hasAccessToken = Boolean(normalizeText(connection.auth.accessToken));
-  const expiresAt = connection.auth.expiresAt
-    ? new Date(connection.auth.expiresAt).getTime()
-    : null;
-
-  const expired = Boolean(expiresAt && expiresAt <= Date.now());
-
-  return {
-    configured: true,
-    authorized: hasAccessToken && !expired,
-    expired,
-    expiresAt: connection.auth.expiresAt || null,
   };
 };
