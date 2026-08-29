@@ -11,6 +11,10 @@ import {
 import {
   applyCharacterEmotionMemory
 } from './memoryCharacterState';
+import {
+  backfillChatMemories
+} from './memoryMigration';
+
 
 
 
@@ -526,7 +530,21 @@ export const runMemoryProcessing = async (
   activeMemoryJobs.add(chatId);
 
   try {
-      const job = await ensureMemoryJob(chatId);
+        const job = await ensureMemoryJob(chatId);
+
+    /*
+     * 记忆后台处理前补齐旧记录字段。
+     * 这是结构迁移，不会重新调用 AI，也不会改写用户内容。
+     */
+    try {
+      await backfillChatMemories(chatId);
+    } catch (error) {
+      console.warn(
+        '[Memory] Background memory backfill skipped:',
+        error
+      );
+    }
+
 
     /*
      * 即使本轮没有新消息，也先让已过期的计划退出普通召回。

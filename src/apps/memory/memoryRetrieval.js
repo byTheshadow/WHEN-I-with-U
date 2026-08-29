@@ -6,6 +6,10 @@ import {
   MEMORY_TYPES,
   RECALLABLE_MEMORY_STATUSES
 } from './memoryConstants';
+import {
+  backfillChatMemories
+} from './memoryMigration';
+
 
 const MAX_MEMORY_ITEMS = 4;
 const MAX_CONTEXT_CHARS = 1800;
@@ -189,8 +193,13 @@ const getRecallState = (memory) => {
 };
 
 const isCharacterSettingMemory = (memory) => (
-  memory?.memoryScope === 'character_setting'
+  memory?.memoryScope === 'character_setting' ||
+  (
+    memory?.subject === 'character' &&
+    memory?.type === 'character_thought'
+  )
 );
+
 
 const getBaseCooldown = (memory) => {
   if (isCharacterSettingMemory(memory)) {
@@ -323,6 +332,17 @@ const getRecentUserMessageText = (recentMessages) => (
 const getMemoryTopicKey = (memory) => {
   if (normalizeText(memory?.topicKey)) {
     return normalizeText(memory.topicKey).toLowerCase();
+  }
+
+  if (
+    Array.isArray(memory?.topicKeys) &&
+    memory.topicKeys.length > 0
+  ) {
+    return memory.topicKeys
+      .map((item) => normalizeText(item).toLowerCase())
+      .filter(Boolean)
+      .sort()
+      .join('|');
   }
 
   const topicKeys = Array.isArray(memory?.topicKeys)
@@ -507,7 +527,21 @@ export const getChatMemoryContext = async ({
     return '';
   }
 
+  /*
+   * 只补齐缺失字段，不重新生成内容、不修改正文。
+   * 迁移失败不能影响正常聊天。
+   */
+  try {
+    await backfillChatMemories(chatId);
+  } catch (error) {
+    console.warn(
+      '[Memory] Legacy memory backfill skipped:',
+      error
+    );
+  }
+
   const memories = await getRecallableChatMemories(chatId);
+
 
   if (!memories.length) return '';
 
