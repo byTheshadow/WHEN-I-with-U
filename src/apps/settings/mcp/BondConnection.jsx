@@ -61,6 +61,8 @@ import {
   parseMcpConnectionImport,
 } from '../../../services/mcp/mcpImportExportService';
 import ManualMcpToolCallModal from './ManualMcpToolCallModal';
+import McpActivityTrace from './McpActivityTrace';
+
 
 
 
@@ -948,7 +950,9 @@ export const BondConnection = () => {
     </div>
   </div>
 )}
-
+ <McpActivityTrace
+                        connectionId={connection.id}
+                      />
 
                       <div className="space-y-2">
                         <p className="text-[10px] font-medium opacity-50">
@@ -1461,13 +1465,17 @@ export const BondConnection = () => {
         </div>
       )}
 
-      {manualCallTarget && (
+     {manualCallTarget && (
   <ManualMcpToolCallModal
     connection={manualCallTarget.connection}
     tool={manualCallTarget.tool}
-    onClose={() => setManualCallTarget(null)}
+    onClose={() => {
+      setManualCallTarget(null);
+      void loadConnections();
+    }}
   />
 )}
+
 
 
       <ConfirmModal

@@ -192,12 +192,9 @@ export const callMcpToolRuntime = async ({
       toolName,
     });
 
-    await writeActivity({
-      ...activityContext,
-      status: 'calling',
-    });
+   
 
-       await resolvePermission({
+        await resolvePermission({
       tool,
       toolArguments,
       chatId,
