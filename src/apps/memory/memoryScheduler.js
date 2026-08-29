@@ -4,9 +4,11 @@ import {
   createMemory,
   createPendingMemoryCandidate,
   ensureMemoryJob,
+  expireOutdatedPlannedMemories,
   getChatMemory,
   getMemoryJob
 } from './memoryService';
+
 
 
 import {
@@ -154,83 +156,6 @@ const scheduleTimer = ({
 };
 
 
-
-const tokenizeComparableText = (value) => {
-  const text = normalizeComparableText(value);
-
-  if (!text) {
-    return [];
-  }
-
-  const tokens = new Set();
-
-  // 英文、数字及以空白分开的短语。
-  text
-    .split(/[\s/\\|_-]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 2)
-    .forEach((token) => tokens.add(token));
-
-  // 中文没有天然空格，以连续中文的二元词组进行近似匹配。
-  const chineseChunks = text.match(/[\u4e00-\u9fff]{2,}/g) || [];
-
-  chineseChunks.forEach((chunk) => {
-    for (let index = 0; index < chunk.length - 1; index += 1) {
-      tokens.add(chunk.slice(index, index + 2));
-    }
-  });
-
-  return [...tokens];
-};
-
-const calculateTextSimilarity = (left, right) => {
-  const leftTokens = tokenizeComparableText(left);
-  const rightTokens = tokenizeComparableText(right);
-
-  if (leftTokens.length === 0 || rightTokens.length === 0) {
-    return 0;
-  }
-
-  const rightTokenSet = new Set(rightTokens);
-
-  const overlapCount = leftTokens.filter((token) => (
-    rightTokenSet.has(token)
-  )).length;
-
-  /*
-   * 使用较大集合做分母：
-   * - 两段完全相同的文本为 1；
-   * - 短句只是完整长句的一部分时，不会被错误判为完全重复；
-   * - 适合作为“是否需要提出更新/冲突候选”的保守阈值依据。
-   */
-  return overlapCount / Math.max(
-    leftTokens.length,
-    rightTokens.length
-  );
-};
-
-
-const getExistingMemoryContentSet = async (chatId) => {
-  const [
-    memories,
-    candidates
-  ] = await Promise.all([
-    db.memories
-      .where('chatId')
-      .equals(chatId)
-      .toArray(),
-    db.memoryCandidates
-      .where('chatId')
-      .equals(chatId)
-      .toArray()
-  ]);
-
-  return new Set(
-    [...memories, ...candidates]
-      .map((item) => normalizeComparableText(item.content))
-      .filter(Boolean)
-  );
-};
 const persistExtractionResult = async ({
   chatId,
   extraction,
@@ -256,7 +181,10 @@ const persistExtractionResult = async ({
   const sourceTextById = new Map();
 
   for (const source of extraction.sourceMessages || []) {
-    sourceTextById.set(Number(source.id), String(source.content || ''));
+    sourceTextById.set(
+      Number(source.id),
+      String(source.content || '')
+    );
   }
 
   let createdMemories = 0;
@@ -272,10 +200,71 @@ const persistExtractionResult = async ({
       .filter(Boolean)
   );
 
-  for (const memory of extraction.memories || []) {
-    const comparableContent = normalizeComparableText(memory.content);
+  const createCandidateFromItem = async ({
+    item,
+    proposal,
+    priority
+  }) => {
+    await createPendingMemoryCandidate({
+      chatId,
+      title: item.title,
+      content: item.content,
+      type: item.type,
+      priority,
 
-    if (!comparableContent || existingContents.has(comparableContent)) {
+      subject: item.subject,
+      emotionSubject: item.emotionSubject,
+      topicKey: item.topicKey,
+      topicKeys: item.topicKeys,
+      stability: item.stability,
+      memoryScope: item.memoryScope,
+      recallPolicy: item.recallPolicy,
+      temporal: item.temporal,
+
+      sourceMessageIds: item.sourceMessageIds,
+      sourceMessageTimestamps: item.sourceMessageTimestamps,
+      sourceKind: item.sourceKind,
+
+      proposalType: proposal.proposalType,
+      targetMemoryId: proposal.targetMemoryId,
+      relatedMemoryIds: proposal.relatedMemoryIds,
+      similarityScore: proposal.similarityScore,
+      conflictReason: proposal.conflictReason
+    });
+  };
+
+  const recordProposalStats = (proposalType) => {
+    if (
+      proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
+    ) {
+      proposedUpdates += 1;
+    }
+
+    if (
+      proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
+    ) {
+      proposedCorrections += 1;
+    }
+
+    if (
+      proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CONFLICT
+    ) {
+      proposedConflicts += 1;
+    }
+  };
+
+  for (const memory of extraction.memories || []) {
+    const comparableContent = normalizeComparableText(
+      memory.content
+    );
+
+    if (
+      !comparableContent ||
+      existingContents.has(comparableContent)
+    ) {
       skippedDuplicates += 1;
       continue;
     }
@@ -286,7 +275,10 @@ const persistExtractionResult = async ({
       sourceTexts: getSourceTexts(memory)
     });
 
-    if (proposal.proposalType === MEMORY_CANDIDATE_PROPOSALS.CREATE) {
+    if (
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.CREATE
+    ) {
       const createdMemory = await createMemory({
         chatId,
         title: memory.title,
@@ -295,6 +287,16 @@ const persistExtractionResult = async ({
         status: MEMORY_STATUSES.ACTIVE,
         importance: memory.importance,
         confidence: memory.confidence,
+
+        subject: memory.subject,
+        emotionSubject: memory.emotionSubject,
+        topicKey: memory.topicKey,
+        topicKeys: memory.topicKeys,
+        stability: memory.stability,
+        memoryScope: memory.memoryScope,
+        recallPolicy: memory.recallPolicy,
+        temporal: memory.temporal,
+
         sourceMessageIds: memory.sourceMessageIds,
         sourceMessageTimestamps: memory.sourceMessageTimestamps,
         sourceState: memory.sourceState,
@@ -309,58 +311,33 @@ const persistExtractionResult = async ({
     }
 
     if (
-      proposal.proposalType === MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
     ) {
       skippedDuplicates += 1;
       continue;
     }
 
-    await createPendingMemoryCandidate({
-      chatId,
-      title: memory.title,
-      content: memory.content,
-      type: memory.type,
-      priority: memory.importance,
-      sourceMessageIds: memory.sourceMessageIds,
-      sourceMessageTimestamps: memory.sourceMessageTimestamps,
-      sourceKind: memory.sourceKind,
-
-      proposalType: proposal.proposalType,
-      targetMemoryId: proposal.targetMemoryId,
-      relatedMemoryIds: proposal.relatedMemoryIds,
-      similarityScore: proposal.similarityScore,
-      conflictReason: proposal.conflictReason
+    await createCandidateFromItem({
+      item: memory,
+      proposal,
+      priority: memory.importance
     });
 
     existingContents.add(comparableContent);
     createdCandidates += 1;
-
-    if (
-      proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
-    ) {
-      proposedUpdates += 1;
-    }
-
-    if (
-      proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
-    ) {
-      proposedCorrections += 1;
-    }
-
-    if (
-      proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.CONFLICT
-    ) {
-      proposedConflicts += 1;
-    }
+    recordProposalStats(proposal.proposalType);
   }
 
   for (const candidate of extraction.candidates || []) {
-    const comparableContent = normalizeComparableText(candidate.content);
+    const comparableContent = normalizeComparableText(
+      candidate.content
+    );
 
-    if (!comparableContent || existingContents.has(comparableContent)) {
+    if (
+      !comparableContent ||
+      existingContents.has(comparableContent)
+    ) {
       skippedDuplicates += 1;
       continue;
     }
@@ -372,52 +349,22 @@ const persistExtractionResult = async ({
     });
 
     if (
-      proposal.proposalType === MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
+      proposal.proposalType ===
+      MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
     ) {
       skippedDuplicates += 1;
       continue;
     }
 
-    await createPendingMemoryCandidate({
-      chatId,
-      title: candidate.title,
-      content: candidate.content,
-      type: candidate.type,
-      priority: candidate.priority,
-      sourceMessageIds: candidate.sourceMessageIds,
-      sourceMessageTimestamps: candidate.sourceMessageTimestamps,
-      sourceKind: candidate.sourceKind,
-
-      proposalType: proposal.proposalType,
-      targetMemoryId: proposal.targetMemoryId,
-      relatedMemoryIds: proposal.relatedMemoryIds,
-      similarityScore: proposal.similarityScore,
-      conflictReason: proposal.conflictReason
+    await createCandidateFromItem({
+      item: candidate,
+      proposal,
+      priority: candidate.priority
     });
 
     existingContents.add(comparableContent);
     createdCandidates += 1;
-
-    if (
-      proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING
-    ) {
-      proposedUpdates += 1;
-    }
-
-    if (
-      proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.CORRECT_EXISTING
-    ) {
-      proposedCorrections += 1;
-    }
-
-    if (
-      proposal.proposalType ===
-      MEMORY_CANDIDATE_PROPOSALS.CONFLICT
-    ) {
-      proposedConflicts += 1;
-    }
+    recordProposalStats(proposal.proposalType);
   }
 
   await updateMemoryJob(chatId, {
@@ -438,6 +385,7 @@ const persistExtractionResult = async ({
     proposedConflicts
   };
 };
+
 
 
 const scheduleContinuationIfNeeded = async ({
@@ -558,9 +506,16 @@ export const runMemoryProcessing = async (
   activeMemoryJobs.add(chatId);
 
   try {
-    const job = await ensureMemoryJob(chatId);
+      const job = await ensureMemoryJob(chatId);
+
+    /*
+     * 即使本轮没有新消息，也先让已过期的计划退出普通召回。
+     * 不把“本周五要去约会”无限留在 active 计划状态。
+     */
+    await expireOutdatedPlannedMemories(chatId);
 
     const allMessages = await getChatMessagesById(chatId);
+
 
     const pendingMessages = getMessagesSinceCursor(
       allMessages,

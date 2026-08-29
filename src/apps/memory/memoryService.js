@@ -4,12 +4,18 @@ import {
   MEMORY_CANDIDATE_PROPOSALS,
   MEMORY_CANDIDATE_STATUSES,
   MEMORY_CONFIDENCES,
+  MEMORY_EMOTION_SUBJECTS,
   MEMORY_JOB_STATUSES,
+  MEMORY_RECALL_POLICIES,
   MEMORY_REVISION_ACTIONS,
+  MEMORY_SCOPES,
   MEMORY_SOURCE_KINDS,
   MEMORY_SOURCE_STATES,
-  MEMORY_STATUSES
+  MEMORY_STABILITIES,
+  MEMORY_STATUSES,
+  MEMORY_SUBJECTS
 } from './memoryConstants';
+
 import {
   normalizeComparableText
 } from './memoryQuality';
@@ -62,6 +68,228 @@ const normalizeMemoryIdList = (value) => {
       .filter(Boolean)
   )];
 };
+
+const normalizeSubject = (value, type = 'fact') => {
+  if (Object.values(MEMORY_SUBJECTS).includes(value)) {
+    return value;
+  }
+
+  if (type === 'character_thought') {
+    return MEMORY_SUBJECTS.CHARACTER;
+  }
+
+  if (type === 'relationship') {
+    return MEMORY_SUBJECTS.RELATIONSHIP;
+  }
+
+  if (type === 'episode') {
+    return MEMORY_SUBJECTS.SHARED;
+  }
+
+  return MEMORY_SUBJECTS.USER;
+};
+
+const normalizeEmotionSubject = (
+  value,
+  subject,
+  type = 'fact'
+) => {
+  if (type !== 'emotion') {
+    return null;
+  }
+
+  if (Object.values(MEMORY_EMOTION_SUBJECTS).includes(value)) {
+    return value;
+  }
+
+  if (subject === MEMORY_SUBJECTS.CHARACTER) {
+    return MEMORY_EMOTION_SUBJECTS.CHARACTER;
+  }
+
+  if (
+    subject === MEMORY_SUBJECTS.RELATIONSHIP ||
+    subject === MEMORY_SUBJECTS.SHARED
+  ) {
+    return MEMORY_EMOTION_SUBJECTS.SHARED;
+  }
+
+  return MEMORY_EMOTION_SUBJECTS.USER;
+};
+
+const normalizeTopicKey = (value) => (
+  normalizeText(value)
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^\w\u4e00-\u9fff-]/g, '')
+    .slice(0, 60)
+);
+
+const normalizeTopicKeys = (value, topicKey = '') => {
+  const rawItems = Array.isArray(value)
+    ? value
+    : [];
+
+  return [...new Set(
+    [...rawItems, topicKey]
+      .map((item) => normalizeTopicKey(item))
+      .filter(Boolean)
+  )].slice(0, 8);
+};
+
+const normalizeStability = (value, type = 'fact') => {
+  if (Object.values(MEMORY_STABILITIES).includes(value)) {
+    return value;
+  }
+
+  if (
+    type === 'preference' ||
+    type === 'relationship' ||
+    type === 'expression_rule' ||
+    type === 'character_thought'
+  ) {
+    return MEMORY_STABILITIES.ONGOING;
+  }
+
+  if (type === 'emotion' || type === 'episode') {
+    return MEMORY_STABILITIES.TEMPORARY;
+  }
+
+  return MEMORY_STABILITIES.ONGOING;
+};
+
+const normalizeMemoryScope = (value, subject) => {
+  if (Object.values(MEMORY_SCOPES).includes(value)) {
+    return value;
+  }
+
+  if (subject === MEMORY_SUBJECTS.CHARACTER) {
+    return MEMORY_SCOPES.CHARACTER_SETTING;
+  }
+
+  if (subject === MEMORY_SUBJECTS.RELATIONSHIP) {
+    return MEMORY_SCOPES.RELATIONSHIP_SETTING;
+  }
+
+  return MEMORY_SCOPES.CONVERSATION;
+};
+
+const normalizeRecallPolicy = (
+  value,
+  memoryScope,
+  type = 'fact'
+) => {
+  if (Object.values(MEMORY_RECALL_POLICIES).includes(value)) {
+    return value;
+  }
+
+  if (memoryScope === MEMORY_SCOPES.CHARACTER_SETTING) {
+    return MEMORY_RECALL_POLICIES.LOW_FREQUENCY;
+  }
+
+  if (
+    type === 'emotion' ||
+    type === 'expression_rule'
+  ) {
+    return MEMORY_RECALL_POLICIES.WHEN_RELEVANT;
+  }
+
+  return MEMORY_RECALL_POLICIES.NORMAL;
+};
+
+const normalizeTemporal = (value) => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  return {
+    ...value,
+    originalExpression: normalizeText(value.originalExpression),
+    anchorAt: value.anchorAt || null,
+    timezone: normalizeText(value.timezone) || null,
+    startAt: value.startAt || null,
+    endAt: value.endAt || null,
+    precision: normalizeText(value.precision) || 'ambiguous',
+    status: normalizeText(value.status) || 'planned',
+    isRelativeExpression: Boolean(value.isRelativeExpression),
+    isAmbiguous: Boolean(value.isAmbiguous)
+  };
+};
+
+
+const normalizeRecallState = (value) => {
+  const state = value && typeof value === 'object'
+    ? value
+    : {};
+
+  return {
+    cooldownUntil: state.cooldownUntil || null,
+    consecutiveRecallCount: Math.max(
+      0,
+      Number(state.consecutiveRecallCount || 0)
+    ),
+    lastRecallTurnId: normalizeText(state.lastRecallTurnId) || null
+  };
+};
+
+const buildMemorySemanticFields = ({
+  type = 'fact',
+  subject,
+  emotionSubject,
+  topicKey,
+  topicKeys,
+  stability,
+  memoryScope,
+  recallPolicy,
+  temporal,
+  recallState
+} = {}) => {
+  const normalizedSubject = normalizeSubject(subject, type);
+
+  const normalizedScope = normalizeMemoryScope(
+    memoryScope,
+    normalizedSubject
+  );
+
+  const normalizedTopicKey = normalizeTopicKey(topicKey);
+
+  return {
+    subject: normalizedSubject,
+
+    emotionSubject: normalizeEmotionSubject(
+      emotionSubject,
+      normalizedSubject,
+      type
+    ),
+
+    topicKey: normalizedTopicKey,
+
+    topicKeys: normalizeTopicKeys(
+      topicKeys,
+      normalizedTopicKey
+    ),
+
+    stability: normalizeStability(
+      stability,
+      type
+    ),
+
+    memoryScope: normalizedScope,
+
+    recallPolicy: normalizeRecallPolicy(
+      recallPolicy,
+      normalizedScope,
+      type
+    ),
+
+       temporal: normalizeTemporal(temporal),
+
+    temporalStatus: normalizeTemporal(temporal)?.status || null,
+
+    recallState: normalizeRecallState(recallState)
+
+  };
+};
+
 
 const isValidChatId = (chatId) => (
   chatId !== null &&
@@ -205,17 +433,43 @@ export const createMemory = async ({
   sourceKind = MEMORY_SOURCE_KINDS.USER_CREATED,
   supersedesMemoryId = null,
   supersededByMemoryId = null,
-  duplicateOfMemoryId = null,
+    duplicateOfMemoryId = null,
   conflictWithMemoryIds = [],
+
+  subject,
+  emotionSubject,
+  topicKey = '',
+  topicKeys = [],
+  stability,
+  memoryScope,
+  recallPolicy,
+  temporal = null,
+  recallState = null,
+
   note = ''
 }) => {
+
   assertChatId(chatId);
   assertMemoryContent(content);
   assertMemoryStatus(status);
 
-  const now = toIsoNow();
+   const now = toIsoNow();
+
+  const semanticFields = buildMemorySemanticFields({
+    type,
+    subject,
+    emotionSubject,
+    topicKey,
+    topicKeys,
+    stability,
+    memoryScope,
+    recallPolicy,
+    temporal,
+    recallState
+  });
 
   const memory = {
+
     memoryId: createStableId('memory'),
     chatId,
     title: normalizeText(title),
@@ -223,8 +477,12 @@ export const createMemory = async ({
     type,
     status,
     importance: normalizeImportance(importance),
-    confidence,
+        confidence,
+
+    ...semanticFields,
+
     sourceMessageIds: normalizeSourceMessageIds(sourceMessageIds),
+
     sourceMessageTimestamps: Array.isArray(sourceMessageTimestamps)
       ? sourceMessageTimestamps.filter(Boolean)
       : [],
@@ -245,9 +503,12 @@ export const createMemory = async ({
     duplicateOfMemoryId: normalizeText(duplicateOfMemoryId) || null,
     conflictWithMemoryIds: normalizeMemoryIdList(conflictWithMemoryIds),
 
-    lastUsedAt: null,
+      lastUsedAt: null,
     lastRetrievedAt: null,
-    useCount: 0
+    useCount: 0,
+
+    recallState: semanticFields.recallState
+
   };
 
   await db.transaction(
@@ -297,14 +558,55 @@ export const updateMemory = async (
 
   const now = toIsoNow();
 
+  const nextType = updates.type === undefined
+    ? currentMemory.type
+    : updates.type;
+
+  const semanticFields = buildMemorySemanticFields({
+    type: nextType,
+    subject: updates.subject === undefined
+      ? currentMemory.subject
+      : updates.subject,
+    emotionSubject: updates.emotionSubject === undefined
+      ? currentMemory.emotionSubject
+      : updates.emotionSubject,
+    topicKey: updates.topicKey === undefined
+      ? currentMemory.topicKey
+      : updates.topicKey,
+    topicKeys: updates.topicKeys === undefined
+      ? currentMemory.topicKeys
+      : updates.topicKeys,
+    stability: updates.stability === undefined
+      ? currentMemory.stability
+      : updates.stability,
+    memoryScope: updates.memoryScope === undefined
+      ? currentMemory.memoryScope
+      : updates.memoryScope,
+    recallPolicy: updates.recallPolicy === undefined
+      ? currentMemory.recallPolicy
+      : updates.recallPolicy,
+    temporal: updates.temporal === undefined
+      ? currentMemory.temporal
+      : updates.temporal,
+    recallState: updates.recallState === undefined
+      ? currentMemory.recallState
+      : updates.recallState
+  });
+
   const nextMemory = {
+
     ...currentMemory,
     ...updates,
     title: updates.title === undefined
       ? currentMemory.title
       : normalizeText(updates.title),
-    content: nextContent,
+      content: nextContent,
+    type: nextType,
+
+    ...semanticFields,
+
     importance: updates.importance === undefined
+
       ? currentMemory.importance
       : normalizeImportance(updates.importance),
     confidence: updates.confidence === undefined
@@ -669,13 +971,36 @@ export const createPendingMemoryCandidate = async ({
   proposalType = MEMORY_CANDIDATE_PROPOSALS.CREATE,
   targetMemoryId = null,
   relatedMemoryIds = [],
-  similarityScore = 0,
-  conflictReason = ''
+    similarityScore = 0,
+  conflictReason = '',
+
+  subject,
+  emotionSubject,
+  topicKey = '',
+  topicKeys = [],
+  stability,
+  memoryScope,
+  recallPolicy,
+  temporal = null
 }) => {
+
   assertChatId(chatId);
   assertMemoryContent(content);
 
   const now = toIsoNow();
+
+    const semanticFields = buildMemorySemanticFields({
+    type,
+    subject,
+    emotionSubject,
+    topicKey,
+    topicKeys,
+    stability,
+    memoryScope,
+    recallPolicy,
+    temporal
+  });
+
 
   const candidate = {
     candidateId: createStableId('memory_candidate'),
@@ -685,6 +1010,7 @@ export const createPendingMemoryCandidate = async ({
     type,
     priority: normalizeImportance(priority),
     status: MEMORY_CANDIDATE_STATUSES.PENDING,
+     ...semanticFields,
 
     proposalType: Object.values(MEMORY_CANDIDATE_PROPOSALS).includes(
       proposalType
@@ -722,6 +1048,7 @@ export const createPendingMemoryCandidate = async ({
 
   return candidate;
 };
+
 
 export const acceptMemoryCandidate = async (
   candidateId,
@@ -786,47 +1113,74 @@ export const acceptMemoryCandidate = async (
 
   const createAcceptedMemoryPayload = ({
     supersedesMemoryId = null
-  } = {}) => ({
-    memoryId: createStableId('memory'),
-    chatId: candidate.chatId,
-    title: nextTitle,
-    content: nextContent,
-    type: nextType,
-    status: MEMORY_STATUSES.ACTIVE,
-    importance: nextImportance,
+  } = {}) => {
+    const semanticFields = buildMemorySemanticFields({
+      type: nextType,
+      subject: candidate.subject,
+      emotionSubject: candidate.emotionSubject,
+      topicKey: candidate.topicKey,
+      topicKeys: candidate.topicKeys,
+      stability: candidate.stability,
+      memoryScope: candidate.memoryScope,
+      recallPolicy: candidate.recallPolicy,
+      temporal: candidate.temporal,
+      recallState: candidate.recallState
+    });
 
-    // 用户主动点击采纳，故不再只是 AI 推测。
-    confidence: MEMORY_CONFIDENCES.CONFIRMED,
+    return {
+      memoryId: createStableId('memory'),
+      chatId: candidate.chatId,
+      title: nextTitle,
+      content: nextContent,
+      type: nextType,
+      status: MEMORY_STATUSES.ACTIVE,
+      importance: nextImportance,
 
-    sourceMessageIds,
-    sourceMessageTimestamps: Array.isArray(
-      candidate.sourceMessageTimestamps
-    )
-      ? candidate.sourceMessageTimestamps.filter(Boolean)
-      : [],
+      // 用户主动点击采纳，故不再只是 AI 推测。
+      confidence: MEMORY_CONFIDENCES.CONFIRMED,
 
-    sourceState: getSourceStateFromData({
+      ...semanticFields,
+
+      sourceMessageIds,
+      sourceMessageTimestamps: Array.isArray(
+        candidate.sourceMessageTimestamps
+      )
+        ? candidate.sourceMessageTimestamps.filter(Boolean)
+        : [],
+
+      sourceState: getSourceStateFromData({
+        sourceKind,
+        sourceMessageIds
+      }),
+
       sourceKind,
-      sourceMessageIds
-    }),
+      normalizedContent: normalizeComparableText(nextContent),
 
-    sourceKind,
-    normalizedContent: normalizeComparableText(nextContent),
+      userEditedAt: null,
+      userConfirmedAt: now,
 
-    userEditedAt: null,
-    userConfirmedAt: now,
+      supersedesMemoryId,
+      supersededByMemoryId: null,
+      duplicateOfMemoryId: null,
+      conflictWithMemoryIds: [],
 
-    supersedesMemoryId,
-    supersededByMemoryId: null,
-    duplicateOfMemoryId: null,
-    conflictWithMemoryIds: [],
+      createdAt: now,
+      updatedAt: now,
+      lastUsedAt: null,
+      lastRetrievedAt: null,
+      useCount: 0,
 
-    createdAt: now,
-    updatedAt: now,
-    lastUsedAt: null,
-    lastRetrievedAt: null,
-    useCount: 0
-  });
+      /*
+       * 新采纳的记忆从未被真正检索；
+       * 不继承候选阶段的临时冷却或连续召回计数。
+       */
+      recallState: {
+        cooldownUntil: null,
+        consecutiveRecallCount: 0,
+        lastRecallTurnId: null
+      }
+    };
+  };
 
   let acceptedMemory = null;
 
@@ -856,13 +1210,46 @@ export const acceptMemoryCandidate = async (
         proposalType === MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING &&
         targetMemory
       ) {
+               const semanticFields = buildMemorySemanticFields({
+          type: nextType,
+          subject: candidate.subject === undefined
+            ? targetMemory.subject
+            : candidate.subject,
+          emotionSubject: candidate.emotionSubject === undefined
+            ? targetMemory.emotionSubject
+            : candidate.emotionSubject,
+          topicKey: candidate.topicKey === undefined
+            ? targetMemory.topicKey
+            : candidate.topicKey,
+          topicKeys: candidate.topicKeys === undefined
+            ? targetMemory.topicKeys
+            : candidate.topicKeys,
+          stability: candidate.stability === undefined
+            ? targetMemory.stability
+            : candidate.stability,
+          memoryScope: candidate.memoryScope === undefined
+            ? targetMemory.memoryScope
+            : candidate.memoryScope,
+          recallPolicy: candidate.recallPolicy === undefined
+            ? targetMemory.recallPolicy
+            : candidate.recallPolicy,
+          temporal: candidate.temporal === undefined
+            ? targetMemory.temporal
+            : candidate.temporal,
+          recallState: targetMemory.recallState
+        });
+
         const nextTargetMemory = {
           ...targetMemory,
           title: nextTitle,
           content: nextContent,
           type: nextType,
+
+          ...semanticFields,
+
           importance: nextImportance,
           confidence: MEMORY_CONFIDENCES.CONFIRMED,
+
 
           normalizedContent: normalizeComparableText(nextContent),
 
@@ -1016,4 +1403,83 @@ export const getPendingMemoryCandidates = async (chatId) => {
         - new Date(a.updatedAt || a.createdAt || 0).getTime();
     });
 };
+
+export const expireOutdatedPlannedMemories = async (chatId) => {
+  assertChatId(chatId);
+
+  const now = toIsoNow();
+  const nowTime = new Date(now).getTime();
+
+  const memories = await db.memories
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  const outdatedMemories = memories.filter((memory) => {
+    const temporal = memory?.temporal;
+
+    if (!temporal?.endAt) {
+      return false;
+    }
+
+    if (
+      temporal.status !== 'planned' &&
+      temporal.status !== 'ongoing'
+    ) {
+      return false;
+    }
+
+    const endTime = new Date(temporal.endAt).getTime();
+
+    if (!Number.isFinite(endTime)) {
+      return false;
+    }
+
+    /*
+     * 给事件结束留出 24 小时的自然对话窗口。
+     * 例如周五约会，周六前仍可自然问及；
+     * 之后若没有后续确认，则不再作为当前计划召回。
+     */
+    return endTime < nowTime - 24 * 60 * 60 * 1000;
+  });
+
+  if (!outdatedMemories.length) {
+    return 0;
+  }
+
+  await db.transaction(
+    'rw',
+    db.memories,
+    db.memoryRevisions,
+    async () => {
+      for (const memory of outdatedMemories) {
+        const nextTemporal = {
+          ...memory.temporal,
+          status: 'unknown'
+        };
+
+        const nextMemory = {
+          ...memory,
+          temporal: nextTemporal,
+          temporalStatus: 'unknown',
+          updatedAt: now
+        };
+
+        await db.memoryRevisions.add(createRevisionPayload({
+          memoryId: memory.memoryId,
+          chatId: memory.chatId,
+          action: MEMORY_REVISION_ACTIONS.EDITED,
+          snapshot: memory,
+          createdAt: now,
+          note: '计划时间已过，尚未获得后续确认，暂不再作为当前计划调用。'
+        }));
+
+        await db.memories.update(memory.id, nextMemory);
+      }
+    }
+  );
+
+  return outdatedMemories.length;
+};
+
 

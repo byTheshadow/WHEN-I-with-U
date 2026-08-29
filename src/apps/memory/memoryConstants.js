@@ -20,13 +20,70 @@ export const MEMORY_TYPE_OPTIONS = [
   { id: MEMORY_TYPES.REFLECTION, label: '阶段性反思' }
 ];
 
+export const MEMORY_SUBJECTS = {
+  USER: 'user',
+  CHARACTER: 'character',
+  RELATIONSHIP: 'relationship',
+  SHARED: 'shared'
+};
+
+export const MEMORY_SUBJECT_OPTIONS = [
+  { id: MEMORY_SUBJECTS.USER, label: '用户' },
+  { id: MEMORY_SUBJECTS.CHARACTER, label: '角色' },
+  { id: MEMORY_SUBJECTS.RELATIONSHIP, label: '关系' },
+  { id: MEMORY_SUBJECTS.SHARED, label: '共同经历' }
+];
+
+export const MEMORY_EMOTION_SUBJECTS = {
+  USER: 'user',
+  CHARACTER: 'character',
+  SHARED: 'shared'
+};
+
+export const MEMORY_SCOPES = {
+  CONVERSATION: 'conversation',
+  CHARACTER_SETTING: 'character_setting',
+  RELATIONSHIP_SETTING: 'relationship_setting'
+};
+
+export const MEMORY_RECALL_POLICIES = {
+  NORMAL: 'normal',
+  LOW_FREQUENCY: 'low_frequency',
+  WHEN_RELEVANT: 'when_relevant'
+};
+
+export const MEMORY_STABILITIES = {
+  MOMENTARY: 'momentary',
+  TEMPORARY: 'temporary',
+  ONGOING: 'ongoing',
+  STABLE: 'stable'
+};
+
+export const MEMORY_TEMPORAL_PRECISIONS = {
+  EXACT_DATETIME: 'exact_datetime',
+  DATETIME_RANGE: 'datetime_range',
+  DAY: 'day',
+  WEEK: 'week',
+  MONTH: 'month',
+  WEEKDAY_ONLY: 'weekday_only',
+  AMBIGUOUS: 'ambiguous'
+};
+
+export const MEMORY_TEMPORAL_STATUSES = {
+  PLANNED: 'planned',
+  ONGOING: 'ongoing',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  UNKNOWN: 'unknown'
+};
+
 export const MEMORY_STATUSES = {
   ACTIVE: 'active',
   TEMPORARY: 'temporary',
   DORMANT: 'dormant',
   ARCHIVED: 'archived',
   WITHDRAWN: 'withdrawn',
-  CORRECTED: 'corrected',
+  CORRECTED: 'corrected'
 };
 
 export const MEMORY_STATUS_OPTIONS = [
@@ -35,11 +92,7 @@ export const MEMORY_STATUS_OPTIONS = [
   { id: MEMORY_STATUSES.DORMANT, label: '已被更正或暂不调用' },
   { id: MEMORY_STATUSES.ARCHIVED, label: '已归档' },
   { id: MEMORY_STATUSES.WITHDRAWN, label: '已撤回' },
-  {
-  id: MEMORY_STATUSES.CORRECTED,
-  label: '已被更正'
-},
-
+  { id: MEMORY_STATUSES.CORRECTED, label: '已被更正' }
 ];
 
 export const MEMORY_CONFIDENCES = {
@@ -64,8 +117,6 @@ export const MEMORY_SOURCE_STATES = {
   USER_CREATED: 'user_created'
 };
 
-
-
 export const MEMORY_SOURCE_KINDS = {
   CONVERSATION: 'conversation',
   SUMMARY_ASSISTED: 'summary_assisted',
@@ -79,7 +130,6 @@ export const MEMORY_CANDIDATE_STATUSES = {
   DISMISSED: 'dismissed',
   EXPIRED: 'expired'
 };
-
 
 export const MEMORY_CANDIDATE_PROPOSALS = {
   CREATE: 'create',
@@ -111,9 +161,9 @@ export const MEMORY_REVISION_ACTIONS = {
   RESTORED: 'restored',
   ARCHIVED: 'archived',
   DORMANT: 'dormant',
-CORRECTED: 'corrected',
-SUPERSEDED: 'superseded',
-CANDIDATE_ACCEPTED: 'candidate_accepted',
+  CORRECTED: 'corrected',
+  SUPERSEDED: 'superseded',
+  CANDIDATE_ACCEPTED: 'candidate_accepted',
   DELETED: 'deleted',
   IMPORTED: 'imported'
 };

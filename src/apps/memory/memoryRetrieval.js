@@ -7,11 +7,28 @@ import {
   RECALLABLE_MEMORY_STATUSES
 } from './memoryConstants';
 
-const MAX_MEMORY_ITEMS = 6;
-const MAX_CONTEXT_CHARS = 2400;
+const MAX_MEMORY_ITEMS = 4;
+const MAX_CONTEXT_CHARS = 1800;
 const MAX_SINGLE_MEMORY_CHARS = 420;
+
 const EMOTION_MIN_SCORE = 0.62;
-const DEFAULT_MIN_SCORE = 0.12;
+const DEFAULT_MIN_SCORE = 0.2;
+const MIN_TOPIC_OVERLAP = 0.2;
+
+const HOUR = 60 * 60 * 1000;
+
+const MEMORY_RECALL_COOLDOWNS = {
+  [MEMORY_TYPES.FACT]: 4 * HOUR,
+  [MEMORY_TYPES.PREFERENCE]: 12 * HOUR,
+  [MEMORY_TYPES.EPISODE]: 8 * HOUR,
+  [MEMORY_TYPES.RELATIONSHIP]: 12 * HOUR,
+  [MEMORY_TYPES.CHARACTER_THOUGHT]: 8 * HOUR,
+  [MEMORY_TYPES.EMOTION]: 6 * HOUR,
+  [MEMORY_TYPES.EXPRESSION_RULE]: 0,
+  [MEMORY_TYPES.REFLECTION]: 24 * HOUR
+};
+
+const CHARACTER_SETTING_COOLDOWN = 24 * HOUR;
 
 const normalizeText = (value) => String(value || '').trim();
 
@@ -40,7 +57,15 @@ const tokenize = (value) => {
 };
 
 const getMemoryText = (memory) => (
-  [memory.title, memory.content, memory.type]
+  [
+    memory?.title,
+    memory?.content,
+    memory?.type,
+    ...(Array.isArray(memory?.topicKeys)
+      ? memory.topicKeys
+      : []),
+    memory?.topicKey
+  ]
     .filter(Boolean)
     .join(' ')
 );
@@ -64,6 +89,14 @@ const getTokenOverlap = (leftTokens, rightTokens) => {
   return matched / leftTokens.length;
 };
 
+const getDaysSince = (value) => {
+  const time = new Date(value || 0).getTime();
+
+  if (!Number.isFinite(time) || time <= 0) return 365;
+
+  return Math.max(0, (Date.now() - time) / 86400000);
+};
+
 const isCurrentCorrection = (userText) => (
   /(不是|并不是|不是这样|我之前说错了|更正一下|纠正一下|改成|请以现在这句为准|以后请记住)/i
     .test(normalizeText(userText))
@@ -79,16 +112,43 @@ const isRecallableMemory = (memory, chatId) => {
   if (memory.supersededByMemoryId) return false;
   if (memory.duplicateOfMemoryId) return false;
 
+  const temporalStatus = (
+    memory.temporalStatus ||
+    memory.temporal?.status ||
+    ''
+  );
+
+  if (
+    [
+      'cancelled',
+      'completed',
+      'unknown'
+    ].includes(temporalStatus)
+  ) {
+    return false;
+  }
+
+  const temporalEndTime = new Date(
+    memory.temporal?.endAt || 0
+  ).getTime();
+
+  /*
+   * 即时安全过滤：
+   * 计划结束超过 24 小时但后台尚未更新时，
+   * 也不允许它继续作为当前计划进入 Prompt。
+   */
+  if (
+    ['planned', 'ongoing'].includes(temporalStatus) &&
+    Number.isFinite(temporalEndTime) &&
+    temporalEndTime > 0 &&
+    temporalEndTime < Date.now() - 24 * 60 * 60 * 1000
+  ) {
+    return false;
+  }
+
   return true;
 };
 
-const getDaysSince = (value) => {
-  const time = new Date(value || 0).getTime();
-
-  if (!Number.isFinite(time) || time <= 0) return 365;
-
-  return Math.max(0, (Date.now() - time) / 86400000);
-};
 
 const getUserAuthorityBoost = (memory) => {
   let score = 0;
@@ -115,16 +175,66 @@ const getTypeBoost = (memory) => {
   return 0;
 };
 
+const getRecallState = (memory) => {
+  const state = memory?.recallState || {};
+
+  return {
+    cooldownUntil: state.cooldownUntil || null,
+    consecutiveRecallCount: Math.max(
+      0,
+      Number(state.consecutiveRecallCount || 0)
+    ),
+    lastRecallTurnId: state.lastRecallTurnId || null
+  };
+};
+
+const isCharacterSettingMemory = (memory) => (
+  memory?.memoryScope === 'character_setting'
+);
+
+const getBaseCooldown = (memory) => {
+  if (isCharacterSettingMemory(memory)) {
+    return CHARACTER_SETTING_COOLDOWN;
+  }
+
+  return MEMORY_RECALL_COOLDOWNS[memory?.type] ?? 6 * HOUR;
+};
+
+const isInRecallCooldown = (memory, now = Date.now()) => {
+  const { cooldownUntil } = getRecallState(memory);
+
+  if (!cooldownUntil) return false;
+
+  const cooldownTime = new Date(cooldownUntil).getTime();
+
+  return Number.isFinite(cooldownTime) && cooldownTime > now;
+};
+
 const getFatiguePenalty = (memory) => {
   const count = Number(memory.useCount || 0);
   const daysSinceUse = getDaysSince(memory.lastUsedAt);
+  const { consecutiveRecallCount } = getRecallState(memory);
 
-  if (count <= 0) return 0;
+  if (count <= 0 && consecutiveRecallCount <= 0) {
+    return 0;
+  }
 
-  const countPenalty = Math.min(0.22, Math.log2(count + 1) * 0.045);
+  const countPenalty = Math.min(
+    0.18,
+    Math.log2(count + 1) * 0.035
+  );
+
+  const consecutivePenalty = Math.min(
+    0.3,
+    consecutiveRecallCount * 0.1
+  );
+
   const recovery = Math.min(0.1, daysSinceUse * 0.012);
 
-  return Math.max(0, countPenalty - recovery);
+  return Math.max(
+    0,
+    countPenalty + consecutivePenalty - recovery
+  );
 };
 
 const calculateScore = (memory, queryTokens) => {
@@ -133,7 +243,11 @@ const calculateScore = (memory, queryTokens) => {
 
   const importance = Number(memory.importance || 3) / 5;
   const confidence = getConfidenceScore(memory.confidence);
-  const freshness = Math.max(0, 1 - getDaysSince(memory.updatedAt) / 365);
+  const freshness = Math.max(
+    0,
+    1 - getDaysSince(memory.updatedAt) / 365
+  );
+
   const userAuthority = getUserAuthorityBoost(memory);
   const typeBoost = getTypeBoost(memory);
   const fatigue = getFatiguePenalty(memory);
@@ -146,10 +260,10 @@ const calculateScore = (memory, queryTokens) => {
     : 0;
 
   return (
-    overlap * 0.58 +
-    importance * 0.1 +
-    confidence * 0.1 +
-    freshness * 0.05 +
+    overlap * 0.68 +
+    importance * 0.06 +
+    confidence * 0.06 +
+    freshness * 0.03 +
     userAuthority +
     typeBoost -
     fatigue -
@@ -170,6 +284,7 @@ const getTypeLabel = (type) => ({
 
 const formatMemoryForPrompt = (memory) => {
   const rawContent = normalizeText(memory.content);
+
   const content = rawContent.length > MAX_SINGLE_MEMORY_CHARS
     ? `${rawContent.slice(0, MAX_SINGLE_MEMORY_CHARS)}…`
     : rawContent;
@@ -187,14 +302,186 @@ const formatMemoryForPrompt = (memory) => {
   }${content}${sourceNotice}${thoughtNotice}`;
 };
 
-const getRecentMessageText = (recentMessages) => (
+/*
+ * 关键修复：
+ * 不再拿角色刚刚说过的话反向驱动检索。
+ * 长期记忆应服务于用户当前表达，而不是服务于模型自己的输出。
+ */
+const getRecentUserMessageText = (recentMessages) => (
   (Array.isArray(recentMessages) ? recentMessages : [])
-    .filter((message) => message && message.type !== 'error')
-    .slice(-6)
+    .filter((message) => (
+      message &&
+      message.type !== 'error' &&
+      message.sender === 'user'
+    ))
+    .slice(-3)
     .map((message) => normalizeText(message.content))
     .filter(Boolean)
     .join(' ')
 );
+
+const getMemoryTopicKey = (memory) => {
+  if (normalizeText(memory?.topicKey)) {
+    return normalizeText(memory.topicKey).toLowerCase();
+  }
+
+  const topicKeys = Array.isArray(memory?.topicKeys)
+    ? memory.topicKeys
+      .map((item) => normalizeText(item).toLowerCase())
+      .filter(Boolean)
+    : [];
+
+  if (topicKeys.length) {
+    return topicKeys.sort().join('|');
+  }
+
+  const tokens = tokenize(getMemoryText(memory))
+    .filter((token) => token.length >= 2)
+    .slice(0, 6)
+    .sort();
+
+  return tokens.join('|') || memory.memoryId;
+};
+
+const canBreakCooldownForDirectMention = (
+  memory,
+  currentUserTokens
+) => {
+  const memoryTokens = tokenize(getMemoryText(memory));
+  const overlap = getTokenOverlap(
+    currentUserTokens,
+    memoryTokens
+  );
+
+  return overlap >= 0.45;
+};
+
+const shouldRequireTopicMatch = (memory) => (
+  memory.type !== MEMORY_TYPES.EXPRESSION_RULE
+);
+
+const isRelevantEnough = ({
+  memory,
+  overlap,
+  score,
+  currentUserTokens,
+  correctionMode
+}) => {
+  if (correctionMode && overlap >= 0.35) {
+    return false;
+  }
+
+  if (memory.type === MEMORY_TYPES.EMOTION) {
+    return overlap >= 0.35 && score >= EMOTION_MIN_SCORE;
+  }
+
+  /*
+   * 最重要的门槛：
+   * 普通事实、偏好、经历、关系等长期记忆，
+   * 若与用户当前表达没有主题重合，不能凭重要度或历史使用次数入选。
+   */
+  if (
+    shouldRequireTopicMatch(memory) &&
+    overlap < MIN_TOPIC_OVERLAP
+  ) {
+    return false;
+  }
+
+  return score >= DEFAULT_MIN_SCORE;
+};
+
+const reserveMemoriesForRecall = async ({
+  selected,
+  currentUserTokens,
+  turnId
+}) => {
+  if (!selected.length) return [];
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const nowTime = now.getTime();
+  const selectedIds = selected
+    .map((memory) => memory?.id)
+    .filter((id) => id !== undefined && id !== null);
+
+  if (!selectedIds.length) return [];
+
+  const reserved = [];
+
+  await db.transaction('rw', db.memories, async () => {
+    for (const id of selectedIds) {
+      const currentMemory = await db.memories.get(id);
+
+      if (!currentMemory) continue;
+
+      if (!RECALLABLE_MEMORY_STATUSES.includes(currentMemory.status)) {
+        continue;
+      }
+
+      if (
+        currentMemory.supersededByMemoryId ||
+        currentMemory.duplicateOfMemoryId
+      ) {
+        continue;
+      }
+
+      const canBreakCooldown = canBreakCooldownForDirectMention(
+        currentMemory,
+        currentUserTokens
+      );
+
+      if (
+        isInRecallCooldown(currentMemory, nowTime) &&
+        !canBreakCooldown
+      ) {
+        continue;
+      }
+
+      const previousState = getRecallState(currentMemory);
+      const previousRecallTime = new Date(
+        currentMemory.lastRetrievedAt || 0
+      ).getTime();
+
+      const baseCooldown = getBaseCooldown(currentMemory);
+
+      const wasRecentlyRecalled = (
+        Number.isFinite(previousRecallTime) &&
+        previousRecallTime > 0 &&
+        nowTime - previousRecallTime < baseCooldown
+      );
+
+      const consecutiveRecallCount = wasRecentlyRecalled
+        ? previousState.consecutiveRecallCount + 1
+        : 1;
+
+      const multiplier = Math.min(
+        4,
+        Math.max(1, consecutiveRecallCount)
+      );
+
+      const cooldownUntil = new Date(
+        nowTime + baseCooldown * multiplier
+      ).toISOString();
+
+      const nextMemory = {
+        ...currentMemory,
+        lastUsedAt: nowIso,
+        lastRetrievedAt: nowIso,
+        useCount: Number(currentMemory.useCount || 0) + 1,
+        recallState: {
+          cooldownUntil,
+          consecutiveRecallCount,
+          lastRecallTurnId: turnId
+        }
+      };
+
+      await db.memories.update(id, nextMemory);
+      reserved.push(nextMemory);
+    }
+  });
+
+  return reserved;
+};
 
 export const getRecallableChatMemories = async (chatId) => {
   if (chatId === undefined || chatId === null || chatId === '') {
@@ -206,7 +493,9 @@ export const getRecallableChatMemories = async (chatId) => {
     .equals(chatId)
     .toArray();
 
-  return memories.filter((memory) => isRecallableMemory(memory, chatId));
+  return memories.filter((memory) => (
+    isRecallableMemory(memory, chatId)
+  ));
 };
 
 export const getChatMemoryContext = async ({
@@ -223,39 +512,74 @@ export const getChatMemoryContext = async ({
   if (!memories.length) return '';
 
   const currentText = normalizeText(userText);
-  const queryTokens = tokenize(
-    `${currentText} ${getRecentMessageText(recentMessages)}`
-  );
+
+  /*
+   * currentText 是第一优先级。
+   * recentMessages 仅补充用户近几轮的表达，不包含角色输出。
+   */
+  const recentUserText = getRecentUserMessageText(recentMessages);
+
+  const currentUserTokens = tokenize(currentText);
+  const queryTokens = tokenize(`${currentText} ${recentUserText}`);
 
   if (!queryTokens.length) return '';
 
   const correctionMode = isCurrentCorrection(currentText);
+  const now = Date.now();
 
   const ranked = memories
-    .map((memory) => ({
-      memory,
-      score: calculateScore(memory, queryTokens),
-      overlap: getTokenOverlap(queryTokens, tokenize(getMemoryText(memory)))
-    }))
-    .filter(({ memory, score, overlap }) => {
-      if (memory.type === MEMORY_TYPES.EMOTION) {
-        return overlap >= 0.35 && score >= EMOTION_MIN_SCORE;
-      }
+    .map((memory) => {
+      const memoryTokens = tokenize(getMemoryText(memory));
 
-      if (correctionMode && overlap >= 0.35) {
+      return {
+        memory,
+        score: calculateScore(memory, queryTokens),
+        overlap: getTokenOverlap(queryTokens, memoryTokens),
+        directOverlap: getTokenOverlap(
+          currentUserTokens,
+          memoryTokens
+        )
+      };
+    })
+    .filter((item) => {
+      const canBreakCooldown = canBreakCooldownForDirectMention(
+        item.memory,
+        currentUserTokens
+      );
+
+      if (
+        isInRecallCooldown(item.memory, now) &&
+        !canBreakCooldown
+      ) {
         return false;
       }
 
-      return score >= DEFAULT_MIN_SCORE;
+      return isRelevantEnough({
+        ...item,
+        currentUserTokens,
+        correctionMode
+      });
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((left, right) => right.score - left.score);
 
   const selected = [];
-  let contextLength = 0;
   const selectedTypes = new Set();
+  const selectedTopicKeys = new Set();
+  let contextLength = 0;
 
   for (const item of ranked) {
     if (selected.length >= MAX_MEMORY_ITEMS) break;
+
+    const topicKey = getMemoryTopicKey(item.memory);
+
+    /*
+     * 同一主题只允许一条记忆进入当前 Prompt。
+     * 后续的 topicKey 字段上线后，这里会更准确；
+     * 现在也会基于已有正文生成降级主题键。
+     */
+    if (selectedTopicKeys.has(topicKey)) {
+      continue;
+    }
 
     const line = formatMemoryForPrompt(item.memory);
 
@@ -263,10 +587,22 @@ export const getChatMemoryContext = async ({
       continue;
     }
 
-    // 避免同一类型占满全部上下文；边界类除外。
+    /*
+     * 情绪一轮最多一条，避免角色不断强调旧情绪。
+     * 非表达边界类记忆，同类型最多两条。
+     */
+    if (
+      item.memory.type === MEMORY_TYPES.EMOTION &&
+      selected.some((memory) => memory.type === MEMORY_TYPES.EMOTION)
+    ) {
+      continue;
+    }
+
     if (
       selectedTypes.has(item.memory.type) &&
-      selected.filter((memory) => memory.type === item.memory.type).length >= 2 &&
+      selected.filter((memory) => (
+        memory.type === item.memory.type
+      )).length >= 2 &&
       item.memory.type !== MEMORY_TYPES.EXPRESSION_RULE
     ) {
       continue;
@@ -274,28 +610,48 @@ export const getChatMemoryContext = async ({
 
     selected.push(item.memory);
     selectedTypes.add(item.memory.type);
+    selectedTopicKeys.add(topicKey);
     contextLength += line.length;
   }
 
   if (!selected.length) return '';
 
-  void markMemoriesUsed(selected).catch((error) => {
-    console.warn('[Memory] Failed to mark recalled memories:', error);
+  const turnId = `memory_recall_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+
+  /*
+   * 先同步登记，再返回 Prompt。
+   * 下一个并发请求读取记忆时，已经能看到 cooldownUntil，
+   * 不会继续选中同一条记忆。
+   */
+  const reservedMemories = await reserveMemoriesForRecall({
+    selected,
+    currentUserTokens,
+    turnId
   });
+
+  if (!reservedMemories.length) return '';
 
   return `
 【仅供当前消息框回复参考的共同记忆】
 以下内容仅属于当前消息框。用户当前明确表达的说法永远优先于旧记录。
 只在与当前话题自然相关时参考，不要提及记忆系统、数据库、检索结果或内部字段。
 不得使用已撤回、归档、失效、冲突、被更正或已被替代的记录。
+同一条记忆刚被使用后会暂时退出参考；不要试图以近义记忆重复同一话题。
 情绪线索只在当前语境直接相关时谨慎参考，不得借此向用户施压、催促或制造愧疚。
 角色内部背景不是用户事实，不得将其表述为“用户说过”。
 不要逐条复述以下内容：
 
-${selected.map(formatMemoryForPrompt).join('\n')}
+${reservedMemories.map(formatMemoryForPrompt).join('\n')}
 `;
 };
 
+/*
+ * 为保留与旧调用方的兼容性而保留。
+ * 新的 getChatMemoryContext 已在返回 Prompt 前同步完成登记，
+ * 正常聊天流程不应再额外调用这个函数。
+ */
 export const markMemoriesUsed = async (memories = []) => {
   const ids = [...new Set(
     memories
@@ -305,7 +661,7 @@ export const markMemoriesUsed = async (memories = []) => {
 
   if (!ids.length) return;
 
-  const now = new Date().toISOString();
+  const nowIso = new Date().toISOString();
 
   await db.transaction('rw', db.memories, async () => {
     for (const id of ids) {
@@ -320,8 +676,9 @@ export const markMemoriesUsed = async (memories = []) => {
       }
 
       await db.memories.update(id, {
-        lastUsedAt: now,
-        lastRetrievedAt: now,
+        ...memory,
+        lastUsedAt: nowIso,
+        lastRetrievedAt: nowIso,
         useCount: Number(memory.useCount || 0) + 1
       });
     }

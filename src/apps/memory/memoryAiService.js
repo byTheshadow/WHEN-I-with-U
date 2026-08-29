@@ -5,10 +5,20 @@ import {
 } from './memorySignals';
 
 import {
+  buildTemporalDataFromSource,
+  extractTemporalExpression
+} from './memoryTemporal';
+
+import {
   MEMORY_CANDIDATE_STATUSES,
   MEMORY_CONFIDENCES,
+  MEMORY_EMOTION_SUBJECTS,
+  MEMORY_RECALL_POLICIES,
+  MEMORY_SCOPES,
   MEMORY_SOURCE_KINDS,
-  MEMORY_SOURCE_STATES
+  MEMORY_SOURCE_STATES,
+  MEMORY_STABILITIES,
+  MEMORY_SUBJECTS
 } from './memoryConstants';
 
 const MAX_SOURCE_MESSAGES = 40;
@@ -103,6 +113,130 @@ const isAllowedMemoryType = (value) => (
   ].includes(value)
 );
 
+const normalizeSubject = (value, type) => {
+  if (Object.values(MEMORY_SUBJECTS).includes(value)) {
+    return value;
+  }
+
+  if (type === 'character_thought') {
+    return MEMORY_SUBJECTS.CHARACTER;
+  }
+
+  if (type === 'relationship') {
+    return MEMORY_SUBJECTS.RELATIONSHIP;
+  }
+
+  if (type === 'episode') {
+    return MEMORY_SUBJECTS.SHARED;
+  }
+
+  return MEMORY_SUBJECTS.USER;
+};
+
+const normalizeEmotionSubject = (value, subject, type) => {
+  if (type !== 'emotion') {
+    return null;
+  }
+
+  if (Object.values(MEMORY_EMOTION_SUBJECTS).includes(value)) {
+    return value;
+  }
+
+  if (
+    subject === MEMORY_SUBJECTS.CHARACTER ||
+    subject === MEMORY_SUBJECTS.RELATIONSHIP ||
+    subject === MEMORY_SUBJECTS.SHARED
+  ) {
+    return subject === MEMORY_SUBJECTS.CHARACTER
+      ? MEMORY_EMOTION_SUBJECTS.CHARACTER
+      : MEMORY_EMOTION_SUBJECTS.SHARED;
+  }
+
+  return MEMORY_EMOTION_SUBJECTS.USER;
+};
+
+const normalizeTopicKey = (value) => (
+  normalizeText(value)
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^\w\u4e00-\u9fff-]/g, '')
+    .slice(0, 60)
+);
+
+const normalizeTopicKeys = (value, topicKey) => {
+  const items = Array.isArray(value)
+    ? value
+    : [];
+
+  const normalized = [
+    ...items,
+    topicKey
+  ]
+    .map((item) => normalizeTopicKey(item))
+    .filter(Boolean);
+
+  return [...new Set(normalized)].slice(0, 8);
+};
+
+const normalizeStability = (value, type) => {
+  if (Object.values(MEMORY_STABILITIES).includes(value)) {
+    return value;
+  }
+
+  if (
+    type === 'preference' ||
+    type === 'expression_rule' ||
+    type === 'relationship'
+  ) {
+    return MEMORY_STABILITIES.ONGOING;
+  }
+
+  if (type === 'character_thought') {
+    return MEMORY_STABILITIES.ONGOING;
+  }
+
+  if (type === 'emotion' || type === 'episode') {
+    return MEMORY_STABILITIES.TEMPORARY;
+  }
+
+  return MEMORY_STABILITIES.ONGOING;
+};
+
+const normalizeMemoryScope = (value, subject) => {
+  if (Object.values(MEMORY_SCOPES).includes(value)) {
+    return value;
+  }
+
+  if (subject === MEMORY_SUBJECTS.CHARACTER) {
+    return MEMORY_SCOPES.CHARACTER_SETTING;
+  }
+
+  if (subject === MEMORY_SUBJECTS.RELATIONSHIP) {
+    return MEMORY_SCOPES.RELATIONSHIP_SETTING;
+  }
+
+  return MEMORY_SCOPES.CONVERSATION;
+};
+
+const normalizeRecallPolicy = (value, memoryScope, type) => {
+  if (Object.values(MEMORY_RECALL_POLICIES).includes(value)) {
+    return value;
+  }
+
+  if (memoryScope === MEMORY_SCOPES.CHARACTER_SETTING) {
+    return MEMORY_RECALL_POLICIES.LOW_FREQUENCY;
+  }
+
+  if (
+    type === 'expression_rule' ||
+    type === 'emotion'
+  ) {
+    return MEMORY_RECALL_POLICIES.WHEN_RELEVANT;
+  }
+
+  return MEMORY_RECALL_POLICIES.NORMAL;
+};
+
 const getSummaryReference = (summary) => {
   if (Array.isArray(summary)) {
     return summary
@@ -143,6 +277,52 @@ const normalizeMessageIds = (
   ];
 };
 
+const getSourceMessagesForItem = (
+  sourceMessageIds,
+  sourceMessages
+) => {
+  const idSet = new Set(sourceMessageIds);
+
+  return sourceMessages.filter((message) => (
+    idSet.has(Number(message.id))
+  ));
+};
+
+const normalizeTemporal = ({
+  item,
+  sourceMessageIds,
+  sourceMessages
+}) => {
+  /*
+   * AI 只提供 temporalExpression，例如“本周五”。
+   * 绝对时间必须由本地代码根据来源消息 timestamp 解析。
+   */
+  const explicitExpression = normalizeText(
+    item?.temporalExpression
+  );
+
+  const sourceText = getSourceMessagesForItem(
+    sourceMessageIds,
+    sourceMessages
+  )
+    .map((message) => normalizeText(message.content))
+    .filter(Boolean)
+    .join('\n');
+
+  const temporalExpression = explicitExpression ||
+    extractTemporalExpression(sourceText);
+
+  if (!temporalExpression) {
+    return null;
+  }
+
+  return buildTemporalDataFromSource({
+    temporalExpression,
+    sourceMessageIds,
+    sourceMessages
+  });
+};
+
 const normalizeMemoryItem = (
   item,
   sourceMessages
@@ -165,21 +345,72 @@ const normalizeMemoryItem = (
     .map((message) => message.timestamp)
     .filter(Boolean);
 
+  const type = isAllowedMemoryType(item?.type)
+    ? item.type
+    : 'fact';
+
+  const subject = normalizeSubject(
+    item?.subject,
+    type
+  );
+
+  const memoryScope = normalizeMemoryScope(
+    item?.memoryScope,
+    subject
+  );
+
+  const topicKey = normalizeTopicKey(
+    item?.topicKey
+  );
+
   return {
     title: normalizeText(item?.title).slice(0, 80),
     content: normalizeText(item?.content).slice(0, 500),
-    type: isAllowedMemoryType(item?.type)
-      ? item.type
-      : 'fact',
+    type,
     importance: normalizeImportance(item?.importance),
     confidence: item?.confidence === 'confirmed'
       ? MEMORY_CONFIDENCES.CONFIRMED
       : MEMORY_CONFIDENCES.INFERRED,
+
+    subject,
+    emotionSubject: normalizeEmotionSubject(
+      item?.emotionSubject,
+      subject,
+      type
+    ),
+
+    topicKey,
+    topicKeys: normalizeTopicKeys(
+      item?.topicKeys,
+      topicKey
+    ),
+
+    stability: normalizeStability(
+      item?.stability,
+      type
+    ),
+
+    memoryScope,
+
+    recallPolicy: normalizeRecallPolicy(
+      item?.recallPolicy,
+      memoryScope,
+      type
+    ),
+
+    temporal: normalizeTemporal({
+      item,
+      sourceMessageIds,
+      sourceMessages
+    }),
+
     sourceMessageIds,
     sourceMessageTimestamps,
+
     sourceState: sourceMessageIds.length > 0
       ? MEMORY_SOURCE_STATES.AVAILABLE
       : MEMORY_SOURCE_STATES.IMPORTED_WITHOUT_SOURCE,
+
     sourceKind: MEMORY_SOURCE_KINDS.CONVERSATION
   };
 };
@@ -344,13 +575,6 @@ const requestMemoryCompletion = async ({
 
     return parseJsonObject(content);
   } catch (error) {
-    /*
-     * 某些 OpenAI 兼容接口支持聊天请求，但不支持
-     * response_format: { type: 'json_object' }。
-     *
-     * 只在明确的参数不兼容情形下降级；
-     * 网络、鉴权、模型不可用等错误不应重复请求。
-     */
     if (!error?.responseFormatUnsupported) {
       throw error;
     }
@@ -380,35 +604,61 @@ const buildSystemPrompt = () => `
 1. 所有记录只属于一个消息框，不能推断到同一角色的其他消息框。
 2. 用户当前明确表达的事实、偏好、边界、纠正和约定优先。
 3. 不要把一次性寒暄、普通问题、无依据的猜测或角色编造内容写成长期事实。
-4. 不要记录敏感隐私细节，除非用户明确要求记住，且内容对持续陪伴确实必要。
-5. 阶段性摘要只用于理解语境，不是可独立引用的证据；每一条输出都必须引用本次对话片段中的 sourceMessageIds。
-6. 明确、稳定且有充分对话依据的内容放入 memories。
-7. 可能变化、含义不完整、存在冲突或需要用户确认的内容放入 candidates。
-7.1 当用户明确表示“不是 X，是 Y”“我之前说错了”“更正一下”或要求以新说法为准时，优先将新说法保留为可用于更正旧理解的候选；不要把旧说法与新说法同时写成两个同等确定的长期事实。
-8. 每项必须引用至少一个 sourceMessageIds；不能引用的内容不要输出。
-9. sourceMessageIds 只能使用本次对话片段中实际提供的数字 ID，不能编造。
-10. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
-11. 不得使用 Emoji。
-12. 只输出严格 JSON，不要 Markdown，不要解释。
+4. 不要把角色自己的台词或想象内容改写为“用户事实”。
+5. 角色的稳定设定、名称、称呼、角色自身背景可以记录，但 subject 必须为 character，memoryScope 必须为 character_setting，recallPolicy 必须为 low_frequency。
+6. 阶段性摘要只用于理解语境，不是可独立引用的证据；每一条输出都必须引用本次对话片段中的 sourceMessageIds。
+7. 明确、稳定且有充分对话依据的内容放入 memories。
+8. 可能变化、含义不完整、存在冲突、计划尚未确认完成或需要用户确认的内容放入 candidates。
+9. 当用户明确表示“不是 X，是 Y”“我之前说错了”“更正一下”或要求以新说法为准时，优先将新说法保留为可用于更正旧理解的候选；不要把旧说法与新说法同时写成两个同等确定的长期事实。
+10. 每项必须引用至少一个 sourceMessageIds；不能引用的内容不要输出。
+11. sourceMessageIds 只能使用本次对话片段中实际提供的数字 ID，不能编造。
+12. 若原话存在“今天、明天、本周五、下周五、下午三点”等时间表达，只输出用户原始 temporalExpression，不得自行换算或编造绝对日期。绝对日期由本地程序根据消息 timestamp 计算。
+13. “周五”“月底”“过几天”等无法明确对应绝对日期的表达，保留原始 temporalExpression，不要猜测具体日期。
+14. 情绪必须区分归属：
+    - 用户情绪：subject 和 emotionSubject 都是 user；
+    - 角色自身情绪：subject 和 emotionSubject 都是 character；
+    - 共同关系中的情绪：subject 为 relationship 或 shared，emotionSubject 为 shared。
+15. 用户短暂情绪通常应为 temporary；角色当前感受可以保留线索，但不得写成永久不变的人格事实。
+16. topicKey 使用简短稳定的主题键，例如 coffee、dating、work_stress、character_name；topicKeys 为相关主题键列表，最多 8 项。
+17. 不要因为角色默认设定已经出现过，就反复输出相同设定。
+18. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
+19. 不得使用 Emoji。
+20. 只输出严格 JSON，不要 Markdown，不要解释。
 
 JSON 格式：
 {
   "memories": [
     {
-      "title": "不超过 20 字",
+      "title": "不超过 50 字",
       "content": "客观、克制、可长期使用的一句话或两句话",
       "type": "fact | preference | episode | relationship | character_thought | emotion | expression_rule | reflection",
       "importance": 1,
       "confidence": "confirmed | inferred",
+      "subject": "user | character | relationship | shared",
+      "emotionSubject": "user | character | shared | null",
+      "topicKey": "简短稳定主题键",
+      "topicKeys": ["主题键"],
+      "stability": "momentary | temporary | ongoing | stable",
+      "memoryScope": "conversation | character_setting | relationship_setting",
+      "recallPolicy": "normal | low_frequency | when_relevant",
+      "temporalExpression": "仅原始时间表达；没有则为空字符串",
       "sourceMessageIds": [1, 2]
     }
   ],
   "candidates": [
     {
-      "title": "不超过 20 字",
+      "title": "不超过 50 字",
       "content": "需要确认或暂存的理解",
       "type": "fact | preference | episode | relationship | character_thought | emotion | expression_rule | reflection",
       "priority": 1,
+      "subject": "user | character | relationship | shared",
+      "emotionSubject": "user | character | shared | null",
+      "topicKey": "简短稳定主题键",
+      "topicKeys": ["主题键"],
+      "stability": "momentary | temporary | ongoing | stable",
+      "memoryScope": "conversation | character_setting | relationship_setting",
+      "recallPolicy": "normal | low_frequency | when_relevant",
+      "temporalExpression": "仅原始时间表达；没有则为空字符串",
       "sourceMessageIds": [1]
     }
   ]
@@ -433,12 +683,6 @@ export const extractMemoryFromConversation = async ({
     throw new Error('目标消息框不存在。');
   }
 
-  /*
-   * 即使调用者已经传入批次，也再次经过来源消息构建函数：
-   * - 统一过滤错误和空消息；
-   * - 限制最多 40 条；
-   * - 确保传给模型的数据格式稳定。
-   */
   const sourceMessages = buildMemorySourceBatch(
     messages,
     MAX_SOURCE_MESSAGES
@@ -496,16 +740,17 @@ ${JSON.stringify(sourceMessages)}
     : [];
 
   return {
-  memories,
-  candidates,
+    memories,
+    candidates,
 
-  // scheduler 仅用于判断“不是 X，是 Y”“我之前说错了”等
-  // 明确更正语义；不会把此字段写进正式记忆数据库。
-  sourceMessages,
+    /*
+     * scheduler 仅用于判断明确更正语义；
+     * 此字段不会直接写入正式记忆。
+     */
+    sourceMessages,
 
-  sourceMessageIds: sourceMessages
-    .map((message) => Number(message.id))
-    .filter(Number.isFinite)
-};
-
+    sourceMessageIds: sourceMessages
+      .map((message) => Number(message.id))
+      .filter(Number.isFinite)
+  };
 };
