@@ -34,6 +34,11 @@ import BubbleCustomizer from './components/BubbleCustomizer';
 import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
+import ChatInteractionMessage from './interactions/ChatInteractionMessage';
+import { createInteractionMessage } from './interactions/interactionService';
+import { INTERACTION_TYPES } from './interactions/interactionRules';
+import './interactions/chat-interactions.css';
+
 
 import {
   registerMcpToolApprovalHandler,
@@ -137,6 +142,26 @@ export const ChatRoom = ({
 
     loadChatData();
     triggerAiResponse(chat.id);
+  };
+
+
+    const handleCreateInteraction = async (interactionType) => {
+    if (!chat?.id || !character?.id) return;
+
+    try {
+      await createInteractionMessage({
+        chatId: chat.id,
+        characterId: character.id,
+        interactionType,
+      });
+
+      await loadChatData();
+    } catch (error) {
+      console.error(
+        '[ChatRoom] 创建聊天互动失败：',
+        error
+      );
+    }
   };
 
   const scrollAreaRef = useRef(null);
@@ -657,7 +682,7 @@ useEffect(() => {
                     </div>
                   )}
 
-                  {/* 消息气泡正文 */}
+                                {/* 消息气泡正文 */}
                   <div className="flex flex-col gap-1">
                     {isErrorMsg ? (
                       <div
@@ -670,9 +695,15 @@ useEffect(() => {
                       >
                         <div className="flex items-center gap-1.5 font-bold font-mono text-[11px] text-red-500">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          <span>API 报错: {msg.metadata?.errorCode || 'ERROR'}</span>
+                          <span>
+                            API 报错: {msg.metadata?.errorCode || 'ERROR'}
+                          </span>
                         </div>
-                        <p className="text-[11px] opacity-90">{msg.content}</p>
+
+                        <p className="text-[11px] opacity-90">
+                          {msg.content}
+                        </p>
+
                         <button
                           type="button"
                           onClick={() => handleRerollMessage(msg.id)}
@@ -682,20 +713,72 @@ useEffect(() => {
                           <span>重新尝试 (Re-roll)</span>
                         </button>
                       </div>
+                    ) : msg.type === 'interaction' ? (
+                      <ChatInteractionMessage
+                        message={msg}
+                        character={character}
+                        onResolved={loadChatData}
+                      />
                     ) : (
                       <div
                         className={`relative p-3 shadow-sm transition-all chat-font ${
                           isUser ? 'user-bubble' : 'ai-bubble'
                         }`}
                       >
-                        {msg.type === 'text' && <TextCard content={msg.content} />}
-                        {msg.type === 'image' && <ImageCard content={msg.content} metadata={msg.metadata} />}
-                        {msg.type === 'voice' && <VoiceCard content={msg.content} metadata={msg.metadata} />}
-                        {msg.type === 'transfer' && <TransferCard content={msg.content} metadata={msg.metadata} sender={msg.sender} />}
-                        {msg.type === 'article' && <ArticleCard content={msg.content} metadata={msg.metadata} />}
-                        {msg.type === 'gift' && <GiftCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
-                        {msg.type === 'food' && <FoodDeliveryCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
-                        {msg.type === 'kinship' && <KinshipCard metadata={msg.metadata} isUser={msg.sender === 'user'} />}
+                        {msg.type === 'text' && (
+                          <TextCard content={msg.content} />
+                        )}
+
+                        {msg.type === 'image' && (
+                          <ImageCard
+                            content={msg.content}
+                            metadata={msg.metadata}
+                          />
+                        )}
+
+                        {msg.type === 'voice' && (
+                          <VoiceCard
+                            content={msg.content}
+                            metadata={msg.metadata}
+                          />
+                        )}
+
+                        {msg.type === 'transfer' && (
+                          <TransferCard
+                            content={msg.content}
+                            metadata={msg.metadata}
+                            sender={msg.sender}
+                          />
+                        )}
+
+                        {msg.type === 'article' && (
+                          <ArticleCard
+                            content={msg.content}
+                            metadata={msg.metadata}
+                          />
+                        )}
+
+                        {msg.type === 'gift' && (
+                          <GiftCard
+                            metadata={msg.metadata}
+                            isUser={msg.sender === 'user'}
+                          />
+                        )}
+
+                        {msg.type === 'food' && (
+                          <FoodDeliveryCard
+                            metadata={msg.metadata}
+                            isUser={msg.sender === 'user'}
+                          />
+                        )}
+
+                        {msg.type === 'kinship' && (
+                          <KinshipCard
+                            metadata={msg.metadata}
+                            isUser={msg.sender === 'user'}
+                          />
+                        )}
+
                         {msg.type === 'sticker' && (
                           <StickerCard
                             metadata={msg.metadata}
@@ -705,6 +788,7 @@ useEffect(() => {
                       </div>
                     )}
                   </div>
+
 
                   {/* 悬浮工具 */}
                   <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -1013,15 +1097,32 @@ useEffect(() => {
           }}
         >
           <div className="flex items-center gap-1 opacity-80">
-            <InteractiveMenuPopover 
-              onSelectAction={(type) => {
-                if (type === 'sticker') {
-                  setShowStickerModal(true);
-                } else {
-                  setSelectedType(type);
-                }
-              }} 
-            />
+           <InteractiveMenuPopover
+  onSelectAction={(type) => {
+    if (type === 'sticker') {
+      setShowStickerModal(true);
+      return;
+    }
+
+    if (type === 'interaction_coin') {
+      void handleCreateInteraction(INTERACTION_TYPES.COIN);
+      return;
+    }
+
+    if (type === 'interaction_dice') {
+      void handleCreateInteraction(INTERACTION_TYPES.DICE);
+      return;
+    }
+
+    if (type === 'interaction_rps') {
+      void handleCreateInteraction(INTERACTION_TYPES.RPS);
+      return;
+    }
+
+    setSelectedType(type);
+  }}
+/>
+
 
             <button
               type="button"

@@ -1,5 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Gift, Utensils, CreditCard, X, Smile } from 'lucide-react';
+import {
+  Sparkles,
+  Gift,
+  Utensils,
+  CreditCard,
+  X,
+  Smile,
+  CircleDot,
+  Box,
+  Swords,
+} from 'lucide-react';
+
 
 export const InteractiveMenuPopover = ({ onSelectAction }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,7 +51,7 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
       {/* 向上平滑展开的子菜单 */}
       {isOpen && (
         <div
-          className="absolute bottom-12 left-0 mb-1 w-44 rounded-2xl p-2 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute bottom-12 left-0 mb-1 w-48 rounded-2xl p-2 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
           style={{
             backgroundColor: 'var(--card-bg)',
             borderColor: 'var(--card-border)',
@@ -100,6 +111,45 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
               <span>开通亲属卡</span>
             </button>
           </div>
+          <div
+  className="mt-2 border-t pt-2"
+  style={{ borderColor: 'var(--card-border)' }}
+>
+  <div className="px-2 pb-1 text-[10px] font-semibold opacity-60">
+    桌面游戏
+  </div>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_coin')}
+    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <CircleDot className="h-3.5 w-3.5" />
+    <span>抛旧硬币</span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_dice')}
+    className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Box className="h-3.5 w-3.5" />
+    <span>掷六面骰</span>
+  </button>
+
+  <button
+    type="button"
+    onClick={() => handleAction('interaction_rps')}
+    className="mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:opacity-85"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Swords className="h-3.5 w-3.5" />
+    <span>猜拳</span>
+  </button>
+</div>
+
         </div>
       )}
     </div>
