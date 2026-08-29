@@ -8,6 +8,10 @@ import {
   getChatMemory,
   getMemoryJob
 } from './memoryService';
+import {
+  applyCharacterEmotionMemory
+} from './memoryCharacterState';
+
 
 
 
@@ -161,6 +165,10 @@ const persistExtractionResult = async ({
   extraction,
   lastProcessedMessageId
 }) => {
+      const chat = await db.chats.get(chatId);
+
+  const characterId = chat?.characterId || null;
+
   const [
     existingMemories,
     existingCandidates
@@ -304,10 +312,22 @@ const persistExtractionResult = async ({
         note: '由对话整理形成。'
       });
 
-      existingMemories.push(createdMemory);
+          existingMemories.push(createdMemory);
       existingContents.add(comparableContent);
+
+      /*
+       * 仅正式写入、且归属于角色/共同关系的情绪记忆，
+       * 才会进入角色当前情绪状态。
+       */
+      await applyCharacterEmotionMemory({
+        chatId,
+        characterId,
+        memory: createdMemory
+      });
+
       createdMemories += 1;
       continue;
+
     }
 
     if (

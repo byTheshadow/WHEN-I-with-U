@@ -337,3 +337,88 @@ export const markCharacterInteraction = async ({
 };
 
 export const getCharacterStateRefreshDelay = () => 6 * HOUR;
+export const applyCharacterEmotionMemory = async ({
+  chatId,
+  characterId = null,
+  memory = null
+}) => {
+  if (!isValidChatId(chatId) || !memory) {
+    return null;
+  }
+
+  /*
+   * 只接受角色自身或共同关系中的情绪记录。
+   * 用户情绪记录绝不能直接写入角色状态。
+   */
+  if (
+    memory.type !== 'emotion' ||
+    !['character', 'shared'].includes(memory.emotionSubject)
+  ) {
+    return null;
+  }
+
+  const rawDelta = (
+    memory.moodDelta &&
+    typeof memory.moodDelta === 'object'
+  )
+    ? memory.moodDelta
+    : null;
+
+  if (!rawDelta) {
+    return null;
+  }
+
+  const previousState = await getCharacterState({
+    chatId,
+    characterId
+  });
+
+  const nextMood = { ...previousState.mood };
+
+  for (const key of MOOD_KEYS) {
+    const delta = Number(rawDelta[key]);
+
+    if (!Number.isFinite(delta)) {
+      continue;
+    }
+
+    /*
+     * 即使 AI 输出异常值，角色状态每次最多只移动 0.2。
+     * 角色有连续情绪，但不能被单条记忆剧烈改写。
+     */
+    const safeDelta = Math.max(
+      -0.2,
+      Math.min(0.2, delta)
+    );
+
+    nextMood[key] = clampMoodValue(
+      Number(nextMood[key] || 0) + safeDelta
+    );
+  }
+
+  /*
+   * 关系中的温暖、喜悦或想念可以自然增加；
+   * 但角色的 hurt 不得因为其他情绪记录被动高涨。
+   * 若用户需要空间，角色应更克制，而非更受伤。
+   */
+  if (
+    memory.emotionSubject === 'shared' &&
+    Number(rawDelta.hurt || 0) > 0
+  ) {
+    nextMood.hurt = Math.min(
+      nextMood.hurt,
+      previousState.mood.hurt + 0.08
+    );
+  }
+
+  return updateCharacterState({
+    chatId,
+    characterId,
+    mood: nextMood,
+    sourceMemoryIds: [
+      ...(previousState.sourceMemoryIds || []),
+      memory.memoryId
+    ],
+    lastInteractionAt: previousState.lastInteractionAt
+  });
+};

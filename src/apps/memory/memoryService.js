@@ -20,6 +20,13 @@ import {
   normalizeComparableText
 } from './memoryQuality';
 
+
+import {
+  applyCharacterEmotionMemory
+} from './memoryCharacterState';
+
+
+
 const createStableId = (prefix) => {
   if (
     typeof crypto !== 'undefined' &&
@@ -1079,7 +1086,12 @@ export const acceptMemoryCandidate = async (
 
   const now = toIsoNow();
 
+  const chat = await db.chats.get(candidate.chatId);
+
+  const characterId = chat?.characterId || null;
+
   const nextTitle = normalizeText(
+
     title === undefined ? candidate.title : title
   );
 
@@ -1337,7 +1349,7 @@ export const acceptMemoryCandidate = async (
     }
   );
 
-  if (
+   if (
     acceptedMemory &&
     sourceKind === MEMORY_SOURCE_KINDS.CONVERSATION &&
     !acceptedMemory.acceptedAsDuplicate
@@ -1345,7 +1357,27 @@ export const acceptMemoryCandidate = async (
     await refreshMemorySourceState(acceptedMemory.memoryId);
   }
 
+  /*
+   * 仅新建正式记忆时应用情绪状态：
+   * - CREATE：新建，应用
+   * - CORRECT_EXISTING：创建一条更正后的新记忆，应用
+   * - UPDATE_EXISTING：只更新旧记忆，不重复叠加
+   * - DUPLICATE：采纳已有记忆，不重复叠加
+   */
+  if (
+    acceptedMemory &&
+    proposalType !== MEMORY_CANDIDATE_PROPOSALS.UPDATE_EXISTING &&
+    proposalType !== MEMORY_CANDIDATE_PROPOSALS.DUPLICATE
+  ) {
+    await applyCharacterEmotionMemory({
+      chatId: candidate.chatId,
+      characterId,
+      memory: acceptedMemory
+    });
+  }
+
   return acceptedMemory;
+
 };
 
 export const dismissMemoryCandidate = async (

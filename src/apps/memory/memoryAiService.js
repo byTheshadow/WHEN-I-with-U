@@ -323,6 +323,46 @@ const normalizeTemporal = ({
   });
 };
 
+const normalizeMoodDelta = (value) => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const allowedKeys = [
+    'warmth',
+    'calm',
+    'joy',
+    'concern',
+    'longing',
+    'hurt',
+    'fatigue'
+  ];
+
+  const result = {};
+
+  for (const key of allowedKeys) {
+    const numberValue = Number(value[key]);
+
+    if (!Number.isFinite(numberValue)) {
+      continue;
+    }
+
+    /*
+     * 单次事件不能让角色发生过大跃迁。
+     * 最终状态还会由 memoryCharacterState.js 再次限制。
+     */
+    result[key] = Math.max(
+      -0.35,
+      Math.min(0.35, numberValue)
+    );
+  }
+
+  return Object.keys(result).length > 0
+    ? result
+    : null;
+};
+
+
 const normalizeMemoryItem = (
   item,
   sourceMessages
@@ -398,15 +438,34 @@ const normalizeMemoryItem = (
       type
     ),
 
-    temporal: normalizeTemporal({
+       temporal: normalizeTemporal({
       item,
       sourceMessageIds,
       sourceMessages
     }),
 
-    
+    /*
+     * 只有角色自身或共同关系情绪允许影响角色当前状态。
+     * 用户情绪仅作为用户情绪线索保存，不能被错误转化为角色心情。
+     */
+    moodDelta: (
+      type === 'emotion' &&
+      [
+        MEMORY_EMOTION_SUBJECTS.CHARACTER,
+        MEMORY_EMOTION_SUBJECTS.SHARED
+      ].includes(
+        normalizeEmotionSubject(
+          item?.emotionSubject,
+          subject,
+          type
+        )
+      )
+    )
+      ? normalizeMoodDelta(item?.moodDelta)
+      : null,
 
     sourceMessageIds,
+
     sourceMessageTimestamps,
 
     sourceState: sourceMessageIds.length > 0
@@ -621,11 +680,15 @@ const buildSystemPrompt = () => `
     - 角色自身情绪：subject 和 emotionSubject 都是 character；
     - 共同关系中的情绪：subject 为 relationship 或 shared，emotionSubject 为 shared。
 15. 用户短暂情绪通常应为 temporary；角色当前感受可以保留线索，但不得写成永久不变的人格事实。
-16. topicKey 使用简短稳定的主题键，例如 coffee、dating、work_stress、character_name；topicKeys 为相关主题键列表，最多 8 项。
-17. 不要因为角色默认设定已经出现过，就反复输出相同设定。
-18. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
-19. 不得使用 Emoji。
-20. 只输出严格 JSON，不要 Markdown，不要解释。
+16. 当且仅当 type 为 emotion 且 emotionSubject 为 character 或 shared 时，可以输出 moodDelta，用于轻微调整角色当前情绪状态。
+17. moodDelta 只能使用 warmth、calm、joy、concern、longing、hurt、fatigue 这些字段；数值范围必须在 -0.35 到 0.35 之间。
+18. 用户情绪的 emotionSubject 为 user，moodDelta 必须为 null；不要把用户难过、疲惫或开心直接等同于角色的失落、疲惫或开心。
+19. 角色的情绪变化必须克制：例如用户分享好消息可以提高 joy 或 warmth；用户需要空间时可轻微提高 concern，但不要借此制造角色受伤、委屈或被忽视的叙事。
+20. topicKey 使用简短稳定的主题键，例如 coffee、dating、work_stress、character_name；topicKeys 为相关主题键列表，最多 8 项。
+21.不要因为角色默认设定已经出现过，就反复输出相同设定。
+22. 最多输出 ${MAX_MEMORY_ITEMS} 条 memories 和 ${MAX_CANDIDATE_ITEMS} 条 candidates。
+23. 不得使用 Emoji。
+24. 只输出严格 JSON，不要 Markdown，不要解释。
 
 JSON 格式：
 {
@@ -644,7 +707,12 @@ JSON 格式：
       "memoryScope": "conversation | character_setting | relationship_setting",
       "recallPolicy": "normal | low_frequency | when_relevant",
       "temporalExpression": "仅原始时间表达；没有则为空字符串",
-      "sourceMessageIds": [1, 2]
+"moodDelta": {
+  "warmth": 0.1,
+  "joy": 0.08
+},
+"sourceMessageIds": [1, 2]
+
     }
   ],
   "candidates": [
@@ -660,8 +728,12 @@ JSON 格式：
       "stability": "momentary | temporary | ongoing | stable",
       "memoryScope": "conversation | character_setting | relationship_setting",
       "recallPolicy": "normal | low_frequency | when_relevant",
-      "temporalExpression": "仅原始时间表达；没有则为空字符串",
-      "sourceMessageIds": [1]
+     "temporalExpression": "仅原始时间表达；没有则为空字符串",
+"moodDelta": {
+  "warmth": 0.1
+},
+"sourceMessageIds": [1]
+
     }
   ]
 }
