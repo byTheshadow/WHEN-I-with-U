@@ -6,23 +6,10 @@ import {
   listMcpTools,
 } from './mcpClientService';
 
-export const MCP_TRANSPORTS = {
-  STREAMABLE_HTTP: 'streamable-http',
+import {
+  MCP_TRANSPORTS,
+} from './mcpTransportRegistry';
 
-  /*
-   * 用户 Bridge 暴露标准 MCP HTTP Endpoint。
-   * 当前版本与 Streamable HTTP 共用真正的请求实现。
-   */
-  BRIDGE_HTTP: 'bridge-http',
-
-  /*
-   * 以下类型先作为连接数据模型和导入格式的兼容项。
-   * 在实际 Transport 实现前，不能被 testAndSyncMcpConnection 当作可用连接。
-   */
-  SSE: 'sse',
-  BRIDGE_WEBSOCKET: 'bridge-websocket',
-  CUSTOM: 'custom',
-};
 
 export const MCP_PROVIDERS = {
   GENERIC: 'generic',

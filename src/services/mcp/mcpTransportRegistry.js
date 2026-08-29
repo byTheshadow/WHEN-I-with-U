@@ -1,6 +1,11 @@
-import {
-  MCP_TRANSPORTS,
-} from './mcpConnectionService';
+export const MCP_TRANSPORTS = {
+  STREAMABLE_HTTP: 'streamable-http',
+  BRIDGE_HTTP: 'bridge-http',
+  SSE: 'sse',
+  BRIDGE_WEBSOCKET: 'bridge-websocket',
+  CUSTOM: 'custom',
+};
+
 
 const SUPPORTED_TRANSPORTS = new Set([
   MCP_TRANSPORTS.STREAMABLE_HTTP,

@@ -10,6 +10,10 @@ import {
   MCP_PERMISSION_SCOPES,
   saveMcpPermission,
 } from './mcp/mcpPermissionService';
+import {
+  makeMcpAiToolResult,
+} from './mcp/mcpResultNormalizer';
+
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -71,7 +75,6 @@ export const buildMcpToolDefinitions = async () => {
       connectionStatus: tool.connection?.status,
     })),
   );
-
 
   const registry = new Map();
 
@@ -136,52 +139,19 @@ const parseToolArguments = (rawArguments) => {
 };
 
 const makeToolResultText = (toolResult) => {
-  const content = Array.isArray(toolResult?.content)
-    ? toolResult.content
-    : [];
-
-  const textParts = content
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return String(item || '');
-      }
-
-      if (item.type === 'text') {
-        return String(item.text || '');
-      }
-
-      if (item.type === 'image') {
-        return '[工具返回了一张图片。]';
-      }
-
-      if (item.type === 'resource') {
-        return '[工具返回了一项资源。]';
-      }
-
-      if (item.type === 'audio') {
-        return '[工具返回了一段音频。]';
-      }
-
-      return JSON.stringify(item);
-    })
-    .filter(Boolean);
-
-  const payload = {
-    isError: toolResult?.isError === true,
-    content: textParts.join('\n').trim(),
-    structuredContent: toolResult?.structuredContent || null,
-  };
-
-  return JSON.stringify(payload);
+  return makeMcpAiToolResult(toolResult);
 };
 
 const addMcpActivity = async ({
   connectionId,
   toolName,
-  chatId,
-  characterId,
+  chatId = null,
+  characterId = null,
+  source = 'chat',
   status,
   errorCode = '',
+  automationId = null,
+  executorId = null,
 }) => {
   try {
     await db.mcpActivities.add({
@@ -189,6 +159,11 @@ const addMcpActivity = async ({
       toolName,
       chatId: chatId ?? null,
       characterId: characterId ?? null,
+
+      source,
+      automationId,
+      executorId,
+
       status,
       errorCode,
       createdAt: nowIso(),
@@ -257,8 +232,11 @@ const requestApprovalSafely = async ({
 const executeMcpToolCall = async ({
   toolCall,
   registry,
-  chatId,
-  characterId,
+  chatId = null,
+  characterId = null,
+  source = 'chat',
+  automationId = null,
+  executorId = null,
   requestToolApproval,
 }) => {
   const temporaryName = toolCall?.function?.name;
@@ -281,6 +259,9 @@ const executeMcpToolCall = async ({
       toolName: tool.toolName,
       chatId,
       characterId,
+      source,
+      automationId,
+      executorId,
       status: 'invalid-arguments',
       errorCode: 'INVALID_ARGUMENTS',
     });
@@ -303,6 +284,9 @@ const executeMcpToolCall = async ({
       toolName: tool.toolName,
       chatId,
       characterId,
+      source,
+      automationId,
+      executorId,
       status: 'denied',
       errorCode: authorization.reason,
     });
@@ -339,6 +323,9 @@ const executeMcpToolCall = async ({
         toolName: tool.toolName,
         chatId,
         characterId,
+        source,
+        automationId,
+        executorId,
         status: 'denied',
         errorCode: 'USER_DENIED',
       });
@@ -367,6 +354,9 @@ const executeMcpToolCall = async ({
       toolName: tool.toolName,
       chatId,
       characterId,
+      source,
+      automationId,
+      executorId,
       status: 'calling',
     });
 
@@ -381,6 +371,9 @@ const executeMcpToolCall = async ({
       toolName: tool.toolName,
       chatId,
       characterId,
+      source,
+      automationId,
+      executorId,
       status: toolResult.isError ? 'tool-error' : 'success',
       errorCode: toolResult.isError ? 'MCP_TOOL_ERROR' : '',
     });
@@ -397,6 +390,9 @@ const executeMcpToolCall = async ({
       toolName: tool.toolName,
       chatId,
       characterId,
+      source,
+      automationId,
+      executorId,
       status: 'failed',
       errorCode: error?.code || 'MCP_CALL_FAILED',
     });
@@ -428,6 +424,11 @@ export const runAiToolOrchestrator = async ({
   apiConfig,
   chatId = null,
   characterId = null,
+
+  source = 'chat',
+  automationId = null,
+  executorId = null,
+
   requestAiCompletion,
   requestToolApproval,
 }) => {
@@ -440,8 +441,9 @@ export const runAiToolOrchestrator = async ({
   }
 
   const { tools, registry } = await buildMcpToolDefinitions();
-console.log('[MCP] 传给 AI 的工具定义数量:', tools.length);
-console.log('[MCP] 传给 AI 的工具:', tools);
+
+  console.log('[MCP] 传给 AI 的工具定义数量:', tools.length);
+  console.log('[MCP] 传给 AI 的工具:', tools);
 
   // 没有任何已启用工具时，完全沿用原有普通 AI 请求。
   if (tools.length === 0) {
@@ -513,6 +515,9 @@ console.log('[MCP] 传给 AI 的工具:', tools);
         registry,
         chatId,
         characterId,
+        source,
+        automationId,
+        executorId,
         requestToolApproval,
       });
 
@@ -530,3 +535,4 @@ console.log('[MCP] 传给 AI 的工具:', tools);
     message: '外接工具调用次数过多，本次对话已安全停止。',
   };
 };
+
