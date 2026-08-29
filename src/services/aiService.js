@@ -5,7 +5,13 @@ import {
   createScheduledMessage
 } from '../apps/messages/scheduledMessageService';
 import { getChatMemoryContext } from '../apps/memory/memoryRetrieval';
+import {
+  getCharacterEmotionContext,
+  markCharacterInteraction
+} from '../apps/memory/memoryCharacterState';
 import { scheduleMemoryProcessing } from '../apps/memory/memoryScheduler';
+
+
 import { runAiToolOrchestrator } from './aiToolOrchestrator';
 
 import {
@@ -633,6 +639,27 @@ const getSafeChatMemoryContext = async ({
     return '';
   }
 };
+
+
+const getSafeCharacterEmotionContext = async ({
+  chatId,
+  characterId
+}) => {
+  try {
+    return await getCharacterEmotionContext({
+      chatId,
+      characterId
+    });
+  } catch (error) {
+    console.warn(
+      '[Memory] Character emotion context skipped safely:',
+      error
+    );
+
+    return '';
+  }
+};
+
 
 
 
@@ -1408,7 +1435,15 @@ const memoryContext = await getSafeChatMemoryContext({
   recentMessages: recentMsgs
 });
 
-const finalSystemPrompt = `${systemPrompt}${userReturnContext}${memoryContext}`;
+const characterEmotionContext = await getSafeCharacterEmotionContext({
+  chatId,
+  characterId: character.id
+});
+
+const finalSystemPrompt = `${
+  systemPrompt
+}${userReturnContext}${memoryContext}${characterEmotionContext}`;
+
 
 const result = await runAiToolOrchestrator({
   systemPrompt: finalSystemPrompt,
@@ -1549,10 +1584,21 @@ if (!result.error) {
 if (!result.error) {
   void checkAndTriggerAutoSummary(chatId, character, apiConfig);
 
+  void markCharacterInteraction({
+    chatId,
+    characterId: character.id
+  }).catch((error) => {
+    console.warn(
+      '[Memory] Character state settlement skipped safely:',
+      error
+    );
+  });
+
   // 记忆整理是独立、延迟、非阻塞的后台任务。
   // 它不写入聊天消息，也不会影响当前回复。
   void scheduleMemoryProcessing(chatId);
 }
+
 
   } catch (err) {
     console.error('Background AI task error:', err);
@@ -1623,13 +1669,22 @@ const latestUserMessage = [...historyMessages]
     message.content.trim()
   ));
 
+
 const memoryContext = await getSafeChatMemoryContext({
   chatId,
   userText: latestUserMessage?.content || '',
   recentMessages: historyMessages
 });
 
-const finalSystemPrompt = `${systemPrompt}${memoryContext}`;
+const characterEmotionContext = await getSafeCharacterEmotionContext({
+  chatId,
+  characterId: character.id
+});
+
+const finalSystemPrompt = `${
+  systemPrompt
+}${memoryContext}${characterEmotionContext}`;
+
 
 const result = await runAiToolOrchestrator({
   systemPrompt: finalSystemPrompt,
@@ -1727,6 +1782,21 @@ const parsed = await parseAiResponseToMessages(result.content);
     }
   } catch (err) {
     console.error('Reroll failed:', err);
+
+    if (!result.error) {
+  void markCharacterInteraction({
+    chatId,
+    characterId: character.id
+  }).catch((error) => {
+    console.warn(
+      '[Memory] Character state settlement skipped safely:',
+      error
+    );
+  });
+
+  void scheduleMemoryProcessing(chatId);
+}
+
 
     notifyListeners({
       type: 'AI_RESPONSE_ERROR',
@@ -1935,7 +2005,15 @@ const autoSendGuide = `
 - 字数控制在 100 字以内。
 `;
 
-const finalSystemPrompt = `${systemPrompt}${memoryContext}${autoSendGuide}`;
+const characterEmotionContext = await getSafeCharacterEmotionContext({
+  chatId,
+  characterId: character.id
+});
+
+const finalSystemPrompt = `${
+  systemPrompt
+}${memoryContext}${characterEmotionContext}${autoSendGuide}`;
+
 
 const finalMessages = [
   {
@@ -2065,6 +2143,19 @@ const finalMessages = [
       );
       return null;
     }
+
+    void markCharacterInteraction({
+  chatId,
+  characterId: character.id
+}).catch((error) => {
+  console.warn(
+    '[Memory] Character state settlement skipped safely:',
+    error
+  );
+});
+
+void scheduleMemoryProcessing(chatId);
+
 
     playMessageSound('receive');
 

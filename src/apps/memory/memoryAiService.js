@@ -404,6 +404,8 @@ const normalizeMemoryItem = (
       sourceMessages
     }),
 
+    
+
     sourceMessageIds,
     sourceMessageTimestamps,
 
