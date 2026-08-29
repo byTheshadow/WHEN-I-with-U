@@ -1174,7 +1174,7 @@ export const BondConnection = () => {
             <div className="space-y-3 text-xs">
               <div>
 
-            <div>
+        
   <label className="mb-1 block text-[10px] opacity-60">
     连接方式
   </label>
