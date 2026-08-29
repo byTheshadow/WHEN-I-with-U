@@ -1,3 +1,7 @@
+import {
+  assertMcpTransportSupported,
+} from './mcpTransportRegistry';
+
 const DEFAULT_PROTOCOL_VERSION = '2025-03-26';
 
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -177,6 +181,8 @@ const sendJsonRpcRequest = async ({
   notification = false,
   session = null,
 }) => {
+      assertMcpTransportSupported(connection);
+
   const endpoint = cleanEndpoint(connection?.endpoint);
 
   if (!endpoint) {

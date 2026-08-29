@@ -21,10 +21,21 @@ import {
   Wrench,
   X,
   XCircle,
+  Bot,
+Cable,
+CircleHelp,
+FileCode2,
+HardDrive,
+
+
 } from 'lucide-react';
 
 import GlassCard from '../../../components/GlassCard';
 import ConfirmModal from '../../../components/ConfirmModal';
+import {
+  getMcpTransportLabel,
+} from '../../../services/mcp/mcpTransportRegistry';
+
 
 import {
   createMcpConnection,
@@ -36,6 +47,10 @@ import {
   setMcpToolRiskLevel,
   testAndSyncMcpConnection,
   updateMcpConnection,
+  MCP_EXECUTION_MODES,
+MCP_PROVIDERS,
+MCP_TRANSPORTS,
+
 } from '../../../services/mcp/mcpConnectionService';
 
 import {
@@ -48,9 +63,24 @@ import {
 const EMPTY_DRAFT = {
   name: '',
   endpoint: '',
+
+  connectionKind: 'remote',
+
+  provider: MCP_PROVIDERS.GENERIC,
+  transport: MCP_TRANSPORTS.STREAMABLE_HTTP,
+  executionMode: MCP_EXECUTION_MODES.BROWSER_DIRECT,
+
+  bridgeLabel: '',
+
+  sourceKind: 'endpoint',
+  stdioCommand: '',
+  stdioArgsText: '',
+  stdioEnvKeysText: '',
+
   authType: 'none',
   token: '',
 };
+
 
 const getStatusLabel = (status) => {
   switch (status) {
@@ -89,67 +119,105 @@ const getRiskLabel = (riskLevel) => {
   }
 };
 
-const makeDraftFromConnection = (connection) => ({
-  name: connection?.name || '',
-  endpoint: connection?.endpoint || '',
-  authType: connection?.auth?.type === 'bearer' ? 'bearer' : 'none',
-  token: connection?.auth?.token || '',
-});
+const makeDraftFromConnection = (connection) => {
+  const isBridge =
+    connection?.transport === MCP_TRANSPORTS.BRIDGE_HTTP ||
+    connection?.executionMode === MCP_EXECUTION_MODES.USER_BRIDGE;
 
-const Toggle = ({
-  checked,
-  disabled = false,
-  label,
-  onChange,
-  showState = true,
-}) => (
-  <div className="flex shrink-0 items-center gap-2">
-    {showState && (
-      <span
-        className={`whitespace-nowrap text-[10px] font-semibold ${
-          checked
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-[var(--text-muted)] opacity-70'
-        }`}
-      >
-        {checked ? '已启用' : '未启用'}
-      </span>
-    )}
+  return {
+    name: connection?.name || '',
+    endpoint: connection?.endpoint || '',
 
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className="relative h-7 w-12 shrink-0 rounded-full border transition-all disabled:cursor-not-allowed disabled:opacity-40"
-      style={{
-        background: checked
-          ? 'var(--accent-color)'
-          : 'var(--control-soft-bg)',
-        borderColor: checked
-          ? 'var(--accent-color)'
-          : 'var(--text-muted)',
-      }}
-    >
-      <span
-        className="absolute top-[3px] h-[19px] w-[19px] rounded-full shadow-md transition-transform"
-        style={{
-          transform: checked
-            ? 'translateX(24px)'
-            : 'translateX(3px)',
-          background: checked
-            ? 'var(--accent-foreground)'
-            : 'var(--text-main)',
-          border: checked
-            ? '1px solid transparent'
-            : '1px solid var(--divider)',
-        }}
-      />
-    </button>
-  </div>
-);
+    connectionKind: isBridge ? 'bridge' : 'remote',
+
+    provider:
+      connection?.provider ||
+      (isBridge
+        ? MCP_PROVIDERS.BRIDGE
+        : MCP_PROVIDERS.GENERIC),
+
+    transport:
+      connection?.transport ||
+      (isBridge
+        ? MCP_TRANSPORTS.BRIDGE_HTTP
+        : MCP_TRANSPORTS.STREAMABLE_HTTP),
+
+    executionMode:
+      connection?.executionMode ||
+      (isBridge
+        ? MCP_EXECUTION_MODES.USER_BRIDGE
+        : MCP_EXECUTION_MODES.BROWSER_DIRECT),
+
+    bridgeLabel: connection?.bridge?.label || '',
+
+    sourceKind:
+      connection?.source?.kind === 'stdio'
+        ? 'stdio'
+        : 'endpoint',
+
+    stdioCommand: connection?.source?.command || '',
+    stdioArgsText: Array.isArray(connection?.source?.args)
+      ? connection.source.args.join('\n')
+      : '',
+
+    stdioEnvKeysText: Array.isArray(connection?.source?.envKeys)
+      ? connection.source.envKeys.join('\n')
+      : '',
+
+    authType:
+      connection?.auth?.type === 'bearer'
+        ? 'bearer'
+        : 'none',
+
+    token: connection?.auth?.token || '',
+  };
+};
+
+const parseLineList = (value = '') =>
+  String(value || '')
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const updateDraftConnectionKind = (kind) => {
+  if (kind === 'bridge') {
+    return {
+      connectionKind: 'bridge',
+      provider: MCP_PROVIDERS.BRIDGE,
+      transport: MCP_TRANSPORTS.BRIDGE_HTTP,
+      executionMode: MCP_EXECUTION_MODES.USER_BRIDGE,
+    };
+  }
+
+  return {
+    connectionKind: 'remote',
+    provider: MCP_PROVIDERS.GENERIC,
+    transport: MCP_TRANSPORTS.STREAMABLE_HTTP,
+    executionMode: MCP_EXECUTION_MODES.BROWSER_DIRECT,
+    bridgeLabel: '',
+    sourceKind: 'endpoint',
+    stdioCommand: '',
+    stdioArgsText: '',
+    stdioEnvKeysText: '',
+  };
+};
+
+const getConnectionKindCopy = (kind) => {
+  if (kind === 'bridge') {
+    return {
+      title: '使用我的 Bridge',
+      description:
+        '连接你自行运行的 Bridge 所暴露的标准 MCP HTTP 地址。',
+    };
+  }
+
+  return {
+    title: '远程 MCP 地址',
+    description:
+      '连接可由当前浏览器访问的远程 Streamable HTTP MCP 服务。',
+  };
+};
+
 
 
 const StatusMark = ({ status }) => {
@@ -265,13 +333,52 @@ export const BondConnection = () => {
 
     try {
       const payload = {
-        name: draft.name,
-        endpoint: draft.endpoint,
-        auth: {
-          type: draft.authType,
-          token: draft.authType === 'bearer' ? draft.token : '',
-        },
-      };
+  name: draft.name,
+  endpoint: draft.endpoint,
+
+  provider: draft.provider,
+  transport: draft.transport,
+  executionMode: draft.executionMode,
+
+  bridge: {
+    label:
+      draft.connectionKind === 'bridge'
+        ? draft.bridgeLabel
+        : '',
+  },
+
+  source: {
+    kind:
+      draft.connectionKind === 'bridge' &&
+      draft.sourceKind === 'stdio'
+        ? 'stdio'
+        : 'endpoint',
+
+    command:
+      draft.connectionKind === 'bridge' &&
+      draft.sourceKind === 'stdio'
+        ? draft.stdioCommand
+        : '',
+
+    args:
+      draft.connectionKind === 'bridge' &&
+      draft.sourceKind === 'stdio'
+        ? parseLineList(draft.stdioArgsText)
+        : [],
+
+    envKeys:
+      draft.connectionKind === 'bridge' &&
+      draft.sourceKind === 'stdio'
+        ? parseLineList(draft.stdioEnvKeysText)
+        : [],
+  },
+
+  auth: {
+    type: draft.authType,
+    token: draft.authType === 'bearer' ? draft.token : '',
+  },
+};
+
 
       let connection;
 
@@ -530,8 +637,8 @@ export const BondConnection = () => {
             border: '1px solid var(--divider)',
           }}
         >
-          仅支持可由浏览器直接访问的远程 MCP 服务。连接文件不会包含
-          Token；私密工具在首次调用时仍需要你的确认。
+          可连接浏览器可访问的远程 MCP，也可使用你自行运行的 Bridge
+所提供的兼容入口。连接文件不会包含 Token；私密工具在首次调用时仍需要你的确认。
         </div>
 
         {notice.type !== 'idle' && (
@@ -642,10 +749,34 @@ export const BondConnection = () => {
                           {connection.name}
                         </p>
 
-                        <p className="mt-0.5 truncate text-[10px] opacity-45">
-                          {connection.serverInfo?.name ||
-                            connection.endpoint}
-                        </p>
+                      <p className="mt-0.5 truncate text-[10px] opacity-45">
+  {connection.serverInfo?.name || connection.endpoint}
+</p>
+
+<div className="mt-1 flex flex-wrap items-center gap-1.5">
+  <span
+    className="rounded-full px-1.5 py-0.5 text-[9px] opacity-60"
+    style={{
+      background: 'var(--card-bg-gradient)',
+      border: '1px solid var(--divider)',
+    }}
+  >
+    {getMcpTransportLabel(connection.transport)}
+  </span>
+
+  {connection.executionMode === 'user-bridge' && (
+    <span
+      className="rounded-full px-1.5 py-0.5 text-[9px] opacity-60"
+      style={{
+        background: 'var(--card-bg-gradient)',
+        border: '1px solid var(--divider)',
+      }}
+    >
+      用户 Bridge
+    </span>
+  )}
+</div>
+
                       </button>
 
                       <Toggle
@@ -743,6 +874,45 @@ export const BondConnection = () => {
                           移除
                         </button>
                       </div>
+
+
+                      {connection.source?.kind === 'stdio' && (
+  <div
+    className="rounded-2xl p-3"
+    style={{
+      background: 'var(--card-bg-gradient)',
+      border: '1px solid var(--divider)',
+    }}
+  >
+    <div className="flex items-start gap-2">
+      <FileCode2 className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium">
+          交给 Bridge 的本机启动描述
+        </p>
+
+        <p className="mt-1 break-all font-mono text-[9px] leading-relaxed opacity-55">
+          {[connection.source.command, ...(connection.source.args || [])]
+            .filter(Boolean)
+            .join(' ')}
+        </p>
+
+        {connection.source.envKeys?.length > 0 && (
+          <p className="mt-1 text-[9px] opacity-45">
+            需要由 Bridge 自行提供：
+            {connection.source.envKeys.join('、')}
+          </p>
+        )}
+
+        <p className="mt-2 text-[9px] leading-relaxed opacity-45">
+          本应用不会运行这条命令，也不会保存任何环境变量值。
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
 
                       <div className="space-y-2">
                         <p className="text-[10px] font-medium opacity-50">
@@ -865,7 +1035,7 @@ export const BondConnection = () => {
                     : '添加一条连接'}
                 </p>
                 <p className="mt-1 text-[10px] leading-relaxed opacity-55">
-                  只接入浏览器可直接访问的远程 MCP 地址。
+                  可直接连接远程 MCP，也可使用你自行运行的 Bridge 所提供的兼容入口。
                 </p>
               </div>
 
@@ -881,6 +1051,59 @@ export const BondConnection = () => {
 
             <div className="space-y-3 text-xs">
               <div>
+
+            <div>
+  <label className="mb-1 block text-[10px] opacity-60">
+    连接方式
+  </label>
+
+  <div className="grid grid-cols-2 gap-2">
+    {[
+      {
+        id: 'remote',
+        icon: Link2,
+      },
+      {
+        id: 'bridge',
+        icon: HardDrive,
+      },
+    ].map(({ id, icon: Icon }) => {
+      const copy = getConnectionKindCopy(id);
+      const active = draft.connectionKind === id;
+
+      return (
+        <button
+          key={id}
+          type="button"
+          onClick={() =>
+            setDraft((previous) => ({
+              ...previous,
+              ...updateDraftConnectionKind(id),
+            }))
+          }
+          className="rounded-2xl p-3 text-left transition-opacity"
+          style={{
+            background: active
+              ? 'var(--control-soft-bg)'
+              : 'var(--card-bg-gradient)',
+            border: active
+              ? '1px solid var(--accent-color)'
+              : '1px solid var(--divider)',
+          }}
+        >
+          <Icon className="h-3.5 w-3.5 opacity-65" />
+          <p className="mt-2 text-[10px] font-semibold">
+            {copy.title}
+          </p>
+          <p className="mt-1 text-[9px] leading-relaxed opacity-50">
+            {copy.description}
+          </p>
+        </button>
+      );
+    })}
+  </div>
+</div>
+
                 <label className="mb-1 block text-[10px] opacity-60">
                   留给自己的名字
                 </label>
@@ -901,27 +1124,207 @@ export const BondConnection = () => {
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-[10px] opacity-60">
-                  MCP 地址
-                </label>
-                <input
-                  value={draft.endpoint}
-                  onChange={(event) =>
-                    setDraft((previous) => ({
-                      ...previous,
-                      endpoint: event.target.value,
-                    }))
-                  }
-                  placeholder="https://example.com/mcp"
-                  inputMode="url"
-                  className="w-full rounded-xl p-3 outline-none"
-                  style={{
-                    background: 'var(--control-soft-bg)',
-                    border: '1px solid var(--divider)',
-                  }}
-                />
-              </div>
+             <div>
+  <label className="mb-1 block text-[10px] opacity-60">
+    {draft.connectionKind === 'bridge'
+      ? 'Bridge 暴露的 MCP 地址'
+      : 'MCP 地址'}
+  </label>
+
+  <input
+    value={draft.endpoint}
+    onChange={(event) =>
+      setDraft((previous) => ({
+        ...previous,
+        endpoint: event.target.value,
+      }))
+    }
+    placeholder={
+      draft.connectionKind === 'bridge'
+        ? 'http://127.0.0.1:3000/mcp'
+        : 'https://example.com/mcp'
+    }
+    inputMode="url"
+    className="w-full rounded-xl p-3 outline-none"
+    style={{
+      background: 'var(--control-soft-bg)',
+      border: '1px solid var(--divider)',
+    }}
+  />
+</div>
+
+{draft.connectionKind === 'bridge' && (
+  <>
+    <div>
+      <label className="mb-1 block text-[10px] opacity-60">
+        Bridge 名称
+      </label>
+
+      <input
+        value={draft.bridgeLabel}
+        onChange={(event) =>
+          setDraft((previous) => ({
+            ...previous,
+            bridgeLabel: event.target.value,
+          }))
+        }
+        placeholder="例如：我的桌面 Bridge"
+        className="w-full rounded-xl p-3 outline-none"
+        style={{
+          background: 'var(--control-soft-bg)',
+          border: '1px solid var(--divider)',
+        }}
+      />
+    </div>
+
+    <div
+      className="rounded-2xl p-3"
+      style={{
+        background: 'var(--control-soft-bg)',
+        border: '1px solid var(--divider)',
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <HardDrive className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-65" />
+
+        <div>
+          <p className="text-[10px] font-medium">
+            你的 Bridge 需要做什么
+          </p>
+
+          <p className="mt-1 text-[9px] leading-relaxed opacity-50">
+            它应将本机工具、stdio MCP 或你自己的服务，暴露为可访问的标准 MCP HTTP 地址。
+            本应用不会启动程序、运行命令或读取本机环境变量。
+          </p>
+
+          <p className="mt-2 text-[9px] leading-relaxed opacity-45">
+            如果此应用通过 HTTPS 打开，浏览器可能阻止访问 HTTP 本机地址；
+            Bridge 需自行处理 HTTPS、CORS、Private Network Access 或浏览器限制。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label className="mb-1 block text-[10px] opacity-60">
+        Bridge 来源
+      </label>
+
+      <select
+        value={draft.sourceKind}
+        onChange={(event) =>
+          setDraft((previous) => ({
+            ...previous,
+            sourceKind: event.target.value,
+          }))
+        }
+        className="w-full rounded-xl p-3 text-xs outline-none"
+        style={{
+          background: 'var(--control-soft-bg)',
+          border: '1px solid var(--divider)',
+          color: 'var(--text-main)',
+        }}
+      >
+        <option value="endpoint">
+          仅连接 Bridge 已提供的 MCP 地址
+        </option>
+
+        <option value="stdio">
+          同时保留 stdio 启动描述
+        </option>
+      </select>
+    </div>
+
+    {draft.sourceKind === 'stdio' && (
+      <div
+        className="space-y-3 rounded-2xl p-3"
+        style={{
+          background: 'var(--control-soft-bg)',
+          border: '1px solid var(--divider)',
+        }}
+      >
+        <div className="flex items-start gap-2">
+          <CircleHelp className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-55" />
+
+          <p className="text-[9px] leading-relaxed opacity-50">
+            以下内容只是提供给你自己的 Bridge 或启动器参考。
+            浏览器不会执行这条命令；环境变量只填写名称，不填写值。
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[10px] opacity-60">
+            命令
+          </label>
+
+          <input
+            value={draft.stdioCommand}
+            onChange={(event) =>
+              setDraft((previous) => ({
+                ...previous,
+                stdioCommand: event.target.value,
+              }))
+            }
+            placeholder="例如：npx"
+            className="w-full rounded-xl p-3 font-mono text-xs outline-none"
+            style={{
+              background: 'var(--card-bg-gradient)',
+              border: '1px solid var(--divider)',
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[10px] opacity-60">
+            参数，每行一项
+          </label>
+
+          <textarea
+            value={draft.stdioArgsText}
+            onChange={(event) =>
+              setDraft((previous) => ({
+                ...previous,
+                stdioArgsText: event.target.value,
+              }))
+            }
+            placeholder={'-y\n@example/mcp-server'}
+            rows={3}
+            className="w-full resize-none rounded-xl p-3 font-mono text-xs outline-none"
+            style={{
+              background: 'var(--card-bg-gradient)',
+              border: '1px solid var(--divider)',
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[10px] opacity-60">
+            需要的环境变量名称，每行一项
+          </label>
+
+          <textarea
+            value={draft.stdioEnvKeysText}
+            onChange={(event) =>
+              setDraft((previous) => ({
+                ...previous,
+                stdioEnvKeysText: event.target.value,
+              }))
+            }
+            placeholder={'API_KEY\nSERVICE_URL'}
+            rows={2}
+            className="w-full resize-none rounded-xl p-3 font-mono text-xs outline-none"
+            style={{
+              background: 'var(--card-bg-gradient)',
+              border: '1px solid var(--divider)',
+            }}
+          />
+        </div>
+      </div>
+    )}
+  </>
+)}
+
+
 
               <div
                 className="rounded-2xl p-3"
