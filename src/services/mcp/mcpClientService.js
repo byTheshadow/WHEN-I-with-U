@@ -1,6 +1,10 @@
 import {
   assertMcpTransportSupported,
 } from './mcpTransportRegistry';
+import {
+  getMcpOAuthAccessToken,
+} from './mcpOAuthService';
+
 
 const DEFAULT_PROTOCOL_VERSION = '2025-03-26';
 
@@ -29,7 +33,7 @@ const getConnectionKey = (connection = {}) => {
   return connection.id || connection.endpoint || '';
 };
 
-const getAuthHeaders = (connection = {}) => {
+const getAuthHeaders = async (connection = {}) => {
   const auth = connection.auth || {};
 
   if (auth.type === 'bearer' && String(auth.token || '').trim()) {
@@ -38,8 +42,17 @@ const getAuthHeaders = (connection = {}) => {
     };
   }
 
+  if (auth.type === 'oauth') {
+    const accessToken = await getMcpOAuthAccessToken(connection);
+
+    return {
+      Authorization: `Bearer ${accessToken}`,
+    };
+  }
+
   return {};
 };
+
 
 const parseSsePayload = (rawText = '') => {
   const events = String(rawText)
@@ -159,11 +172,11 @@ const clearSession = (connection = {}) => {
   activeSessions.delete(getConnectionKey(connection));
 };
 
-const buildHeaders = (connection, session = null) => {
+const buildHeaders = async (connection, session = null) => {
   const headers = {
     Accept: 'application/json, text/event-stream',
     'Content-Type': 'application/json',
-    ...getAuthHeaders(connection),
+    ...(await getAuthHeaders(connection)),
   };
 
   if (session?.sessionId) {
@@ -172,6 +185,7 @@ const buildHeaders = (connection, session = null) => {
 
   return headers;
 };
+
 
 const sendJsonRpcRequest = async ({
   connection,
@@ -230,7 +244,8 @@ const sendJsonRpcRequest = async ({
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: buildHeaders(connection, session),
+      headers: await buildHeaders(connection, session),
+  
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     });

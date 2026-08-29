@@ -259,13 +259,45 @@ const normalizeServerTool = (connectionId, tool, existingTool = null) => {
 };
 
 const sanitizeAuth = (auth = {}) => {
-  const type = auth?.type === 'bearer' ? 'bearer' : 'none';
+  const requestedType = normalizeText(auth?.type);
+
+  if (requestedType === 'bearer') {
+    return {
+      type: 'bearer',
+      token: normalizeText(auth.token),
+    };
+  }
+
+  if (requestedType === 'oauth') {
+    return {
+      type: 'oauth',
+
+      /*
+       * Public Client：不保存 client_secret。
+       */
+      clientId: normalizeText(auth.clientId),
+      authorizationEndpoint: normalizeText(auth.authorizationEndpoint),
+      tokenEndpoint: normalizeText(auth.tokenEndpoint),
+      scopes: normalizeText(auth.scopes),
+      resource: normalizeText(auth.resource),
+
+      /*
+       * 以下字段仅在当前设备 IndexedDB 内保存，
+       * 不会出现在导出文件中。
+       */
+      accessToken: normalizeText(auth.accessToken),
+      refreshToken: normalizeText(auth.refreshToken),
+      tokenType: normalizeText(auth.tokenType),
+      expiresAt: auth.expiresAt || null,
+    };
+  }
 
   return {
-    type,
-    token: type === 'bearer' ? normalizeText(auth.token) : '',
+    type: 'none',
+    token: '',
   };
 };
+
 
 const makeConnectionRecord = (draft = {}, existing = null) => {
   const timestamp = nowIso();
@@ -380,6 +412,14 @@ const makeConnectionRecord = (draft = {}, existing = null) => {
     source,
 
     auth,
+        authStatus:
+      auth.type === 'oauth'
+        ? existing?.authStatus || 'unauthorized'
+        : 'not-required',
+
+    authUpdatedAt: existing?.authUpdatedAt || null,
+
+
     enabled: hasOwn(draft, 'enabled')
       ? Boolean(draft.enabled)
       : existing?.enabled ?? true,
@@ -525,11 +565,11 @@ if (
   nextConnection.endpoint !== existing.endpoint ||
   nextConnection.transport !== existing.transport ||
   nextConnection.executionMode !== existing.executionMode ||
-  nextConnection.auth?.token !== existing.auth?.token ||
-  nextConnection.auth?.type !== existing.auth?.type
+  JSON.stringify(nextConnection.auth) !== JSON.stringify(existing.auth)
 ) {
   await disconnectMcpClient(existing);
 }
+
 
 
   return nextConnection;

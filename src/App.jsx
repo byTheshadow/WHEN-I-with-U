@@ -29,6 +29,10 @@ import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
 import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
 import MemoryApp from './apps/memory/MemoryApp';
+import {
+  consumeMcpOAuthCallback,
+} from './services/mcp/mcpOAuthService';
+
 
 
 // 👈 导入新增的 Rhythm 模块
@@ -112,6 +116,54 @@ export const App = () => {
   const [activeKeepAliveChats, setActiveKeepAliveChats] = useState([]);
   const [audioConfig, setAudioConfig] = useState(DEFAULT_AUDIO_CONFIG);
   
+    useEffect(() => {
+    const finishOAuthCallback = async () => {
+      const currentUrl = new URL(window.location.href);
+
+      const hasOAuthCallbackParameters =
+        currentUrl.searchParams.has('code') ||
+        currentUrl.searchParams.has('state') ||
+        currentUrl.searchParams.has('error');
+
+      if (!hasOAuthCallbackParameters) {
+        return;
+      }
+
+      try {
+        await consumeMcpOAuthCallback(currentUrl.toString());
+      } catch (error) {
+        console.warn('[MCP OAuth] 授权回调未完成：', error);
+      } finally {
+        /*
+         * 无论成功、拒绝或失败，均不能把 code/state 留在浏览器历史和地址栏。
+         */
+        [
+          'code',
+          'state',
+          'error',
+          'error_description',
+          'error_uri',
+          'iss',
+        ].forEach((key) => {
+          currentUrl.searchParams.delete(key);
+        });
+
+        const safeUrl =
+          currentUrl.pathname +
+          currentUrl.search +
+          currentUrl.hash;
+
+        window.history.replaceState(
+          window.history.state,
+          document.title,
+          safeUrl,
+        );
+      }
+    };
+
+    void finishOAuthCallback();
+  }, []);
+
   // 缓存当前角色ID，用于传递给 RhythmApp 子应用
   const [activeCharacterId, setActiveCharacterId] = useState(null);
 

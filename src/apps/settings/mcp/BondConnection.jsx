@@ -38,6 +38,7 @@ import {
 } from '../../../services/mcp/mcpTransportRegistry';
 
 
+
 import {
   createMcpConnection,
   deleteMcpConnection,
@@ -62,6 +63,12 @@ import {
 } from '../../../services/mcp/mcpImportExportService';
 import ManualMcpToolCallModal from './ManualMcpToolCallModal';
 import McpActivityTrace from './McpActivityTrace';
+import {
+  clearMcpOAuthAuthorization,
+  getMcpOAuthStatus,
+  startMcpOAuthAuthorization,
+} from '../../../services/mcp/mcpOAuthService';
+
 
 
 
@@ -85,7 +92,14 @@ const EMPTY_DRAFT = {
 
   authType: 'none',
   token: '',
+
+  oauthClientId: '',
+  oauthAuthorizationEndpoint: '',
+  oauthTokenEndpoint: '',
+  oauthScopes: '',
+  oauthResource: '',
 };
+
 
 
 const getStatusLabel = (status) => {
@@ -201,12 +215,22 @@ const makeDraftFromConnection = (connection) => {
       ? connection.source.envKeys.join('\n')
       : '',
 
-    authType:
-      connection?.auth?.type === 'bearer'
-        ? 'bearer'
-        : 'none',
+        authType:
+      connection?.auth?.type === 'oauth'
+        ? 'oauth'
+        : connection?.auth?.type === 'bearer'
+          ? 'bearer'
+          : 'none',
 
     token: connection?.auth?.token || '',
+
+    oauthClientId: connection?.auth?.clientId || '',
+    oauthAuthorizationEndpoint:
+      connection?.auth?.authorizationEndpoint || '',
+    oauthTokenEndpoint: connection?.auth?.tokenEndpoint || '',
+    oauthScopes: connection?.auth?.scopes || '',
+    oauthResource: connection?.auth?.resource || '',
+
   };
 };
 
@@ -411,10 +435,37 @@ export const BondConnection = () => {
         : [],
   },
 
-  auth: {
+    auth: {
     type: draft.authType,
+
     token: draft.authType === 'bearer' ? draft.token : '',
+
+    clientId:
+      draft.authType === 'oauth'
+        ? draft.oauthClientId
+        : '',
+
+    authorizationEndpoint:
+      draft.authType === 'oauth'
+        ? draft.oauthAuthorizationEndpoint
+        : '',
+
+    tokenEndpoint:
+      draft.authType === 'oauth'
+        ? draft.oauthTokenEndpoint
+        : '',
+
+    scopes:
+      draft.authType === 'oauth'
+        ? draft.oauthScopes
+        : '',
+
+    resource:
+      draft.authType === 'oauth'
+        ? draft.oauthResource
+        : '',
   },
+
 };
 
 
@@ -429,7 +480,13 @@ export const BondConnection = () => {
         connection = await createMcpConnection(payload);
       }
 
+          if (draft.authType === 'oauth') {
+        await startMcpOAuthAuthorization(connection.id);
+        return;
+      }
+
       const result = await testAndSyncMcpConnection(connection.id);
+
 
       setExpandedConnectionIds((previous) => {
         const next = new Set(previous);
@@ -1390,34 +1447,46 @@ export const BondConnection = () => {
 )}
 
 
-
               <div
-                className="rounded-2xl p-3"
+                className="space-y-3 rounded-2xl p-3"
                 style={{
                   background: 'var(--control-soft-bg)',
                   border: '1px solid var(--divider)',
                 }}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <LockKeyhole className="h-3.5 w-3.5 opacity-65" />
-                    <span className="text-[11px] font-medium">
-                      此服务需要 Token
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <LockKeyhole className="h-3.5 w-3.5 opacity-65" />
 
-                  <Toggle
-                    checked={draft.authType === 'bearer'}
-                    label="切换 Bearer Token 认证"
-                    onChange={(enabled) =>
-                      setDraft((previous) => ({
-                        ...previous,
-                        authType: enabled ? 'bearer' : 'none',
-                        token: enabled ? previous.token : '',
-                      }))
-                    }
-                  />
+                  <span className="text-[11px] font-medium">
+                    认证方式
+                  </span>
                 </div>
+
+                <select
+                  value={draft.authType}
+                  onChange={(event) => {
+                    const nextAuthType = event.target.value;
+
+                    setDraft((previous) => ({
+                      ...previous,
+                      authType: nextAuthType,
+                      token:
+                        nextAuthType === 'bearer'
+                          ? previous.token
+                          : '',
+                    }));
+                  }}
+                  className="w-full rounded-xl p-3 text-xs outline-none"
+                  style={{
+                    background: 'var(--card-bg-gradient)',
+                    border: '1px solid var(--divider)',
+                    color: 'var(--text-main)',
+                  }}
+                >
+                  <option value="none">不需要认证</option>
+                  <option value="bearer">Bearer Token</option>
+                  <option value="oauth">OAuth 2.1（PKCE）</option>
+                </select>
 
                 {draft.authType === 'bearer' && (
                   <input
@@ -1430,7 +1499,7 @@ export const BondConnection = () => {
                       }))
                     }
                     placeholder="Bearer Token"
-                    className="mt-3 w-full rounded-xl p-3 text-xs outline-none"
+                    className="w-full rounded-xl p-3 text-xs outline-none"
                     style={{
                       background: 'var(--card-bg-gradient)',
                       border: '1px solid var(--divider)',
@@ -1438,11 +1507,103 @@ export const BondConnection = () => {
                   />
                 )}
 
-                <p className="mt-2 text-[9px] leading-relaxed opacity-50">
-                  认证信息只保存在当前设备的浏览器中，导出连接时不会包含。
+                {draft.authType === 'oauth' && (
+                  <div className="space-y-3">
+                    <p className="text-[9px] leading-relaxed opacity-55">
+                      使用 OAuth 2.1 Authorization Code + PKCE。
+                      请填写服务方为浏览器 Public Client 预先登记的 Client ID；
+                      不要填写或保存 Client Secret。
+                    </p>
+
+                    <input
+                      value={draft.oauthClientId}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          oauthClientId: event.target.value,
+                        }))
+                      }
+                      placeholder="OAuth Client ID"
+                      className="w-full rounded-xl p-3 text-xs outline-none"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    />
+
+                    <input
+                      inputMode="url"
+                      value={draft.oauthAuthorizationEndpoint}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          oauthAuthorizationEndpoint: event.target.value,
+                        }))
+                      }
+                      placeholder="授权端点，例如 https://accounts.example.com/authorize"
+                      className="w-full rounded-xl p-3 text-xs outline-none"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    />
+
+                    <input
+                      inputMode="url"
+                      value={draft.oauthTokenEndpoint}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          oauthTokenEndpoint: event.target.value,
+                        }))
+                      }
+                      placeholder="Token 端点，例如 https://accounts.example.com/token"
+                      className="w-full rounded-xl p-3 text-xs outline-none"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    />
+
+                    <input
+                      value={draft.oauthScopes}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          oauthScopes: event.target.value,
+                        }))
+                      }
+                      placeholder="Scope，使用空格分隔；可留空"
+                      className="w-full rounded-xl p-3 text-xs outline-none"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    />
+
+                    <input
+                      inputMode="url"
+                      value={draft.oauthResource}
+                      onChange={(event) =>
+                        setDraft((previous) => ({
+                          ...previous,
+                          oauthResource: event.target.value,
+                        }))
+                      }
+                      placeholder="OAuth Resource，可留空并默认使用 MCP 地址"
+                      className="w-full rounded-xl p-3 text-xs outline-none"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    />
+                  </div>
+                )}
+
+                <p className="text-[9px] leading-relaxed opacity-50">
+                  认证信息仅保存在当前设备的浏览器中；导出连接时不会包含 Token、刷新 Token 或 OAuth 会话。
                 </p>
               </div>
-            </div>
 
             <button
               type="button"
