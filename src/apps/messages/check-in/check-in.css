@@ -1,0 +1,418 @@
+.check-in-settings-overlay {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 18px 14px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  background: var(--modal-overlay);
+  backdrop-filter: blur(8px);
+}
+
+.check-in-settings-panel {
+  width: min(100%, 420px);
+  max-height: min(82dvh, 760px);
+  overflow-y: auto;
+  border: 1px solid var(--modal-border);
+  border-radius: 24px 24px 16px 16px;
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
+  color: var(--text-main);
+}
+
+.check-in-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 18px 15px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.check-in-settings-kicker {
+  display: block;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+
+.check-in-settings-header h2 {
+  margin: 5px 0 0;
+  color: var(--text-main);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 21px;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.check-in-icon-button {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+}
+
+.check-in-settings-loading {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--text-muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.check-in-settings-content {
+  padding: 3px 18px 20px;
+}
+
+.check-in-setting-section {
+  padding: 17px 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.check-in-setting-section:last-of-type {
+  border-bottom: 0;
+}
+
+.check-in-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.check-in-setting-copy strong,
+.check-in-section-title {
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.check-in-setting-copy p {
+  max-width: 278px;
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+.check-in-switch {
+  position: relative;
+  width: 40px;
+  height: 23px;
+  flex: 0 0 auto;
+  padding: 2px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--control-soft-bg);
+  transition: background 0.2s ease;
+}
+
+.check-in-switch span {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.check-in-switch--active {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+}
+
+.check-in-switch--active span {
+  background: var(--accent-foreground);
+  transform: translateX(16px);
+}
+
+.check-in-section-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.check-in-option-list {
+  display: grid;
+  gap: 7px;
+}
+
+.check-in-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 13px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 13px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  text-align: left;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.check-in-choice:hover,
+.check-in-choice--active {
+  border-color: var(--accent-color);
+  background: var(--control-soft-bg);
+}
+
+.check-in-choice strong,
+.check-in-choice small {
+  display: block;
+}
+
+.check-in-choice strong {
+  font-size: 11px;
+}
+
+.check-in-choice small {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.check-in-frequency-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.check-in-frequency {
+  min-height: 66px;
+  padding: 9px 7px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  text-align: left;
+}
+
+.check-in-frequency--active {
+  border-color: var(--accent-color);
+  background: var(--control-soft-bg);
+}
+
+.check-in-frequency strong,
+.check-in-frequency small {
+  display: block;
+}
+
+.check-in-frequency strong {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.check-in-frequency small {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.check-in-character-list {
+  display: grid;
+  gap: 7px;
+}
+
+.check-in-character {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 13px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  text-align: left;
+}
+
+.check-in-character--active {
+  border-color: var(--accent-color);
+  background: var(--control-soft-bg);
+}
+
+.check-in-character img,
+.check-in-character-avatar {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  background: var(--bg-surface-strong);
+  color: var(--text-main);
+  font-size: 10px;
+  font-weight: 700;
+  object-fit: cover;
+}
+
+.check-in-character-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check-in-character-state {
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+}
+
+.check-in-empty-copy,
+.check-in-privacy-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+.check-in-privacy-note {
+  margin-top: 4px;
+  padding: 12px 13px;
+  border-left: 2px solid var(--divider);
+  background: var(--control-soft-bg);
+}
+
+/* Current chat room notice */
+
+.check-in-notice {
+  position: absolute;
+  z-index: 35;
+  top: 108px;
+  right: 16px;
+  left: 16px;
+  max-width: 388px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 15px 15px 7px 15px;
+  background: var(--card-bg-gradient);
+  box-shadow: var(--card-shadow);
+  color: var(--text-main);
+  animation: checkInNoteEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.check-in-notice__body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 38px 11px 11px;
+  color: inherit;
+  text-align: left;
+}
+
+.check-in-notice__avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.check-in-notice__avatar--empty {
+  display: grid;
+  place-items: center;
+  background: var(--control-soft-bg);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.check-in-notice__copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.check-in-notice__kicker {
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.check-in-notice__copy strong {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.check-in-notice__preview {
+  overflow: hidden;
+  color: var(--text-sub);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check-in-notice__arrow {
+  width: 15px;
+  height: 15px;
+  color: var(--text-muted);
+}
+
+.check-in-notice__close {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+@keyframes checkInNoteEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-in-notice {
+    animation: none;
+  }
+}

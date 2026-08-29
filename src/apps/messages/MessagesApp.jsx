@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MessageSquare, ArrowLeft, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  MessageSquare,
+  ArrowLeft,
+  Trash2,
+  Settings,
+} from 'lucide-react';
+
 import GlassCard from '../../components/GlassCard';
 import ConfirmModal from '../../components/ConfirmModal';
 import db from '../../db';
@@ -11,6 +19,9 @@ import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
 import CharacterEditor from './CharacterEditor';
 import NewChatModal from './NewChatModal';
+import CheckInSettings from './check-in/CheckInSettings';
+import './check-in/check-in.css';
+
 
 export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
@@ -21,6 +32,8 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [deletingChatTarget, setDeletingChatTarget] = useState(null);
+    const [showCheckInSettings, setShowCheckInSettings] = useState(false);
+
 
   useEffect(() => {
     loadData();
@@ -78,6 +91,14 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
     return (
       <ChatRoom
         chatId={activeChatId}
+                onOpenChat={(nextChatId) => {
+          if (!nextChatId) return;
+
+          setActiveChatId(nextChatId);
+          setView('chat_room');
+          void loadData();
+        }}
+
         onBack={() => {
           setView('chats');
           loadData();
@@ -115,39 +136,60 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
           <span>返回主页</span>
         </button>
 
-        <div
-          className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
-          style={{
-            background: 'var(--control-soft-bg)',
-            borderColor: 'var(--card-border)'
-          }}
-        >
+             <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setView('chats')}
-            className="px-3 py-1 rounded-full transition-all text-xs"
+            onClick={() => setShowCheckInSettings(true)}
+            className="rounded-full p-2 transition-opacity opacity-75 hover:opacity-100"
             style={{
-              background: view === 'chats' ? 'var(--accent-color)' : 'transparent',
-              color: view === 'chats' ? 'var(--accent-foreground)' : 'var(--text-sub)',
-              fontWeight: view === 'chats' ? 600 : 400
+              background: 'var(--control-soft-bg)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--card-border)',
+            }}
+            title="角色来讯设置"
+            aria-label="打开角色来讯设置"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+
+          <div
+            className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
+            style={{
+              background: 'var(--control-soft-bg)',
+              borderColor: 'var(--card-border)'
             }}
           >
-            对话
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('characters')}
-            className="px-3 py-1 rounded-full transition-all text-xs"
-            style={{
-              background: view === 'characters' ? 'var(--accent-color)' : 'transparent',
-              color: view === 'characters' ? 'var(--accent-foreground)' : 'var(--text-sub)',
-              fontWeight: view === 'characters' ? 600 : 400
-            }}
-          >
-            角色
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setView('chats')}
+              className="px-3 py-1 rounded-full transition-all text-xs"
+              style={{
+                background: view === 'chats' ? 'var(--accent-color)' : 'transparent',
+                color: view === 'chats' ? 'var(--accent-foreground)' : 'var(--text-sub)',
+                fontWeight: view === 'chats' ? 600 : 400
+              }}
+            >
+              对话
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setView('characters')}
+              className="px-3 py-1 rounded-full transition-all text-xs"
+              style={{
+                background: view === 'characters' ? 'var(--accent-color)' : 'transparent',
+                color: view === 'characters' ? 'var(--accent-foreground)' : 'var(--text-sub)',
+                fontWeight: view === 'characters' ? 600 : 400
+              }}
+            >
+              角色
+            </button>
+          </div>
+          
+
+
       </div>
+            </div>
 
       {view === 'chats' && (
         <div className="space-y-4">
@@ -309,6 +351,14 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   onCancel={() => setDeletingChatTarget(null)}
   onConfirm={() => handleDeleteChatEntity(deletingChatTarget.id)}
 />
+
+      <CheckInSettings
+        isOpen={showCheckInSettings}
+        onClose={() => setShowCheckInSettings(false)}
+        chats={chats}
+        characters={characters}
+      />
+
 
     </div>
   );

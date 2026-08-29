@@ -37,6 +37,10 @@ import McpToolApprovalModal from './mcp/McpToolApprovalModal';
 import ChatInteractionMessage from './interactions/ChatInteractionMessage';
 import { createInteractionMessage } from './interactions/interactionService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
+import CheckInNotice from './check-in/CheckInNotice';
+import { checkForCrossChatCheckIn } from './check-in/checkInService';
+import './check-in/check-in.css';
+
 import './interactions/chat-interactions.css';
 
 
@@ -68,9 +72,11 @@ import ParallelOrbit from './components/ParallelOrbit';
 export const ChatRoom = ({
   chatId,
   onBack,
+  onOpenChat,
   onOpenCharacterEditor,
   onRoomStateChange
 }) => {
+
   const [chat, setChat] = useState(null);
   const [character, setCharacter] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -83,6 +89,7 @@ export const ChatRoom = ({
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
+    const [checkInDelivery, setCheckInDelivery] = useState(null);
     const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
   const mcpApprovalResolverRef = useRef(null);
 
@@ -228,6 +235,7 @@ export const ChatRoom = ({
  useEffect(() => {
   // 切换聊天室时，不继承上一个聊天室的打字状态
   setIsAiTyping(false);
+    setCheckInDelivery(null);
 
   loadChatData();
 
@@ -392,7 +400,17 @@ useEffect(() => {
     setSelectedType('text');
     setExtraInputMeta({});
 
-    await db.chats.update(chatId, { updatedAt: new Date().toISOString() });
+       await db.chats.update(chatId, {
+      updatedAt: new Date().toISOString()
+    });
+
+    void checkForCrossChatCheckIn({
+      activeChatId: chatId,
+      onDelivered: (delivery) => {
+        setCheckInDelivery(delivery);
+      },
+    });
+
   };
 
   const handleTriggerAi = () => {
@@ -499,6 +517,21 @@ useEffect(() => {
     >
       {/* 渲染已在顶部 Memo 好的样式标签 */}
       {memoizedStyle}
+
+            <CheckInNotice
+        delivery={checkInDelivery}
+        onDismiss={() => setCheckInDelivery(null)}
+        onOpen={() => {
+          const targetChatId = checkInDelivery?.chatId;
+
+          setCheckInDelivery(null);
+
+          if (targetChatId) {
+            onOpenChat?.(targetChatId);
+          }
+        }}
+      />
+
 
       {/* 背景图渲染：改用高性能合成图层渲染 */}
       {chat.bgImage && (
