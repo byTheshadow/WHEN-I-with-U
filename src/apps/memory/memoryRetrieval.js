@@ -363,18 +363,128 @@ const getMemoryTopicKey = (memory) => {
   return tokens.join('|') || memory.memoryId;
 };
 
+const getTopicRecallState = (
+  memories,
+  topicKey
+) => {
+  const relatedMemories = memories.filter((memory) => (
+    getMemoryTopicKey(memory) === topicKey
+  ));
+
+  const states = relatedMemories.map((memory) => {
+    const recallState = getRecallState(memory);
+
+    return {
+      memory,
+      cooldownUntil: recallState.cooldownUntil,
+      consecutiveRecallCount: recallState.consecutiveRecallCount,
+      lastRetrievedAt: memory.lastRetrievedAt || null
+    };
+  });
+
+  const latestState = states
+    .filter((item) => item.lastRetrievedAt)
+    .sort((left, right) => (
+      new Date(right.lastRetrievedAt).getTime()
+      - new Date(left.lastRetrievedAt).getTime()
+    ))[0] || null;
+
+  const activeCooldown = states
+    .filter((item) => {
+      const cooldownTime = new Date(
+        item.cooldownUntil || 0
+      ).getTime();
+
+      return (
+        Number.isFinite(cooldownTime) &&
+        cooldownTime > Date.now()
+      );
+    })
+    .sort((left, right) => (
+      new Date(right.cooldownUntil).getTime()
+      - new Date(left.cooldownUntil).getTime()
+    ))[0] || null;
+
+  return {
+    latestState,
+    activeCooldown,
+    relatedMemories
+  };
+};
+
+const isTopicInRecallCooldown = (
+  memories,
+  memory
+) => {
+  const topicKey = getMemoryTopicKey(memory);
+
+  if (!topicKey) {
+    return false;
+  }
+
+  const topicState = getTopicRecallState(
+    memories,
+    topicKey
+  );
+
+  return Boolean(topicState.activeCooldown);
+};
+
+
 const canBreakCooldownForDirectMention = (
   memory,
+  currentUserText,
   currentUserTokens
 ) => {
+  const normalizedUserText = normalizeText(
+    currentUserText
+  ).toLowerCase();
+
+  if (!normalizedUserText) {
+    return false;
+  }
+
+  const topicKey = normalizeText(
+    memory?.topicKey
+  ).toLowerCase();
+
+  const topicKeys = Array.isArray(memory?.topicKeys)
+    ? memory.topicKeys
+      .map((item) => normalizeText(item).toLowerCase())
+      .filter(Boolean)
+    : [];
+
+  /*
+   * 新记忆优先根据显式 topicKey / topicKeys 判断。
+   * 例如 coffee、拿铁、咖啡等主题词出现在用户当前输入时，
+   * 才允许突破主题冷却。
+   */
+  const explicitTopicMention = [
+    topicKey,
+    ...topicKeys
+  ]
+    .filter((item) => item.length >= 2)
+    .some((item) => normalizedUserText.includes(item));
+
+  if (explicitTopicMention) {
+    return true;
+  }
+
+  /*
+   * 兼容尚未具备可靠 topicKey 的旧记忆。
+   * 门槛提高到 0.68，避免“今天很累”这类泛表达
+   * 因为与旧记忆存在零散中文二字片段而误触发。
+   */
   const memoryTokens = tokenize(getMemoryText(memory));
+
   const overlap = getTokenOverlap(
     currentUserTokens,
     memoryTokens
   );
 
-  return overlap >= 0.45;
+  return overlap >= 0.68;
 };
+
 
 const shouldRequireTopicMatch = (memory) => (
   memory.type !== MEMORY_TYPES.EXPRESSION_RULE
@@ -412,9 +522,11 @@ const isRelevantEnough = ({
 
 const reserveMemoriesForRecall = async ({
   selected,
+  currentUserText,
   currentUserTokens,
   turnId
 }) => {
+
   if (!selected.length) return [];
 
   const now = new Date();
@@ -445,10 +557,12 @@ const reserveMemoriesForRecall = async ({
         continue;
       }
 
-      const canBreakCooldown = canBreakCooldownForDirectMention(
-        currentMemory,
-        currentUserTokens
-      );
+    const canBreakCooldown = canBreakCooldownForDirectMention(
+  currentMemory,
+  currentUserText,
+  currentUserTokens
+);
+
 
       if (
         isInRecallCooldown(currentMemory, nowTime) &&
@@ -576,17 +690,37 @@ export const getChatMemoryContext = async ({
       };
     })
     .filter((item) => {
-      const canBreakCooldown = canBreakCooldownForDirectMention(
+          const canBreakCooldown = canBreakCooldownForDirectMention(
         item.memory,
+        currentText,
         currentUserTokens
       );
 
+      /*
+       * 单条记忆冷却：
+       * 同一条已被召回的内容，不能立刻再次进入 Prompt。
+       */
       if (
         isInRecallCooldown(item.memory, now) &&
         !canBreakCooldown
       ) {
         return false;
       }
+
+      /*
+       * 主题级冷却：
+       * 同一主题下的另一条近义记忆也不能绕过冷却。
+       *
+       * 例如“喜欢咖啡”刚被调用后，
+       * “偏爱拿铁”不能在下一轮代替它进入 Prompt。
+       */
+      if (
+        isTopicInRecallCooldown(memories, item.memory) &&
+        !canBreakCooldown
+      ) {
+        return false;
+      }
+
 
       return isRelevantEnough({
         ...item,
@@ -659,11 +793,13 @@ export const getChatMemoryContext = async ({
    * 下一个并发请求读取记忆时，已经能看到 cooldownUntil，
    * 不会继续选中同一条记忆。
    */
-  const reservedMemories = await reserveMemoriesForRecall({
+   const reservedMemories = await reserveMemoriesForRecall({
     selected,
+    currentUserText: currentText,
     currentUserTokens,
     turnId
   });
+
 
   if (!reservedMemories.length) return '';
 
@@ -672,7 +808,7 @@ export const getChatMemoryContext = async ({
 以下内容仅属于当前消息框。用户当前明确表达的说法永远优先于旧记录。
 只在与当前话题自然相关时参考，不要提及记忆系统、数据库、检索结果或内部字段。
 不得使用已撤回、归档、失效、冲突、被更正或已被替代的记录。
-同一条记忆刚被使用后会暂时退出参考；不要试图以近义记忆重复同一话题。
+已在近期被调用过的主题会暂时退出参考；不要用另一条近义记忆重新重复同一个话题。
 情绪线索只在当前语境直接相关时谨慎参考，不得借此向用户施压、催促或制造愧疚。
 角色内部背景不是用户事实，不得将其表述为“用户说过”。
 不要逐条复述以下内容：
