@@ -26,8 +26,15 @@ import {
   BookOpen,
   ReceiptText,
 } from 'lucide-react';
+
 import db from '../../db';
-import { triggerAiResponse, rerollAiResponse, subscribeAiEvents, playMessageSound } from '../../services/aiService';
+import {
+  triggerAiResponse,
+  rerollAiResponse,
+  subscribeAiEvents,
+  playMessageSound,
+} from '../../services/aiService';
+
 import ChatHeaderBar from './components/ChatHeaderBar';
 import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
@@ -35,20 +42,23 @@ import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
 import ChatInteractionMessage from './interactions/ChatInteractionMessage';
+
 import { createInteractionMessage } from './interactions/interactionService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
+
 import CheckInNotice from './check-in/CheckInNotice';
 import { checkForCrossChatCheckIn } from './check-in/checkInService';
+
 import './check-in/check-in.css';
-
 import './interactions/chat-interactions.css';
-
 
 import {
   registerMcpToolApprovalHandler,
 } from '../../services/mcp/mcpApprovalCoordinator';
 
-
+import {
+  subscribeMcpChatTraceEvents,
+} from '../../services/mcp/mcpChatTraceService';
 
 import TextCard from './components/cards/TextCard';
 import ImageCard from './components/cards/ImageCard';
@@ -59,13 +69,15 @@ import GiftCard from './components/cards/GiftCard';
 import FoodDeliveryCard from './components/cards/FoodDeliveryCard';
 import KinshipCard from './components/cards/KinshipCard';
 import StickerCard from './components/cards/StickerCard';
+import McpUsageTraceCard from './components/cards/McpUsageTraceCard';
+
+import McpToolUsageIndicator from './components/McpToolUsageIndicator';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
 
 import {
-  cancelPendingScheduledMessagesForChat
+  cancelPendingScheduledMessagesForChat,
 } from './scheduledMessageService';
-
 
 import ParallelOrbit from './components/ParallelOrbit';
 
@@ -74,9 +86,8 @@ export const ChatRoom = ({
   onBack,
   onOpenChat,
   onOpenCharacterEditor,
-  onRoomStateChange
+  onRoomStateChange,
 }) => {
-
   const [chat, setChat] = useState(null);
   const [character, setCharacter] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -89,15 +100,20 @@ export const ChatRoom = ({
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
-    const [checkInDelivery, setCheckInDelivery] = useState(null);
-    const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
+  const [checkInDelivery, setCheckInDelivery] = useState(null);
+  const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
+
+  /*
+   * 当前尚未持久化到 messages.metadata 的实时 MCP 调用轨迹。
+   * 最终回复写入数据库后，会由每条消息自身的 metadata.mcpTrace 接管展示。
+   */
+  const [mcpTrace, setMcpTrace] = useState(null);
+
   const mcpApprovalResolverRef = useRef(null);
+  const scrollAreaRef = useRef(null);
+  const inputRef = useRef(null);
 
-
-  // 控制是否展示平行轨迹页面的状态，默认为 false
   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
-
-  // 核心转场/首屏动画是否优先渲染完成的标识，用于延迟挂载高开销后台保活音频
   const [isPrioritizedLoaded, setIsPrioritizedLoaded] = useState(false);
 
   const defaultCss = useMemo(() => `
@@ -106,26 +122,52 @@ export const ChatRoom = ({
       color: var(--accent-foreground);
       border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
     }
+
     .ai-bubble {
       background: var(--control-soft-bg);
       color: var(--text-main);
       border: 1px solid var(--card-border);
       border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
     }
+
     .chat-font {
       font-size: 0.75rem;
       line-height: 1.5;
     }
   `, []);
 
-  // 安全地提取当前 CSS
   const customCssStr = chat?.customCss || '';
 
-  // 依赖项优化为 customCssStr 字符串，而非 chat 复杂对象，防止高频重绘 style 节点
   const memoizedStyle = useMemo(() => {
     const cssToApply = customCssStr || defaultCss;
     return <style>{`.chat-room-container ${cssToApply}`}</style>;
   }, [customCssStr, defaultCss]);
+
+  const loadChatData = async () => {
+    try {
+      const [chatRecord, msgList] = await Promise.all([
+        db.chats.get(chatId),
+        db.messages.where('chatId').equals(chatId).sortBy('timestamp'),
+      ]);
+
+      if (!chatRecord) return;
+
+      const charRecord = await db.characters.get(chatRecord.characterId);
+
+      setChat(chatRecord);
+
+      if (charRecord) {
+        setCharacter(charRecord);
+      }
+
+      setMessages(Array.isArray(msgList) ? msgList : []);
+    } catch (error) {
+      console.error(
+        '[ChatRoom] loadChatData batch query failed safely:',
+        error,
+      );
+    }
+  };
 
   const handleSendSticker = async (sticker) => {
     if (!sticker || !sticker.name || !chat?.id) return;
@@ -138,21 +180,22 @@ export const ChatRoom = ({
       content: sticker.name,
       metadata: {
         name: sticker.name,
-        url: sticker.url
+        url: sticker.url,
       },
       isRead: true,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     await db.messages.add(newMsg);
-    await db.chats.update(chat.id, { updatedAt: Date.now() });
+    await db.chats.update(chat.id, {
+      updatedAt: Date.now(),
+    });
 
-    loadChatData();
+    await loadChatData();
     triggerAiResponse(chat.id);
   };
 
-
-    const handleCreateInteraction = async (interactionType) => {
+  const handleCreateInteraction = async (interactionType) => {
     if (!chat?.id || !character?.id) return;
 
     try {
@@ -164,16 +207,11 @@ export const ChatRoom = ({
 
       await loadChatData();
     } catch (error) {
-      console.error(
-        '[ChatRoom] 创建聊天互动失败：',
-        error
-      );
+      console.error('[ChatRoom] 创建聊天互动失败：', error);
     }
   };
 
-  const scrollAreaRef = useRef(null);
-  const inputRef = useRef(null); 
-    const closePendingMcpApproval = useCallback((result) => {
+  const closePendingMcpApproval = useCallback((result) => {
     const resolver = mcpApprovalResolverRef.current;
 
     mcpApprovalResolverRef.current = null;
@@ -186,8 +224,8 @@ export const ChatRoom = ({
     (request) =>
       new Promise((resolve) => {
         /*
-         * 同一个聊天不应同时出现两份授权请求。
-         * 若理论上发生重叠，旧请求安全拒绝。
+         * 同一聊天不应同时存在两份待决授权。
+         * 若发生重叠，先安全拒绝旧请求。
          */
         if (mcpApprovalResolverRef.current) {
           mcpApprovalResolverRef.current({
@@ -211,10 +249,6 @@ export const ChatRoom = ({
     return () => {
       unregister();
 
-      /*
-       * 用户离开 ChatRoom 时，不能让后台 AI 永远等待。
-       * 未完成请求以“拒绝本次”安全结束。
-       */
       if (mcpApprovalResolverRef.current) {
         mcpApprovalResolverRef.current({
           decision: 'deny',
@@ -226,125 +260,130 @@ export const ChatRoom = ({
     };
   }, [chatId, handleMcpToolApprovalRequest]);
 
+  /*
+   * MCP Trace 实时事件订阅。
+   *
+   * 服务端实现若发送 payload / trace / mcpTrace 中任一字段，
+   * 均可兼容接收。持久化完成后，消息卡片仍以
+   * msg.metadata.mcpTrace 为唯一可靠的历史展示数据。
+   */
+  useEffect(() => {
+    setMcpTrace(null);
+
+    const unsubscribe = subscribeMcpChatTraceEvents((event) => {
+      if (!event || event.chatId !== chatId) return;
+
+      const nextTrace = (
+        event.mcpTrace
+        || event.trace
+        || event.payload
+        || null
+      );
+
+      setMcpTrace(nextTrace);
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [chatId]);
 
   useEffect(() => {
     onRoomStateChange?.(true);
-    return () => onRoomStateChange?.(false);
+
+    return () => {
+      onRoomStateChange?.(false);
+    };
   }, [onRoomStateChange]);
 
- useEffect(() => {
-  // 切换聊天室时，不继承上一个聊天室的打字状态
-  setIsAiTyping(false);
+  useEffect(() => {
+    setIsAiTyping(false);
     setCheckInDelivery(null);
+    setMcpTrace(null);
 
-  loadChatData();
+    void loadChatData();
 
-  const unsubscribe = subscribeAiEvents((event) => {
-    // 不是当前聊天室的事件，不处理
-    if (event.chatId !== chatId) return;
+    const unsubscribe = subscribeAiEvents((event) => {
+      if (event.chatId !== chatId) return;
 
-    if (event.type === 'AI_TYPING_START') {
-      setIsAiTyping(true);
-      return;
-    }
+      if (event.type === 'AI_TYPING_START') {
+        setIsAiTyping(true);
+        return;
+      }
 
-    if (event.type === 'AI_TYPING_END') {
-      setIsAiTyping(false);
-      return;
-    }
+      if (event.type === 'AI_TYPING_END') {
+        setIsAiTyping(false);
+        return;
+      }
 
-    if (event.type === 'NEW_MESSAGE') {
-      // 收到正式消息时，肯定不应继续展示“正在输入”
-      setIsAiTyping(false);
-      loadChatData();
-      return;
-    }
+      if (event.type === 'NEW_MESSAGE') {
+        setIsAiTyping(false);
+        setMcpTrace(null);
+        void loadChatData();
+        return;
+      }
 
-    if (event.type === 'CHAT_SUMMARY_UPDATED') {
-      loadChatData();
-    }
-  });
+      if (event.type === 'CHAT_SUMMARY_UPDATED') {
+        void loadChatData();
+      }
+    });
 
-  // App / 浏览器标签页切到后台时，立即关掉当前 UI 的打字指示器。
-  // 避免后台任务暂停、事件没送达后，回来仍卡在“正在输入”。
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') {
-      setIsAiTyping(false);
-    }
-  };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        setIsAiTyping(false);
+      }
+    };
 
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  return () => {
-    unsubscribe();
-    document.removeEventListener(
+    document.addEventListener(
       'visibilitychange',
-      handleVisibilityChange
+      handleVisibilityChange,
     );
-  };
-}, [chatId]);
 
-// 监听其他模块写入数据库后的消息刷新。
-// 这个事件只负责刷新消息列表，绝不能改变 AI 打字状态。
-useEffect(() => {
-  const handleLocalMessageNotification = (e) => {
-    // 只刷新当前正在打开的聊天室
-    if (e.detail?.chatId !== chatId) return;
+    return () => {
+      unsubscribe();
 
-    loadChatData();
-  };
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      );
+    };
+  }, [chatId]);
 
-  window.addEventListener(
-    'new-local-message-inserted',
-    handleLocalMessageNotification
-  );
+  useEffect(() => {
+    const handleLocalMessageNotification = (event) => {
+      if (event.detail?.chatId !== chatId) return;
+      void loadChatData();
+    };
 
-  return () => {
-    window.removeEventListener(
+    window.addEventListener(
       'new-local-message-inserted',
-      handleLocalMessageNotification
+      handleLocalMessageNotification,
     );
-  };
-}, [chatId]);
 
-
+    return () => {
+      window.removeEventListener(
+        'new-local-message-inserted',
+        handleLocalMessageNotification,
+      );
+    };
+  }, [chatId]);
 
   useEffect(() => {
     const scrollArea = scrollAreaRef.current;
-    if (!scrollArea) return;
+
+    if (!scrollArea) return undefined;
 
     const frameId = window.requestAnimationFrame(() => {
       scrollArea.scrollTo({
         top: scrollArea.scrollHeight,
-        behavior: 'smooth'
+        behavior: 'smooth',
       });
     });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [messages, isAiTyping]);
 
-  const loadChatData = async () => {
-    try {
-      // 1. 并发读取聊天实体与消息历史，缩短 IndexedDB I/O 堵塞
-      const [chatRecord, msgList] = await Promise.all([
-        db.chats.get(chatId),
-        db.messages.where('chatId').equals(chatId).sortBy('timestamp')
-      ]);
-
-      if (!chatRecord) return;
-
-      // 2. 根据聊天关联的角色 ID 读取角色设定
-      const charRecord = await db.characters.get(chatRecord.characterId);
-
-      // 3. 集中进行状态更新（自动 Batching 批处理合并渲染）
-      setChat(chatRecord);
-      if (charRecord) {
-        setCharacter(charRecord);
-      }
-      setMessages(Array.isArray(msgList) ? msgList : []);
-    } catch (err) {
-      console.error('[ChatRoom] loadChatData batch query failed safely:', err);
-    }
-  };
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [messages, isAiTyping, mcpTrace]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
@@ -357,51 +396,46 @@ useEffect(() => {
       characterId: character?.id,
       sender: 'user',
       type: selectedType,
-      content: inputText.trim() || (selectedType === 'image' ? '画面描述' : '心意转账'),
+      content: inputText.trim()
+        || (selectedType === 'image' ? '画面描述' : '心意转账'),
       metadata: extraInputMeta,
       userAvatar,
       userName,
       quotedMessageId: quotedMsg?.id || null,
       isRead: true,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     const payload = { ...newMsg };
     delete payload.id;
 
-       const msgId = await db.messages.add(payload);
+    const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
 
-    // 用户提前回来继续说话时，取消此前 AI 预约的“稍后联系”。
-    // 这样不会在用户已经发言后仍收到过时的追问。
     try {
       await cancelPendingScheduledMessagesForChat(
         chatId,
-        'user_sent_new_message'
+        'user_sent_new_message',
       );
-    } catch (scheduleError) {
-      // 取消失败不应阻止用户自己的消息正常发出。
-      console.warn(
-        '[ScheduledMessage] 取消旧预约失败：',
-        scheduleError
-      );
+    } catch (error) {
+      console.warn('[ScheduledMessage] 取消旧预约失败：', error);
     }
 
-
-    // 播放发送提示音
     playMessageSound('send');
 
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((previous) => [...previous, newMsg]);
     setInputText('');
+
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto'; // 手动重置输入框高度
+      inputRef.current.style.height = 'auto';
     }
+
     setQuotedMsg(null);
     setSelectedType('text');
     setExtraInputMeta({});
 
-       await db.chats.update(chatId, {
-      updatedAt: new Date().toISOString()
+    await db.chats.update(chatId, {
+      updatedAt: new Date().toISOString(),
     });
 
     void checkForCrossChatCheckIn({
@@ -410,73 +444,114 @@ useEffect(() => {
         setCheckInDelivery(delivery);
       },
     });
-
   };
 
   const handleTriggerAi = () => {
     if (!character || isAiTyping) return;
+
+    setMcpTrace(null);
     triggerAiResponse(chatId);
   };
 
-  const handleRerollMessage = (msgId) => {
+  const handleRerollMessage = (messageId) => {
     if (isAiTyping) return;
-    rerollAiResponse(chatId, msgId);
+
+    setMcpTrace(null);
+    rerollAiResponse(chatId, messageId);
   };
 
   const handleSwitchVersion = async (msg, direction) => {
     if (!msg.versions || msg.versions.length <= 1) return;
+
     const currentIndex = msg.currentVersionIndex ?? (msg.versions.length - 1);
-    let nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+    const nextIndex = direction === 'prev'
+      ? currentIndex - 1
+      : currentIndex + 1;
 
     if (nextIndex < 0 || nextIndex >= msg.versions.length) return;
 
-    const targetVer = msg.versions[nextIndex];
+    const targetVersion = msg.versions[nextIndex];
+
     await db.messages.update(msg.id, {
       currentVersionIndex: nextIndex,
-      type: targetVer.type,
-      content: targetVer.content,
-      metadata: targetVer.metadata || {}
+      type: targetVersion.type,
+      content: targetVersion.content,
+      metadata: targetVersion.metadata || {},
     });
 
-    loadChatData();
+    await loadChatData();
   };
 
-  const handleDeleteMessage = async (id) => {
-    await db.messages.delete(id);
-    setMessages((previous) => previous.filter((message) => message.id !== id));
+  const handleDeleteMessage = async (messageId) => {
+    await db.messages.delete(messageId);
+
+    setMessages((previous) => (
+      previous.filter((message) => message.id !== messageId)
+    ));
   };
 
   const handleClearHistory = async () => {
     await db.messages.where('chatId').equals(chatId).delete();
     setMessages([]);
+    setMcpTrace(null);
   };
 
   const handleSaveCustomCss = async (cssCode) => {
-    setChat((prev) => ({ ...prev, customCss: cssCode }));
-    await db.chats.update(chatId, { customCss: cssCode });
+    setChat((previous) => ({
+      ...previous,
+      customCss: cssCode,
+    }));
+
+    await db.chats.update(chatId, {
+      customCss: cssCode,
+    });
   };
 
   const handleUpdateBgImage = async (base64Img) => {
-    setChat((prev) => ({ ...prev, bgImage: base64Img }));
-    await db.chats.update(chatId, { bgImage: base64Img });
+    setChat((previous) => ({
+      ...previous,
+      bgImage: base64Img,
+    }));
+
+    await db.chats.update(chatId, {
+      bgImage: base64Img,
+    });
   };
 
   const handleUpdateBgOpacity = async (opacity) => {
-    setChat((prev) => ({ ...prev, bgOpacity: opacity }));
-    await db.chats.update(chatId, { bgOpacity: opacity });
+    setChat((previous) => ({
+      ...previous,
+      bgOpacity: opacity,
+    }));
+
+    await db.chats.update(chatId, {
+      bgOpacity: opacity,
+    });
   };
 
-  const handleToggleKeepAlive = async (val) => {
-    setChat((prev) => ({ ...prev, keepAlive: val }));
-    await db.chats.update(chatId, { keepAlive: val });
+  const handleToggleKeepAlive = async (value) => {
+    setChat((previous) => ({
+      ...previous,
+      keepAlive: value,
+    }));
+
+    await db.chats.update(chatId, {
+      keepAlive: value,
+    });
   };
 
   const handleSaveSummary = async (newSummary) => {
-    setChat((prev) => ({ ...prev, summary: newSummary }));
-    await db.chats.update(chatId, { summary: newSummary });
+    setChat((previous) => ({
+      ...previous,
+      summary: newSummary,
+    }));
+
+    await db.chats.update(chatId, {
+      summary: newSummary,
+    });
   };
 
-  // 1. 安全拦截判定：如果 chat 还未加载出来，展示优雅的骨架/Loading
   if (!chat) {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-[var(--bg-main)] text-[var(--text-main)]">
@@ -488,15 +563,12 @@ useEffect(() => {
     );
   }
 
-  // 2. 安全地提取属性，加可选链防范
-    // 2. 安全地提取属性，加可选链防范
   const activeUserAvatar = chat?.userAvatar || character?.userAvatar || '';
   const activeUserName = chat?.userName || character?.userName || '你';
   const bgOpacity = chat?.bgOpacity ?? 0.3;
   const isBgDimmed = chat?.isBgDimmed ?? true;
   const currentCss = chat?.customCss || defaultCss;
 
-  // 👈 新增这一段：当 showParallelOrbit 为 true 时，直接渲染平行轨迹杂志，不再渲染后面普通的聊天室 DOM
   if (showParallelOrbit) {
     return (
       <ParallelOrbit
@@ -512,13 +584,12 @@ useEffect(() => {
       className="chat-room-container fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden text-left text-xs animate-fade-in-up"
       style={{
         background: 'var(--bg-main)',
-        color: 'var(--text-main)'
+        color: 'var(--text-main)',
       }}
     >
-      {/* 渲染已在顶部 Memo 好的样式标签 */}
       {memoizedStyle}
 
-            <CheckInNotice
+      <CheckInNotice
         delivery={checkInDelivery}
         onDismiss={() => setCheckInDelivery(null)}
         onOpen={() => {
@@ -532,58 +603,55 @@ useEffect(() => {
         }}
       />
 
-
-      {/* 背景图渲染：改用高性能合成图层渲染 */}
       {chat.bgImage && (
-        <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div
-            className="absolute inset-0 will-change-transform" 
+            className="absolute inset-0 will-change-transform"
             style={{
               backgroundImage: `url(${chat.bgImage})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat'
+              backgroundRepeat: 'no-repeat',
             }}
           />
+
           {isBgDimmed && (
             <div
               className="absolute inset-0 transition-opacity"
               style={{
                 background: `rgba(var(--bg-main-rgb, 0, 0, 0), ${bgOpacity})`,
-                backgroundColor: 'var(--bg-main)', 
-                opacity: bgOpacity
+                backgroundColor: 'var(--bg-main)',
+                opacity: bgOpacity,
               }}
             />
           )}
         </div>
       )}
 
-      {/* 顶部按钮控制区 */}
-      <header className="z-20 shrink-0 px-4 pt-3 pb-1">
+      <header className="z-20 shrink-0 px-4 pb-1 pt-3">
         <div className="flex items-center justify-between pb-1">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold opacity-85 hover:opacity-100 transition-opacity"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold opacity-85 transition-opacity hover:opacity-100"
               style={{
                 background: 'var(--control-soft-bg)',
-                color: 'var(--text-main)'
+                color: 'var(--text-main)',
               }}
             >
               <ArrowLeft className="h-4 w-4" />
               <span>返回列表</span>
             </button>
 
-            {/* 极简现代主义纯 SVG 入口按钮，无汉字，仅边框与图标 */}
             <button
               type="button"
               onClick={() => setShowParallelOrbit(true)}
-              className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all flex items-center justify-center opacity-80 hover:opacity-100"
+              className="flex items-center justify-center rounded-full p-2 opacity-80 transition-all hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-neutral-800"
               style={{
                 color: 'var(--text-main)',
                 border: '1px solid var(--card-border)',
-                background: 'var(--control-soft-bg)'
+                background: 'var(--control-soft-bg)',
               }}
               title="翻阅平行轨迹"
             >
@@ -591,38 +659,35 @@ useEffect(() => {
             </button>
           </div>
 
-         
-
           <div className="flex items-center gap-2">
-  <button
-    type="button"
-    onClick={() => setShowScheduledArchive(true)}
-    className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
-    style={{
-      background: 'var(--control-soft-bg)',
-      color: 'var(--text-main)'
-    }}
-    title="查看稍后联系存档"
-    aria-label="查看稍后联系存档"
-  >
-    <ReceiptText className="h-4 w-4" />
-  </button>
+            <button
+              type="button"
+              onClick={() => setShowScheduledArchive(true)}
+              className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+              style={{
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)',
+              }}
+              title="查看稍后联系存档"
+              aria-label="查看稍后联系存档"
+            >
+              <ReceiptText className="h-4 w-4" />
+            </button>
 
-  <button
-    type="button"
-    onClick={() => setShowChatSettings(true)}
-    className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
-    style={{
-      background: 'var(--control-soft-bg)',
-      color: 'var(--text-main)'
-    }}
-    title="对话空间设置"
-    aria-label="打开对话空间设置"
-  >
-    <Settings className="h-4 w-4" />
-  </button>
-</div>
-
+            <button
+              type="button"
+              onClick={() => setShowChatSettings(true)}
+              className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
+              style={{
+                background: 'var(--control-soft-bg)',
+                color: 'var(--text-main)',
+              }}
+              title="对话空间设置"
+              aria-label="打开对话空间设置"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <ChatHeaderBar
@@ -633,7 +698,6 @@ useEffect(() => {
         />
       </header>
 
-      {/* 消息历史滚动容器 */}
       <section
         ref={scrollAreaRef}
         className="min-h-0 flex-1 overflow-y-auto px-4 py-3 no-scrollbar"
@@ -650,28 +714,43 @@ useEffect(() => {
           {messages.map((msg) => {
             const isUser = msg.sender === 'user';
             const versions = msg.versions || [];
-            const versionIndex = msg.currentVersionIndex ?? (versions.length > 1 ? versions.length - 1 : 0);
-            const isErrorMsg = msg.type === 'error' || msg.metadata?.errorCode;
+            const versionIndex = msg.currentVersionIndex
+              ?? (versions.length > 1 ? versions.length - 1 : 0);
+
+            const isErrorMsg = (
+              msg.type === 'error'
+              || msg.metadata?.errorCode
+            );
+
+            const messageMcpTrace = isUser
+              ? null
+              : msg.metadata?.mcpTrace;
 
             const quoted = msg.quotedMessageId
-              ? messages.find((m) => m.id === msg.quotedMessageId)
+              ? messages.find((message) => (
+                message.id === msg.quotedMessageId
+              ))
               : null;
 
             return (
               <div
                 key={msg.id}
-                className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
+                className={`group flex flex-col ${
+                  isUser ? 'items-end' : 'items-start'
+                }`}
               >
                 {quoted && (
                   <div
                     className="mb-1 max-w-[75%] rounded-xl border-l-2 px-3 py-1 text-[10px] opacity-60"
                     style={{
                       background: 'var(--control-soft-bg)',
-                      borderColor: 'var(--divider)'
+                      borderColor: 'var(--divider)',
                     }}
                   >
                     <span className="block font-bold">
-                      {quoted.sender === 'user' ? activeUserName : (character?.name || '伴侣')}
+                      {quoted.sender === 'user'
+                        ? activeUserName
+                        : (character?.name || '伴侣')}
                     </span>
                     <p className="truncate">{quoted.content}</p>
                   </div>
@@ -682,19 +761,22 @@ useEffect(() => {
                     isUser ? 'flex-row-reverse' : 'flex-row'
                   }`}
                 >
-                  {/* 头像渲染 */}
                   {!isUser ? (
                     character?.avatar ? (
                       <img
                         src={character.avatar}
                         alt={character.name}
                         className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
-                        style={{ borderColor: 'var(--card-border)' }}
+                        style={{
+                          borderColor: 'var(--card-border)',
+                        }}
                       />
                     ) : (
                       <div
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                        style={{ background: 'var(--control-soft-bg)' }}
+                        style={{
+                          background: 'var(--control-soft-bg)',
+                        }}
                       >
                         {character?.name?.[0]}
                       </div>
@@ -704,29 +786,32 @@ useEffect(() => {
                       src={activeUserAvatar}
                       alt={activeUserName}
                       className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
-                      style={{ borderColor: 'var(--card-border)' }}
+                      style={{
+                        borderColor: 'var(--card-border)',
+                      }}
                     />
                   ) : (
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ background: 'var(--control-soft-bg)' }}
+                      style={{
+                        background: 'var(--control-soft-bg)',
+                      }}
                     >
                       <User className="h-3.5 w-3.5 opacity-60" />
                     </div>
                   )}
 
-                                {/* 消息气泡正文 */}
                   <div className="flex flex-col gap-1">
                     {isErrorMsg ? (
                       <div
-                        className="p-3 rounded-2xl border shadow-sm space-y-2 chat-font"
+                        className="space-y-2 rounded-2xl border p-3 shadow-sm chat-font"
                         style={{
                           background: 'rgba(239, 68, 68, 0.08)',
                           borderColor: 'rgba(239, 68, 68, 0.3)',
-                          color: 'var(--text-main)'
+                          color: 'var(--text-main)',
                         }}
                       >
-                        <div className="flex items-center gap-1.5 font-bold font-mono text-[11px] text-red-500">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-red-500">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                           <span>
                             API 报错: {msg.metadata?.errorCode || 'ERROR'}
@@ -740,7 +825,7 @@ useEffect(() => {
                         <button
                           type="button"
                           onClick={() => handleRerollMessage(msg.id)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+                          className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-red-600"
                         >
                           <RotateCw className="h-3 w-3" />
                           <span>重新尝试 (Re-roll)</span>
@@ -794,36 +879,40 @@ useEffect(() => {
                         {msg.type === 'gift' && (
                           <GiftCard
                             metadata={msg.metadata}
-                            isUser={msg.sender === 'user'}
+                            isUser={isUser}
                           />
                         )}
 
                         {msg.type === 'food' && (
                           <FoodDeliveryCard
                             metadata={msg.metadata}
-                            isUser={msg.sender === 'user'}
+                            isUser={isUser}
                           />
                         )}
 
                         {msg.type === 'kinship' && (
                           <KinshipCard
                             metadata={msg.metadata}
-                            isUser={msg.sender === 'user'}
+                            isUser={isUser}
                           />
                         )}
 
                         {msg.type === 'sticker' && (
                           <StickerCard
                             metadata={msg.metadata}
-                            isUser={msg.sender === 'user'}
+                            isUser={isUser}
                           />
                         )}
                       </div>
                     )}
+
+                    {!isUser && messageMcpTrace && (
+                      <McpUsageTraceCard
+                        mcpTrace={messageMcpTrace}
+                      />
+                    )}
                   </div>
 
-
-                  {/* 悬浮工具 */}
                   <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     {!isUser && (
                       <button
@@ -831,7 +920,7 @@ useEffect(() => {
                         onClick={() => handleRerollMessage(msg.id)}
                         disabled={isAiTyping}
                         className="p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
-                        title="重roll此回复"
+                        title="重 roll 此回复"
                       >
                         <RotateCw className="h-3 w-3" />
                       </button>
@@ -857,7 +946,6 @@ useEffect(() => {
                   </div>
                 </div>
 
-                {/* 多版本切换与时间戳 */}
                 <div
                   className={`mt-1 flex items-center gap-2 px-9 font-mono text-[9px] opacity-60 ${
                     isUser ? 'justify-end' : 'justify-start'
@@ -865,29 +953,31 @@ useEffect(() => {
                 >
                   {versions.length > 1 && (
                     <div
-                      className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 border"
+                      className="flex items-center gap-0.5 rounded-full border px-1.5 py-0.5"
                       style={{
                         background: 'var(--control-soft-bg)',
-                        borderColor: 'var(--card-border)'
+                        borderColor: 'var(--card-border)',
                       }}
                     >
                       <button
                         type="button"
                         onClick={() => handleSwitchVersion(msg, 'prev')}
                         disabled={versionIndex === 0}
-                        className="p-0.5 disabled:opacity-20 hover:opacity-100"
+                        className="p-0.5 hover:opacity-100 disabled:opacity-20"
                         title="上一版本"
                       >
                         <ChevronLeft className="h-3 w-3" />
                       </button>
+
                       <span className="px-1 text-[9px] font-bold">
                         {versionIndex + 1} / {versions.length}
                       </span>
+
                       <button
                         type="button"
                         onClick={() => handleSwitchVersion(msg, 'next')}
                         disabled={versionIndex === versions.length - 1}
-                        className="p-0.5 disabled:opacity-20 hover:opacity-100"
+                        className="p-0.5 hover:opacity-100 disabled:opacity-20"
                         title="下一版本"
                       >
                         <ChevronRight className="h-3 w-3" />
@@ -898,14 +988,24 @@ useEffect(() => {
                   <span>
                     {new Date(msg.timestamp).toLocaleTimeString([], {
                       hour: '2-digit',
-                      minute: '2-digit'
+                      minute: '2-digit',
                     })}
                   </span>
 
                   {isUser ? (
-                    <CheckCheck className="h-3 w-3" style={{ color: 'var(--text-muted)' }} />
+                    <CheckCheck
+                      className="h-3 w-3"
+                      style={{
+                        color: 'var(--text-muted)',
+                      }}
+                    />
                   ) : (
-                    <Check className="h-3 w-3" style={{ color: 'var(--text-muted)' }} />
+                    <Check
+                      className="h-3 w-3"
+                      style={{
+                        color: 'var(--text-muted)',
+                      }}
+                    />
                   )}
                 </div>
               </div>
@@ -913,19 +1013,27 @@ useEffect(() => {
           })}
 
           {isAiTyping && (
-            <TypingIndicator
-              customText={chat.typingText || `${character?.name || '伴侣'} 正在思考...`}
-              styleType={chat.typingStyle || 'default'}
-            />
+            <>
+              <McpToolUsageIndicator
+                mcpTrace={mcpTrace}
+              />
+
+              <TypingIndicator
+                customText={
+                  chat.typingText
+                  || `${character?.name || '伴侣'} 正在思考...`
+                }
+                styleType={chat.typingStyle || 'default'}
+              />
+            </>
           )}
         </div>
       </section>
 
-      {/* 悬浮输入框区 */}
       <footer
         className="z-20 shrink-0 px-4 pt-1"
         style={{
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)'
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)',
         }}
       >
         {quotedMsg && (
@@ -933,12 +1041,14 @@ useEffect(() => {
             className="mb-2 flex items-center justify-between rounded-2xl p-2 px-3 text-[10px] shadow-md"
             style={{
               background: 'var(--control-soft-bg)',
-              color: 'var(--text-main)'
+              color: 'var(--text-main)',
             }}
           >
             <div className="truncate pr-2">
               <span className="font-bold">
-                引用 {quotedMsg.sender === 'user' ? activeUserName : character?.name}:
+                引用 {quotedMsg.sender === 'user'
+                  ? activeUserName
+                  : character?.name}:
               </span>{' '}
               {quotedMsg.content}
             </div>
@@ -958,11 +1068,12 @@ useEffect(() => {
             className="mb-2 space-y-2 rounded-2xl p-3 text-[11px] shadow-md"
             style={{
               background: 'var(--control-soft-bg)',
-              color: 'var(--text-main)'
+              color: 'var(--text-main)',
             }}
           >
             <div className="flex items-center justify-between font-mono text-[10px] opacity-60">
               <span>MODIFIER: {selectedType.toUpperCase()}</span>
+
               <button
                 type="button"
                 onClick={() => setSelectedType('text')}
@@ -980,7 +1091,7 @@ useEffect(() => {
                 className="w-full rounded-xl p-2 outline-none"
                 style={{
                   background: 'var(--bg-main)',
-                  color: 'var(--text-main)'
+                  color: 'var(--text-main)',
                 }}
               />
             )}
@@ -993,13 +1104,13 @@ useEffect(() => {
                   onChange={(event) => {
                     setExtraInputMeta({
                       ...extraInputMeta,
-                      amount: event.target.value
+                      amount: event.target.value,
                     });
                   }}
                   className="w-1/2 rounded-xl p-2 font-mono outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
 
@@ -1011,7 +1122,7 @@ useEffect(() => {
                   className="w-1/2 rounded-xl p-2 outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
               </div>
@@ -1022,16 +1133,19 @@ useEffect(() => {
                 <input
                   type="text"
                   placeholder="礼物名称 (如: 羊绒围巾)"
-                  onChange={(event) => setExtraInputMeta({
-                    ...extraInputMeta,
-                    name: event.target.value
-                  })}
+                  onChange={(event) => {
+                    setExtraInputMeta({
+                      ...extraInputMeta,
+                      name: event.target.value,
+                    });
+                  }}
                   className="w-full rounded-xl p-2 text-xs outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
+
                 <input
                   type="text"
                   placeholder="寄语或选礼理由..."
@@ -1040,7 +1154,7 @@ useEffect(() => {
                   className="w-full rounded-xl p-2 text-xs outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
               </div>
@@ -1052,30 +1166,36 @@ useEffect(() => {
                   <input
                     type="text"
                     placeholder="餐品/饮品"
-                    onChange={(event) => setExtraInputMeta({
-                      ...extraInputMeta,
-                      item: event.target.value
-                    })}
+                    onChange={(event) => {
+                      setExtraInputMeta({
+                        ...extraInputMeta,
+                        item: event.target.value,
+                      });
+                    }}
                     className="w-1/2 rounded-xl p-2 text-xs outline-none"
                     style={{
                       background: 'var(--bg-main)',
-                      color: 'var(--text-main)'
+                      color: 'var(--text-main)',
                     }}
                   />
+
                   <input
                     type="text"
                     placeholder="商家/品牌"
-                    onChange={(event) => setExtraInputMeta({
-                      ...extraInputMeta,
-                      store: event.target.value
-                    })}
+                    onChange={(event) => {
+                      setExtraInputMeta({
+                        ...extraInputMeta,
+                        store: event.target.value,
+                      });
+                    }}
                     className="w-1/2 rounded-xl p-2 text-xs outline-none"
                     style={{
                       background: 'var(--bg-main)',
-                      color: 'var(--text-main)'
+                      color: 'var(--text-main)',
                     }}
                   />
                 </div>
+
                 <input
                   type="text"
                   placeholder="叮嘱留言 (如: 记得趁热吃)"
@@ -1084,7 +1204,7 @@ useEffect(() => {
                   className="w-full rounded-xl p-2 text-xs outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
               </div>
@@ -1095,16 +1215,19 @@ useEffect(() => {
                 <input
                   type="text"
                   placeholder="额度数字 (如: 5200)"
-                  onChange={(event) => setExtraInputMeta({
-                    ...extraInputMeta,
-                    amount: event.target.value
-                  })}
+                  onChange={(event) => {
+                    setExtraInputMeta({
+                      ...extraInputMeta,
+                      amount: event.target.value,
+                    });
+                  }}
                   className="w-full rounded-xl p-2 font-mono text-xs outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
+
                 <input
                   type="text"
                   placeholder="专属卡面赠言..."
@@ -1113,7 +1236,7 @@ useEffect(() => {
                   className="w-full rounded-xl p-2 text-xs outline-none"
                   style={{
                     background: 'var(--bg-main)',
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 />
               </div>
@@ -1126,41 +1249,44 @@ useEffect(() => {
           style={{
             background: 'var(--card-bg-gradient)',
             color: 'var(--text-main)',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)'
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)',
           }}
         >
           <div className="flex items-center gap-1 opacity-80">
-           <InteractiveMenuPopover
-  onSelectAction={(type) => {
-    if (type === 'sticker') {
-      setShowStickerModal(true);
-      return;
-    }
+            <InteractiveMenuPopover
+              onSelectAction={(type) => {
+                if (type === 'sticker') {
+                  setShowStickerModal(true);
+                  return;
+                }
 
-    if (type === 'interaction_coin') {
-      void handleCreateInteraction(INTERACTION_TYPES.COIN);
-      return;
-    }
+                if (type === 'interaction_coin') {
+                  void handleCreateInteraction(INTERACTION_TYPES.COIN);
+                  return;
+                }
 
-    if (type === 'interaction_dice') {
-      void handleCreateInteraction(INTERACTION_TYPES.DICE);
-      return;
-    }
+                if (type === 'interaction_dice') {
+                  void handleCreateInteraction(INTERACTION_TYPES.DICE);
+                  return;
+                }
 
-    if (type === 'interaction_rps') {
-      void handleCreateInteraction(INTERACTION_TYPES.RPS);
-      return;
-    }
+                if (type === 'interaction_rps') {
+                  void handleCreateInteraction(INTERACTION_TYPES.RPS);
+                  return;
+                }
 
-    setSelectedType(type);
-  }}
-/>
-
+                setSelectedType(type);
+              }}
+            />
 
             <button
               type="button"
               onClick={() => setSelectedType('image')}
-              className={`rounded-full p-2 transition-all active:scale-90 ${selectedType === 'image' ? 'bg-[var(--control-soft-bg)] opacity-100' : 'hover:opacity-100'}`}
+              className={`rounded-full p-2 transition-all active:scale-90 ${
+                selectedType === 'image'
+                  ? 'bg-[var(--control-soft-bg)] opacity-100'
+                  : 'hover:opacity-100'
+              }`}
               title="画面描述"
             >
               <Image className="h-4 w-4" />
@@ -1169,7 +1295,11 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => setSelectedType('voice')}
-              className={`rounded-full p-2 transition-all active:scale-90 ${selectedType === 'voice' ? 'bg-[var(--control-soft-bg)] opacity-100' : 'hover:opacity-100'}`}
+              className={`rounded-full p-2 transition-all active:scale-90 ${
+                selectedType === 'voice'
+                  ? 'bg-[var(--control-soft-bg)] opacity-100'
+                  : 'hover:opacity-100'
+              }`}
               title="模拟语音"
             >
               <Volume2 className="h-4 w-4" />
@@ -1178,7 +1308,11 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => setSelectedType('transfer')}
-              className={`rounded-full p-2 transition-all active:scale-90 ${selectedType === 'transfer' ? 'bg-[var(--control-soft-bg)] opacity-100' : 'hover:opacity-100'}`}
+              className={`rounded-full p-2 transition-all active:scale-90 ${
+                selectedType === 'transfer'
+                  ? 'bg-[var(--control-soft-bg)] opacity-100'
+                  : 'hover:opacity-100'
+              }`}
               title="心意转账"
             >
               <DollarSign className="h-4 w-4" />
@@ -1189,23 +1323,28 @@ useEffect(() => {
             ref={inputRef}
             rows={1}
             value={inputText}
-            onChange={(e) => {
-              setInputText(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+            onChange={(event) => {
+              setInputText(event.target.value);
+              event.target.style.height = 'auto';
+              event.target.style.height = `${
+                Math.min(event.target.scrollHeight, 160)
+              }px`;
             }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                void handleSendMessage();
               }
             }}
             placeholder={
               selectedType === 'text'
-                ? (chat?.inputPlaceholder || `与 ${character?.name || '伴侣'} 倾诉...`)
+                ? (
+                  chat?.inputPlaceholder
+                  || `与 ${character?.name || '伴侣'} 倾诉...`
+                )
                 : `已选 ${selectedType} 模式`
             }
-            className="w-full bg-transparent outline-none text-xs resize-y overflow-y-auto leading-relaxed max-h-40"
+            className="max-h-40 w-full resize-y overflow-y-auto bg-transparent text-xs leading-relaxed outline-none"
             style={{
               color: 'var(--text-main)',
               minHeight: '24px',
@@ -1215,11 +1354,11 @@ useEffect(() => {
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              onClick={handleSendMessage}
+              onClick={() => void handleSendMessage()}
               className="rounded-full p-2 transition-transform hover:opacity-90 active:scale-90"
               style={{
                 background: 'var(--control-soft-bg)',
-                color: 'var(--text-main)'
+                color: 'var(--text-main)',
               }}
               title="发送记录"
             >
@@ -1233,7 +1372,7 @@ useEffect(() => {
               className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[10px] font-semibold shadow-sm transition-transform active:scale-95 disabled:opacity-50"
               style={{
                 background: 'var(--accent-color)',
-                color: 'var(--accent-foreground)'
+                color: 'var(--accent-foreground)',
               }}
               title="触发伴侣回应"
             >
@@ -1269,30 +1408,26 @@ useEffect(() => {
       )}
 
       {showScheduledArchive && (
-  <ScheduledMessageArchive
-    chatId={chatId}
-    character={character}
-    onClose={() => setShowScheduledArchive(false)}
-  />
-)}
+        <ScheduledMessageArchive
+          chatId={chatId}
+          character={character}
+          onClose={() => setShowScheduledArchive(false)}
+        />
+      )}
 
-
-      
-
-      {/* 表情包选择器弹窗 */}
       <StickerPickerModal
         isOpen={showStickerModal}
         onClose={() => setShowStickerModal(false)}
-        onSelectSticker={(sticker) => handleSendSticker(sticker)}
+        onSelectSticker={handleSendSticker}
       />
 
       <McpToolApprovalModal
-  request={pendingMcpApproval}
-  onResolve={closePendingMcpApproval}
-/>
-
+        request={pendingMcpApproval}
+        onResolve={closePendingMcpApproval}
+      />
     </div>
   );
 };
 
 export default ChatRoom;
+
