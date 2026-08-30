@@ -262,29 +262,26 @@ export const ChatRoom = ({
 
   /*
    * MCP Trace 实时事件订阅。
-   *
-   * 服务端实现若发送 payload / trace / mcpTrace 中任一字段，
-   * 均可兼容接收。持久化完成后，消息卡片仍以
-   * msg.metadata.mcpTrace 为唯一可靠的历史展示数据。
+   * 仅用于角色生成过程中的临时提示；历史记录以
+   * messages.metadata.mcpTrace 为准。
    */
   useEffect(() => {
     setMcpTrace(null);
 
-    const unsubscribe = subscribeMcpChatTraceEvents((event) => {
-      if (!event || event.chatId !== chatId) return;
+    const unsubscribeMcpTrace = subscribeMcpChatTraceEvents((event) => {
+      if (
+        !event
+        || event.type !== 'MCP_CHAT_TRACE_UPDATED'
+        || String(event.chatId) !== String(chatId)
+      ) {
+        return;
+      }
 
-      const nextTrace = (
-        event.mcpTrace
-        || event.trace
-        || event.payload
-        || null
-      );
-
-      setMcpTrace(nextTrace);
+      setMcpTrace(event.trace || null);
     });
 
     return () => {
-      unsubscribe?.();
+      unsubscribeMcpTrace?.();
     };
   }, [chatId]);
 
@@ -304,7 +301,7 @@ export const ChatRoom = ({
     void loadChatData();
 
     const unsubscribe = subscribeAiEvents((event) => {
-      if (event.chatId !== chatId) return;
+      if (String(event.chatId) !== String(chatId)) return;
 
       if (event.type === 'AI_TYPING_START') {
         setIsAiTyping(true);
@@ -351,7 +348,12 @@ export const ChatRoom = ({
 
   useEffect(() => {
     const handleLocalMessageNotification = (event) => {
-      if (event.detail?.chatId !== chatId) return;
+      if (
+        String(event.detail?.chatId) !== String(chatId)
+      ) {
+        return;
+      }
+
       void loadChatData();
     };
 
@@ -463,7 +465,8 @@ export const ChatRoom = ({
   const handleSwitchVersion = async (msg, direction) => {
     if (!msg.versions || msg.versions.length <= 1) return;
 
-    const currentIndex = msg.currentVersionIndex ?? (msg.versions.length - 1);
+    const currentIndex = msg.currentVersionIndex
+      ?? (msg.versions.length - 1);
 
     const nextIndex = direction === 'prev'
       ? currentIndex - 1
@@ -908,7 +911,7 @@ export const ChatRoom = ({
 
                     {!isUser && messageMcpTrace && (
                       <McpUsageTraceCard
-                        mcpTrace={messageMcpTrace}
+                        trace={messageMcpTrace}
                       />
                     )}
                   </div>
@@ -1014,9 +1017,11 @@ export const ChatRoom = ({
 
           {isAiTyping && (
             <>
-              <McpToolUsageIndicator
-                mcpTrace={mcpTrace}
-              />
+              {mcpTrace && (
+                <McpToolUsageIndicator
+                  trace={mcpTrace}
+                />
+              )}
 
               <TypingIndicator
                 customText={
@@ -1430,4 +1435,3 @@ export const ChatRoom = ({
 };
 
 export default ChatRoom;
-
