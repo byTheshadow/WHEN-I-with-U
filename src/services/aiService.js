@@ -18,6 +18,12 @@ import {
   requestMcpToolApproval,
 } from './mcp/mcpApprovalCoordinator';
 
+import {
+  createMcpChatTraceSession,
+  getMcpChatTraceSummary,
+} from './mcp/mcpChatTraceService';
+
+
 
 
 
@@ -1445,6 +1451,12 @@ const finalSystemPrompt = `${
 }${userReturnContext}${memoryContext}${characterEmotionContext}`;
 
 
+const mcpTraceSession = createMcpChatTraceSession({
+  chatId,
+  characterId: character.id,
+});
+
+
 const result = await runAiToolOrchestrator({
   systemPrompt: finalSystemPrompt,
   historyContext,
@@ -1453,6 +1465,7 @@ const result = await runAiToolOrchestrator({
   characterId: character.id,
   requestAiCompletion: fetchAiCompletionWithTools,
   requestToolApproval: requestMcpToolApproval,
+    mcpTraceSession,
 });
 
 
@@ -1486,6 +1499,11 @@ const parsedMessages = await parseAiResponseToMessages(
   visibleReplyContent
 );
 
+const mcpTrace = getMcpChatTraceSummary(
+  mcpTraceSession,
+);
+
+
 
             const safeParsedMessages = parsedMessages.length > 0
         ? parsedMessages
@@ -1497,20 +1515,31 @@ const parsedMessages = await parseAiResponseToMessages(
             }]
           : [];
 
-
-      for (const msgData of safeParsedMessages) {
+for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
         const newMessagePayload = {
           chatId,
           characterId: character.id,
           sender: 'character',
           type: msgData.type || 'text',
           content: msgData.content || '',
-          metadata: msgData.metadata || {},
+         metadata: {
+  ...(msgData.metadata || {}),
+  ...(messageIndex === 0 && mcpTrace
+    ? { mcpTrace }
+    : {}),
+},
+
           versions: [
             {
               type: msgData.type || 'text',
               content: msgData.content || '',
-              metadata: msgData.metadata || {},
+            metadata: {
+  ...(msgData.metadata || {}),
+  ...(messageIndex === 0 && mcpTrace
+    ? { mcpTrace }
+    : {}),
+},
+
               timestamp: nowIso
             }
           ],
@@ -1686,6 +1715,12 @@ const finalSystemPrompt = `${
 }${memoryContext}${characterEmotionContext}`;
 
 
+const mcpTraceSession = createMcpChatTraceSession({
+  chatId,
+  characterId: character.id,
+});
+
+
 const result = await runAiToolOrchestrator({
   systemPrompt: finalSystemPrompt,
   historyContext,
@@ -1694,6 +1729,7 @@ const result = await runAiToolOrchestrator({
   characterId: character.id,
   requestAiCompletion: fetchAiCompletionWithTools,
   requestToolApproval: requestMcpToolApproval,
+  mcpTraceSession,
 });
 
 
@@ -1723,13 +1759,21 @@ const result = await runAiToolOrchestrator({
         errorMessage: result.message,
         timestamp: nowIso
       };
-    } else {
-const parsed = await parseAiResponseToMessages(result.content);
+      } else {
+      const parsed = await parseAiResponseToMessages(
+        result.content,
+      );
+
+      const mcpTrace = getMcpChatTraceSummary(
+        mcpTraceSession,
+      );
+
       const firstMessage = parsed[0] || {
         type: 'text',
         content: result.content,
-        metadata: {}
+        metadata: {},
       };
+
 
       newVersion = {
         type: firstMessage.type || 'text',
