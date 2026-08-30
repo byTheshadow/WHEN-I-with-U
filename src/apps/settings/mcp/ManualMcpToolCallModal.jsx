@@ -18,6 +18,8 @@ import {
   callMcpToolRuntime,
 } from '../../../services/mcp/mcpRuntimeService';
 
+const MAX_SCHEMA_PREVIEW_LENGTH = 12_000;
+
 const getInitialArgumentsText = (tool) => {
   const properties = tool?.inputSchema?.properties;
 
@@ -35,7 +37,11 @@ const getInitialArgumentsText = (tool) => {
     }),
   );
 
-  return JSON.stringify(initialArguments, null, 2);
+  try {
+    return JSON.stringify(initialArguments, null, 2);
+  } catch {
+    return '{}';
+  }
 };
 
 const getRiskCopy = (riskLevel) => {
@@ -83,7 +89,11 @@ const getArgumentError = (rawArguments) => {
   try {
     const value = JSON.parse(trimmed);
 
-    if (!value || Array.isArray(value) || typeof value !== 'object') {
+    if (
+      !value ||
+      Array.isArray(value) ||
+      typeof value !== 'object'
+    ) {
       return {
         value: null,
         error: '工具参数必须是一个 JSON 对象。',
@@ -102,17 +112,292 @@ const getArgumentError = (rawArguments) => {
   }
 };
 
+const getValueTypeLabel = (value) => {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+
+  return typeof value;
+};
+
+const isExpectedSchemaType = (value, schemaType) => {
+  switch (schemaType) {
+    case 'object':
+      return Boolean(
+        value &&
+          !Array.isArray(value) &&
+          typeof value === 'object',
+      );
+
+    case 'array':
+      return Array.isArray(value);
+
+    case 'string':
+      return typeof value === 'string';
+
+    case 'number':
+      return (
+        typeof value === 'number' &&
+        Number.isFinite(value)
+      );
+
+    case 'integer':
+      return Number.isInteger(value);
+
+    case 'boolean':
+      return typeof value === 'boolean';
+
+    case 'null':
+      return value === null;
+
+    default:
+      /*
+       * 未识别的 Schema type 不阻止用户调用。
+       * MCP Server 仍然会作为最终参数校验方。
+       */
+      return true;
+  }
+};
+
+const getSchemaTypeList = (schema = {}) => {
+  if (Array.isArray(schema.type)) {
+    return schema.type.filter(Boolean);
+  }
+
+  return schema.type ? [schema.type] : [];
+};
+
+const valuesAreEqual = (left, right) => {
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return left === right;
+  }
+};
+
+const validateArgumentsWithSchema = (
+  value,
+  schema,
+  path = '参数',
+) => {
+  if (!schema || typeof schema !== 'object') {
+    return [];
+  }
+
+  const errors = [];
+  const schemaTypes = getSchemaTypeList(schema);
+
+  if (
+    schemaTypes.length > 0 &&
+    !schemaTypes.some((type) =>
+      isExpectedSchemaType(value, type),
+    )
+  ) {
+    errors.push(
+      `${path}应为 ${schemaTypes.join(
+        ' 或 ',
+      )}，当前是 ${getValueTypeLabel(value)}。`,
+    );
+
+    return errors;
+  }
+
+  if (
+    Array.isArray(schema.enum) &&
+    schema.enum.length > 0 &&
+    !schema.enum.some((candidate) =>
+      valuesAreEqual(candidate, value),
+    )
+  ) {
+    errors.push(`${path}不在工具允许的选项中。`);
+  }
+
+  if (typeof value === 'string') {
+    if (
+      Number.isFinite(schema.minLength) &&
+      value.length < schema.minLength
+    ) {
+      errors.push(
+        `${path}至少需要 ${schema.minLength} 个字符。`,
+      );
+    }
+
+    if (
+      Number.isFinite(schema.maxLength) &&
+      value.length > schema.maxLength
+    ) {
+      errors.push(
+        `${path}最多只能有 ${schema.maxLength} 个字符。`,
+      );
+    }
+
+    if (
+      typeof schema.pattern === 'string' &&
+      schema.pattern.length > 0
+    ) {
+      try {
+        const pattern = new RegExp(schema.pattern);
+
+        if (!pattern.test(value)) {
+          errors.push(`${path}格式不符合要求。`);
+        }
+      } catch {
+        // 无效的 pattern 交由服务端处理，不阻止本地调用。
+      }
+    }
+  }
+
+  if (
+    typeof value === 'number' &&
+    Number.isFinite(value)
+  ) {
+    if (
+      Number.isFinite(schema.minimum) &&
+      value < schema.minimum
+    ) {
+      errors.push(`${path}不能小于 ${schema.minimum}。`);
+    }
+
+    if (
+      Number.isFinite(schema.maximum) &&
+      value > schema.maximum
+    ) {
+      errors.push(`${path}不能大于 ${schema.maximum}。`);
+    }
+
+    if (
+      Number.isFinite(schema.multipleOf) &&
+      schema.multipleOf !== 0
+    ) {
+      const quotient = value / schema.multipleOf;
+
+      if (!Number.isInteger(quotient)) {
+        errors.push(
+          `${path}必须是 ${schema.multipleOf} 的倍数。`,
+        );
+      }
+    }
+  }
+
+  if (
+    value &&
+    !Array.isArray(value) &&
+    typeof value === 'object'
+  ) {
+    const requiredKeys = Array.isArray(schema.required)
+      ? schema.required
+      : [];
+
+    requiredKeys.forEach((key) => {
+      if (
+        !Object.prototype.hasOwnProperty.call(value, key) ||
+        value[key] === undefined
+      ) {
+        errors.push(`${path}.${key}是必填项。`);
+      }
+    });
+
+    const properties = schema.properties;
+
+    if (properties && typeof properties === 'object') {
+      Object.entries(properties).forEach(
+        ([key, propertySchema]) => {
+          if (
+            !Object.prototype.hasOwnProperty.call(
+              value,
+              key,
+            ) ||
+            value[key] === undefined
+          ) {
+            return;
+          }
+
+          errors.push(
+            ...validateArgumentsWithSchema(
+              value[key],
+              propertySchema,
+              `${path}.${key}`,
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  if (Array.isArray(value) && schema.items) {
+    value.forEach((item, index) => {
+      errors.push(
+        ...validateArgumentsWithSchema(
+          item,
+          schema.items,
+          `${path}[${index}]`,
+        ),
+      );
+    });
+  }
+
+  return errors.slice(0, 4);
+};
+
+const getSchemaValidationError = (
+  tool,
+  argumentsValue,
+) => {
+  const errors = validateArgumentsWithSchema(
+    argumentsValue,
+    tool?.inputSchema,
+  );
+
+  if (errors.length === 0) {
+    return '';
+  }
+
+  return errors.join(' ');
+};
+
+const stringifyForDisplay = (
+  value,
+  fallback = '没有可显示的数据。',
+) => {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  try {
+    const text = JSON.stringify(value, null, 2);
+
+    if (typeof text !== 'string') {
+      return fallback;
+    }
+
+    if (text.length <= MAX_SCHEMA_PREVIEW_LENGTH) {
+      return text;
+    }
+
+    return `${text.slice(
+      0,
+      MAX_SCHEMA_PREVIEW_LENGTH,
+    )}\n\n… 内容过长，已截断显示。`;
+  } catch {
+    return '数据无法安全格式化显示。';
+  }
+};
+
 export const ManualMcpToolCallModal = ({
   connection,
   tool,
   onClose,
 }) => {
   const approvalResolverRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   const [argumentsText, setArgumentsText] = useState(() =>
     getInitialArgumentsText(tool),
   );
-
   const [argumentError, setArgumentError] = useState('');
   const [isCalling, setIsCalling] = useState(false);
   const [result, setResult] = useState(null);
@@ -120,12 +405,30 @@ export const ManualMcpToolCallModal = ({
   const [approvalRequest, setApprovalRequest] = useState(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+
+      if (approvalResolverRef.current) {
+        const resolve = approvalResolverRef.current;
+        approvalResolverRef.current = null;
+
+        resolve({
+          decision: 'deny',
+          scope: 'once',
+        });
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     setArgumentsText(getInitialArgumentsText(tool));
     setArgumentError('');
     setCallError('');
     setResult(null);
     setApprovalRequest(null);
-  }, [tool?.id]);
+  }, [tool?.id, tool?.toolName]);
 
   const parameterHint = useMemo(() => {
     const properties = tool?.inputSchema?.properties;
@@ -150,6 +453,14 @@ export const ManualMcpToolCallModal = ({
     return new Promise((resolve) => {
       approvalResolverRef.current = resolve;
 
+      if (!isMountedRef.current) {
+        resolve({
+          decision: 'deny',
+          scope: 'once',
+        });
+        return;
+      }
+
       setApprovalRequest({
         tool: requestTool,
         arguments: requestArguments,
@@ -164,7 +475,10 @@ export const ManualMcpToolCallModal = ({
     const resolve = approvalResolverRef.current;
 
     approvalResolverRef.current = null;
-    setApprovalRequest(null);
+
+    if (isMountedRef.current) {
+      setApprovalRequest(null);
+    }
 
     resolve?.({
       decision,
@@ -177,6 +491,15 @@ export const ManualMcpToolCallModal = ({
 
     if (parsed.error) {
       setArgumentError(parsed.error);
+      setResult(null);
+      return;
+    }
+
+    const schemaValidationError =
+      getSchemaValidationError(tool, parsed.value);
+
+    if (schemaValidationError) {
+      setArgumentError(schemaValidationError);
       setResult(null);
       return;
     }
@@ -195,18 +518,30 @@ export const ManualMcpToolCallModal = ({
         requestApproval,
       });
 
-      setResult(runtimeResult.result);
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setResult(runtimeResult?.result || null);
     } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setCallError(
         error?.message || '这项外接工具没有完成调用。',
       );
     } finally {
-      setIsCalling(false);
+      if (isMountedRef.current) {
+        setIsCalling(false);
+      }
     }
   };
 
   const closeModal = () => {
-    if (isCalling) return;
+    if (isCalling) {
+      return;
+    }
 
     if (approvalResolverRef.current) {
       resolveApproval({
@@ -221,6 +556,12 @@ export const ManualMcpToolCallModal = ({
   if (!connection || !tool) {
     return null;
   }
+
+  const isCallDisabled =
+    isCalling ||
+    connection.enabled !== true ||
+    tool.enabled !== true ||
+    tool.isAvailable === false;
 
   return (
     <>
@@ -256,7 +597,8 @@ export const ManualMcpToolCallModal = ({
               </p>
 
               <p className="mt-1 text-[10px] leading-relaxed opacity-55">
-                {connection.name} · {tool.displayName || tool.toolName}
+                {connection.name} ·{' '}
+                {tool.displayName || tool.toolName}
               </p>
             </div>
 
@@ -296,19 +638,100 @@ export const ManualMcpToolCallModal = ({
               </div>
             </div>
 
+            <details
+              className="rounded-2xl px-3 py-2.5"
+              style={{
+                background: 'var(--control-soft-bg)',
+                border: '1px solid var(--divider)',
+              }}
+            >
+              <summary className="cursor-pointer list-none text-[10px] font-medium opacity-70">
+                查看这项工具的定义
+              </summary>
+
+              <div className="mt-3 space-y-2">
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[9px] leading-relaxed">
+                  <span className="opacity-45">
+                    工具名称
+                  </span>
+
+                  <code className="break-all font-mono opacity-75">
+                    {tool.toolName}
+                  </code>
+
+                  <span className="opacity-45">
+                    本地状态
+                  </span>
+
+                  <span className="opacity-75">
+                    {tool.enabled === true
+                      ? '已允许使用'
+                      : '尚未启用'}
+                    {tool.isAvailable === false
+                      ? '；服务最新清单中已不存在'
+                      : ''}
+                  </span>
+
+                  <span className="opacity-45">
+                    风险判断
+                  </span>
+
+                  <span className="opacity-75">
+                    {getRiskCopy(tool.riskLevel)}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-[9px] opacity-45">
+                    服务声明的参数 Schema
+                  </p>
+
+                  <pre
+                    className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-xl p-2.5 font-mono text-[9px] leading-relaxed opacity-65"
+                    style={{
+                      background: 'var(--card-bg-gradient)',
+                      border: '1px solid var(--divider)',
+                    }}
+                  >
+                    {stringifyForDisplay(
+                      tool.inputSchema,
+                      '{}',
+                    )}
+                  </pre>
+                </div>
+              </div>
+            </details>
+
             <div>
-              <label className="mb-1.5 block text-[10px] font-medium opacity-65">
-                调用参数
-              </label>
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <label
+                  htmlFor="manual-mcp-call-arguments"
+                  className="block text-[10px] font-medium opacity-65"
+                >
+                  调用参数
+                </label>
+
+                <span className="text-[9px] opacity-40">
+                  仅在确认后发送
+                </span>
+              </div>
 
               <textarea
+                id="manual-mcp-call-arguments"
                 value={argumentsText}
                 onChange={(event) => {
                   setArgumentsText(event.target.value);
                   setArgumentError('');
+                  setCallError('');
                 }}
                 rows={8}
                 spellCheck={false}
+                aria-invalid={Boolean(argumentError)}
+                aria-describedby={
+                  argumentError
+                    ? 'manual-mcp-call-arguments-error'
+                    : 'manual-mcp-call-arguments-hint'
+                }
                 className="w-full resize-y rounded-2xl p-3 font-mono text-[11px] leading-relaxed outline-none"
                 style={{
                   background: 'var(--control-soft-bg)',
@@ -322,13 +745,47 @@ export const ManualMcpToolCallModal = ({
               />
 
               {argumentError ? (
-                <p className="mt-1.5 text-[10px] text-rose-500">
+                <p
+                  id="manual-mcp-call-arguments-error"
+                  className="mt-1.5 text-[10px] leading-relaxed text-rose-500"
+                >
                   {argumentError}
                 </p>
               ) : (
-                <p className="mt-1.5 text-[9px] leading-relaxed opacity-45">
+                <p
+                  id="manual-mcp-call-arguments-hint"
+                  className="mt-1.5 text-[9px] leading-relaxed opacity-45"
+                >
                   {parameterHint}
                 </p>
+              )}
+
+              {!argumentError && (
+                <details
+                  className="mt-2 rounded-xl px-2.5 py-2"
+                  style={{
+                    background: 'var(--card-bg-gradient)',
+                    border: '1px solid var(--divider)',
+                  }}
+                >
+                  <summary className="cursor-pointer list-none text-[9px] font-medium opacity-60">
+                    查看将发送到外部服务的参数
+                  </summary>
+
+                  <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-[9px] leading-relaxed opacity-60">
+                    {(() => {
+                      const preview =
+                        getArgumentError(argumentsText);
+
+                      return preview.error
+                        ? '参数尚不是有效 JSON。'
+                        : stringifyForDisplay(
+                            preview.value,
+                            '{}',
+                          );
+                    })()}
+                  </pre>
+                </details>
               )}
             </div>
 
@@ -365,44 +822,53 @@ export const ManualMcpToolCallModal = ({
                   </p>
                 </div>
 
-                {result.items?.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {result.items.map((item, index) => (
-                      <span
-                        key={`${item.type}-${index}`}
-                        className="rounded-full px-2 py-1 text-[9px] opacity-60"
-                        style={{
-                          background: 'var(--card-bg-gradient)',
-                          border: '1px solid var(--divider)',
-                        }}
-                      >
-                        {getResultTypeLabel(item.type)}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {Array.isArray(result.items) &&
+                  result.items.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {result.items.map((item, index) => (
+                        <span
+                          key={`${item?.type || 'unknown'}-${index}`}
+                          className="rounded-full px-2 py-1 text-[9px] opacity-60"
+                          style={{
+                            background:
+                              'var(--card-bg-gradient)',
+                            border:
+                              '1px solid var(--divider)',
+                          }}
+                        >
+                          {getResultTypeLabel(item?.type)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-[10px] leading-relaxed opacity-75">
-                  {result.text}
-                </pre>
-
-                {result.structuredContent && (
-                  <details
-                    className="rounded-xl px-2.5 py-2"
-                    style={{
-                      background: 'var(--card-bg-gradient)',
-                      border: '1px solid var(--divider)',
-                    }}
-                  >
-                    <summary className="cursor-pointer list-none text-[9px] font-medium opacity-60">
-                      查看结构化结果
-                    </summary>
-
-                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[9px] leading-relaxed opacity-55">
-                      {String(result.structuredContent)}
+                {result.text !== undefined &&
+                  result.text !== null && (
+                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-[10px] leading-relaxed opacity-75">
+                      {String(result.text)}
                     </pre>
-                  </details>
-                )}
+                  )}
+
+                {result.structuredContent !== undefined &&
+                  result.structuredContent !== null && (
+                    <details
+                      className="rounded-xl px-2.5 py-2"
+                      style={{
+                        background: 'var(--card-bg-gradient)',
+                        border: '1px solid var(--divider)',
+                      }}
+                    >
+                      <summary className="cursor-pointer list-none text-[9px] font-medium opacity-60">
+                        查看结构化结果
+                      </summary>
+
+                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[9px] leading-relaxed opacity-55">
+                        {stringifyForDisplay(
+                          result.structuredContent,
+                        )}
+                      </pre>
+                    </details>
+                  )}
               </div>
             )}
           </div>
@@ -413,12 +879,7 @@ export const ManualMcpToolCallModal = ({
           >
             <button
               type="button"
-              disabled={
-                isCalling ||
-                connection.enabled !== true ||
-                tool.enabled !== true ||
-                tool.isAvailable === false
-              }
+              disabled={isCallDisabled}
               onClick={handleCall}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-500 px-4 py-3 text-xs font-semibold text-white transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
             >
@@ -497,10 +958,9 @@ export const ManualMcpToolCallModal = ({
               </p>
 
               <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words font-mono text-[9px] leading-relaxed opacity-55">
-                {JSON.stringify(
-                  approvalRequest.arguments || {},
-                  null,
-                  2,
+                {stringifyForDisplay(
+                  approvalRequest.arguments,
+                  '{}',
                 )}
               </pre>
             </div>
@@ -561,3 +1021,4 @@ export const ManualMcpToolCallModal = ({
 };
 
 export default ManualMcpToolCallModal;
+

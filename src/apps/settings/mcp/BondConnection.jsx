@@ -99,6 +99,25 @@ const EMPTY_DRAFT = {
   oauthResource: '',
 };
 
+const getToolSchemaPreview = (inputSchema) => {
+  if (!inputSchema || typeof inputSchema !== 'object') {
+    return '{}';
+  }
+
+  try {
+    const text = JSON.stringify(inputSchema, null, 2);
+
+    if (text.length <= 8_000) {
+      return text;
+    }
+
+    return `${text.slice(0, 8_000)}\n\n… 参数 Schema 过长，已截断显示。`;
+  } catch {
+    return '参数 Schema 无法安全格式化显示。';
+  }
+};
+
+
 const getStatusLabel = (status) => {
   switch (status) {
     case 'connected':
@@ -1337,6 +1356,60 @@ export const BondConnection = () => {
                               <span className="mt-1.5 block text-[9px] opacity-45">
                                 {getRiskLabel(tool.riskLevel)}
                               </span>
+
+                                                            <details
+                                className="mt-2 rounded-xl px-2.5 py-2"
+                                style={{
+                                  background:
+                                    'var(--control-soft-bg)',
+                                  border:
+                                    '1px solid var(--divider)',
+                                }}
+                              >
+                                <summary className="cursor-pointer list-none text-[9px] font-medium opacity-55">
+                                  查看工具定义与参数
+                                </summary>
+
+                                <div className="mt-2 space-y-2">
+                                  <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[9px]">
+                                    <span className="opacity-40">
+                                      MCP 名称
+                                    </span>
+
+                                    <code className="break-all font-mono opacity-65">
+                                      {tool.toolName}
+                                    </code>
+
+                                    <span className="opacity-40">
+                                      当前状态
+                                    </span>
+
+                                    <span className="opacity-65">
+                                      {tool.enabled
+                                        ? '已启用'
+                                        : '未启用'}
+                                      {tool.isAvailable === false
+                                        ? '；服务端已不再提供'
+                                        : ''}
+                                    </span>
+                                  </div>
+
+                                  <pre
+                                    className="max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-lg p-2 font-mono text-[9px] leading-relaxed opacity-60"
+                                    style={{
+                                      background:
+                                        'var(--card-bg-gradient)',
+                                      border:
+                                        '1px solid var(--divider)',
+                                    }}
+                                  >
+                                    {getToolSchemaPreview(
+                                      tool.inputSchema,
+                                    )}
+                                  </pre>
+                                </div>
+                              </details>
+
 
                               {tool.isAvailable === false && (
                                 <p className="mt-2 text-[10px] text-rose-500">
