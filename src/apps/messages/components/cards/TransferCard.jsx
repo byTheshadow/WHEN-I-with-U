@@ -29,7 +29,9 @@ export const TransferCard = ({ content, metadata = {}, sender = 'character' }) =
 
       <div>
         <h4 className="text-lg font-serif font-bold tracking-tight font-mono">¥ {amount}</h4>
-        <p className="text-xs opacity-80 mt-0.5 truncate">{title}</p>
+       <p className="text-xs opacity-80 mt-0.5 break-words whitespace-pre-wrap line-clamp-3">
+  {title}
+</p>
       </div>
 
       {/* 区分自己发出的与对方发出的 */}
