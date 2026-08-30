@@ -208,21 +208,7 @@ const handleOpenPostcard = async (postcard) => {
 };
 
 
-    if (!char || !travel) return;
 
-    const newPc = await generateCompanionPostcard(char, travel);
-
-    await db.travelPostcards.update(postcardId, {
-      letterContent: newPc.letterContent,
-      giftItem: newPc.giftItem,
-      metPerson: newPc.metPerson
-    });
-
-    await loadData();
-
-    const updated = await db.travelPostcards.get(postcardId);
-    setActivePostcard(updated);
-  };
 
   const handleConfirmDelete = async () => {
     if (!deleteTargetId) return;
