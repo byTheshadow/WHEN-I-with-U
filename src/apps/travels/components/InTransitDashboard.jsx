@@ -20,6 +20,13 @@ export const InTransitDashboard = ({
 }) => {
   const [isChecking, setIsChecking] = useState(false);
 
+  const companionName = character?.name || '同行伴侣';
+  const userName = travel?.userPassportName || '你';
+
+  const handleCheckClick = async () => {
+
+  const [isChecking, setIsChecking] = useState(false);
+
   const handleCheckClick = async () => {
     setIsChecking(true);
 

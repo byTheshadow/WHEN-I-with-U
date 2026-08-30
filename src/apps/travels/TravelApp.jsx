@@ -13,6 +13,8 @@ import {
   checkAndDeliverTravelPostcards,
   createDeparturePostcard
 } from './travelPostcardScheduler';
+import { generateCompanionPostcard } from './travelAiService';
+
 
 
 export const TravelApp = ({ onBackHub }) => {
@@ -164,12 +166,47 @@ const handleOpenPostcard = async (postcard) => {
 };
 
 
-  const handleRerollPostcard = async (postcardId) => {
-    const pc = await db.travelPostcards.get(postcardId);
-    if (!pc) return;
+ const handleRerollPostcard = async (postcardId) => {
+  const postcard = await db.travelPostcards.get(postcardId);
 
-    const char = characters.find((c) => c.id === pc.characterId);
-    const travel = await db.travels.get(pc.travelId);
+  if (!postcard) {
+    return;
+  }
+
+  const character = characters.find(
+    (item) => item.id === postcard.characterId
+  );
+  const travel = await db.travels.get(postcard.travelId);
+
+  if (!character || !travel) {
+    return;
+  }
+
+  const regeneratedPostcard = await generateCompanionPostcard(
+    character,
+    travel,
+    postcard.deliverySlot || 'departure'
+  );
+
+  if (!regeneratedPostcard) {
+    return;
+  }
+
+  await db.travelPostcards.update(postcardId, {
+    ...regeneratedPostcard,
+    timestamp: Date.now(),
+    isRead: postcard.isRead
+  });
+
+  await loadData();
+
+  const updatedPostcard = await db.travelPostcards.get(postcardId);
+
+  if (updatedPostcard) {
+    setActivePostcard(updatedPostcard);
+  }
+};
+
 
     if (!char || !travel) return;
 
