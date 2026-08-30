@@ -20,6 +20,12 @@ import {
 
 const MAX_SCHEMA_PREVIEW_LENGTH = 12_000;
 
+/*
+ * 手动调用默认只展示前 1,200 个字符。
+ * 用户可展开查看 normalizer 已安全保留的完整结果。
+ */
+const MANUAL_RESULT_PREVIEW_LENGTH = 1_200;
+
 const getInitialArgumentsText = (tool) => {
   const properties = tool?.inputSchema?.properties;
 
@@ -387,6 +393,42 @@ const stringifyForDisplay = (
   }
 };
 
+const getResultDisplayText = (
+  value,
+  fallback = '没有可显示的内容。',
+) => {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  return stringifyForDisplay(value, fallback);
+};
+
+const getResultPreview = (text, isExpanded) => {
+  const safeText = String(text ?? '');
+
+  if (
+    isExpanded ||
+    safeText.length <= MANUAL_RESULT_PREVIEW_LENGTH
+  ) {
+    return safeText;
+  }
+
+  return `${safeText.slice(
+    0,
+    MANUAL_RESULT_PREVIEW_LENGTH,
+  )}…`;
+};
+
+const canExpandResult = (text) => {
+  return String(text ?? '').length >
+    MANUAL_RESULT_PREVIEW_LENGTH;
+};
+
 export const ManualMcpToolCallModal = ({
   connection,
   tool,
@@ -401,6 +443,10 @@ export const ManualMcpToolCallModal = ({
   const [argumentError, setArgumentError] = useState('');
   const [isCalling, setIsCalling] = useState(false);
   const [result, setResult] = useState(null);
+  const [isResultTextExpanded, setIsResultTextExpanded] =
+    useState(false);
+  const [isStructuredResultExpanded, setIsStructuredResultExpanded] =
+    useState(false);
   const [callError, setCallError] = useState('');
   const [approvalRequest, setApprovalRequest] = useState(null);
 
@@ -427,6 +473,8 @@ export const ManualMcpToolCallModal = ({
     setArgumentError('');
     setCallError('');
     setResult(null);
+    setIsResultTextExpanded(false);
+    setIsStructuredResultExpanded(false);
     setApprovalRequest(null);
   }, [tool?.id, tool?.toolName]);
 
@@ -507,6 +555,8 @@ export const ManualMcpToolCallModal = ({
     setArgumentError('');
     setCallError('');
     setResult(null);
+    setIsResultTextExpanded(false);
+    setIsStructuredResultExpanded(false);
     setIsCalling(true);
 
     try {
@@ -842,33 +892,96 @@ export const ManualMcpToolCallModal = ({
                     </div>
                   )}
 
+                {result.isTruncated && (
+                  <div className="rounded-xl bg-amber-500/10 px-2.5 py-2 text-[9px] leading-relaxed text-amber-700 dark:text-amber-300">
+                    此结果超过安全保留上限，末尾内容未显示。
+                  </div>
+                )}
+
                 {result.text !== undefined &&
-                  result.text !== null && (
-                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-[10px] leading-relaxed opacity-75">
-                      {String(result.text)}
-                    </pre>
-                  )}
+                  result.text !== null &&
+                  (() => {
+                    const resultText = getResultDisplayText(
+                      result.text,
+                    );
+                    const canExpandText =
+                      canExpandResult(resultText);
+
+                    return (
+                      <div className="space-y-2">
+                        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-[10px] leading-relaxed opacity-75">
+                          {getResultPreview(
+                            resultText,
+                            isResultTextExpanded,
+                          )}
+                        </pre>
+
+                        {canExpandText && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsResultTextExpanded(
+                                (value) => !value,
+                              );
+                            }}
+                            className="text-[10px] font-medium opacity-65 transition-opacity hover:opacity-100"
+                          >
+                            {isResultTextExpanded
+                              ? '收起结果'
+                              : '展开完整安全结果'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                 {result.structuredContent !== undefined &&
-                  result.structuredContent !== null && (
-                    <details
-                      className="rounded-xl px-2.5 py-2"
-                      style={{
-                        background: 'var(--card-bg-gradient)',
-                        border: '1px solid var(--divider)',
-                      }}
-                    >
-                      <summary className="cursor-pointer list-none text-[9px] font-medium opacity-60">
-                        查看结构化结果
-                      </summary>
+                  result.structuredContent !== null &&
+                  (() => {
+                    const structuredText =
+                      getResultDisplayText(
+                        result.structuredContent,
+                      );
+                    const canExpandStructured =
+                      canExpandResult(structuredText);
 
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[9px] leading-relaxed opacity-55">
-                        {stringifyForDisplay(
-                          result.structuredContent,
+                    return (
+                      <details
+                        className="rounded-xl px-2.5 py-2"
+                        style={{
+                          background: 'var(--card-bg-gradient)',
+                          border: '1px solid var(--divider)',
+                        }}
+                      >
+                        <summary className="cursor-pointer list-none text-[9px] font-medium opacity-60">
+                          查看结构化结果
+                        </summary>
+
+                        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[9px] leading-relaxed opacity-55">
+                          {getResultPreview(
+                            structuredText,
+                            isStructuredResultExpanded,
+                          )}
+                        </pre>
+
+                        {canExpandStructured && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsStructuredResultExpanded(
+                                (value) => !value,
+                              );
+                            }}
+                            className="mt-2 text-[10px] font-medium opacity-65 transition-opacity hover:opacity-100"
+                          >
+                            {isStructuredResultExpanded
+                              ? '收起结构化结果'
+                              : '展开完整安全结果'}
+                          </button>
                         )}
-                      </pre>
-                    </details>
-                  )}
+                      </details>
+                    );
+                  })()}
               </div>
             )}
           </div>

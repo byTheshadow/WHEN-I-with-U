@@ -2,7 +2,14 @@ const MAX_ITEM_TEXT_LENGTH = 6_000;
 const MAX_RESULT_TEXT_LENGTH = 12_000;
 const MAX_STRUCTURED_CONTENT_LENGTH = 12_000;
 const MAX_ACTIVITY_PREVIEW_LENGTH = 240;
-const MAX_AI_RESULT_LENGTH = 12_000;
+
+/*
+ * AI 上下文与手动查看的安全保留内容分别限制。
+ * 工具的完整安全结果最多保留 12,000 字符，但传给 AI 的
+ * 上下文应更短，避免单次工具输出挤占角色回复的上下文。
+ */
+const MAX_AI_RESULT_LENGTH = 4_000;
+
 const MAX_URI_PATH_LENGTH = 1_000;
 
 const truncateText = (value, maxLength) => {
@@ -13,6 +20,34 @@ const truncateText = (value, maxLength) => {
   }
 
   return `${text.slice(0, maxLength)}…`;
+};
+
+const isTextTruncated = (value, maxLength) => {
+  return String(value ?? '').length > maxLength;
+};
+
+const getStructuredContentText = (value) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return '';
+    }
+  }
+
+  return '';
 };
 
 const isPlainObject = (value) => {
@@ -90,8 +125,9 @@ const normalizeMimeType = (value) => {
 };
 
 const normalizeTextItem = (item) => {
+  const sourceText = item?.text || '';
   const text = truncateText(
-    item?.text || '',
+    sourceText,
     MAX_ITEM_TEXT_LENGTH,
   );
 
@@ -99,6 +135,10 @@ const normalizeTextItem = (item) => {
     type: 'text',
     text,
     displayText: text,
+    isTruncated: isTextTruncated(
+      sourceText,
+      MAX_ITEM_TEXT_LENGTH,
+    ),
   };
 };
 
@@ -144,14 +184,18 @@ const normalizeResourceItem = (item) => {
 
   const uri = sanitizeResourceUri(resource.uri);
   const mimeType = normalizeMimeType(resource.mimeType);
+  const sourceText = typeof resource.text === 'string'
+    ? resource.text
+    : '';
 
   /*
    * resource.text 是 MCP 的文本内容；可以作为纯文本摘要显示，
    * 但不会被当作 HTML 或可执行内容处理。
    */
-  const text = typeof resource.text === 'string'
-    ? truncateText(resource.text, MAX_ITEM_TEXT_LENGTH)
-    : '';
+  const text = truncateText(
+    sourceText,
+    MAX_ITEM_TEXT_LENGTH,
+  );
 
   const resourceSummary = [
     '[工具返回了一项资源。]',
@@ -166,6 +210,10 @@ const normalizeResourceItem = (item) => {
     uri,
     mimeType,
     hasText: Boolean(text),
+    isTruncated: isTextTruncated(
+      sourceText,
+      MAX_ITEM_TEXT_LENGTH,
+    ),
     displayText: text
       ? `${resourceSummary}\n\n${text}`
       : resourceSummary,
@@ -212,12 +260,19 @@ const normalizeUnknownItem = (item) => {
 
 const normalizeContentItem = (item) => {
   if (typeof item === 'string') {
-    const text = truncateText(item, MAX_ITEM_TEXT_LENGTH);
+    const text = truncateText(
+      item,
+      MAX_ITEM_TEXT_LENGTH,
+    );
 
     return {
       type: 'text',
       text,
       displayText: text,
+      isTruncated: isTextTruncated(
+        item,
+        MAX_ITEM_TEXT_LENGTH,
+      ),
     };
   }
 
@@ -295,9 +350,41 @@ export const normalizeMcpToolResult = (toolResult = {}) => {
     toolResult.structuredContent,
   );
 
+  const structuredSourceText = getStructuredContentText(
+    toolResult.structuredContent,
+  );
+
+  const itemDisplayText = items
+    .map((item) => item.displayText)
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+
+  const displaySourceText = itemDisplayText
+    || structuredContent
+    || '[工具没有返回可显示的内容。]';
+
+  const isTruncated = (
+    items.some((item) => item.isTruncated === true)
+    || isTextTruncated(
+      structuredSourceText,
+      MAX_STRUCTURED_CONTENT_LENGTH,
+    )
+    || isTextTruncated(
+      displaySourceText,
+      MAX_RESULT_TEXT_LENGTH,
+    )
+  );
+
   return {
     ok: toolResult.isError !== true,
     isError: toolResult.isError === true,
+
+    /*
+     * 此标记表示：界面中保留的是经过安全上限截断的结果，
+     * 并不代表工具调用失败。
+     */
+    isTruncated,
 
     /*
      * items 内不含 image/audio 原始 data；
@@ -373,3 +460,4 @@ export const makeMcpActivitySummary = (toolResult = {}) => {
     hasUnknown: normalized.hasUnknown,
   };
 };
+
