@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft,
-  BookOpen,
+  bat,
   ChevronRight,
   CircleHelp,
   Database,
@@ -36,7 +36,7 @@ const MANUAL_SECTIONS = [
     label: '作者与联系',
     eyebrow: 'A NOTE FROM THE AUTHOR',
     title: '关于这间房子的作者',
-    icon: Heart,
+    icon: bat,
     content: (
       <div className="space-y-4">
         <ManualItem
