@@ -479,6 +479,44 @@ const fetchAiCompletion = async (systemPrompt, historyContext = [], configOverri
   }
 };
 
+/**
+ * 通用 AI 文本生成接口。
+ * 供 Pebbling 等独立功能调用，参数格式兼容：
+ * generateResponse(messages, { temperature })
+ */
+export const generateResponse = async (messages = [], options = {}) => {
+  const normalizedMessages = Array.isArray(messages) ? messages : [];
+
+  const systemPrompt = normalizedMessages
+    .filter((message) => message?.role === 'system')
+    .map((message) => String(message.content || ''))
+    .join('\n');
+
+  const historyContext = normalizedMessages
+    .filter((message) => message?.role && message.role !== 'system')
+    .map((message) => ({
+      role: message.role,
+      content: String(message.content || '')
+    }));
+
+  const result = await fetchAiCompletion(systemPrompt, historyContext);
+
+  if (result?.error) {
+    throw new Error(result.message || 'AI 请求失败');
+  }
+
+  return result?.content || '';
+};
+
+// 保留旧模块可能使用的别名，避免功能模块因接口名称不同而失效。
+export const generateAIResponse = generateResponse;
+export const generateChatResponse = generateResponse;
+export const callAI = generateResponse;
+export const sendChatMessage = generateResponse;
+export const generateText = generateResponse;
+export const chat = generateResponse;
+
+
 const fetchAiCompletionWithTools = async ({
   systemPrompt = '',
   messages = [],
