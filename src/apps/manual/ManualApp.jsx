@@ -32,6 +32,53 @@ const MANUAL_SECTIONS = [
     ),
   },
   {
+    id: 'author',
+    label: '作者与联系',
+    eyebrow: 'A NOTE FROM THE AUTHOR',
+    title: '关于这间房子的作者',
+    icon: Heart,
+    content: (
+      <div className="space-y-4">
+        <ManualItem
+          title="作者"
+          description="玉元一 shadow"
+        />
+        <ManualItem
+          title="小红书"
+          description="shadowmfn"
+        />
+        <ManualItem
+          title="QQ群：月光咖啡屋"
+          description="811831045（审核群）"
+        />
+
+        <p>
+          月光咖啡屋里主要会堆放一些我的产出，包括酒馆的角色卡、美化、预设、插件等。
+          因为工作关系，更新可能不会很快；如果使用中遇到问题，也可以来咖啡屋问问。
+        </p>
+
+        <div className="manual-note">
+          <span className="manual-note__line" />
+          <p>
+            审核会卡成年和女性哦。
+          </p>
+        </div>
+
+        <p>
+          如果对 WHEN I with U 的使用有疑问，也可以直接私信我的小红书。
+        </p>
+
+        <p>
+          网站链接可以二转分享。由于担心被认为是引流，另一个小红书账号暂不方便提及，但也是我本人在使用。
+        </p>
+
+        <p>
+          如果喜欢这个项目，也请老师们给我吃吃 repo 叭！
+        </p>
+      </div>
+    ),
+  },
+  {
     id: 'spaces',
     label: '空间索引',
     eyebrow: 'THE ROOMS',
@@ -221,7 +268,6 @@ const MANUAL_SECTIONS = [
   },
 ];
 
-
 function ManualItem({ title, description }) {
   return (
     <div className="manual-item">
@@ -263,22 +309,21 @@ export const ManualApp = ({ onBack }) => {
         </div>
       </header>
 
-     <section className="manual-intro">
-  <p className="manual-intro__eyebrow">
-    WHEN I WITH U / NOTES FOR LIVING HERE
-  </p>
+      <section className="manual-intro">
+        <p className="manual-intro__eyebrow">
+          WHEN I WITH U / NOTES FOR LIVING HERE
+        </p>
 
-  <h2>
-    一份简单的
-    <br />
-    使用说明
-  </h2>
+        <h2>
+          一份简单的
+          <br />
+          使用说明
+        </h2>
 
-  <p>
-    这不是规则清单，只是一些帮助你认识这间房子的文字。
-  </p>
-</section>
-
+        <p>
+          这不是规则清单，只是一些帮助你认识这间房子的文字。
+        </p>
+      </section>
 
       <nav className="manual-index" aria-label="说明书目录">
         <div className="manual-index__label">CONTENTS</div>
@@ -302,17 +347,27 @@ export const ManualApp = ({ onBack }) => {
                 </span>
                 <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                 <span>{section.label}</span>
-                <ChevronRight className="ml-auto h-3.5 w-3.5" strokeWidth={1.5} />
+                <ChevronRight
+                  className="ml-auto h-3.5 w-3.5"
+                  strokeWidth={1.5}
+                />
               </button>
             );
           })}
         </div>
       </nav>
 
-      <article className="manual-article animate-fade-in-up" key={currentSection.id}>
+      <article
+        className="manual-article animate-fade-in-up"
+        key={currentSection.id}
+      >
         <div className="manual-article__topline">
           <span>{currentSection.eyebrow}</span>
-          <span>{String(MANUAL_SECTIONS.indexOf(currentSection) + 1).padStart(2, '0')}</span>
+          <span>
+            {String(
+              MANUAL_SECTIONS.indexOf(currentSection) + 1,
+            ).padStart(2, '0')}
+          </span>
         </div>
 
         <div className="manual-article__icon">
@@ -338,3 +393,4 @@ export const ManualApp = ({ onBack }) => {
 };
 
 export default ManualApp;
+
