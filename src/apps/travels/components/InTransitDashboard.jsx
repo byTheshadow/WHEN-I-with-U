@@ -25,9 +25,7 @@ export const InTransitDashboard = ({
 
 
 
-  const [isChecking, setIsChecking] = useState(false);
-
-
+  const handleCheckClick = async () => {
     setIsChecking(true);
 
     try {
