@@ -138,40 +138,37 @@ await createDeparturePostcard(createdTravel, selectedCharacter);
 
 
   const handleCheckTravelPostcards = async () => {
-  await checkAndDeliverTravelPostcards();
-  await loadData();
+    const previousCount = activeTravel?.id
+      ? (postcardsMap[activeTravel.id] || []).length
+      : 0;
 
-const handleCheckTravelPostcards = async () => {
-  const previousCount = activeTravel?.id
-    ? (postcardsMap[activeTravel.id] || []).length
-    : 0;
+    await checkAndDeliverTravelPostcards();
+    await loadData();
 
-  await checkAndDeliverTravelPostcards();
-  await loadData();
+    if (activeTravel?.id) {
+      const refreshedTravel = await db.travels.get(activeTravel.id);
 
-  if (activeTravel?.id) {
-    const refreshedTravel = await db.travels.get(activeTravel.id);
+      if (refreshedTravel) {
+        setActiveTravel(refreshedTravel);
+      }
 
-    if (refreshedTravel) {
-      setActiveTravel(refreshedTravel);
+      const latestPostcards = await db.travelPostcards
+        .where('travelId')
+        .equals(activeTravel.id)
+        .toArray();
+
+      const hasNewPostcard = latestPostcards.length > previousCount;
+
+      setMailCheckNotification(
+        hasNewPostcard
+          ? '邮差刚刚送来一封新的旅行来信。'
+          : '邮袋里暂时没有新的来信，沿途的故事仍在慢慢抵达。'
+      );
+
+      setTimeout(() => setMailCheckNotification(''), 3000);
     }
+  };
 
-    const latestPostcards = await db.travelPostcards
-      .where('travelId')
-      .equals(activeTravel.id)
-      .toArray();
-
-    const hasNewPostcard = latestPostcards.length > previousCount;
-
-    setMailCheckNotification(
-      hasNewPostcard
-        ? '邮差刚刚送来一封新的旅行来信。'
-        : '邮袋里暂时没有新的来信，沿途的故事仍在慢慢抵达。'
-    );
-
-    setTimeout(() => setMailCheckNotification(''), 3000);
-  }
-};
 
 
 const handleOpenPostcard = async (postcard) => {
