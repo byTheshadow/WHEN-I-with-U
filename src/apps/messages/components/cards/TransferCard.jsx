@@ -29,7 +29,7 @@ export const TransferCard = ({ content, metadata = {}, sender = 'character' }) =
 
       <div>
         <h4 className="text-lg font-serif font-bold tracking-tight font-mono">¥ {amount}</h4>
-       <p className="text-xs opacity-80 mt-0.5 break-words whitespace-pre-wrap line-clamp-3">
+       <p className="text-xs opacity-80 mt-0.5 break-words whitespace-pre-wrap max-h-14 overflow-y-auto pr-1">
   {title}
 </p>
       </div>
