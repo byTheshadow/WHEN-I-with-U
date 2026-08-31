@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
+
 import {
   ArrowLeft,
   Bookmark,
@@ -44,8 +50,10 @@ const LANGUAGE_LABELS = {
 
 export default function MarginNotesApp({ onBackHub }) {
   const [activeView, setActiveView] = useState('reading');
+
   const [characters, setCharacters] = useState([]);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
+
   const [currentPage, setCurrentPage] = useState(null);
   const [archiveList, setArchiveList] = useState([]);
 
@@ -59,64 +67,77 @@ export default function MarginNotesApp({ onBackHub }) {
   const [showCharacters, setShowCharacters] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  const [pageExportNode, setPageExportNode] = useState(null);
+  const pageExportRef = useRef(null);
 
   const refreshArchive = useCallback(async () => {
     try {
-      const list = await db.marginNotes
+      const pages = await db.marginNotes
         .orderBy('createdAt')
         .reverse()
         .toArray();
 
-      setArchiveList(list || []);
+      setArchiveList(pages || []);
 
-      return list || [];
+      return pages || [];
     } catch (error) {
-      console.error('[MarginNotes] 读取书架失败：', error);
+      console.error('[MarginNotes] 刷新书架失败：', error);
       return [];
     }
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
     async function initialize() {
       try {
-        const [characterList, settingRecord, pages] =
-          await Promise.all([
-            db.characters.toArray(),
-            db.settings.get('margin_notes_settings'),
-            db.marginNotes
-              .orderBy('createdAt')
-              .reverse()
-              .toArray()
-          ]);
+        const [characterList, settingRecord, pages] = await Promise.all([
+          db.characters.toArray(),
+          db.settings.get('margin_notes_settings'),
+          db.marginNotes.orderBy('createdAt').reverse().toArray()
+        ]);
 
-        if (!mounted) return;
+        if (!isMounted) return;
 
-        const list = characterList || [];
-        const savedSettings = settingRecord?.value || DEFAULT_SETTINGS;
+        const availableCharacters = characterList || [];
+        const savedSettings = settingRecord?.value || {};
 
-        setCharacters(list);
+        setCharacters(availableCharacters);
         setSettings({
           ...DEFAULT_SETTINGS,
           ...savedSettings
         });
 
-        if (list.length > 0) {
-          setSelectedCharacter(list[0]);
-        }
+        /*
+         * 如果当前书页有记录的角色，优先选中它。
+         * 否则才选择角色库中的第一位。
+         */
+        const newestPage = pages?.[0] || null;
+
+        const pageCharacter = newestPage?.characterId
+          ? availableCharacters.find(
+              (character) => character.id === newestPage.characterId
+            )
+          : null;
+
+        setSelectedCharacter(
+          pageCharacter || availableCharacters[0] || null
+        );
 
         setArchiveList(pages || []);
 
-        if (pages?.length > 0) {
-          setCurrentPage(pages[0]);
-        } else if (CURATED_EXCERPTS.length > 0) {
+        if (newestPage) {
+          setCurrentPage(newestPage);
+          return;
+        }
+
+        if (CURATED_EXCERPTS.length > 0) {
+          const fallback = CURATED_EXCERPTS[0];
+
           setCurrentPage({
-            ...CURATED_EXCERPTS[0],
-            characterId: list[0]?.id || null,
-            characterName: list[0]?.name || 'Companion',
-            characterAvatar: list[0]?.avatar || '',
+            ...fallback,
+            characterId: availableCharacters[0]?.id || null,
+            characterName: availableCharacters[0]?.name || 'Companion',
+            characterAvatar: availableCharacters[0]?.avatar || '',
             date: new Date().toISOString().slice(0, 10),
             createdAt: Date.now()
           });
@@ -124,14 +145,16 @@ export default function MarginNotesApp({ onBackHub }) {
       } catch (error) {
         console.error('[MarginNotes] 初始化失败：', error);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
 
     void initialize();
 
     return () => {
-      mounted = false;
+      isMounted = false;
     };
   }, []);
 
@@ -146,6 +169,13 @@ export default function MarginNotesApp({ onBackHub }) {
     [refreshArchive]
   );
 
+  const handleOpenArchive = () => {
+    setShowMenu(false);
+    setActiveView((current) =>
+      current === 'reading' ? 'archive' : 'reading'
+    );
+  };
+
   const handleGeneratePage = async () => {
     if (isGenerating) return;
 
@@ -153,7 +183,7 @@ export default function MarginNotesApp({ onBackHub }) {
     setShowMenu(false);
 
     try {
-      const generated = await generateMarginNotePage({
+      const generatedPage = await generateMarginNotePage({
         character: selectedCharacter,
         targetLanguage: settings.targetLang,
         targetLanguageLabel:
@@ -163,8 +193,8 @@ export default function MarginNotesApp({ onBackHub }) {
         customWorkHint: settings.customAuthorHint
       });
 
-      const page = {
-        ...generated,
+      const pageToSave = {
+        ...generatedPage,
         characterId: selectedCharacter?.id || null,
         characterName: selectedCharacter?.name || 'Companion',
         characterAvatar: selectedCharacter?.avatar || '',
@@ -172,15 +202,19 @@ export default function MarginNotesApp({ onBackHub }) {
         createdAt: Date.now()
       };
 
-      const id = await db.marginNotes.add(page);
-      const savedPage = { ...page, id };
+      const pageId = await db.marginNotes.add(pageToSave);
+      const savedPage = {
+        ...pageToSave,
+        id: pageId
+      };
 
       setCurrentPage(savedPage);
       setActiveView('reading');
 
       await refreshArchive();
     } catch (error) {
-      console.error('[MarginNotes] 生成新页失败：', error);
+      console.error('[MarginNotes] 生成书页失败：', error);
+
       window.alert(
         `翻开新页失败：${error?.message || '请检查 AI 设置'}`
       );
@@ -189,42 +223,22 @@ export default function MarginNotesApp({ onBackHub }) {
     }
   };
 
-  const handleSelectCharacter = (character) => {
-    setSelectedCharacter(character);
-    setShowCharacters(false);
-  };
-
-  const handleDeleteCurrentPage = async () => {
-    if (!currentPage?.id) return;
-
-    const confirmed = window.confirm(
-      '确定要撕下这一页吗？删除后，文章、批注和回注都会被移除。'
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await db.marginNotes.delete(currentPage.id);
-
-      const pages = await refreshArchive();
-
-      setCurrentPage(pages[0] || null);
-      setShowMenu(false);
-    } catch (error) {
-      console.error('[MarginNotes] 删除书页失败：', error);
-    }
-  };
-
   const handleExport = async () => {
-    if (!pageExportNode || isExporting) return;
+    if (!pageExportRef.current || isExporting) return;
 
     setIsExporting(true);
     setShowMenu(false);
 
     try {
+      const rawTitle = currentPage?.source?.workTitle || 'page';
+
+      const safeTitle = rawTitle
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .slice(0, 60);
+
       await exportPageToImage(
-        pageExportNode,
-        `margin-notes-${currentPage?.source?.workTitle || 'page'}.png`
+        pageExportRef.current,
+        `margin-notes-${safeTitle}.png`
       );
     } catch (error) {
       console.error('[MarginNotes] 导出失败：', error);
@@ -232,6 +246,37 @@ export default function MarginNotesApp({ onBackHub }) {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleDeleteCurrentPage = async () => {
+    if (!currentPage?.id) return;
+
+    const confirmed = window.confirm(
+      '确定要撕下这一页吗？文章、角色批注和你的回注都会被永久删除。'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await db.marginNotes.delete(currentPage.id);
+
+      const remainingPages = await refreshArchive();
+
+      setCurrentPage(remainingPages[0] || null);
+      setShowMenu(false);
+    } catch (error) {
+      console.error('[MarginNotes] 删除书页失败：', error);
+      window.alert('删除失败，请稍后重试。');
+    }
+  };
+
+  const handleChooseCharacter = (character) => {
+    /*
+     * 选择角色只影响下一次 AI 翻开新页与新的回注回应。
+     * 不覆盖当前已存书页的 characterName / characterId 快照。
+     */
+    setSelectedCharacter(character);
+    setShowCharacters(false);
   };
 
   if (isLoading) {
@@ -247,40 +292,40 @@ export default function MarginNotesApp({ onBackHub }) {
 
   return (
     <div className="margin-notes-root">
-      <header className="mn-topbar">
-        <div className="mn-topbar__side">
+      {/* 唯一顶栏：不再使用 mn-page，避免制造第二层页面内边距 */}
+      <header className="mn-app-topbar" data-export-ignore="true">
+        <button
+          type="button"
+          className="mn-edge-action"
+          onClick={onBackHub}
+          aria-label="返回主页"
+        >
+          <ArrowLeft size={18} />
+        </button>
+
+        <span className="mn-page-number">
+          {activeView === 'archive'
+            ? 'BOOKSHELF'
+            : 'THE MARGIN NOTES'}
+        </span>
+
+        <div className="mn-app-topbar__right">
           <button
             type="button"
-            className="mn-icon-button"
-            onClick={onBackHub}
-            aria-label="返回主页"
-          >
-            <ArrowLeft size={18} />
-          </button>
-        </div>
-
-        <div className="mn-topbar__title">
-          THE MARGIN NOTES
-          <small>READING TOGETHER</small>
-        </div>
-
-        <div className="mn-topbar__side">
-          <button
-            type="button"
-            className="mn-icon-button"
-            onClick={() => setActiveView(
-              activeView === 'reading' ? 'archive' : 'reading'
-            )}
-            aria-label={activeView === 'reading' ? '打开书架' : '返回书页'}
+            className="mn-edge-action"
+            onClick={handleOpenArchive}
+            aria-label={
+              activeView === 'reading' ? '打开书架' : '返回阅读页'
+            }
           >
             <Bookmark size={17} />
           </button>
 
           <button
             type="button"
-            className="mn-icon-button"
+            className="mn-edge-action right"
             onClick={() => setShowMenu((value) => !value)}
-            aria-label="打开更多操作"
+            aria-label="更多操作"
           >
             <MoreHorizontal size={19} />
           </button>
@@ -308,7 +353,7 @@ export default function MarginNotesApp({ onBackHub }) {
                 <button
                   type="button"
                   onClick={handleExport}
-                  disabled={isExporting || !currentPage}
+                  disabled={!currentPage || isExporting}
                 >
                   <Download size={14} />
                   <span>
@@ -341,7 +386,6 @@ export default function MarginNotesApp({ onBackHub }) {
                 {currentPage?.id && (
                   <button
                     type="button"
-                    className="danger"
                     onClick={handleDeleteCurrentPage}
                   >
                     <Trash2 size={14} />
@@ -354,42 +398,45 @@ export default function MarginNotesApp({ onBackHub }) {
             {activeView === 'archive' && (
               <button
                 type="button"
-                onClick={() => setShowMenu(false)}
+                onClick={() => {
+                  setActiveView('reading');
+                  setShowMenu(false);
+                }}
               >
                 <Bookmark size={14} />
-                <span>正在浏览书架</span>
+                <span>回到当前书页</span>
               </button>
             )}
           </div>
         )}
       </header>
 
-      <main>
-        {activeView === 'reading' ? (
-          <div
-            ref={setPageExportNode}
-            className="mn-export-area"
-          >
-            <MarginNotesPage
-              page={currentPage}
-              character={selectedCharacter}
-              onPageUpdated={handlePageUpdated}
-              onOpenCompanionPicker={() => setShowCharacters(true)}
-              onOpenMenu={() => setShowMenu(true)}
-            />
-          </div>
-        ) : (
-          <div className="mn-content">
-            <div className="mn-running-head">
-              <span>BOOKSHELF</span>
-              <span className="mn-running-head__right">
-                {archiveList.length} PAGES
-              </span>
-            </div>
+      {activeView === 'reading' ? (
+        <main ref={pageExportRef}>
+          <MarginNotesPage
+            page={currentPage}
+            character={selectedCharacter}
+            onPageUpdated={handlePageUpdated}
+            onOpenCompanionPicker={() => setShowCharacters(true)}
+            onOpenMenu={() => setShowMenu(true)}
+          />
+        </main>
+      ) : (
+        <main className="mn-reading-page">
+          <div className="mn-rule" />
 
+          <div style={{ paddingTop: '2rem' }}>
             <MarginNotesArchive
               archiveList={archiveList}
               onSelectPage={(page) => {
+                const pageCharacter = characters.find(
+                  (character) => character.id === page.characterId
+                );
+
+                if (pageCharacter) {
+                  setSelectedCharacter(pageCharacter);
+                }
+
                 setCurrentPage(page);
                 setActiveView('reading');
               }}
@@ -402,8 +449,8 @@ export default function MarginNotesApp({ onBackHub }) {
               }}
             />
           </div>
-        )}
-      </main>
+        </main>
+      )}
 
       {showCharacters && (
         <div
@@ -419,6 +466,7 @@ export default function MarginNotesApp({ onBackHub }) {
                 <div className="mn-drawer__title">
                   选择今天一起读的人
                 </div>
+
                 <div className="mn-drawer__subtitle">
                   THE NEXT PAGE WILL CARRY THEIR VOICE
                 </div>
@@ -426,7 +474,7 @@ export default function MarginNotesApp({ onBackHub }) {
 
               <button
                 type="button"
-                className="mn-icon-button"
+                className="mn-edge-action"
                 onClick={() => setShowCharacters(false)}
                 aria-label="关闭角色选择"
               >
@@ -434,57 +482,57 @@ export default function MarginNotesApp({ onBackHub }) {
               </button>
             </div>
 
-            {characters.length === 0 && (
+            {characters.length === 0 ? (
               <div className="mn-empty">
                 <div className="mn-empty__title">
                   角色库还是空的
                 </div>
                 <div className="mn-empty__text">
-                  创建角色后，他们才可以出现在共读页。
+                  先创建角色，再回来一起读。
                 </div>
               </div>
+            ) : (
+              characters.map((character) => {
+                const isSelected =
+                  selectedCharacter?.id === character.id;
+
+                return (
+                  <button
+                    type="button"
+                    className="mn-character"
+                    key={character.id}
+                    onClick={() => handleChooseCharacter(character)}
+                  >
+                    {character.avatar ? (
+                      <img
+                        src={character.avatar}
+                        alt=""
+                        className="mn-character__avatar"
+                      />
+                    ) : (
+                      <span className="mn-character__placeholder" />
+                    )}
+
+                    <span>
+                      <span className="mn-character__name">
+                        {character.name}
+                      </span>
+
+                      <span className="mn-character__bio">
+                        {character.bio || '安静地共读。'}
+                      </span>
+                    </span>
+
+                    {isSelected && (
+                      <Check
+                        size={16}
+                        style={{ marginLeft: 'auto' }}
+                      />
+                    )}
+                  </button>
+                );
+              })
             )}
-
-            {characters.map((character) => {
-              const isSelected =
-                selectedCharacter?.id === character.id;
-
-              return (
-                <button
-                  type="button"
-                  className="mn-character-option"
-                  key={character.id}
-                  onClick={() => handleSelectCharacter(character)}
-                >
-                  {character.avatar ? (
-                    <img
-                      src={character.avatar}
-                      alt=""
-                      className="mn-character-option__avatar"
-                    />
-                  ) : (
-                    <span className="mn-character-option__placeholder" />
-                  )}
-
-                  <span>
-                    <span className="mn-character-option__name">
-                      {character.name}
-                    </span>
-
-                    <span className="mn-character-option__bio">
-                      {character.bio || '安静地共读。'}
-                    </span>
-                  </span>
-
-                  {isSelected && (
-                    <Check
-                      size={16}
-                      className="mn-character-option__check"
-                    />
-                  )}
-                </button>
-              );
-            })}
           </section>
         </div>
       )}
