@@ -1,130 +1,188 @@
 /* src/apps/margin-notes/marginNotes.css */
 
-.margin-notes-shell {
-  min-height: 100vh;
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  font-sans-serif: inherit;
+.margin-notes-root {
+  width: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding-bottom: 5rem;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  box-sizing: border-box;
+  position: relative;
 }
 
-/* 主书页容器 (约 420px 黄金阅读宽度) */
-.book-page-container {
+/* 核心书页主排版区：自然撑满，但限制大屏下的阅读舒适行宽 */
+.margin-notes-sheet {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   margin: 0 auto;
-  position: relative;
-}
-
-/* 典雅书页卡片 */
-.book-paper {
-  background-color: var(--card-bg);
-  border: 1px solid var(--card-border);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-  border-radius: 16px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-/* 顶部跑马出处顶注 (Running Header) */
-.book-running-head {
-  border-bottom: 1px dashed var(--card-border);
-  padding: 0.85rem 1.25rem;
+  padding: 1.5rem 1.25rem 6rem 1.25rem;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 古典书眉 Running Head */
+.mn-running-head {
+  text-align: center;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-muted);
+  opacity: 0.55;
+  margin-bottom: 2rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--card-border);
 }
 
-/* 正文文学排版 */
-.book-typography {
-  font-family: Georgia, Cambria, 'Times New Roman', Times, 'Songti SC', 'Source Han Serif SC', serif;
-  line-height: 1.85;
+/* 书名与扉页信息 */
+.mn-front-matter {
+  margin-bottom: 2rem;
+}
+
+.mn-work-title {
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'Source Han Serif SC', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.4;
   letter-spacing: 0.02em;
-  font-size: 1.05rem;
   color: var(--text-main);
+}
+
+.mn-author-meta {
+  font-family: Georgia, serif;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.mn-companion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  font-family: Georgia, serif;
+  color: var(--text-sub);
+  margin-top: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background-color: var(--control-soft-bg);
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.mn-companion-badge:hover {
+  opacity: 0.8;
+}
+
+/* 沉浸式正文文学排版 */
+.mn-reading-text {
+  font-family: Georgia, 'Songti SC', 'Source Han Serif SC', 'Times New Roman', serif;
+  font-size: 1.05rem;
+  line-height: 2.1;
+  letter-spacing: 0.025em;
+  color: var(--text-main);
+  text-align: justify;
+  text-justify: inter-word;
   word-break: break-word;
 }
 
-/* 生词交互高亮 */
-.vocab-anchor {
+/* 生词极细下划线 */
+.mn-vocab-word {
   text-decoration: underline;
-  text-decoration-style: dashed;
+  text-decoration-style: dotted;
   text-decoration-color: var(--text-muted);
-  text-underline-offset: 4px;
+  text-underline-offset: 5px;
   cursor: pointer;
-  border-radius: 2px;
-  padding: 0 2px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s;
+  padding: 0 1px;
 }
 
-.vocab-anchor:hover, .vocab-anchor.active {
+.mn-vocab-word:hover,
+.mn-vocab-word.active {
   background-color: var(--control-soft-bg);
-  color: var(--accent-text, inherit);
 }
 
-/* 角色页边手写批注卡 */
-.character-pencil-note {
-  background-color: var(--control-soft-bg);
-  border-left: 2.5px solid var(--text-muted);
-  border-radius: 0 8px 8px 0;
-  padding: 0.75rem 0.9rem;
-  font-size: 0.86rem;
-  line-height: 1.55;
-  color: var(--text-sub);
+/* 角色的页边铅笔批注：像夹在右侧空白处的便签 */
+.mn-character-pencil {
   position: relative;
-  transition: transform 0.2s ease;
+  margin: 1.75rem 0 1rem 1.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--control-soft-bg);
+  border-left: 2px solid var(--text-muted);
+  font-family: Georgia, 'Songti SC', 'Kaiti SC', serif;
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-sub);
+  border-radius: 0 6px 6px 0;
 }
 
-.character-pencil-note:hover {
-  transform: translateX(2px);
+.mn-pencil-anchor {
+  font-size: 0.68rem;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
 }
 
-/* 读者回注区域 */
-.reader-response-block {
+.mn-character-sig {
+  text-align: right;
+  font-size: 0.72rem;
+  font-style: normal;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+/* 读者手写回注区 */
+.mn-reader-note-area {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
   border-top: 1px dashed var(--card-border);
-  padding: 1.25rem;
-  background: var(--bg-soft, transparent);
 }
 
-/* 铅笔输入框 */
-.pencil-input {
+.mn-handwritten-input {
   width: 100%;
   background: transparent;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 0.65rem 0.85rem;
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  padding: 0.5rem 0;
+  font-family: Georgia, 'Songti SC', 'Kaiti SC', serif;
   font-size: 0.88rem;
   color: var(--text-main);
   outline: none;
   resize: none;
-  transition: border-color 0.2s;
 }
 
-.pencil-input:focus {
-  border-color: var(--text-muted);
-}
-
-.pencil-input::placeholder {
+.mn-handwritten-input::placeholder {
   color: var(--text-muted);
+  opacity: 0.45;
   font-style: italic;
-  font-size: 0.82rem;
 }
 
-/* 骨架与加载微光 */
-@keyframes bookShimmer {
-  0% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-  100% { opacity: 0.4; }
+.mn-handwritten-input:focus {
+  border-bottom-color: var(--text-muted);
 }
 
-.shimmer-text {
-  animation: bookShimmer 1.8s infinite ease-in-out;
+/* 底部悬浮控制岛（翻页与书架） */
+.mn-bottom-island {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem 0.4rem 0.9rem;
+  border-radius: 9999px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
 }

@@ -1,342 +1,260 @@
 // src/apps/margin-notes/MarginNotesPage.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  Download,
-  Trash2,
-  Send,
-  MessageSquare,
-  BookOpen,
   Sparkles,
+  Send,
   ChevronDown,
   ChevronUp,
-  Info
+  X
 } from 'lucide-react';
-import { exportPageToImage } from './marginNotesExportService';
 import { generateCharacterResonance } from './marginNotesAiService';
 import db from '../../db';
 
 export default function MarginNotesPage({
   page,
   character,
+  pageRef,
   onPageUpdated,
-  onDeletePage
+  onOpenCompanionPicker
 }) {
   const [activeVocab, setActiveVocab] = useState(null);
-  const [showTranslation, setShowTranslation] = useState(true);
-  const [userReplyText, setUserReplyText] = useState('');
-  const [isResponding, setIsResponding] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const pageRef = useRef(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [userNoteInput, setUserNoteInput] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
 
   if (!page) return null;
 
-  // 导出书页图片
-  const handleExport = async () => {
-    if (!pageRef.current || isExporting) return;
-    try {
-      setIsExporting(true);
-      const filename = `margin-note-${page.source?.workTitle || 'page'}-${page.date || 'today'}.png`;
-      await exportPageToImage(pageRef.current, filename);
-    } catch (err) {
-      alert('导出图片失败，请重试');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // 读者提交回注并触发角色回响
-  const handleSubmitUserNote = async (e) => {
+  // 提交读者回注
+  const handleAddUserNote = async (e) => {
     e.preventDefault();
-    if (!userReplyText.trim() || isResponding) return;
+    if (!userNoteInput.trim() || isReplying) return;
 
-    const noteContent = userReplyText.trim();
-    setUserReplyText('');
-    setIsResponding(true);
+    const content = userNoteInput.trim();
+    setUserNoteInput('');
+    setIsReplying(true);
 
-    const newUserNote = {
-      id: `user-note-${Date.now()}`,
-      content: noteContent,
+    const newNote = {
+      id: `un-${Date.now()}`,
+      content,
       createdAt: Date.now(),
       characterReply: null,
       characterReplyAt: null
     };
 
-    const updatedUserNotes = [...(page.userNotes || []), newUserNote];
-    const updatedPage = { ...page, userNotes: updatedUserNotes };
+    const updatedNotes = [...(page.userNotes || []), newNote];
+    const updatedPage = { ...page, userNotes: updatedNotes };
 
     try {
       if (page.id) {
-        await db.marginNotes.update(page.id, { userNotes: updatedUserNotes });
+        await db.marginNotes.update(page.id, { userNotes: updatedNotes });
       }
       onPageUpdated?.(updatedPage);
 
-      // 请求角色生成回响
+      // 请求伴读角色生成回响
       if (character) {
         const resonance = await generateCharacterResonance({
           character,
           pageData: page,
-          userNoteContent: noteContent
+          userNoteContent: content
         });
 
         if (resonance) {
-          newUserNote.characterReply = resonance;
-          newUserNote.characterReplyAt = Date.now();
-          const finalUserNotes = updatedUserNotes.map((un) =>
-            un.id === newUserNote.id ? newUserNote : un
+          newNote.characterReply = resonance;
+          newNote.characterReplyAt = Date.now();
+          const finalNotes = updatedNotes.map((n) =>
+            n.id === newNote.id ? newNote : n
           );
           if (page.id) {
-            await db.marginNotes.update(page.id, { userNotes: finalUserNotes });
+            await db.marginNotes.update(page.id, { userNotes: finalNotes });
           }
-          onPageUpdated?.({ ...page, userNotes: finalUserNotes });
+          onPageUpdated?.({ ...page, userNotes: finalNotes });
         }
       }
     } catch (err) {
-      console.error('提交回注或生成回响失败:', err);
+      console.error('提交回注失败:', err);
     } finally {
-      setIsResponding(false);
-    }
-  };
-
-  // 确认删除当前页
-  const handleConfirmDelete = async () => {
-    if (!page.id) return;
-    try {
-      await db.marginNotes.delete(page.id);
-      setShowDeleteConfirm(false);
-      onDeletePage?.(page.id);
-    } catch (err) {
-      console.error('删除书页失败:', err);
+      setIsReplying(false);
     }
   };
 
   return (
-    <div className="book-page-container px-3.5 py-2">
-      {/* 操作工具栏 */}
-      <div className="flex items-center justify-between px-1 mb-2.5 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center gap-1 opacity-70">
-          <BookOpen className="h-3.5 w-3.5" />
-          {page.targetLanguageLabel || page.language?.toUpperCase() || 'READING'}
-        </span>
-        <div className="flex items-center gap-2">
+    <div ref={pageRef} className="margin-notes-sheet text-left">
+      {/* 1. 书眉 Running Head */}
+      <div className="mn-running-head">
+        The Margin Notes · {page.targetLanguageLabel || page.language?.toUpperCase()}
+      </div>
+
+      {/* 2. 扉页与出处元数据 */}
+      <div className="mn-front-matter">
+        <h2 className="mn-work-title">{page.source?.workTitle || 'Untitled'}</h2>
+        <div className="mn-author-meta">
+          {page.source?.author}
+          {page.source?.year ? ` · ${page.source.year}` : ''}
+          {page.source?.section ? ` · ${page.source.section}` : ''}
+        </div>
+
+        {/* 伴读签名徽章 (点击可切换伴读) */}
+        <div>
           <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md opacity-70 hover:opacity-100 transition-opacity"
-            style={{ backgroundColor: 'var(--control-soft-bg)' }}
-            title="导出书页为图片"
+            type="button"
+            data-export-ignore="true"
+            onClick={onOpenCompanionPicker}
+            className="mn-companion-badge"
           >
-            <Download className="h-3.5 w-3.5" />
-            <span>{isExporting ? '导出中' : '存为书签'}</span>
-          </button>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-1 rounded-md opacity-50 hover:opacity-90 hover:text-red-500 transition-colors"
-            title="删除此书页"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
+            <span>with {page.characterName || character?.name || 'Companion'}</span>
+            <span className="opacity-50">✎</span>
           </button>
         </div>
       </div>
 
-      {/* 书籍实体纸页 */}
-      <div ref={pageRef} className="book-paper text-left">
-        {/* 顶部 Running Head 出处信息 */}
-        <div className="book-running-head">
-          <div className="truncate max-w-[240px]">
-            <span className="font-semibold">{page.source?.workTitle || 'Untitled'}</span>
-            {page.source?.author && ` · ${page.source.author}`}
-          </div>
-          <div className="opacity-60 text-[10px]">
-            {page.source?.year || page.date || ''}
-          </div>
+      {/* 3. 正文排版 */}
+      <div className="mn-reading-text select-text whitespace-pre-line">
+        {page.originalText}
+      </div>
+
+      {/* 4. 译文小折叠 */}
+      {page.translation && (
+        <div className="mt-6 pt-3 border-t border-dashed" style={{ borderColor: 'var(--card-border)' }}>
+          <button
+            type="button"
+            data-export-ignore="true"
+            onClick={() => setShowTranslation(!showTranslation)}
+            className="flex items-center gap-1 text-[11px] opacity-40 hover:opacity-75 transition-opacity mb-2"
+          >
+            <span>{showTranslation ? '收起译文' : '查看参考译文'}</span>
+            {showTranslation ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+          {showTranslation && (
+            <p className="text-xs leading-relaxed opacity-70 font-serif whitespace-pre-line animate-in fade-in duration-200">
+              {page.translation}
+            </p>
+          )}
         </div>
+      )}
 
-        {/* 篇章小节标 */}
-        {page.source?.section && (
-          <div className="px-5 pt-3 text-[11px] font-mono uppercase tracking-widest opacity-40">
-            {page.source.section}
-          </div>
-        )}
+      {/* 5. 角色的页边批注 */}
+      {page.characterNotes && page.characterNotes.length > 0 && (
+        <div className="mt-8 space-y-4">
+          {page.characterNotes.map((cn, idx) => (
+            <div key={cn.id || idx} className="mn-character-pencil">
+              {cn.anchorPhrase && (
+                <div className="mn-pencil-anchor">
+                  § {cn.anchorPhrase}
+                </div>
+              )}
+              <div>{cn.note}</div>
+              <div className="mn-character-sig">
+                — {page.characterName || character?.name || 'Companion'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-        {/* 原文排版区 */}
-        <div className="p-5 pb-4">
-          <div className="book-typography select-text whitespace-pre-line">
-            {page.originalText}
-          </div>
-
-          {/* 译文折叠区 */}
-          {page.translation && (
-            <div className="mt-4 pt-3 border-t border-dashed" style={{ borderColor: 'var(--card-border)' }}>
+      {/* 6. 生词轻触标签条 */}
+      {page.vocabulary && page.vocabulary.length > 0 && (
+        <div className="mt-6 pt-3" data-export-ignore="true">
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-[10px] uppercase font-mono tracking-widest opacity-35 mr-1">
+              Words
+            </span>
+            {page.vocabulary.map((vocab, i) => (
               <button
-                onClick={() => setShowTranslation(!showTranslation)}
-                data-export-ignore="true"
-                className="flex items-center gap-1 text-[11px] opacity-50 hover:opacity-80 transition-opacity mb-2"
+                key={i}
+                type="button"
+                onClick={() => setActiveVocab(activeVocab === i ? null : i)}
+                className={`text-xs px-2 py-0.5 rounded transition-all font-serif ${
+                  activeVocab === i ? 'bg-[var(--control-soft-bg)] font-bold' : 'opacity-60 hover:opacity-100'
+                }`}
+                style={{ border: '1px solid var(--card-border)' }}
               >
-                <span>{page.auxiliaryLanguageLabel || '辅助译文'}</span>
-                {showTranslation ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {vocab.term}
               </button>
-              {showTranslation && (
-                <p className="text-xs leading-relaxed opacity-75 whitespace-pre-line">
-                  {page.translation}
-                </p>
+            ))}
+          </div>
+
+          {/* 生词极简释义条 */}
+          {activeVocab !== null && page.vocabulary[activeVocab] && (
+            <div
+              className="mt-2.5 p-3 rounded-lg text-xs space-y-1 relative animate-in fade-in duration-150"
+              style={{ backgroundColor: 'var(--control-soft-bg)' }}
+            >
+              <button
+                onClick={() => setActiveVocab(null)}
+                className="absolute right-2 top-2 opacity-40 hover:opacity-80"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              <div className="font-bold flex items-center gap-2">
+                <span>{page.vocabulary[activeVocab].term}</span>
+                {page.vocabulary[activeVocab].phonetic && (
+                  <span className="font-mono text-[10px] opacity-40">
+                    {page.vocabulary[activeVocab].phonetic}
+                  </span>
+                )}
+              </div>
+              <div className="opacity-80">{page.vocabulary[activeVocab].meaning}</div>
+              {page.vocabulary[activeVocab].nuance && (
+                <div className="opacity-50 text-[11px] italic pt-0.5">
+                  {page.vocabulary[activeVocab].nuance}
+                </div>
               )}
             </div>
           )}
         </div>
+      )}
 
-        {/* 生词/短语注解条 */}
-        {page.vocabulary && page.vocabulary.length > 0 && (
-          <div className="px-5 py-3 border-t" style={{ borderColor: 'var(--card-border)', backgroundColor: 'var(--bg-soft, transparent)' }}>
-            <div className="text-[10px] uppercase font-mono tracking-wider opacity-50 mb-2 flex items-center gap-1">
-              <Info className="h-3 w-3" />
-              <span>Vocabulary & Nuances</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5 mb-2" data-export-ignore="true">
-              {page.vocabulary.map((v, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveVocab(activeVocab === idx ? null : idx)}
-                  className={`text-xs px-2 py-0.5 rounded-full transition-all ${
-                    activeVocab === idx ? 'font-bold ring-1 ring-current' : 'opacity-70 hover:opacity-100'
-                  }`}
-                  style={{ backgroundColor: 'var(--control-soft-bg)' }}
+      {/* 7. 读者与伴读的历史回注流 */}
+      {page.userNotes && page.userNotes.length > 0 && (
+        <div className="mt-8 space-y-4">
+          {page.userNotes.map((un) => (
+            <div key={un.id} className="space-y-2 text-xs">
+              <div className="flex items-start gap-2 italic opacity-85 font-serif">
+                <span className="opacity-40">✎</span>
+                <span>{un.content}</span>
+              </div>
+              {un.characterReply && (
+                <div
+                  className="ml-4 pl-3 py-1 border-l text-xs italic opacity-75 font-serif"
+                  style={{ borderColor: 'var(--card-border)' }}
                 >
-                  {v.term}
-                </button>
-              ))}
-            </div>
-
-            {/* 展开的生词详解 */}
-            {activeVocab !== null && page.vocabulary[activeVocab] && (
-              <div className="p-2.5 rounded-lg text-xs space-y-1 animate-in fade-in duration-150" style={{ backgroundColor: 'var(--control-soft-bg)' }}>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-bold">{page.vocabulary[activeVocab].term}</span>
-                  {page.vocabulary[activeVocab].phonetic && (
-                    <span className="font-mono opacity-50 text-[10px]">
-                      {page.vocabulary[activeVocab].phonetic}
-                    </span>
-                  )}
+                  <span className="not-italic opacity-45 mr-1.5 text-[10px]">
+                    {page.characterName || 'Companion'}:
+                  </span>
+                  {un.characterReply}
                 </div>
-                <div className="opacity-90">{page.vocabulary[activeVocab].meaning}</div>
-                {page.vocabulary[activeVocab].nuance && (
-                  <div className="opacity-60 text-[11px] italic">
-                    {page.vocabulary[activeVocab].nuance}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 角色的页边铅笔批注 */}
-        {page.characterNotes && page.characterNotes.length > 0 && (
-          <div className="px-5 py-3 space-y-2.5 border-t" style={{ borderColor: 'var(--card-border)' }}>
-            <div className="text-[10px] uppercase font-mono tracking-wider opacity-50 flex items-center gap-1">
-              <Sparkles className="h-3 w-3" />
-              <span>{page.characterName || 'Companion'}’s Margin Notes</span>
+              )}
             </div>
-            {page.characterNotes.map((cn, idx) => (
-              <div key={cn.id || idx} className="character-pencil-note">
-                {cn.anchorPhrase && (
-                  <div className="text-[10px] font-serif font-bold uppercase tracking-wider opacity-60 mb-0.5">
-                    「 {cn.anchorPhrase} 」
-                  </div>
-                )}
-                <div className="font-serif italic">{cn.note}</div>
-              </div>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
+      )}
 
-        {/* 读者的回注与角色回响列表 */}
-        {page.userNotes && page.userNotes.length > 0 && (
-          <div className="px-5 py-3 space-y-2 border-t" style={{ borderColor: 'var(--card-border)' }}>
-            {page.userNotes.map((un) => (
-              <div key={un.id} className="space-y-1.5 text-xs">
-                {/* 读者自己的铅笔注 */}
-                <div className="flex items-start gap-2 opacity-85">
-                  <div className="h-1.5 w-1.5 rounded-full mt-1.5 bg-current opacity-40 shrink-0" />
-                  <div className="font-serif">{un.content}</div>
-                </div>
-                {/* 角色的回响 */}
-                {un.characterReply && (
-                  <div
-                    className="ml-3.5 pl-2.5 py-1 border-l-2 text-xs italic opacity-80"
-                    style={{ borderColor: 'var(--text-muted)' }}
-                  >
-                    <span className="font-semibold not-italic opacity-60 mr-1.5">
-                      {page.characterName || 'Reply'}:
-                    </span>
-                    {un.characterReply}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 底部读者书写回注输入框 */}
-        <div className="reader-response-block" data-export-ignore="true">
-          <form onSubmit={handleSubmitUserNote} className="space-y-2">
-            <textarea
-              rows={2}
-              value={userReplyText}
-              onChange={(e) => setUserReplyText(e.target.value)}
-              placeholder="在此写下你在页边的铅笔注，与对方交换心绪..."
-              className="pencil-input"
-            />
-            <div className="flex justify-between items-center">
+      {/* 8. 读者手写回注输入 */}
+      <div className="mn-reader-note-area" data-export-ignore="true">
+        <form onSubmit={handleAddUserNote} className="space-y-2">
+          <textarea
+            rows={1}
+            value={userNoteInput}
+            onChange={(e) => setUserNoteInput(e.target.value)}
+            placeholder="在页边留下一句手写注..."
+            className="mn-handwritten-input"
+          />
+          {userNoteInput.trim() && (
+            <div className="flex justify-end items-center gap-2 pt-1 animate-in fade-in">
               <span className="text-[10px] opacity-40">
-                {isResponding ? '伴读回想中...' : '回注将保存于此页'}
+                {isReplying ? '回想中...' : 'Enter 记下'}
               </span>
               <button
                 type="submit"
-                disabled={!userReplyText.trim() || isResponding}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium opacity-80 hover:opacity-100 disabled:opacity-30 transition-all"
-                style={{ backgroundColor: 'var(--text-main)', color: 'var(--bg-main)' }}
+                disabled={isReplying}
+                className="p-1.5 rounded-full bg-[var(--text-main)] text-[var(--bg-main)] opacity-90 hover:opacity-100"
               >
                 <Send className="h-3 w-3" />
-                <span>记下</span>
               </button>
             </div>
-          </form>
-        </div>
+          )}
+        </form>
       </div>
-
-      {/* 删除确认弹窗 */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div
-            className="w-full max-w-xs rounded-xl p-4 shadow-xl text-left space-y-3"
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              border: '1px solid var(--card-border)',
-              color: 'var(--text-main)'
-            }}
-          >
-            <h4 className="text-sm font-bold">撕下此书页？</h4>
-            <p className="text-xs opacity-70">
-              删除后，此页的文学摘录、伴读批注与你的手写回注都将从书架中移除。
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-3 py-1 rounded text-xs opacity-70 hover:opacity-100"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                className="px-3 py-1 rounded text-xs font-medium bg-red-500/20 text-red-500 hover:bg-red-500/30"
-              >
-                确认删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
