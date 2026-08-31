@@ -1,82 +1,93 @@
 // src/apps/newspaper/newspaperSearchService.js
 
 /**
- * 健壮的多代理抓取机制
+ * 带快速超时的 fetch 辅助函数
  */
-async function fetchWithFallbackProxies(targetUrl) {
-  const encoded = encodeURIComponent(targetUrl);
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encoded}`,
-    `https://corsproxy.io/?${encoded}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encoded}`
-  ];
-
-  for (const proxy of proxies) {
-    try {
-      const res = await fetch(proxy, { headers: { 'Accept': 'application/rss+xml, text/xml, */*' } });
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.includes('<rss') || text.includes('<item')) {
-          return text;
-        }
-      }
-    } catch (e) {
-      console.warn(`代理 ${proxy} 请求失败，尝试下一个...`);
-    }
+async function fetchWithTimeout(url, options = {}, timeoutMs = 2500) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
   }
-  throw new Error('所有检索代理均暂时不可用');
 }
 
 /**
- * Google News RSS 解析
+ * 1. 原生开放资讯源：Hacker News / 科技开放 API (完全免 Key & 原生支持 CORS)
  */
-async function fetchGoogleNewsRSS(query) {
-  const encodedQuery = encodeURIComponent(query);
-  const rssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=zh-CN&gl=CN&ceid=CN:zh-Hans`;
-  
-  const xmlText = await fetchWithFallbackProxies(rssUrl);
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-  const items = xmlDoc.querySelectorAll('item');
-  
-  const results = [];
-  const count = Math.min(items.length, 4);
-  
-  for (let i = 0; i < count; i++) {
-    const item = items[i];
-    const title = item.querySelector('title')?.textContent || '';
-    const link = item.querySelector('link')?.textContent || '';
-    const description = item.querySelector('description')?.textContent || '';
-    const cleanDesc = description.replace(/<[^>]*>/g, '').trim();
+async function fetchOpenTechNews() {
+  try {
+    const res = await fetchWithTimeout('https://hacker-news.firebaseio.com/v0/topstories.json');
+    if (!res.ok) return [];
+    const ids = await res.json();
+    const topIds = ids.slice(0, 3);
     
-    results.push({
-      title: title.split(' - ')[0] || title,
-      source: title.split(' - ')[1] || '新闻源',
-      snippet: cleanDesc,
-      url: link
-    });
+    const items = await Promise.all(
+      topIds.map(async (id) => {
+        try {
+          const itemRes = await fetchWithTimeout(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+          return await itemRes.json();
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    return items.filter(Boolean).map(item => ({
+      title: item.title,
+      source: 'Global Tech Feed',
+      snippet: `Article URL: ${item.url || 'HN Dispatch'} (Score: ${item.score || 0})`,
+      url: item.url || ''
+    }));
+  } catch {
+    return [];
   }
-  
-  return results;
 }
 
 /**
- * Tavily API 检索
+ * 2. 原生开放百科每日事件 (原生 CORS，无跨域拦截)
+ */
+async function fetchWikipediaFeatured() {
+  try {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const res = await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${mm}/${dd}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const events = (data.events || []).slice(0, 3);
+    return events.map(e => ({
+      title: `${e.year}年: ${e.text.slice(0, 60)}...`,
+      source: 'World History Archive',
+      snippet: e.text,
+      url: e.pages?.[0]?.content_urls?.desktop?.page || ''
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 3. Tavily API 检索 (用户配置了 Key 时优先)
  */
 async function fetchTavilySearch(query, apiKey) {
-  const response = await fetch('https://api.tavily.com/search', {
+  const res = await fetchWithTimeout('https://api.tavily.com/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       api_key: apiKey,
       query: query,
       search_depth: 'basic',
-      max_results: 4
+      max_results: 3
     })
-  });
+  }, 4000);
 
-  if (!response.ok) throw new Error('Tavily 搜索失败');
-  const data = await response.json();
+  if (!res.ok) throw new Error('Tavily 搜索失败');
+  const data = await res.json();
   return (data.results || []).map(r => ({
     title: r.title,
     source: 'Web',
@@ -86,23 +97,27 @@ async function fetchTavilySearch(query, apiKey) {
 }
 
 /**
- * 统一搜索入口
+ * 统一搜索入口：永远不会因 CORS 崩溃或长久卡住
  */
 export async function searchLatestNews(topic, settings = {}) {
-  const query = topic || '科技 艺术 世界观察';
-  
+  // 如果用户配了专属 Key
   if (settings.tavilyKey && settings.tavilyKey.trim()) {
     try {
-      return await fetchTavilySearch(query, settings.tavilyKey.trim());
+      const tavilyResults = await fetchTavilySearch(topic, settings.tavilyKey.trim());
+      if (tavilyResults.length > 0) return tavilyResults;
     } catch (e) {
-      console.warn('Tavily 检索失败，回退到 RSS：', e);
+      console.warn('Tavily 检索失败，切换至免 Key 原生接口');
     }
   }
-  
-  try {
-    return await fetchGoogleNewsRSS(query);
-  } catch (e) {
-    console.warn('RSS 代理抓取失败，进入 AI 深度观察降级模式：', e);
-    return [];
-  }
+
+  // 尝试原生 CORS 资讯源
+  const openNews = await fetchOpenTechNews();
+  if (openNews.length > 0) return openNews;
+
+  // 尝试原生历史档案
+  const wikiNews = await fetchWikipediaFeatured();
+  if (wikiNews.length > 0) return wikiNews;
+
+  // 兜底返回空数组，平滑触发主编深度思考模式
+  return [];
 }

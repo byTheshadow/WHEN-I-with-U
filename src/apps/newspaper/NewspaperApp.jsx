@@ -7,7 +7,8 @@ import {
   Scissors, 
   ChevronLeft, 
   ChevronRight,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
@@ -62,6 +63,7 @@ export const NewspaperApp = ({ onClose }) => {
         Math.floor(Math.random() * newspaperSettings.topics.length)
       ] || '科技与当代生活';
 
+      // 快速检索（带超时熔断）
       const rawNews = await searchLatestNews(activeTopic, newspaperSettings);
       
       setStatusMessage('主编正在编撰与排版...');
@@ -102,12 +104,15 @@ export const NewspaperApp = ({ onClose }) => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden">
-      {/* 极简导航条 */}
-      <header className="flex items-center justify-between border-b border-[var(--text-main)] border-opacity-10 px-4 py-3 shrink-0">
+    // 关键修正：使用 -mx-4 -mt-6 抵消 App.jsx 的外层内边距，实现无缝贴顶
+    <div className="-mx-4 -mt-6 flex min-h-[100dvh] flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors duration-500">
+      
+      {/* 1. 顶格贴边导航栏 */}
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-[var(--text-main)] border-opacity-10 bg-[var(--bg-main)]/90 px-4 py-3.5 backdrop-blur-md">
         <button 
           onClick={onClose} 
-          className="p-1.5 opacity-60 hover:opacity-100 transition-opacity"
+          className="p-1 opacity-60 hover:opacity-100 transition-opacity"
+          aria-label="返回"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -116,21 +121,22 @@ export const NewspaperApp = ({ onClose }) => {
             THE DAILY POST
           </h2>
           <p className="text-[8px] font-mono uppercase tracking-widest opacity-40">
-            Independent Morning Editorial
+            Morning Dispatch
           </p>
         </div>
         <button 
           onClick={() => setIsSettingsOpen(true)} 
-          className="p-1.5 opacity-60 hover:opacity-100 transition-opacity"
+          className="p-1 opacity-60 hover:opacity-100 transition-opacity"
+          aria-label="设置"
         >
           <SettingsIcon className="w-4 h-4" />
         </button>
       </header>
 
-      {/* 报纸主体滚动区 */}
-      <main className="flex-1 overflow-y-auto px-4 py-6 flex flex-col items-center">
+      {/* 2. 报纸主体内容区 */}
+      <main className="flex-1 px-5 py-6 flex flex-col items-center">
         {loading ? (
-          <div className="my-auto flex flex-col items-center gap-4 py-16 text-center">
+          <div className="my-auto flex flex-col items-center gap-4 py-20 text-center">
             <RefreshCw className="w-6 h-6 animate-spin opacity-40" />
             <div className="space-y-1">
               <p className="text-xs font-mono tracking-wider opacity-80">{statusMessage}</p>
@@ -138,21 +144,21 @@ export const NewspaperApp = ({ onClose }) => {
             </div>
           </div>
         ) : currentPost ? (
-          <article className="w-full max-w-[420px] space-y-7 pb-12 select-text">
+          <article className="w-full max-w-[400px] space-y-7 pb-16 select-text animate-fade-in">
             
-            {/* 1. 报头区域 (Masthead) */}
-            <div className="space-y-2 border-b-2 border-[var(--text-main)] pb-4 text-center">
-              <div className="flex justify-between items-center text-[9px] font-mono tracking-widest uppercase opacity-40 border-b border-[var(--text-main)] border-opacity-10 pb-1">
+            {/* 报头区域 (Masthead) */}
+            <div className="space-y-2.5 border-b-2 border-[var(--text-main)] pb-4 text-center">
+              <div className="flex justify-between items-center text-[9px] font-mono tracking-widest uppercase opacity-40 border-b border-[var(--text-main)] border-opacity-10 pb-1.5">
                 <span>{currentPost.editionNumber || 'ISSUE 01'}</span>
                 <span>{currentPost.date}</span>
-                <span>{currentPost.topic}</span>
+                <span className="truncate max-w-[120px] text-right">{currentPost.topic}</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-tight leading-snug pt-1">
+              <h1 className="text-xl sm:text-2xl font-serif font-bold tracking-tight leading-snug pt-1 text-[var(--text-main)]">
                 {currentPost.headlineLead}
               </h1>
             </div>
 
-            {/* 2. 主编寄语 (Editor's Note) */}
+            {/* 主编寄语 (Editor's Dispatch) */}
             <section className="relative p-5 rounded-2xl bg-[var(--control-soft-bg)] border border-[var(--text-main)] border-opacity-10 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] font-mono uppercase tracking-[0.2em] opacity-40">
@@ -167,7 +173,7 @@ export const NewspaperApp = ({ onClose }) => {
               </p>
             </section>
 
-            {/* 3. 新闻专栏 (Dispatches & Observations) */}
+            {/* 要闻区块 (Observatories) */}
             <section className="space-y-5">
               <div className="flex items-center gap-2 border-b border-[var(--text-main)] border-opacity-15 pb-1">
                 <span className="text-[10px] font-mono uppercase tracking-widest opacity-50">
@@ -179,7 +185,7 @@ export const NewspaperApp = ({ onClose }) => {
               {(currentPost.articles || []).map((art, idx) => (
                 <div 
                   key={idx} 
-                  className="space-y-2 border-b border-[var(--text-main)] border-opacity-10 pb-4 last:border-none"
+                  className="space-y-2 border-b border-[var(--text-main)] border-opacity-10 pb-4 last:border-none text-left"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-[8px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-[var(--control-soft-bg)] border border-[var(--text-main)] border-opacity-10 opacity-70">
@@ -192,16 +198,16 @@ export const NewspaperApp = ({ onClose }) => {
                   <h3 className="text-sm font-serif font-bold tracking-tight leading-snug">
                     {art.headline}
                   </h3>
-                  <p className="text-xs font-sans opacity-75 leading-relaxed tracking-normal">
+                  <p className="text-xs font-sans opacity-75 leading-relaxed">
                     {art.content}
                   </p>
                 </div>
               ))}
             </section>
 
-            {/* 4. 每日生词角 (Daily Lexicon Cutout) */}
+            {/* 每日生词角 (Cutout Lexicon) */}
             {currentPost.dailyLexicon && (
-              <section className="relative p-4 rounded-xl border border-dashed border-[var(--text-main)] border-opacity-30 bg-[var(--control-soft-bg)] space-y-2">
+              <section className="relative p-4 rounded-xl border border-dashed border-[var(--text-main)] border-opacity-30 bg-[var(--control-soft-bg)] space-y-2 text-left">
                 <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-widest opacity-40">
                   <span className="flex items-center gap-1">
                     <Scissors className="w-3 h-3" /> Cutout Lexicon
@@ -229,7 +235,7 @@ export const NewspaperApp = ({ onClose }) => {
               </section>
             )}
 
-            {/* 5. 往期报纸翻阅 (Pagination) */}
+            {/* 往期报纸翻阅 (Pagination) */}
             {historyList.length > 1 && (
               <footer className="flex items-center justify-between pt-4 border-t border-[var(--text-main)] border-opacity-15 text-[11px] font-mono">
                 <button
@@ -259,9 +265,9 @@ export const NewspaperApp = ({ onClose }) => {
             )}
           </article>
         ) : (
-          <div className="my-auto flex flex-col items-center gap-4 py-16 text-center max-w-xs">
+          <div className="my-auto flex flex-col items-center gap-4 py-20 text-center max-w-xs">
             <div className="w-12 h-12 rounded-2xl bg-[var(--control-soft-bg)] flex items-center justify-center border border-[var(--text-main)] border-opacity-10">
-              <Sparkles className="w-5 h-5 opacity-60" />
+              <BookOpen className="w-5 h-5 opacity-60" />
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold tracking-tight">今日晨刊尚未排印</h4>
@@ -271,7 +277,7 @@ export const NewspaperApp = ({ onClose }) => {
             </div>
             <button
               onClick={handleGenerateToday}
-              className="mt-2 px-5 py-2 text-xs font-bold rounded-xl bg-[var(--text-main)] text-[var(--bg-main)] hover:opacity-90 transition-opacity"
+              className="mt-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-[var(--text-main)] text-[var(--bg-main)] hover:opacity-90 transition-opacity shadow-sm"
             >
               印发今日晨报
             </button>
@@ -279,12 +285,12 @@ export const NewspaperApp = ({ onClose }) => {
         )}
       </main>
 
-      {/* 底部重印操作栏 */}
+      {/* 3. 底部重印常驻栏 */}
       {currentPost && !loading && (
-        <footer className="p-3 border-t border-[var(--text-main)] border-opacity-10 flex justify-center bg-[var(--bg-main)] shrink-0">
+        <footer className="sticky bottom-0 z-20 p-3 border-t border-[var(--text-main)] border-opacity-10 flex justify-center bg-[var(--bg-main)]/90 backdrop-blur-md">
           <button
             onClick={handleGenerateToday}
-            className="flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-full bg-[var(--control-soft-bg)] border border-[var(--text-main)] border-opacity-10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-full bg-[var(--control-soft-bg)] border border-[var(--text-main)] border-opacity-10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5 opacity-60" /> 重新编撰今日刊
           </button>
