@@ -341,9 +341,14 @@ if (result?.status === 'success') {
   const shouldDisplayHubHeader =
     currentApp === 'hub' && !isInsideChatRoom;
 
-  const mainClassName = isInsideChatRoom
-    ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
+const isMarginNotesApp = currentApp === 'margin-notes';
+
+const mainClassName = isInsideChatRoom
+  ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
+  : isMarginNotesApp
+    ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
     : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
+
 
   return (
     <ErrorBoundary>
@@ -393,18 +398,19 @@ if (result?.status === 'success') {
         />
       </div>
 
-      <main
-        className={mainClassName}
-        style={{
-          paddingTop: isInsideChatRoom
-            ? '0'
-            : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+    <main
+  className={mainClassName}
+  style={{
+    paddingTop: isInsideChatRoom || isMarginNotesApp
+      ? '0'
+      : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
 
-          paddingBottom: isInsideChatRoom
-            ? '0'
-            : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
-        }}
-      >
+    paddingBottom: isInsideChatRoom || isMarginNotesApp
+      ? '0'
+      : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+  }}
+>
+
         {shouldDisplayHubHeader && (
           <header
             className={`flex items-start animate-fade-in-up ${
