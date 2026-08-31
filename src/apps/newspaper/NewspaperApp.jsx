@@ -32,9 +32,7 @@ function getSourcesFromIndexes(sourceIndexes, rawNews) {
     return [];
   }
 
-  const uniqueIndexes = [...new Set(sourceIndexes)];
-
-  return uniqueIndexes
+  return [...new Set(sourceIndexes)]
     .map((index) => rawNews[index])
     .filter((source) => source?.url)
     .map((source) => ({
@@ -65,7 +63,7 @@ function normalizeArticle(article, index, rawNews) {
     sourceType,
     sources,
 
-    // 兼容旧版已保存晨报
+    // 兼容此前已保存的旧版报纸数据
     source: article?.source || sources[0]?.publisher || ''
   };
 }
@@ -80,6 +78,31 @@ function getArticleSourceLabel(article) {
   }
 
   return article?.source || '来源待核验';
+}
+
+function FloatingIconButton({
+  children,
+  label,
+  onClick,
+  position = 'left'
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className={[
+        'fixed top-4 z-40 flex h-10 w-10 items-center justify-center',
+        'border border-[var(--text-main)] border-opacity-15',
+        'bg-[var(--bg-main)] text-[var(--text-main)]',
+        'shadow-sm backdrop-blur-sm transition-opacity',
+        'hover:opacity-70 active:scale-95',
+        position === 'left' ? 'left-4' : 'right-4'
+      ].join(' ')}
+    >
+      {children}
+    </button>
+  );
 }
 
 function DetailModal({ article, onClose }) {
@@ -105,7 +128,10 @@ function DetailModal({ article, onClose }) {
         aria-label="新闻详情"
       >
         <header className="newspaper-detail-head">
-          <span>{article.tag || 'BRIEF'} · {getArticleSourceLabel(article)}</span>
+          <span>
+            {article.tag || 'BRIEF'} · {getArticleSourceLabel(article)}
+          </span>
+
           <button
             type="button"
             className="newspaper-icon-button"
@@ -121,7 +147,7 @@ function DetailModal({ article, onClose }) {
 
           <section className="newspaper-detail-section">
             <h4>事实梳理</h4>
-            <p>{article.facts || '该条目暂未保存完整事实梳理。'}</p>
+            <p>{article.facts || '该条目暂未保存完整的事实梳理。'}</p>
           </section>
 
           {article.limitations && (
@@ -154,11 +180,13 @@ function DetailModal({ article, onClose }) {
                     <span className="newspaper-source-publisher">
                       {source.publisher}
                     </span>
+
                     <span className="newspaper-source-title">
                       {source.title}
                       {source.publishedAt ? ` · ${source.publishedAt}` : ''}
                     </span>
                   </span>
+
                   <ExternalLink size={15} aria-hidden="true" />
                 </a>
               ))
@@ -180,10 +208,13 @@ export const NewspaperApp = ({ onClose }) => {
   const [currentPost, setCurrentPost] = useState(null);
   const [historyList, setHistoryList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState(null);
 
@@ -199,7 +230,10 @@ export const NewspaperApp = ({ onClose }) => {
     };
 
     window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   const cleanOldPosts = async () => {
@@ -209,20 +243,21 @@ export const NewspaperApp = ({ onClose }) => {
       .filter((post) => post.createdAt < deadline)
       .toArray();
 
-    if (outdatedPosts.length > 0) {
-      await db.newspapers.bulkDelete(
-        outdatedPosts
-          .map((post) => post.id)
-          .filter((id) => id !== undefined && id !== null)
-      );
+    const idsToDelete = outdatedPosts
+      .map((post) => post.id)
+      .filter((id) => id !== undefined && id !== null);
+
+    if (idsToDelete.length > 0) {
+      await db.newspapers.bulkDelete(idsToDelete);
     }
 
-    return outdatedPosts.length;
+    return idsToDelete.length;
   };
 
   const loadData = async () => {
     try {
       const savedSettings = await db.settings.get('newspaper_settings');
+
       const mergedSettings = {
         ...DEFAULT_SETTINGS,
         ...(savedSettings?.value || {})
@@ -243,6 +278,9 @@ export const NewspaperApp = ({ onClose }) => {
 
       if (posts.length > 0) {
         setCurrentPost(posts[0]);
+        setCurrentIndex(0);
+      } else {
+        setCurrentPost(null);
         setCurrentIndex(0);
       }
     } catch (error) {
@@ -265,11 +303,8 @@ export const NewspaperApp = ({ onClose }) => {
     });
 
     if (mergedSettings.autoClean) {
-      const deletedCount = await cleanOldPosts();
-
-      if (deletedCount > 0) {
-        await loadData();
-      }
+      await cleanOldPosts();
+      await loadData();
     }
   };
 
@@ -288,6 +323,7 @@ export const NewspaperApp = ({ onClose }) => {
 
     try {
       const topics = settings.topics?.filter(Boolean) || [];
+
       const activeTopic = topics[
         Math.floor(Math.random() * Math.max(topics.length, 1))
       ] || '世界观察';
@@ -306,6 +342,7 @@ export const NewspaperApp = ({ onClose }) => {
       });
 
       const activeCharacterSetting = await db.settings.get('activeCharacterId');
+
       const activeCharacter = activeCharacterSetting?.value
         ? await db.characters.get(Number(activeCharacterSetting.value))
         : await db.characters.toCollection().first();
@@ -371,30 +408,21 @@ export const NewspaperApp = ({ onClose }) => {
 
   return (
     <div className="-mx-4 -mt-6 newspaper-shell">
-      <header className="newspaper-topbar">
-        <button
-          type="button"
-          className="newspaper-icon-button"
-          onClick={onClose}
-          aria-label="返回主页"
-        >
-          <ArrowLeft size={20} />
-        </button>
+      <FloatingIconButton
+        label="返回主页"
+        onClick={onClose}
+        position="left"
+      >
+        <ArrowLeft size={20} />
+      </FloatingIconButton>
 
-        <div className="newspaper-brand">
-          <div className="newspaper-brand-title">朝夕时报</div>
-          <div className="newspaper-brand-subtitle">The Daily Post</div>
-        </div>
-
-        <button
-          type="button"
-          className="newspaper-icon-button"
-          onClick={() => setIsSettingsOpen(true)}
-          aria-label="报纸设置"
-        >
-          <SettingsIcon size={17} />
-        </button>
-      </header>
+      <FloatingIconButton
+        label="报纸设置"
+        onClick={() => setIsSettingsOpen(true)}
+        position="right"
+      >
+        <SettingsIcon size={17} />
+      </FloatingIconButton>
 
       {loading ? (
         <main className="newspaper-loading">
@@ -402,21 +430,29 @@ export const NewspaperApp = ({ onClose }) => {
           <p>{statusMessage || '晨刊正在排印中…'}</p>
         </main>
       ) : currentPost ? (
-        <main className="newspaper-page">
+        <main className="newspaper-page pt-16">
           <article>
             <header className="newspaper-masthead">
               <div className="newspaper-meta-row">
                 <span>{currentPost.editionNumber || 'NO. 001'}</span>
                 <span>{currentPost.date}</span>
-                <span className="newspaper-meta-topic">{currentPost.topic}</span>
+                <span className="newspaper-meta-topic">
+                  {currentPost.topic}
+                </span>
               </div>
 
-              <h1 className="newspaper-title">
-                {currentPost.headlineLead}
-              </h1>
+              <div className="mt-7 text-center">
+                <p className="font-mono text-[8px] uppercase tracking-[0.28em] opacity-45">
+                  The Daily Post
+                </p>
 
-              <div className="newspaper-kicker">
-                A quiet selection from the moving world
+                <h1 className="newspaper-title mt-3">
+                  {currentPost.headlineLead}
+                </h1>
+
+                <p className="newspaper-kicker">
+                  A quiet selection from the moving world
+                </p>
               </div>
             </header>
 
@@ -456,10 +492,14 @@ export const NewspaperApp = ({ onClose }) => {
                     </span>
                   </div>
 
-                  <h2 className="newspaper-story-title">{article.headline}</h2>
+                  <h2 className="newspaper-story-title">
+                    {article.headline}
+                  </h2>
 
                   {article.excerpt && (
-                    <p className="newspaper-story-excerpt">{article.excerpt}</p>
+                    <p className="newspaper-story-excerpt">
+                      {article.excerpt}
+                    </p>
                   )}
 
                   <span className="newspaper-story-read">
@@ -477,6 +517,7 @@ export const NewspaperApp = ({ onClose }) => {
 
                 <p className="newspaper-lexicon-word">
                   {currentPost.dailyLexicon.word}
+
                   {currentPost.dailyLexicon.phonetic && (
                     <span className="newspaper-lexicon-phonetic">
                       {currentPost.dailyLexicon.phonetic}
@@ -497,12 +538,17 @@ export const NewspaperApp = ({ onClose }) => {
             )}
 
             {historyList.length > 1 && (
-              <nav className="mt-8 flex items-center justify-between border-t border-[color-mix(in_srgb,var(--text-main)_18%,transparent)] pt-4 text-[11px]">
+              <nav
+                className="mt-8 flex items-center justify-between pt-4 text-[11px]"
+                style={{
+                  borderTop: '1px solid color-mix(in srgb, var(--text-main) 18%, transparent)'
+                }}
+              >
                 <button
                   type="button"
                   disabled={currentIndex >= historyList.length - 1}
                   onClick={showOlderPost}
-                  className="flex items-center gap-1 opacity-60 disabled:opacity-20"
+                  className="flex items-center gap-1 opacity-60 transition-opacity disabled:opacity-20"
                 >
                   <ChevronLeft size={15} />
                   往期
@@ -516,7 +562,7 @@ export const NewspaperApp = ({ onClose }) => {
                   type="button"
                   disabled={currentIndex <= 0}
                   onClick={showNewerPost}
-                  className="flex items-center gap-1 opacity-60 disabled:opacity-20"
+                  className="flex items-center gap-1 opacity-60 transition-opacity disabled:opacity-20"
                 >
                   近期
                   <ChevronRight size={15} />
@@ -526,9 +572,12 @@ export const NewspaperApp = ({ onClose }) => {
           </article>
         </main>
       ) : (
-        <main className="newspaper-empty">
+        <main className="newspaper-empty pt-14">
           <FileText size={26} className="opacity-45" />
-          <p>今天的晨刊尚未印发。主编会先整理可核验的外部来源，再开始编撰。</p>
+
+          <p>
+            今天的晨刊尚未印发。主编会先整理可核验的外部来源，再开始编撰。
+          </p>
 
           {errorMessage && (
             <p className="newspaper-status-error">{errorMessage}</p>
@@ -543,7 +592,10 @@ export const NewspaperApp = ({ onClose }) => {
           onClick={handleGenerateToday}
           disabled={loading}
         >
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw
+            size={15}
+            className={loading ? 'animate-spin' : ''}
+          />
           {currentPost ? '印发新一期' : '印发今日晨刊'}
         </button>
       </footer>
