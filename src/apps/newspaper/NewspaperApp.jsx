@@ -415,9 +415,12 @@ export const NewspaperApp = ({ onClose }) => {
     setCurrentPost(historyList[previousIndex]);
   }
 
+  const articles = currentPost?.articles || [];
+  const leadArticle = articles[0] || null;
+  const briefArticles = articles.slice(1, 3);
+
   return (
     <div className="-mx-4 -mt-6 newspaper-shell">
-      {/* 不再使用 Top Bar */}
       <button
         type="button"
         className="newspaper-floating-button newspaper-floating-button--left"
@@ -444,96 +447,142 @@ export const NewspaperApp = ({ onClose }) => {
       ) : currentPost ? (
         <main className="newspaper-page">
           <article>
+            {/* 正式报头 */}
             <header className="newspaper-masthead">
-              <div className="newspaper-meta-row">
+              <div className="newspaper-edition-line">
                 <span>
                   {currentPost.editionNumber || 'NO. 001'}
                 </span>
-
                 <span>{currentPost.date}</span>
-
-                <span className="newspaper-meta-topic">
+                <span className="newspaper-edition-topic">
                   {currentPost.topic}
                 </span>
               </div>
 
-              <h1 className="newspaper-title">
-                {currentPost.headlineLead}
+              <h1 className="newspaper-publication-name">
+                THE DAILY POST
               </h1>
 
-              <div className="newspaper-kicker">
-                A quiet selection from the moving world
+              <div className="newspaper-publication-rule">
+                朝夕时报 · A private edition of the moving world
               </div>
             </header>
 
-            <section className="newspaper-editorial">
-              <div className="newspaper-section-label">
-                <span>主编晨语</span>
+            {/* 今日头版标题 */}
+            <section className="newspaper-front-page">
+              <div className="newspaper-front-label">
+                Today&apos;s Edition
               </div>
 
-              <p className="newspaper-editorial-copy">
-                “{currentPost.editorNote}”
-              </p>
+              <h2 className="newspaper-front-title">
+                {currentPost.headlineLead}
+              </h2>
 
-              <span className="newspaper-editorial-signature">
-                — {currentPost.characterName || '主编'}
-              </span>
+              <p className="newspaper-front-subline">
+                一份为你挑选、留有来源与思考边界的今日剪报。
+              </p>
             </section>
 
-            <section
-              className="newspaper-list"
-              aria-label="本期新闻"
-            >
-              {(currentPost.articles || []).map(
-                (article, index) => (
+            {/* 主编按语 */}
+            <section className="newspaper-editorial-strip">
+              <div className="newspaper-editorial-meta">
+                Editor&apos;s<br />
+                Note
+              </div>
+
+              <div>
+                <p className="newspaper-editorial-copy">
+                  “{currentPost.editorNote}”
+                </p>
+
+                <span className="newspaper-editorial-signature">
+                  — {currentPost.characterName || '主编'}
+                </span>
+              </div>
+            </section>
+
+            {/* 第一条作为头版主新闻 */}
+            {leadArticle && (
+              <button
+                type="button"
+                className="newspaper-lead-story"
+                onClick={() => setSelectedArticle(leadArticle)}
+              >
+                <div className="newspaper-story-meta">
+                  <span>
+                    {leadArticle.tag || 'TOP STORY'} · HEADLINE
+                  </span>
+
+                  <span className="newspaper-story-meta-source">
+                    {getSourceLabel(leadArticle)}
+                  </span>
+                </div>
+
+                <div className="newspaper-lead-grid">
+                  <span className="newspaper-lead-index">01</span>
+
+                  <h2 className="newspaper-lead-title">
+                    {leadArticle.headline}
+                  </h2>
+                </div>
+
+                {leadArticle.excerpt && (
+                  <p className="newspaper-lead-excerpt">
+                    {leadArticle.excerpt}
+                  </p>
+                )}
+
+                <span className="newspaper-read-mark">
+                  阅读剪报
+                  <ChevronRight size={13} />
+                </span>
+              </button>
+            )}
+
+            {/* 第二、三条并列，形成新闻版面感 */}
+            {briefArticles.length > 0 && (
+              <section
+                className="newspaper-briefs-grid"
+                aria-label="其他新闻"
+              >
+                {briefArticles.map((article, index) => (
                   <button
                     type="button"
-                    key={
-                      article.id ||
-                      `${article.headline}-${index}`
-                    }
-                    className="newspaper-story"
-                    onClick={() =>
-                      setSelectedArticle(article)
-                    }
+                    key={article.id || `${article.headline}-${index}`}
+                    className="newspaper-brief-story"
+                    onClick={() => setSelectedArticle(article)}
                   >
-                    <div className="newspaper-story-topline">
-                      <span>
-                        <span className="newspaper-story-index">
-                          {String(index + 1).padStart(2, '0')}
-                        </span>
-                        {' · '}
-                        {article.tag || 'BRIEF'}
-                      </span>
+                    <span className="newspaper-brief-index">
+                      {String(index + 2).padStart(2, '0')}
+                    </span>
 
-                      <span className="newspaper-story-source">
-                        {getSourceLabel(article)}
-                      </span>
-                    </div>
+                    <span className="newspaper-brief-tag">
+                      {article.tag || 'BRIEF'}
+                    </span>
 
-                    <h2 className="newspaper-story-title">
+                    <h3 className="newspaper-brief-title">
                       {article.headline}
-                    </h2>
+                    </h3>
 
                     {article.excerpt && (
-                      <p className="newspaper-story-excerpt">
+                      <p className="newspaper-brief-excerpt">
                         {article.excerpt}
                       </p>
                     )}
 
-                    <span className="newspaper-story-read">
-                      阅读剪报
-                      <ChevronRight size={13} />
+                    <span className="newspaper-brief-source">
+                      {getSourceLabel(article)}
                     </span>
                   </button>
-                )
-              )}
-            </section>
+                ))}
+              </section>
+            )}
 
+            {/* 每日词语剪报 */}
             {currentPost.dailyLexicon && (
               <section className="newspaper-lexicon">
-                <div className="newspaper-section-label">
-                  <span>词语剪报</span>
+                <div className="newspaper-lexicon-label">
+                  Cutout Lexicon · 词语剪报
                 </div>
 
                 <p className="newspaper-lexicon-word">

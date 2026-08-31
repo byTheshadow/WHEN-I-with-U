@@ -7,10 +7,10 @@
   background: var(--bg-main);
 }
 
-/* 页面两侧的独立悬浮按钮 */
+/* 仅保留独立浮动按钮，不构成顶部导航栏 */
 .newspaper-floating-button {
   position: fixed;
-  top: 18px;
+  top: 16px;
   z-index: 30;
   display: inline-flex;
   align-items: center;
@@ -20,18 +20,21 @@
   padding: 0;
   color: var(--text-main);
   background: var(--control-soft-bg);
-  border: 0;
-  border-radius: 50%;
-  opacity: 0.72;
-  box-shadow: 0 5px 18px color-mix(
+  border: 1px solid color-mix(
     in srgb,
-    var(--text-main) 10%,
+    var(--text-main) 12%,
     transparent
   );
+  border-radius: 50%;
+  box-shadow: 0 5px 16px color-mix(
+    in srgb,
+    var(--text-main) 9%,
+    transparent
+  );
+  opacity: 0.8;
   transition:
     opacity 160ms ease,
-    transform 160ms ease,
-    background 160ms ease;
+    transform 160ms ease;
 }
 
 .newspaper-floating-button:hover {
@@ -39,191 +42,206 @@
   transform: translateY(-1px);
 }
 
-.newspaper-floating-button:active {
-  transform: translateY(0);
-}
-
 .newspaper-floating-button--left {
-  left: 16px;
+  left: 15px;
 }
 
 .newspaper-floating-button--right {
-  right: 16px;
+  right: 15px;
 }
 
-/* 内容本身直接铺开，不使用外部正方形框 */
+/* 页面本身就是一张报纸，不使用外层卡片 */
 .newspaper-page {
   width: 100%;
-  max-width: 470px;
+  max-width: 480px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: 27px 22px 105px;
+  padding: 24px 20px 105px;
 }
 
+/* 报头 */
 .newspaper-masthead {
-  padding-top: 24px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--text-main);
+  padding-top: 30px;
+  padding-bottom: 15px;
+  border-bottom: 3px double var(--text-main);
 }
 
-.newspaper-meta-row {
+.newspaper-edition-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 9px;
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    var(--text-main) 20%,
-    transparent
-  );
+  gap: 8px;
+  padding-bottom: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 8px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   line-height: 1.4;
-  opacity: 0.58;
+  opacity: 0.6;
   text-transform: uppercase;
 }
 
-.newspaper-meta-row span {
+.newspaper-edition-line span {
   min-width: 0;
 }
 
-.newspaper-meta-topic {
-  max-width: 145px;
+.newspaper-edition-topic {
+  max-width: 138px;
   overflow: hidden;
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.newspaper-title {
-  max-width: 430px;
-  margin: 19px auto 0;
+.newspaper-publication-name {
+  margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(37px, 11vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.075em;
-  line-height: 0.91;
+  font-size: clamp(36px, 10.5vw, 52px);
+  font-weight: 800;
+  letter-spacing: -0.085em;
+  line-height: 0.85;
   text-align: center;
 }
 
-.newspaper-kicker {
-  margin-top: 14px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  letter-spacing: 0.15em;
-  line-height: 1.5;
-  opacity: 0.45;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-/* 主编晨语 */
-.newspaper-editorial {
-  padding: 24px 0 22px;
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    var(--text-main) 20%,
-    transparent
-  );
-}
-
-.newspaper-section-label {
+.newspaper-publication-rule {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
-  margin-bottom: 11px;
+  margin-top: 13px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
-  letter-spacing: 0.13em;
+  font-size: 7px;
+  letter-spacing: 0.15em;
   line-height: 1.4;
-  opacity: 0.56;
+  opacity: 0.53;
+  text-align: center;
   text-transform: uppercase;
 }
 
-.newspaper-section-label::after {
-  flex: 1;
+.newspaper-publication-rule::before,
+.newspaper-publication-rule::after {
+  width: 28px;
   height: 1px;
   content: '';
-  background: color-mix(
+  background: var(--text-main);
+  opacity: 0.45;
+}
+
+/* 头版标题区 */
+.newspaper-front-page {
+  padding: 22px 0 20px;
+  border-bottom: 1px solid color-mix(
     in srgb,
-    var(--text-main) 17%,
+    var(--text-main) 28%,
     transparent
   );
+}
+
+.newspaper-front-label {
+  margin-bottom: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  opacity: 0.58;
+  text-transform: uppercase;
+}
+
+.newspaper-front-title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(33px, 9vw, 45px);
+  font-weight: 700;
+  letter-spacing: -0.07em;
+  line-height: 0.96;
+}
+
+.newspaper-front-subline {
+  margin: 12px 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.58;
+  opacity: 0.67;
+}
+
+/* 主编按语：不是卡片，而是报纸中的窄栏说明 */
+.newspaper-editorial-strip {
+  display: grid;
+  grid-template-columns: 69px minmax(0, 1fr);
+  gap: 13px;
+  padding: 17px 0;
+  border-bottom: 2px solid var(--text-main);
+}
+
+.newspaper-editorial-meta {
+  padding-top: 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+  line-height: 1.55;
+  opacity: 0.56;
+  text-transform: uppercase;
 }
 
 .newspaper-editorial-copy {
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 16px;
+  font-size: 14px;
   font-style: italic;
-  letter-spacing: -0.015em;
-  line-height: 1.72;
+  letter-spacing: -0.018em;
+  line-height: 1.6;
 }
 
 .newspaper-editorial-signature {
   display: block;
-  margin-top: 11px;
+  margin-top: 7px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: 0.08em;
   opacity: 0.46;
   text-align: right;
 }
 
-/* 新闻列表 */
-.newspaper-list {
-  margin-top: 2px;
-}
-
-.newspaper-story {
+/* 头版主新闻 */
+.newspaper-lead-story {
   display: block;
   width: 100%;
-  padding: 25px 0 23px;
+  padding: 24px 0 22px;
   color: inherit;
   text-align: left;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    var(--text-main) 18%,
-    transparent
-  );
+  border-bottom: 2px solid var(--text-main);
   border-radius: 0;
   cursor: pointer;
   transition: opacity 160ms ease;
 }
 
-.newspaper-story:hover {
-  opacity: 0.66;
+.newspaper-lead-story:hover {
+  opacity: 0.72;
 }
 
-.newspaper-story:focus-visible {
+.newspaper-lead-story:focus-visible,
+.newspaper-brief-story:focus-visible {
   outline: 1px solid var(--text-main);
-  outline-offset: 6px;
+  outline-offset: 5px;
 }
 
-.newspaper-story-topline {
+.newspaper-story-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
   margin-bottom: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: 8px;
+  letter-spacing: 0.1em;
   line-height: 1.4;
-  opacity: 0.54;
+  opacity: 0.58;
   text-transform: uppercase;
 }
 
-.newspaper-story-index {
-  font-weight: 700;
-  opacity: 0.85;
-}
-
-.newspaper-story-source {
+.newspaper-story-meta-source {
   min-width: 0;
   overflow: hidden;
   text-align: right;
@@ -231,65 +249,181 @@
   white-space: nowrap;
 }
 
-.newspaper-story-title {
+.newspaper-lead-grid {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.newspaper-lead-index {
+  padding-top: 2px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.1em;
+  line-height: 0.8;
+}
+
+.newspaper-lead-title {
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 24px;
+  font-size: 27px;
   font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 1.06;
+  letter-spacing: -0.06em;
+  line-height: 1.02;
 }
 
-.newspaper-story-excerpt {
-  display: -webkit-box;
-  margin: 11px 0 0;
-  overflow: hidden;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+.newspaper-lead-excerpt {
+  margin: 12px 0 0 58px;
   font-size: 13px;
   line-height: 1.72;
-  opacity: 0.72;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  opacity: 0.73;
 }
 
-.newspaper-story-read {
+.newspaper-read-mark {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-top: 14px;
+  margin: 13px 0 0 58px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  opacity: 0.57;
+  text-transform: uppercase;
+}
+
+/* 后续新闻：移动端也保留两栏，制造报纸版面感 */
+.newspaper-briefs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 24%,
+    transparent
+  );
+}
+
+.newspaper-brief-story {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 19px 12px 20px 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.newspaper-brief-story + .newspaper-brief-story {
+  padding-right: 0;
+  padding-left: 12px;
+  border-left: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 22%,
+    transparent
+  );
+}
+
+.newspaper-brief-story:hover {
+  opacity: 0.68;
+}
+
+.newspaper-brief-index {
+  display: block;
+  margin-bottom: 9px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
-  letter-spacing: 0.11em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   opacity: 0.56;
+}
+
+.newspaper-brief-tag {
+  display: block;
+  margin-bottom: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+  opacity: 0.55;
   text-transform: uppercase;
+}
+
+.newspaper-brief-title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}
+
+.newspaper-brief-excerpt {
+  display: -webkit-box;
+  margin: 9px 0 0;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.6;
+  opacity: 0.66;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.newspaper-brief-source {
+  display: block;
+  margin-top: auto;
+  padding-top: 12px;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  opacity: 0.47;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* 词语剪报 */
 .newspaper-lexicon {
+  position: relative;
   margin-top: 26px;
-  padding: 17px 0;
+  padding: 16px 0 17px;
   border-top: 1px dashed color-mix(
     in srgb,
-    var(--text-main) 35%,
+    var(--text-main) 40%,
     transparent
   );
   border-bottom: 1px dashed color-mix(
     in srgb,
-    var(--text-main) 35%,
+    var(--text-main) 40%,
     transparent
   );
+}
+
+.newspaper-lexicon-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.13em;
+  opacity: 0.55;
+  text-transform: uppercase;
 }
 
 .newspaper-lexicon-word {
   margin: 8px 0 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.055em;
 }
 
 .newspaper-lexicon-phonetic {
-  margin-left: 9px;
+  margin-left: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   font-weight: 400;
@@ -298,46 +432,45 @@
 }
 
 .newspaper-lexicon-translation {
-  margin: 6px 0 0;
+  margin: 5px 0 0;
   font-size: 12px;
   line-height: 1.6;
   opacity: 0.78;
 }
 
 .newspaper-lexicon-quote {
-  margin: 8px 0 0;
+  margin: 9px 0 0;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 13px;
   font-style: italic;
   line-height: 1.6;
-  opacity: 0.67;
+  opacity: 0.65;
 }
 
-/* 历史翻页 */
+/* 翻阅 */
 .newspaper-pagination {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 30px;
-  padding-top: 15px;
-  border-top: 1px solid color-mix(
-    in srgb,
-    var(--text-main) 18%,
-    transparent
-  );
+  margin-top: 27px;
+  padding-top: 13px;
+  border-top: 3px double var(--text-main);
 }
 
 .newspaper-pagination-button {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 5px 0;
+  padding: 4px 0;
   color: inherit;
-  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
   background: transparent;
   border: 0;
-  opacity: 0.58;
+  opacity: 0.6;
+  text-transform: uppercase;
 }
 
 .newspaper-pagination-button:hover {
@@ -346,16 +479,17 @@
 
 .newspaper-pagination-button:disabled {
   cursor: default;
-  opacity: 0.2;
+  opacity: 0.22;
 }
 
 .newspaper-pagination-count {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
-  opacity: 0.42;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  opacity: 0.45;
 }
 
-/* 底部操作，仅按钮自身，不设置底部栏 */
+/* 底部只有按钮，没有工具栏 */
 .newspaper-print-button {
   position: fixed;
   right: 50%;
@@ -383,7 +517,7 @@
 }
 
 .newspaper-print-button:hover {
-  opacity: 0.78;
+  opacity: 0.8;
   transform: translateX(50%) translateY(-1px);
 }
 
@@ -392,7 +526,7 @@
   opacity: 0.55;
 }
 
-/* 空状态和加载状态 */
+/* 空状态与加载 */
 .newspaper-loading,
 .newspaper-empty {
   display: flex;
@@ -409,20 +543,21 @@
 .newspaper-empty p {
   max-width: 270px;
   margin: 0;
-  font-size: 12px;
-  line-height: 1.7;
-  opacity: 0.6;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+  line-height: 1.65;
+  opacity: 0.64;
 }
 
 .newspaper-status-error {
   max-width: 300px;
-  margin-top: 5px;
-  font-size: 11px;
-  line-height: 1.6;
-  opacity: 0.62;
+  margin-top: 4px;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 11px !important;
+  opacity: 0.6 !important;
 }
 
-/* 详情弹窗 */
+/* 新闻详情弹窗 */
 .newspaper-modal-backdrop {
   position: fixed;
   z-index: 60;
@@ -502,8 +637,8 @@
 }
 
 .newspaper-detail-close:hover {
-  opacity: 1;
   background: var(--control-soft-bg);
+  opacity: 1;
 }
 
 .newspaper-detail-content {
@@ -593,17 +728,33 @@
   opacity: 0.58;
 }
 
-@media (max-width: 380px) {
+@media (max-width: 365px) {
   .newspaper-page {
-    padding-right: 18px;
-    padding-left: 18px;
+    padding-right: 17px;
+    padding-left: 17px;
   }
 
-  .newspaper-title {
-    font-size: 35px;
+  .newspaper-publication-name {
+    font-size: 34px;
   }
 
-  .newspaper-story-title {
-    font-size: 22px;
+  .newspaper-front-title {
+    font-size: 31px;
+  }
+
+  .newspaper-lead-title {
+    font-size: 24px;
+  }
+
+  .newspaper-brief-title {
+    font-size: 16px;
+  }
+
+  .newspaper-brief-story {
+    padding-right: 10px;
+  }
+
+  .newspaper-brief-story + .newspaper-brief-story {
+    padding-left: 10px;
   }
 }
