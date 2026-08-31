@@ -29,15 +29,18 @@ import DailyOfferingHubGate from './apps/daily-offering/DailyOfferingHubGate';
 import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
 import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
 import MemoryApp from './apps/memory/MemoryApp';
+import NewspaperApp from './apps/newspaper/NewspaperApp';
 import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
 
 
 
+
 // 👈 导入新增的 Rhythm 模块
 import RhythmApp from './apps/rhythm/RhythmApp';
 import { triggerRhythmActiveReminder } from './services/rhythmReminderService';
+
 
 import db from './db';
 
@@ -98,7 +101,8 @@ const REGISTERED_APPS = [
   'ephemera',
   'askbox',
   'rhythm',
-  'memory'
+  'memory',
+  'newspaper'
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -569,6 +573,11 @@ if (result?.status === 'success') {
             />
           </ErrorBoundary>
         )}
+
+        {currentApp === 'newspaper' && (
+  <NewspaperApp onClose={() => setCurrentApp('hub')} />
+)}
+
 
         {currentApp === 'ephemera' && (
           <ErrorBoundary>

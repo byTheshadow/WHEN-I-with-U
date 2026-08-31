@@ -18,6 +18,7 @@ import {
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
 import PreloaderSelector from './PreloaderSelector';
+import { Newspaper } from 'lucide-react';
 import db from '../../db';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
@@ -258,23 +259,26 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* 杂志排版占位符 (不可点击，用克制的排版填补空白) */}
-        <div className="flex aspect-square select-none flex-col justify-between p-4 opacity-40">
-          <div className="flex w-full items-start justify-between border-b border-[var(--text-main)] pb-2 opacity-50">
-             <span className="font-mono text-[9px] tracking-widest">NO.01</span>
-             <span className="font-mono text-[9px]">///</span>
-          </div>
-          <div className="flex flex-col items-center text-center mt-2">
-             <p className="text-[10px] uppercase tracking-[0.3em] leading-relaxed">
-               Index<br/>Space
-             </p>
-          </div>
-          <div className="w-full border-t border-[var(--text-main)] pt-2 opacity-50 mt-auto">
-             <div className="font-mono text-[8px] text-center uppercase tracking-widest">
-               Curated
-             </div>
-          </div>
-        </div>
+       
+<GlassCard
+  delay={delay + 95}
+  onClick={() => onOpenApp('newspaper')}
+  className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+>
+  <div
+    className="flex h-10 w-10 items-center justify-center rounded-2xl"
+    style={{ backgroundColor: 'var(--control-soft-bg)' }}
+  >
+    <Newspaper className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+  </div>
+  <div>
+    <h4 className="text-sm font-bold">Daily Post</h4>
+    <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+      Morning Press
+    </p>
+  </div>
+</GlassCard>
+
 
         {/* Row 7: Ask Box - 提问箱 (变宽版，解决原来右侧空的问题，稳住底部) */}
         <GlassCard
