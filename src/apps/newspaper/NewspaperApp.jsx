@@ -18,13 +18,17 @@ import { NewspaperSettingsModal } from './NewspaperSettingsModal';
 import './newspaper.css';
 
 const DEFAULT_SETTINGS = {
-  topics: ['AI 与认知前沿', '独立艺术与设计', '日常哲学与世界观察'],
+  topics: [
+    'AI 与认知前沿',
+    '独立艺术与设计',
+    '日常哲学与世界观察'
+  ],
   tavilyKey: '',
   autoClean: true
 };
 
-function toDateKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function getSourcesFromIndexes(sourceIndexes, rawNews) {
@@ -44,13 +48,12 @@ function getSourcesFromIndexes(sourceIndexes, rawNews) {
 }
 
 function normalizeArticle(article, index, rawNews) {
-  const sourceType = article?.sourceType === 'editorial-observation'
-    ? 'editorial-observation'
-    : 'web-report';
+  const isObservation =
+    article?.sourceType === 'editorial-observation';
 
-  const sources = sourceType === 'web-report'
-    ? getSourcesFromIndexes(article?.sourceIndexes, rawNews)
-    : [];
+  const sources = isObservation
+    ? []
+    : getSourcesFromIndexes(article?.sourceIndexes, rawNews);
 
   return {
     id: `article-${Date.now()}-${index}`,
@@ -60,15 +63,15 @@ function normalizeArticle(article, index, rawNews) {
     facts: article?.facts || article?.content || '',
     editorComment: article?.editorComment || '',
     limitations: article?.limitations || '',
-    sourceType,
+    sourceType: isObservation
+      ? 'editorial-observation'
+      : 'web-report',
     sources,
-
-    // 兼容此前已保存的旧版报纸数据
     source: article?.source || sources[0]?.publisher || ''
   };
 }
 
-function getArticleSourceLabel(article) {
+function getSourceLabel(article) {
   if (article?.sourceType === 'editorial-observation') {
     return '主编观察';
   }
@@ -80,36 +83,13 @@ function getArticleSourceLabel(article) {
   return article?.source || '来源待核验';
 }
 
-function FloatingIconButton({
-  children,
-  label,
-  onClick,
-  position = 'left'
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className={[
-        'fixed top-4 z-40 flex h-10 w-10 items-center justify-center',
-        'border border-[var(--text-main)] border-opacity-15',
-        'bg-[var(--bg-main)] text-[var(--text-main)]',
-        'shadow-sm backdrop-blur-sm transition-opacity',
-        'hover:opacity-70 active:scale-95',
-        position === 'left' ? 'left-4' : 'right-4'
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  );
-}
-
-function DetailModal({ article, onClose }) {
+function ArticleDetailModal({ article, onClose }) {
   if (!article) return null;
 
   const sources = article.sources || [];
-  const hasSources = article.sourceType === 'web-report' && sources.length > 0;
+  const hasSources =
+    article.sourceType === 'web-report' &&
+    sources.length > 0;
 
   return (
     <div
@@ -129,25 +109,29 @@ function DetailModal({ article, onClose }) {
       >
         <header className="newspaper-detail-head">
           <span>
-            {article.tag || 'BRIEF'} · {getArticleSourceLabel(article)}
+            {article.tag || 'BRIEF'} · {getSourceLabel(article)}
           </span>
 
           <button
             type="button"
-            className="newspaper-icon-button"
+            className="newspaper-detail-close"
             onClick={onClose}
             aria-label="关闭详情"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </header>
 
         <div className="newspaper-detail-content">
-          <h3 className="newspaper-detail-title">{article.headline}</h3>
+          <h2 className="newspaper-detail-title">
+            {article.headline}
+          </h2>
 
           <section className="newspaper-detail-section">
             <h4>事实梳理</h4>
-            <p>{article.facts || '该条目暂未保存完整的事实梳理。'}</p>
+            <p>
+              {article.facts || '该条目暂未保存完整的事实梳理。'}
+            </p>
           </section>
 
           {article.limitations && (
@@ -183,7 +167,9 @@ function DetailModal({ article, onClose }) {
 
                     <span className="newspaper-source-title">
                       {source.title}
-                      {source.publishedAt ? ` · ${source.publishedAt}` : ''}
+                      {source.publishedAt
+                        ? ` · ${source.publishedAt}`
+                        : ''}
                     </span>
                   </span>
 
@@ -210,7 +196,6 @@ export const NewspaperApp = ({ onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -223,49 +208,52 @@ export const NewspaperApp = ({ onClose }) => {
   }, []);
 
   useEffect(() => {
-    const handleEscape = (event) => {
+    const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setSelectedArticle(null);
       }
     };
 
-    window.addEventListener('keydown', handleEscape);
+    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  const cleanOldPosts = async () => {
-    const deadline = Date.now() - (2 * 24 * 60 * 60 * 1000);
+  async function cleanOldPosts() {
+    const deadline =
+      Date.now() - 2 * 24 * 60 * 60 * 1000;
 
-    const outdatedPosts = await db.newspapers
+    const oldPosts = await db.newspapers
       .filter((post) => post.createdAt < deadline)
       .toArray();
 
-    const idsToDelete = outdatedPosts
+    const ids = oldPosts
       .map((post) => post.id)
       .filter((id) => id !== undefined && id !== null);
 
-    if (idsToDelete.length > 0) {
-      await db.newspapers.bulkDelete(idsToDelete);
+    if (ids.length > 0) {
+      await db.newspapers.bulkDelete(ids);
     }
 
-    return idsToDelete.length;
-  };
+    return oldPosts.length;
+  }
 
-  const loadData = async () => {
+  async function loadData() {
     try {
-      const savedSettings = await db.settings.get('newspaper_settings');
+      const savedSettings = await db.settings.get(
+        'newspaper_settings'
+      );
 
-      const mergedSettings = {
+      const nextSettings = {
         ...DEFAULT_SETTINGS,
         ...(savedSettings?.value || {})
       };
 
-      setSettings(mergedSettings);
+      setSettings(nextSettings);
 
-      if (mergedSettings.autoClean) {
+      if (nextSettings.autoClean) {
         await cleanOldPosts();
       }
 
@@ -285,36 +273,38 @@ export const NewspaperApp = ({ onClose }) => {
       }
     } catch (error) {
       console.error('加载晨报失败：', error);
-      setErrorMessage('晨报档案暂时无法读取，请稍后重新进入。');
+      setErrorMessage(
+        '晨报档案暂时无法读取，请稍后重新进入。'
+      );
     }
-  };
+  }
 
-  const handleSaveSettings = async (nextSettings) => {
+  async function handleSaveSettings(nextSettings) {
     const mergedSettings = {
       ...DEFAULT_SETTINGS,
       ...nextSettings
     };
-
-    setSettings(mergedSettings);
 
     await db.settings.put({
       key: 'newspaper_settings',
       value: mergedSettings
     });
 
+    setSettings(mergedSettings);
+
     if (mergedSettings.autoClean) {
       await cleanOldPosts();
       await loadData();
     }
-  };
+  }
 
-  const handleManualClean = async () => {
+  async function handleManualClean() {
     const deletedCount = await cleanOldPosts();
     await loadData();
     return deletedCount;
-  };
+  }
 
-  const handleGenerateToday = async () => {
+  async function handleGenerateToday() {
     if (loading) return;
 
     setLoading(true);
@@ -322,13 +312,18 @@ export const NewspaperApp = ({ onClose }) => {
     setStatusMessage('正在整理今日可核验的资讯来源…');
 
     try {
-      const topics = settings.topics?.filter(Boolean) || [];
+      const topics = Array.isArray(settings.topics)
+        ? settings.topics.filter(Boolean)
+        : [];
 
-      const activeTopic = topics[
-        Math.floor(Math.random() * Math.max(topics.length, 1))
-      ] || '世界观察';
+      const activeTopic =
+        topics[Math.floor(Math.random() * topics.length)] ||
+        '世界观察';
 
-      const rawNews = await searchLatestNews(activeTopic, settings);
+      const rawNews = await searchLatestNews(
+        activeTopic,
+        settings
+      );
 
       setStatusMessage(
         rawNews.length > 0
@@ -341,22 +336,31 @@ export const NewspaperApp = ({ onClose }) => {
         rawNews
       });
 
-      const activeCharacterSetting = await db.settings.get('activeCharacterId');
+      const activeCharacterSetting =
+        await db.settings.get('activeCharacterId');
 
       const activeCharacter = activeCharacterSetting?.value
-        ? await db.characters.get(Number(activeCharacterSetting.value))
+        ? await db.characters.get(
+          Number(activeCharacterSetting.value)
+        )
         : await db.characters.toCollection().first();
 
       const articles = (postData.articles || [])
         .slice(0, 3)
-        .map((article, index) => normalizeArticle(article, index, rawNews));
+        .map((article, index) =>
+          normalizeArticle(article, index, rawNews)
+        );
 
       const record = {
-        date: toDateKey(),
+        date: getTodayKey(),
         characterId: activeCharacter?.id || null,
         characterName: activeCharacter?.name || '主编',
-        editionNumber: postData.editionNumber || `NO. ${historyList.length + 1}`,
-        headlineLead: postData.headlineLead || '今天，世界仍在缓慢移动',
+        editionNumber:
+          postData.editionNumber ||
+          `NO. ${historyList.length + 1}`,
+        headlineLead:
+          postData.headlineLead ||
+          '今天，世界仍在缓慢移动',
         topic: activeTopic,
         editorNote: postData.editorNote || '',
         articles,
@@ -365,7 +369,6 @@ export const NewspaperApp = ({ onClose }) => {
       };
 
       const savedId = await db.newspapers.add(record);
-      const savedRecord = { ...record, id: savedId };
 
       if (settings.autoClean) {
         await cleanOldPosts();
@@ -377,52 +380,61 @@ export const NewspaperApp = ({ onClose }) => {
         .toArray();
 
       setHistoryList(refreshedPosts);
-      setCurrentPost(savedRecord);
+      setCurrentPost({
+        ...record,
+        id: savedId
+      });
       setCurrentIndex(0);
     } catch (error) {
       console.error('印发晨报失败：', error);
-      setErrorMessage(error.message || '本期晨报未能完成印发，请稍后重试。');
+      setErrorMessage(
+        error.message ||
+        '本期晨报未能完成印发，请稍后重试。'
+      );
     } finally {
       setLoading(false);
       setStatusMessage('');
     }
-  };
+  }
 
-  const showOlderPost = () => {
+  function showOlderPost() {
     const nextIndex = currentIndex + 1;
 
     if (nextIndex >= historyList.length) return;
 
     setCurrentIndex(nextIndex);
     setCurrentPost(historyList[nextIndex]);
-  };
+  }
 
-  const showNewerPost = () => {
+  function showNewerPost() {
     const previousIndex = currentIndex - 1;
 
     if (previousIndex < 0) return;
 
     setCurrentIndex(previousIndex);
     setCurrentPost(historyList[previousIndex]);
-  };
+  }
 
   return (
     <div className="-mx-4 -mt-6 newspaper-shell">
-      <FloatingIconButton
-        label="返回主页"
+      {/* 不再使用 Top Bar */}
+      <button
+        type="button"
+        className="newspaper-floating-button newspaper-floating-button--left"
         onClick={onClose}
-        position="left"
+        aria-label="返回主页"
       >
-        <ArrowLeft size={20} />
-      </FloatingIconButton>
+        <ArrowLeft size={19} />
+      </button>
 
-      <FloatingIconButton
-        label="报纸设置"
+      <button
+        type="button"
+        className="newspaper-floating-button newspaper-floating-button--right"
         onClick={() => setIsSettingsOpen(true)}
-        position="right"
+        aria-label="报纸设置"
       >
         <SettingsIcon size={17} />
-      </FloatingIconButton>
+      </button>
 
       {loading ? (
         <main className="newspaper-loading">
@@ -430,29 +442,27 @@ export const NewspaperApp = ({ onClose }) => {
           <p>{statusMessage || '晨刊正在排印中…'}</p>
         </main>
       ) : currentPost ? (
-        <main className="newspaper-page pt-16">
+        <main className="newspaper-page">
           <article>
             <header className="newspaper-masthead">
               <div className="newspaper-meta-row">
-                <span>{currentPost.editionNumber || 'NO. 001'}</span>
+                <span>
+                  {currentPost.editionNumber || 'NO. 001'}
+                </span>
+
                 <span>{currentPost.date}</span>
+
                 <span className="newspaper-meta-topic">
                   {currentPost.topic}
                 </span>
               </div>
 
-              <div className="mt-7 text-center">
-                <p className="font-mono text-[8px] uppercase tracking-[0.28em] opacity-45">
-                  The Daily Post
-                </p>
+              <h1 className="newspaper-title">
+                {currentPost.headlineLead}
+              </h1>
 
-                <h1 className="newspaper-title mt-3">
-                  {currentPost.headlineLead}
-                </h1>
-
-                <p className="newspaper-kicker">
-                  A quiet selection from the moving world
-                </p>
+              <div className="newspaper-kicker">
+                A quiet selection from the moving world
               </div>
             </header>
 
@@ -470,43 +480,54 @@ export const NewspaperApp = ({ onClose }) => {
               </span>
             </section>
 
-            <section className="newspaper-list" aria-label="本期新闻">
-              {(currentPost.articles || []).map((article, index) => (
-                <button
-                  type="button"
-                  key={article.id || `${article.headline}-${index}`}
-                  className="newspaper-story"
-                  onClick={() => setSelectedArticle(article)}
-                >
-                  <div className="newspaper-story-topline">
-                    <span>
-                      <span className="newspaper-story-index">
-                        {String(index + 1).padStart(2, '0')}
+            <section
+              className="newspaper-list"
+              aria-label="本期新闻"
+            >
+              {(currentPost.articles || []).map(
+                (article, index) => (
+                  <button
+                    type="button"
+                    key={
+                      article.id ||
+                      `${article.headline}-${index}`
+                    }
+                    className="newspaper-story"
+                    onClick={() =>
+                      setSelectedArticle(article)
+                    }
+                  >
+                    <div className="newspaper-story-topline">
+                      <span>
+                        <span className="newspaper-story-index">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        {' · '}
+                        {article.tag || 'BRIEF'}
                       </span>
-                      {' · '}
-                      {article.tag || 'BRIEF'}
+
+                      <span className="newspaper-story-source">
+                        {getSourceLabel(article)}
+                      </span>
+                    </div>
+
+                    <h2 className="newspaper-story-title">
+                      {article.headline}
+                    </h2>
+
+                    {article.excerpt && (
+                      <p className="newspaper-story-excerpt">
+                        {article.excerpt}
+                      </p>
+                    )}
+
+                    <span className="newspaper-story-read">
+                      阅读剪报
+                      <ChevronRight size={13} />
                     </span>
-
-                    <span className="newspaper-story-source">
-                      {getArticleSourceLabel(article)}
-                    </span>
-                  </div>
-
-                  <h2 className="newspaper-story-title">
-                    {article.headline}
-                  </h2>
-
-                  {article.excerpt && (
-                    <p className="newspaper-story-excerpt">
-                      {article.excerpt}
-                    </p>
-                  )}
-
-                  <span className="newspaper-story-read">
-                    阅读剪报 <ChevronRight size={13} />
-                  </span>
-                </button>
-              ))}
+                  </button>
+                )
+              )}
             </section>
 
             {currentPost.dailyLexicon && (
@@ -538,31 +559,28 @@ export const NewspaperApp = ({ onClose }) => {
             )}
 
             {historyList.length > 1 && (
-              <nav
-                className="mt-8 flex items-center justify-between pt-4 text-[11px]"
-                style={{
-                  borderTop: '1px solid color-mix(in srgb, var(--text-main) 18%, transparent)'
-                }}
-              >
+              <nav className="newspaper-pagination">
                 <button
                   type="button"
-                  disabled={currentIndex >= historyList.length - 1}
+                  className="newspaper-pagination-button"
+                  disabled={
+                    currentIndex >= historyList.length - 1
+                  }
                   onClick={showOlderPost}
-                  className="flex items-center gap-1 opacity-60 transition-opacity disabled:opacity-20"
                 >
                   <ChevronLeft size={15} />
                   往期
                 </button>
 
-                <span className="font-mono text-[9px] opacity-40">
+                <span className="newspaper-pagination-count">
                   {currentIndex + 1} / {historyList.length}
                 </span>
 
                 <button
                   type="button"
+                  className="newspaper-pagination-button"
                   disabled={currentIndex <= 0}
                   onClick={showNewerPost}
-                  className="flex items-center gap-1 opacity-60 transition-opacity disabled:opacity-20"
                 >
                   近期
                   <ChevronRight size={15} />
@@ -572,7 +590,7 @@ export const NewspaperApp = ({ onClose }) => {
           </article>
         </main>
       ) : (
-        <main className="newspaper-empty pt-14">
+        <main className="newspaper-empty">
           <FileText size={26} className="opacity-45" />
 
           <p>
@@ -580,33 +598,33 @@ export const NewspaperApp = ({ onClose }) => {
           </p>
 
           {errorMessage && (
-            <p className="newspaper-status-error">{errorMessage}</p>
+            <p className="newspaper-status-error">
+              {errorMessage}
+            </p>
           )}
         </main>
       )}
 
-      <footer className="newspaper-bottom-actions">
-        <button
-          type="button"
-          className="newspaper-print-button"
-          onClick={handleGenerateToday}
-          disabled={loading}
-        >
-          <RefreshCw
-            size={15}
-            className={loading ? 'animate-spin' : ''}
-          />
-          {currentPost ? '印发新一期' : '印发今日晨刊'}
-        </button>
-      </footer>
+      <button
+        type="button"
+        className="newspaper-print-button"
+        onClick={handleGenerateToday}
+        disabled={loading}
+      >
+        <RefreshCw
+          size={15}
+          className={loading ? 'animate-spin' : ''}
+        />
+        {currentPost ? '印发新一期' : '印发今日晨刊'}
+      </button>
 
       {errorMessage && currentPost && (
-        <div className="fixed bottom-20 left-1/2 z-30 w-[min(calc(100%-32px),420px)] -translate-x-1/2 border border-[var(--text-main)] border-opacity-15 bg-[var(--bg-main)] px-4 py-3 text-center text-[11px] leading-relaxed opacity-90 shadow-sm">
+        <div className="fixed bottom-20 left-1/2 z-40 w-[min(calc(100%-32px),420px)] -translate-x-1/2 border border-[var(--text-main)] border-opacity-15 bg-[var(--bg-main)] px-4 py-3 text-center text-[11px] leading-relaxed opacity-90 shadow-sm">
           {errorMessage}
         </div>
       )}
 
-      <DetailModal
+      <ArticleDetailModal
         article={selectedArticle}
         onClose={() => setSelectedArticle(null)}
       />

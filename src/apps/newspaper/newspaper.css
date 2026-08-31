@@ -1,89 +1,87 @@
 /* src/apps/newspaper/newspaper.css */
 
 .newspaper-shell {
+  position: relative;
   min-height: 100dvh;
   color: var(--text-main);
   background: var(--bg-main);
 }
 
-.newspaper-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: 40px 1fr 40px;
-  align-items: center;
-  min-height: 54px;
-  padding: 0 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 18%, transparent);
-  background: color-mix(in srgb, var(--bg-main) 92%, transparent);
-  backdrop-filter: blur(12px);
-}
-
-.newspaper-icon-button {
+/* 页面两侧的独立悬浮按钮 */
+.newspaper-floating-button {
+  position: fixed;
+  top: 18px;
+  z-index: 30;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   color: var(--text-main);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  opacity: 0.68;
-  transition: opacity 160ms ease, background 160ms ease;
-}
-
-.newspaper-icon-button:hover {
-  opacity: 1;
   background: var(--control-soft-bg);
+  border: 0;
+  border-radius: 50%;
+  opacity: 0.72;
+  box-shadow: 0 5px 18px color-mix(
+    in srgb,
+    var(--text-main) 10%,
+    transparent
+  );
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
 }
 
-.newspaper-brand {
-  text-align: center;
-  line-height: 1;
+.newspaper-floating-button:hover {
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
-.newspaper-brand-title {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
+.newspaper-floating-button:active {
+  transform: translateY(0);
 }
 
-.newspaper-brand-subtitle {
-  margin-top: 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  letter-spacing: 0.16em;
-  opacity: 0.46;
-  text-transform: uppercase;
+.newspaper-floating-button--left {
+  left: 16px;
 }
 
+.newspaper-floating-button--right {
+  right: 16px;
+}
+
+/* 内容本身直接铺开，不使用外部正方形框 */
 .newspaper-page {
   width: 100%;
-  max-width: 460px;
+  max-width: 470px;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 26px 20px 96px;
+  padding: 27px 22px 105px;
 }
 
 .newspaper-masthead {
-  padding-bottom: 19px;
+  padding-top: 24px;
+  padding-bottom: 20px;
   border-bottom: 2px solid var(--text-main);
 }
 
 .newspaper-meta-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 20%, transparent);
+  padding-bottom: 9px;
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 20%,
+    transparent
+  );
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 8px;
   letter-spacing: 0.08em;
   line-height: 1.4;
-  opacity: 0.62;
+  opacity: 0.58;
   text-transform: uppercase;
 }
 
@@ -92,7 +90,7 @@
 }
 
 .newspaper-meta-topic {
-  max-width: 132px;
+  max-width: 145px;
   overflow: hidden;
   text-align: right;
   text-overflow: ellipsis;
@@ -100,41 +98,47 @@
 }
 
 .newspaper-title {
-  max-width: 390px;
-  margin: 18px auto 0;
+  max-width: 430px;
+  margin: 19px auto 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(31px, 9vw, 43px);
+  font-size: clamp(37px, 11vw, 58px);
   font-weight: 700;
-  letter-spacing: -0.065em;
-  line-height: 0.94;
+  letter-spacing: -0.075em;
+  line-height: 0.91;
   text-align: center;
 }
 
 .newspaper-kicker {
-  margin-top: 12px;
+  margin-top: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 8px;
-  letter-spacing: 0.16em;
-  opacity: 0.48;
+  letter-spacing: 0.15em;
+  line-height: 1.5;
+  opacity: 0.45;
   text-align: center;
   text-transform: uppercase;
 }
 
+/* 主编晨语 */
 .newspaper-editorial {
-  margin-top: 25px;
-  padding-bottom: 21px;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 20%, transparent);
+  padding: 24px 0 22px;
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 20%,
+    transparent
+  );
 }
 
 .newspaper-section-label {
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 10px;
+  margin-bottom: 11px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   letter-spacing: 0.13em;
-  opacity: 0.55;
+  line-height: 1.4;
+  opacity: 0.56;
   text-transform: uppercase;
 }
 
@@ -142,7 +146,11 @@
   flex: 1;
   height: 1px;
   content: '';
-  background: color-mix(in srgb, var(--text-main) 16%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--text-main) 17%,
+    transparent
+  );
 }
 
 .newspaper-editorial-copy {
@@ -150,58 +158,69 @@
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 16px;
   font-style: italic;
-  letter-spacing: -0.018em;
-  line-height: 1.68;
+  letter-spacing: -0.015em;
+  line-height: 1.72;
 }
 
 .newspaper-editorial-signature {
   display: block;
-  margin-top: 10px;
+  margin-top: 11px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
-  opacity: 0.48;
+  opacity: 0.46;
   text-align: right;
 }
 
+/* 新闻列表 */
 .newspaper-list {
-  margin-top: 5px;
+  margin-top: 2px;
 }
 
 .newspaper-story {
+  display: block;
   width: 100%;
-  padding: 23px 0 21px;
+  padding: 25px 0 23px;
   color: inherit;
   text-align: left;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 17%, transparent);
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 18%,
+    transparent
+  );
   border-radius: 0;
   cursor: pointer;
   transition: opacity 160ms ease;
 }
 
 .newspaper-story:hover {
-  opacity: 0.68;
+  opacity: 0.66;
+}
+
+.newspaper-story:focus-visible {
+  outline: 1px solid var(--text-main);
+  outline-offset: 6px;
 }
 
 .newspaper-story-topline {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   letter-spacing: 0.08em;
-  opacity: 0.56;
+  line-height: 1.4;
+  opacity: 0.54;
   text-transform: uppercase;
 }
 
 .newspaper-story-index {
-  font-size: 10px;
   font-weight: 700;
-  opacity: 0.82;
+  opacity: 0.85;
 }
 
 .newspaper-story-source {
@@ -215,18 +234,19 @@
 .newspaper-story-title {
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 23px;
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: -0.05em;
-  line-height: 1.08;
+  letter-spacing: -0.055em;
+  line-height: 1.06;
 }
 
 .newspaper-story-excerpt {
   display: -webkit-box;
-  margin: 10px 0 0;
+  margin: 11px 0 0;
   overflow: hidden;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.72;
   opacity: 0.72;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -236,40 +256,49 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-top: 13px;
+  margin-top: 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
-  letter-spacing: 0.1em;
-  opacity: 0.58;
+  letter-spacing: 0.11em;
+  opacity: 0.56;
   text-transform: uppercase;
 }
 
+/* 词语剪报 */
 .newspaper-lexicon {
-  margin-top: 25px;
-  padding: 16px 0;
-  border-top: 1px dashed color-mix(in srgb, var(--text-main) 35%, transparent);
-  border-bottom: 1px dashed color-mix(in srgb, var(--text-main) 35%, transparent);
+  margin-top: 26px;
+  padding: 17px 0;
+  border-top: 1px dashed color-mix(
+    in srgb,
+    var(--text-main) 35%,
+    transparent
+  );
+  border-bottom: 1px dashed color-mix(
+    in srgb,
+    var(--text-main) 35%,
+    transparent
+  );
 }
 
 .newspaper-lexicon-word {
-  margin: 7px 0 0;
+  margin: 8px 0 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 25px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.05em;
 }
 
 .newspaper-lexicon-phonetic {
-  margin-left: 8px;
+  margin-left: 9px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
   font-weight: 400;
   letter-spacing: 0;
-  opacity: 0.52;
+  opacity: 0.5;
 }
 
 .newspaper-lexicon-translation {
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   font-size: 12px;
   line-height: 1.6;
   opacity: 0.78;
@@ -281,24 +310,57 @@
   font-size: 13px;
   font-style: italic;
   line-height: 1.6;
-  opacity: 0.68;
+  opacity: 0.67;
 }
 
-.newspaper-bottom-actions {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 18;
+/* 历史翻页 */
+.newspaper-pagination {
   display: flex;
-  justify-content: center;
-  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid color-mix(in srgb, var(--text-main) 16%, transparent);
-  background: color-mix(in srgb, var(--bg-main) 93%, transparent);
-  backdrop-filter: blur(12px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 30px;
+  padding-top: 15px;
+  border-top: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 18%,
+    transparent
+  );
 }
 
+.newspaper-pagination-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 0;
+  color: inherit;
+  font-size: 11px;
+  background: transparent;
+  border: 0;
+  opacity: 0.58;
+}
+
+.newspaper-pagination-button:hover {
+  opacity: 1;
+}
+
+.newspaper-pagination-button:disabled {
+  cursor: default;
+  opacity: 0.2;
+}
+
+.newspaper-pagination-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  opacity: 0.42;
+}
+
+/* 底部操作，仅按钮自身，不设置底部栏 */
 .newspaper-print-button {
+  position: fixed;
+  right: 50%;
+  bottom: calc(17px + env(safe-area-inset-bottom));
+  z-index: 25;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -309,38 +371,58 @@
   background: var(--text-main);
   border: 0;
   border-radius: 999px;
+  box-shadow: 0 6px 20px color-mix(
+    in srgb,
+    var(--text-main) 16%,
+    transparent
+  );
+  transform: translateX(50%);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
+.newspaper-print-button:hover {
+  opacity: 0.78;
+  transform: translateX(50%) translateY(-1px);
+}
+
+.newspaper-print-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+/* 空状态和加载状态 */
 .newspaper-loading,
 .newspaper-empty {
   display: flex;
-  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 55dvh;
-  gap: 13px;
+  min-height: 75dvh;
+  gap: 14px;
   padding: 30px;
   text-align: center;
 }
 
 .newspaper-loading p,
 .newspaper-empty p {
-  max-width: 260px;
+  max-width: 270px;
   margin: 0;
   font-size: 12px;
-  line-height: 1.65;
+  line-height: 1.7;
   opacity: 0.6;
 }
 
 .newspaper-status-error {
-  margin-top: 15px;
+  max-width: 300px;
+  margin-top: 5px;
   font-size: 11px;
-  line-height: 1.55;
+  line-height: 1.6;
   opacity: 0.62;
 }
 
-/* 新闻详情剪报 */
+/* 详情弹窗 */
 .newspaper-modal-backdrop {
   position: fixed;
   z-index: 60;
@@ -348,20 +430,32 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--text-main) 38%, transparent);
-  backdrop-filter: blur(4px);
+  padding: 16px 14px calc(16px + env(safe-area-inset-bottom));
+  background: color-mix(
+    in srgb,
+    var(--text-main) 34%,
+    transparent
+  );
+  backdrop-filter: blur(5px);
 }
 
 .newspaper-detail-sheet {
   width: min(100%, 450px);
-  max-height: min(78dvh, 700px);
+  max-height: min(80dvh, 720px);
   overflow-y: auto;
   color: var(--text-main);
   background: var(--bg-main);
-  border: 1px solid color-mix(in srgb, var(--text-main) 24%, transparent);
-  border-radius: 2px;
-  box-shadow: 0 18px 50px color-mix(in srgb, var(--text-main) 22%, transparent);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 22%,
+    transparent
+  );
+  border-radius: 3px;
+  box-shadow: 0 18px 50px color-mix(
+    in srgb,
+    var(--text-main) 22%,
+    transparent
+  );
 }
 
 .newspaper-detail-head {
@@ -369,24 +463,51 @@
   top: 0;
   z-index: 2;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   min-height: 48px;
-  padding: 0 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 16%, transparent);
+  padding: 0 15px;
   background: var(--bg-main);
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 16%,
+    transparent
+  );
 }
 
 .newspaper-detail-head span {
+  min-width: 0;
+  overflow: hidden;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   letter-spacing: 0.1em;
   opacity: 0.55;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.newspaper-detail-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  opacity: 0.58;
+}
+
+.newspaper-detail-close:hover {
+  opacity: 1;
+  background: var(--control-soft-bg);
 }
 
 .newspaper-detail-content {
-  padding: 23px 20px 25px;
+  padding: 24px 20px 28px;
 }
 
 .newspaper-detail-title {
@@ -394,18 +515,22 @@
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 30px;
   font-weight: 700;
-  letter-spacing: -0.06em;
-  line-height: 1.02;
+  letter-spacing: -0.065em;
+  line-height: 1.03;
 }
 
 .newspaper-detail-section {
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--text-main) 17%, transparent);
+  border-top: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 17%,
+    transparent
+  );
 }
 
 .newspaper-detail-section h4 {
-  margin: 0 0 8px;
+  margin: 0 0 9px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   font-weight: 500;
@@ -417,7 +542,7 @@
 .newspaper-detail-section p {
   margin: 0;
   font-size: 13px;
-  line-height: 1.75;
+  line-height: 1.78;
   opacity: 0.82;
 }
 
@@ -433,12 +558,15 @@
   justify-content: space-between;
   gap: 14px;
   width: 100%;
-  margin-top: 10px;
   padding: 12px 0;
   color: inherit;
   text-align: left;
   text-decoration: none;
-  border-top: 1px solid color-mix(in srgb, var(--text-main) 12%, transparent);
+  border-top: 1px solid color-mix(
+    in srgb,
+    var(--text-main) 12%,
+    transparent
+  );
 }
 
 .newspaper-source-link:first-of-type {
@@ -463,4 +591,19 @@
   font-size: 12px;
   line-height: 1.65;
   opacity: 0.58;
+}
+
+@media (max-width: 380px) {
+  .newspaper-page {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .newspaper-title {
+    font-size: 35px;
+  }
+
+  .newspaper-story-title {
+    font-size: 22px;
+  }
 }
