@@ -2,9 +2,18 @@
 import db from '../../db';
 
 /**
- * 获取当前活跃 AI 配置与主编角色
+ * 从数据库中正确读取项目的全局 API 配置与角色
  */
-async function getActiveContext() {
+async function getApiAndCharacterContext() {
+  // 1. 读取 API 配置 (严格匹配项目的 apiConfig 结构)
+  const apiConfigRecord = await db.settings.get('apiConfig');
+  const apiConfig = apiConfigRecord?.value || {};
+
+  const apiKey = apiConfig.apiKey || '';
+  const apiEndpoint = apiConfig.endpoint || apiConfig.baseUrl || 'https://api.openai.com/v1';
+  const model = apiConfig.model || 'gpt-4o-mini';
+
+  // 2. 读取当前活跃角色
   const activeCharSetting = await db.settings.get('activeCharacterId');
   let character = null;
   if (activeCharSetting?.value) {
@@ -14,78 +23,76 @@ async function getActiveContext() {
     character = await db.characters.toCollection().first();
   }
 
-  const apiEndpoint = await db.settings.get('apiEndpoint');
-  const apiKey = await db.settings.get('apiKey');
-  const model = await db.settings.get('model');
-
   return {
     character,
-    apiEndpoint: apiEndpoint?.value || 'https://api.openai.com/v1',
-    apiKey: apiKey?.value || '',
-    model: model?.value || 'gpt-4o-mini'
+    apiEndpoint,
+    apiKey,
+    model
   };
 }
 
 /**
- * 生成今日极简报纸
+ * 独立生成报纸
  */
 export async function generateDailyPost({ topic, rawNews }) {
-  const { character, apiEndpoint, apiKey, model } = await getActiveContext();
+  const { character, apiEndpoint, apiKey, model } = await getApiAndCharacterContext();
 
-  if (!apiKey) {
-    throw new Error('未配置 API Key，请在空间设置中配置。');
+  if (!apiKey || !apiKey.trim()) {
+    throw new Error('未检测到有效 API Key，请先在主界面的「Settings」中配置您的 AI 接口密钥。');
   }
 
   const charName = character?.name || '主编';
-  const charPersona = character?.userPersona || character?.bio || '温柔敏锐的观察者';
+  const charPersona = character?.userPersona || character?.bio || '敏锐温和的独立观察家';
 
   const newsContext = rawNews && rawNews.length > 0 
-    ? rawNews.map((n, i) => `[${i + 1}] 标题: ${n.title}\n摘要: ${n.snippet}\n来源: ${n.source}`).join('\n\n')
-    : '（今日检索源未返回具体摘要，请基于今日主题进行观察与思考）';
+    ? rawNews.map((n, i) => `[条目 ${i + 1}] 标题: ${n.title}\n摘要: ${n.snippet}\n出处: ${n.source}`).join('\n\n')
+    : `（今日暂无外网原始摘要，请围绕主题「${topic}」，以深邃、客观而文学化的视角进行今日观察与阐述）`;
 
-  const systemPrompt = `你将扮演主编「${charName}」（人设背景: ${charPersona}）。
-今天你要为读者编写一份现代极简主义风格的独立晨报《朝夕时报》。
+  const systemPrompt = `你正在扮演主编「${charName}」（背景设定: ${charPersona}）。
+你要为读者独自排印一份现代极简、排版考究的独立晨刊《THE DAILY POST》。
 
-【硬性要求】
-1. 全文绝对严禁使用任何 Emoji 表情符号。
-2. 保持现代极简、文学化、内省而客观的语调。
-3. 新闻部分必须基于提供的真实素材提炼，严禁凭空捏造假新闻，若信息有限则做深度解读与观察。
-4. 必须输出标准的 JSON 格式，不得包含任何 Markdown 代码块标签以外的多余文本。
+【铁律规范】
+1. 严禁使用任何 Emoji 表情符号。
+2. 保持现代独立杂志与极简报刊的克制语调，文学性与客观事实并存。
+3. 必须输出纯 JSON 对象，严禁输出任何前言、结语或 Markdown 格式包裹。
 
-【输出 JSON 规范】
+【输出 JSON 字段要求】
 {
-  "editionTitle": "主标题（如：第 42 期 · 雾气消散时的世界声响）",
-  "topic": "${topic}",
-  "editorNote": "主编晨语（120-180字，以角色口吻，文学化地分享晨间观察与致读者的问候）",
+  "editionNumber": "期号（如：ISSUE 108）",
+  "headlineLead": "今日主副标题（如：晨光破晓与微小声响）",
+  "editorNote": "主编晨间致辞（100-150字，以角色第一人称展开观察，文字温润有力量）",
   "articles": [
     {
-      "headline": "新闻标题（凝练克制）",
-      "category": "领域标签（如：TECH, ART, SOCIETY）",
-      "summary": "文学化与客观结合的提炼解读（80-140字）",
-      "source": "原始来源名称"
+      "headline": "新闻简要标题",
+      "tag": "领域（如：TECH, ART, ESSAY, WORLD）",
+      "content": "基于真实背景提炼出的凝练解读（60-120字）",
+      "source": "原始来源"
     }
   ],
-  "dailyWord": {
-    "word": "从今日内容中提炼的一个外语优质生词或名句短语",
-    "phonetic": "音标或假名（若有）",
-    "definition": "简短释义",
-    "contextSentence": "在今日语境中的例句或角色的一句短评"
+  "dailyLexicon": {
+    "word": "从今日主题中精选的一个外语词汇或双语名句",
+    "phonetic": "音标/假名（可选）",
+    "translation": "中文释义与词性",
+    "quote": "角色为你写下的双语语境例句或极简批注"
   }
 }`;
 
-  const userPrompt = `今日订阅主题: ${topic}
-检索到的真实新闻背景:
+  const userPrompt = `今日关注主题: ${topic}
+检索参考背景:
 ${newsContext}
 
-请生成今天的结构化极简晨报 JSON。`;
+请生成纯 JSON 格式的晨报内容。`;
 
-  const url = apiEndpoint.endsWith('/') ? `${apiEndpoint}chat/completions` : `${apiEndpoint}/chat/completions`;
+  const cleanEndpoint = apiEndpoint.endsWith('/') ? apiEndpoint.slice(0, -1) : apiEndpoint;
+  const targetUrl = cleanEndpoint.endsWith('/chat/completions') 
+    ? cleanEndpoint 
+    : `${cleanEndpoint}/chat/completions`;
 
-  const res = await fetch(url, {
+  const res = await fetch(targetUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Authorization': `Bearer ${apiKey.trim()}`
     },
     body: JSON.stringify({
       model: model,
@@ -93,24 +100,23 @@ ${newsContext}
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' }
+      temperature: 0.7
     })
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`AI 请求失败 (${res.status}): ${errText}`);
+    throw new Error(`AI 请求响应异常 (${res.status}): ${errText}`);
   }
 
-  const json = await res.json();
-  const rawContent = json.choices?.[0]?.message?.content || '{}';
+  const data = await res.json();
+  const rawText = data.choices?.[0]?.message?.content || '{}';
   
   try {
-    const cleanJson = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+    const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanJson);
   } catch (err) {
-    console.error('报纸 JSON 解析失败：', rawContent);
-    throw new Error('报纸数据排版解析失败');
+    console.error('报纸 JSON 解析异常：', rawText);
+    throw new Error('晨报排版解析失败，请稍后重试。');
   }
 }
