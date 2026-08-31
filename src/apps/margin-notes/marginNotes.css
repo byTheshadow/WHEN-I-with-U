@@ -1,0 +1,130 @@
+/* src/apps/margin-notes/marginNotes.css */
+
+.margin-notes-shell {
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-sans-serif: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 5rem;
+}
+
+/* 主书页容器 (约 420px 黄金阅读宽度) */
+.book-page-container {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* 典雅书页卡片 */
+.book-paper {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* 顶部跑马出处顶注 (Running Header) */
+.book-running-head {
+  border-bottom: 1px dashed var(--card-border);
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* 正文文学排版 */
+.book-typography {
+  font-family: Georgia, Cambria, 'Times New Roman', Times, 'Songti SC', 'Source Han Serif SC', serif;
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+/* 生词交互高亮 */
+.vocab-anchor {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--text-muted);
+  text-underline-offset: 4px;
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0 2px;
+  transition: all 0.2s ease;
+}
+
+.vocab-anchor:hover, .vocab-anchor.active {
+  background-color: var(--control-soft-bg);
+  color: var(--accent-text, inherit);
+}
+
+/* 角色页边手写批注卡 */
+.character-pencil-note {
+  background-color: var(--control-soft-bg);
+  border-left: 2.5px solid var(--text-muted);
+  border-radius: 0 8px 8px 0;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text-sub);
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.character-pencil-note:hover {
+  transform: translateX(2px);
+}
+
+/* 读者回注区域 */
+.reader-response-block {
+  border-top: 1px dashed var(--card-border);
+  padding: 1.25rem;
+  background: var(--bg-soft, transparent);
+}
+
+/* 铅笔输入框 */
+.pencil-input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  outline: none;
+  resize: none;
+  transition: border-color 0.2s;
+}
+
+.pencil-input:focus {
+  border-color: var(--text-muted);
+}
+
+.pencil-input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
+/* 骨架与加载微光 */
+@keyframes bookShimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
+.shimmer-text {
+  animation: bookShimmer 1.8s infinite ease-in-out;
+}

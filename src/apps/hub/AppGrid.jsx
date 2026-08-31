@@ -1,4 +1,4 @@
-// src/apps/hub/AppGrid.jsx 
+// src/apps/hub/AppGrid.jsx
 import React, { useEffect, useState } from 'react';
 import {
   MessageSquare,
@@ -13,12 +13,15 @@ import {
   Leaf,
   Ticket,
   MailOpen,
-  Clock
+  Clock,
+  Newspaper,
+  Feather,
+  ArrowUpRight
 } from 'lucide-react';
+
 import GlassCard from '../../components/GlassCard';
 import KeepAlivePlayer from './KeepAlivePlayer';
 import PreloaderSelector from './PreloaderSelector';
-import { Newspaper } from 'lucide-react';
 import db from '../../db';
 
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
@@ -30,51 +33,59 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
 
     const loadStats = async () => {
       try {
-        const hCount = await db.habitats.count();
-        const unansweredCount = await db.askBoxQuestions
-          .filter(q => {
-            if (q.sender === 'user') {
-              return !q.reply;
-            } else {
-              return !q.reply;
-            }
-          })
-          .count();
+        const [hCount, unansweredCount] = await Promise.all([
+          db.habitats.count(),
+          db.askBoxQuestions
+            .filter((question) => !question.reply)
+            .count()
+        ]);
 
-        if (isMounted) {
-          setHabitatCount(hCount);
-          setAskCount(unansweredCount);
-        }
+        if (!isMounted) return;
+
+        setHabitatCount(hCount);
+        setAskCount(unansweredCount);
       } catch (error) {
-        console.error('读取提问箱与生态瓶数据失败：', error);
+        console.error('读取首页应用统计失败：', error);
       }
     };
 
     void loadStats();
+
     return () => {
       isMounted = false;
     };
   }, []);
 
   return (
-    <div className="space-y-3">
-      <h3 className="px-2 text-[11px] font-semibold uppercase tracking-widest opacity-40">
-        Applications
-      </h3>
+    <div className="space-y-4">
+      <div className="flex items-end justify-between px-2">
+        <div>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-40">
+            Applications
+          </h3>
+          <p className="mt-1 text-[10px] opacity-35">
+            Things kept close, and places to return to.
+          </p>
+        </div>
+        <span className="font-mono text-[9px] uppercase tracking-widest opacity-30">
+          Personal Index
+        </span>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* Row 1: Messages (不变) */}
+        {/* 主入口：Messages */}
         <GlassCard
           delay={delay}
           tone="ink"
           onClick={() => onOpenApp('messages')}
-          className="group col-span-2 flex cursor-pointer items-center justify-between p-4"
+          className="group col-span-2 flex cursor-pointer items-center justify-between overflow-hidden p-4 text-left"
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/10 dark:bg-white/10">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/10 dark:bg-white/10">
               <MessageSquare className="h-5 w-5 text-[var(--text-on-ink)] opacity-90" />
             </div>
-            <div className="text-left">
+
+            <div>
               <h4 className="text-sm font-bold text-[var(--text-on-ink)]">
                 Messages
               </h4>
@@ -83,17 +94,77 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               </p>
             </div>
           </div>
+
+          <ArrowUpRight className="h-4 w-4 text-[var(--text-on-ink)] opacity-35 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </GlassCard>
 
-        {/* Row 2: 两个标准方块 */}
+        {/* 页边注：独立的重点书页入口 */}
         <GlassCard
-          delay={delay + 20}
+          delay={delay + 15}
+          onClick={() => onOpenApp('margin-notes')}
+          className="group col-span-2 cursor-pointer overflow-hidden p-0 text-left"
+        >
+          <div className="relative flex min-h-[132px] items-stretch">
+            {/* 左侧书脊 */}
+            <div
+              className="flex w-[54px] shrink-0 flex-col items-center justify-between border-r py-3"
+              style={{
+                backgroundColor: 'var(--control-soft-bg)',
+                borderColor: 'var(--card-border)'
+              }}
+            >
+              <Feather
+                className="h-4 w-4 opacity-60"
+                style={{ color: 'var(--text-main)' }}
+              />
+              <span className="[writing-mode:vertical-rl] font-serif text-[10px] tracking-[0.22em] opacity-45">
+                THE MARGIN NOTES
+              </span>
+            </div>
+
+            {/* 书页正文 */}
+            <div className="flex flex-1 flex-col justify-between px-4 py-3.5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-40">
+                    A shared reading room
+                  </p>
+                  <h4 className="mt-1 font-serif text-[17px] font-semibold tracking-wide">
+                    页边注
+                  </h4>
+                  <p className="mt-0.5 font-serif text-[11px] italic opacity-55">
+                    The Margin Notes
+                  </p>
+                </div>
+
+                <BookOpen
+                  className="h-4 w-4 shrink-0 opacity-35 transition-transform duration-300 group-hover:-rotate-6"
+                  style={{ color: 'var(--text-main)' }}
+                />
+              </div>
+
+              <div
+                className="mt-3 border-t pt-2 text-[10px] leading-relaxed opacity-55"
+                style={{ borderColor: 'var(--card-border)' }}
+              >
+                Find a passage, read beside someone,
+                <br />
+                and leave a thought in the margin.
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+
+        {/* 生活影像与小物交换：一组小尺寸对象 */}
+        <GlassCard
+          delay={delay + 30}
           onClick={() => onOpenApp('snapshots')}
-          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+          className="group flex aspect-[0.96] cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
-            <Camera className="h-5 w-5 text-[var(--text-main)] opacity-90" />
+            <Camera className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
           </div>
+
           <div>
             <h4 className="text-sm font-bold">Snapshots</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -103,13 +174,17 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         </GlassCard>
 
         <GlassCard
-          delay={delay + 30}
+          delay={delay + 40}
           onClick={() => onOpenApp('pebbling')}
-          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+          className="group flex aspect-[0.96] cursor-pointer flex-col justify-between p-4 text-left"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
-            <Waves className="h-5 w-5 text-[var(--text-main)] opacity-90" />
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Waves className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
           </div>
+
           <div>
             <h4 className="text-sm font-bold">Pebbling</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -118,22 +193,20 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Row 3: Living Habitat 变宽版 (打破网格节奏的杂志感) */}
+        {/* 生态瓶：横幅大卡，打断两列节奏 */}
         <GlassCard
-          delay={delay + 40}
+          delay={delay + 50}
           onClick={() => onOpenApp('habitat')}
           className="group col-span-2 flex cursor-pointer items-center justify-between p-4 text-left"
         >
           <div className="flex items-center gap-4">
             <div
-              className="flex h-12 w-12 items-center justify-center rounded-2xl"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
               style={{ backgroundColor: 'var(--control-soft-bg)' }}
             >
-              <Leaf
-                className="h-5 w-5 opacity-90"
-                style={{ color: 'var(--text-main)' }}
-              />
+              <Leaf className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
             </div>
+
             <div>
               <h4 className="text-sm font-bold">Living Habitat</h4>
               <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
@@ -143,15 +216,15 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               </p>
             </div>
           </div>
-          {/* 杂志感小装饰 */}
-          <div className="font-mono text-[9px] uppercase tracking-widest opacity-30 pr-2 transition-opacity group-hover:opacity-60">
+
+          <span className="pr-1 font-mono text-[9px] uppercase tracking-[0.16em] opacity-30 transition-opacity group-hover:opacity-60">
             Bio-Sync
-          </div>
+          </span>
         </GlassCard>
 
-        {/* Row 4: 两个标准方块 */}
+        {/* 想象空间与群像 */}
         <GlassCard
-          delay={delay + 50}
+          delay={delay + 60}
           onClick={() => onOpenApp('imaginarium')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
@@ -164,6 +237,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               style={{ color: 'var(--text-main)' }}
             />
           </div>
+
           <div>
             <h4 className="text-sm font-bold">Imaginarium</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -173,7 +247,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         </GlassCard>
 
         <GlassCard
-          delay={delay + 60}
+          delay={delay + 70}
           onClick={() => onOpenApp('ensemble')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
@@ -181,11 +255,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Users
-              className="h-5 w-5 opacity-90"
-              style={{ color: 'var(--text-main)' }}
-            />
+            <Users className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
           </div>
+
           <div>
             <h4 className="text-sm font-bold">The Ensemble</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -194,11 +266,11 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Row 5: 两个标准方块 */}
+        {/* 记忆类内容 */}
         <GlassCard
-          delay={delay + 70}
+          delay={delay + 80}
           onClick={() => onOpenApp('diaries')}
-          className="flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+          className="group flex cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
@@ -206,29 +278,28 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           >
             <BookOpen className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
           </div>
-          <div>
+
+          <div className="mt-10">
             <h4 className="text-sm font-bold">Diaries</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
               Sync Memories
             </p>
           </div>
         </GlassCard>
-        
+
         <GlassCard
-          delay={delay + 80}
+          delay={delay + 90}
           onClick={() => onOpenApp('memory')}
-          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+          className="group flex cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Archive
-              className="h-5 w-5 opacity-90"
-              style={{ color: 'var(--text-main)' }}
-            />
+            <Archive className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
           </div>
-          <div>
+
+          <div className="mt-10">
             <h4 className="text-sm font-bold">Memory Room</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-40">
               Private Archive
@@ -236,9 +307,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-        {/* Row 6: Ephemera + 假App占位 (营造留白) */}
+        {/* 时光碎片与晨报 */}
         <GlassCard
-          delay={delay + 90}
+          delay={delay + 100}
           onClick={() => onOpenApp('ephemera')}
           className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
         >
@@ -246,11 +317,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Ticket
-              className="h-5 w-5 opacity-90"
-              style={{ color: 'var(--text-main)' }}
-            />
+            <Ticket className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
           </div>
+
           <div>
             <h4 className="text-sm font-bold">Ephemera</h4>
             <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
@@ -259,37 +328,39 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           </div>
         </GlassCard>
 
-       
-<GlassCard
-  delay={delay + 95}
-  onClick={() => onOpenApp('newspaper')}
-  className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
->
-  <div
-    className="flex h-10 w-10 items-center justify-center rounded-2xl"
-    style={{ backgroundColor: 'var(--control-soft-bg)' }}
-  >
-    <Newspaper className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
-  </div>
-  <div>
-    <h4 className="text-sm font-bold">Daily Post</h4>
-    <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
-      Morning Press
-    </p>
-  </div>
-</GlassCard>
-
-
-        {/* Row 7: Ask Box - 提问箱 (变宽版，解决原来右侧空的问题，稳住底部) */}
         <GlassCard
-          delay={delay + 100}
+          delay={delay + 110}
+          onClick={() => onOpenApp('newspaper')}
+          className="group flex aspect-square cursor-pointer flex-col justify-between p-4 text-left"
+        >
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: 'var(--control-soft-bg)' }}
+          >
+            <Newspaper
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold">Daily Post</h4>
+            <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+              Morning Press
+            </p>
+          </div>
+        </GlassCard>
+
+        {/* 提问箱：底部横向信封 */}
+        <GlassCard
+          delay={delay + 120}
           onClick={() => onOpenApp('askbox')}
-          className="group col-span-2 flex cursor-pointer items-center justify-between p-4 text-left border-dashed"
+          className="group col-span-2 flex cursor-pointer items-center justify-between border-dashed p-4 text-left"
           style={{ borderColor: 'var(--text-muted)' }}
         >
           <div className="flex items-center gap-4">
             <div
-              className="flex h-12 w-12 items-center justify-center rounded-2xl"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
               style={{ backgroundColor: 'var(--control-soft-bg)' }}
             >
               <MailOpen
@@ -297,61 +368,73 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
                 style={{ color: 'var(--text-main)' }}
               />
             </div>
+
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-bold">Ask Box</h4>
                 {askCount > 0 && (
-                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                 )}
               </div>
               <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
-                {askCount > 0 ? `${askCount} letters waiting` : 'Anonymity Box'}
+                {askCount > 0
+                  ? `${askCount} letters waiting`
+                  : 'Anonymity Box'}
               </p>
             </div>
           </div>
+
+          <ArrowUpRight className="h-4 w-4 opacity-30 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </GlassCard>
 
-        {/* Row 8: 底部工具栏横排 */}
-        <div className="col-span-2 flex gap-3">
-          <GlassCard
-            delay={delay + 110}
-            onClick={() => onOpenApp('travel')}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 p-3 text-left"
-          >
-            <Compass className="h-4 w-4 opacity-80" />
-            <h4 className="truncate text-sm font-bold">Travel</h4>
-          </GlassCard>
+        {/* 底部轻工具栏 */}
+        <div className="col-span-2 pt-1">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-[10px] font-mono uppercase tracking-[0.16em] opacity-35">
+              Small arrangements
+            </span>
+            <span className="text-[9px] opacity-30">for everyday life</span>
+          </div>
 
-          <GlassCard
-            delay={delay + 120}
-            onClick={() => onOpenApp('planner')}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 p-3 text-left"
-          >
-            <Calendar className="h-4 w-4 opacity-80" />
-            <h4 className="truncate text-sm font-bold">Planner</h4>
-          </GlassCard>
+          <div className="flex gap-2.5">
+            <GlassCard
+              delay={delay + 130}
+              onClick={() => onOpenApp('travel')}
+              className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+            >
+              <Compass className="h-3.5 w-3.5 shrink-0 opacity-75" />
+              <h4 className="truncate text-xs font-bold">Travel</h4>
+            </GlassCard>
 
-          <GlassCard
-            delay={delay + 130}
-            onClick={() => onOpenApp('rhythm')}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 p-3 text-left"
-          >
-            <Clock className="h-4 w-4 opacity-80" />
-            <h4 className="truncate text-sm font-bold">Rhythm</h4>
-          </GlassCard>
+            <GlassCard
+              delay={delay + 140}
+              onClick={() => onOpenApp('planner')}
+              className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+            >
+              <Calendar className="h-3.5 w-3.5 shrink-0 opacity-75" />
+              <h4 className="truncate text-xs font-bold">Planner</h4>
+            </GlassCard>
+
+            <GlassCard
+              delay={delay + 150}
+              onClick={() => onOpenApp('rhythm')}
+              className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+            >
+              <Clock className="h-3.5 w-3.5 shrink-0 opacity-75" />
+              <h4 className="truncate text-xs font-bold">Rhythm</h4>
+            </GlassCard>
+          </div>
         </div>
       </div>
 
-      {/* 黑胶播放器 */}
-      <KeepAlivePlayer delay={delay + 140} />
-
-      {/* 杂志风启动动画选择器 */}
-      <PreloaderSelector delay={delay + 150} />
+      <KeepAlivePlayer delay={delay + 160} />
+      <PreloaderSelector delay={delay + 170} />
     </div>
   );
 };
 
 export default AppGrid;
+
 
 
 

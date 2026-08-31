@@ -30,6 +30,8 @@ import AudioKeepAlive from './apps/messages/components/AudioKeepAlive';
 import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
 import MemoryApp from './apps/memory/MemoryApp';
 import NewspaperApp from './apps/newspaper/NewspaperApp';
+import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
+
 import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
@@ -102,7 +104,9 @@ const REGISTERED_APPS = [
   'askbox',
   'rhythm',
   'memory',
-  'newspaper'
+  'newspaper',
+  'margin-notes',
+
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -530,6 +534,11 @@ if (result?.status === 'success') {
             />
           </ErrorBoundary>
         )}
+
+        {currentApp === 'margin-notes' && (
+  <MarginNotesApp onBackHub={() => openApp('hub')} />
+)}
+
 
         {currentApp === 'snapshots' && (
           <ErrorBoundary>
