@@ -1,370 +1,570 @@
 // src/apps/newspaper/NewspaperApp.jsx
-import React, { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  Settings as SettingsIcon, 
-  RefreshCw, 
-  Scissors, 
-  ChevronLeft, 
+import React, { useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  ChevronLeft,
   ChevronRight,
-  BookOpen,
-  Feather
+  ExternalLink,
+  FileText,
+  RefreshCw,
+  Settings as SettingsIcon,
+  X
 } from 'lucide-react';
+
 import db from '../../db';
 import { searchLatestNews } from './newspaperSearchService';
 import { generateDailyPost } from './newspaperAiService';
 import { NewspaperSettingsModal } from './NewspaperSettingsModal';
+import './newspaper.css';
+
+const DEFAULT_SETTINGS = {
+  topics: ['AI 与认知前沿', '独立艺术与设计', '日常哲学与世界观察'],
+  tavilyKey: '',
+  autoClean: true
+};
+
+function toDateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getSourcesFromIndexes(sourceIndexes, rawNews) {
+  if (!Array.isArray(sourceIndexes) || !Array.isArray(rawNews)) {
+    return [];
+  }
+
+  const uniqueIndexes = [...new Set(sourceIndexes)];
+
+  return uniqueIndexes
+    .map((index) => rawNews[index])
+    .filter((source) => source?.url)
+    .map((source) => ({
+      title: source.title || '原始报道',
+      publisher: source.source || '外部资讯来源',
+      url: source.url,
+      publishedAt: source.publishedAt || source.pubDate || ''
+    }));
+}
+
+function normalizeArticle(article, index, rawNews) {
+  const sourceType = article?.sourceType === 'editorial-observation'
+    ? 'editorial-observation'
+    : 'web-report';
+
+  const sources = sourceType === 'web-report'
+    ? getSourcesFromIndexes(article?.sourceIndexes, rawNews)
+    : [];
+
+  return {
+    id: `article-${Date.now()}-${index}`,
+    headline: article?.headline || '未命名报道',
+    tag: article?.tag || 'BRIEF',
+    excerpt: article?.excerpt || article?.content || '',
+    facts: article?.facts || article?.content || '',
+    editorComment: article?.editorComment || '',
+    limitations: article?.limitations || '',
+    sourceType,
+    sources,
+
+    // 兼容旧版已保存晨报
+    source: article?.source || sources[0]?.publisher || ''
+  };
+}
+
+function getArticleSourceLabel(article) {
+  if (article?.sourceType === 'editorial-observation') {
+    return '主编观察';
+  }
+
+  if (article?.sources?.length > 0) {
+    return article.sources[0].publisher;
+  }
+
+  return article?.source || '来源待核验';
+}
+
+function DetailModal({ article, onClose }) {
+  if (!article) return null;
+
+  const sources = article.sources || [];
+  const hasSources = article.sourceType === 'web-report' && sources.length > 0;
+
+  return (
+    <div
+      className="newspaper-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <section
+        className="newspaper-detail-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="新闻详情"
+      >
+        <header className="newspaper-detail-head">
+          <span>{article.tag || 'BRIEF'} · {getArticleSourceLabel(article)}</span>
+          <button
+            type="button"
+            className="newspaper-icon-button"
+            onClick={onClose}
+            aria-label="关闭详情"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="newspaper-detail-content">
+          <h3 className="newspaper-detail-title">{article.headline}</h3>
+
+          <section className="newspaper-detail-section">
+            <h4>事实梳理</h4>
+            <p>{article.facts || '该条目暂未保存完整事实梳理。'}</p>
+          </section>
+
+          {article.limitations && (
+            <section className="newspaper-detail-section">
+              <h4>信息边界</h4>
+              <p>{article.limitations}</p>
+            </section>
+          )}
+
+          {article.editorComment && (
+            <section className="newspaper-detail-section newspaper-detail-editor-note">
+              <h4>主编注记</h4>
+              <p>“{article.editorComment}”</p>
+            </section>
+          )}
+
+          <section className="newspaper-detail-section">
+            <h4>原始报道</h4>
+
+            {hasSources ? (
+              sources.map((source, index) => (
+                <a
+                  key={`${source.url}-${index}`}
+                  className="newspaper-source-link"
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span>
+                    <span className="newspaper-source-publisher">
+                      {source.publisher}
+                    </span>
+                    <span className="newspaper-source-title">
+                      {source.title}
+                      {source.publishedAt ? ` · ${source.publishedAt}` : ''}
+                    </span>
+                  </span>
+                  <ExternalLink size={15} aria-hidden="true" />
+                </a>
+              ))
+            ) : (
+              <p className="newspaper-no-source">
+                {article.sourceType === 'editorial-observation'
+                  ? '本条为主编围绕订阅主题写下的观察，不对应外部新闻报道。'
+                  : '这份旧报纸未保存可用的原始链接，因此无法跳转原文。'}
+              </p>
+            )}
+          </section>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 export const NewspaperApp = ({ onClose }) => {
   const [currentPost, setCurrentPost] = useState(null);
   const [historyList, setHistoryList] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [newspaperSettings, setNewspaperSettings] = useState({
-    topics: ['AI 与认知前沿', '独立艺术与设计', '日常哲学与世界观察'],
-    tavilyKey: '',
-    autoClean: true
-  });
+  const [selectedArticle, setSelectedArticle] = useState(null);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
-  // 清除两天前的旧报纸 (48小时以前)
-  const cleanOldPosts = async () => {
-    try {
-      const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
-      const oldPosts = await db.newspapers.filter(p => p.createdAt < twoDaysAgo).toArray();
-      if (oldPosts.length > 0) {
-        const idsToDelete = oldPosts.map(p => p.id).filter(Boolean);
-        await db.newspapers.bulkDelete(idsToDelete);
-        const remaining = await db.newspapers.orderBy('createdAt').reverse().toArray();
-        setHistoryList(remaining);
-        if (remaining.length > 0) {
-          setCurrentPost(remaining[0]);
-          setCurrentIndex(0);
-        } else {
-          setCurrentPost(null);
-        }
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedArticle(null);
       }
-      return oldPosts.length;
-    } catch (e) {
-      console.error('清理旧报纸失败：', e);
-      return 0;
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, []);
+
+  const cleanOldPosts = async () => {
+    const deadline = Date.now() - (2 * 24 * 60 * 60 * 1000);
+
+    const outdatedPosts = await db.newspapers
+      .filter((post) => post.createdAt < deadline)
+      .toArray();
+
+    if (outdatedPosts.length > 0) {
+      await db.newspapers.bulkDelete(
+        outdatedPosts
+          .map((post) => post.id)
+          .filter((id) => id !== undefined && id !== null)
+      );
     }
+
+    return outdatedPosts.length;
   };
 
   const loadData = async () => {
     try {
-      const savedConfig = await db.settings.get('newspaper_settings');
-      let currentCfg = {
-        topics: ['AI 与认知前沿', '独立艺术与设计', '日常哲学与世界观察'],
-        tavilyKey: '',
-        autoClean: true
+      const savedSettings = await db.settings.get('newspaper_settings');
+      const mergedSettings = {
+        ...DEFAULT_SETTINGS,
+        ...(savedSettings?.value || {})
       };
 
-      if (savedConfig?.value) {
-        currentCfg = { ...currentCfg, ...savedConfig.value };
-        setNewspaperSettings(currentCfg);
+      setSettings(mergedSettings);
+
+      if (mergedSettings.autoClean) {
+        await cleanOldPosts();
       }
 
-      // 如果开启了自动清理，先清扫 2 天前数据
-      if (currentCfg.autoClean) {
-        const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
-        const oldPosts = await db.newspapers.filter(p => p.createdAt < twoDaysAgo).toArray();
-        if (oldPosts.length > 0) {
-          const ids = oldPosts.map(p => p.id).filter(Boolean);
-          await db.newspapers.bulkDelete(ids);
-        }
-      }
+      const posts = await db.newspapers
+        .orderBy('createdAt')
+        .reverse()
+        .toArray();
 
-      const posts = await db.newspapers.orderBy('createdAt').reverse().toArray();
       setHistoryList(posts);
+
       if (posts.length > 0) {
         setCurrentPost(posts[0]);
         setCurrentIndex(0);
       }
-    } catch (e) {
-      console.error('加载报刊数据失败：', e);
+    } catch (error) {
+      console.error('加载晨报失败：', error);
+      setErrorMessage('晨报档案暂时无法读取，请稍后重新进入。');
     }
   };
 
-  const handleSaveSettings = async (newCfg) => {
-    setNewspaperSettings(newCfg);
-    await db.settings.put({ key: 'newspaper_settings', value: newCfg });
-    if (newCfg.autoClean) {
-      await cleanOldPosts();
+  const handleSaveSettings = async (nextSettings) => {
+    const mergedSettings = {
+      ...DEFAULT_SETTINGS,
+      ...nextSettings
+    };
+
+    setSettings(mergedSettings);
+
+    await db.settings.put({
+      key: 'newspaper_settings',
+      value: mergedSettings
+    });
+
+    if (mergedSettings.autoClean) {
+      const deletedCount = await cleanOldPosts();
+
+      if (deletedCount > 0) {
+        await loadData();
+      }
     }
+  };
+
+  const handleManualClean = async () => {
+    const deletedCount = await cleanOldPosts();
+    await loadData();
+    return deletedCount;
   };
 
   const handleGenerateToday = async () => {
-    setLoading(true);
-    setStatusMessage('正在检索今日网络资讯...');
-    try {
-      const activeTopic = newspaperSettings.topics[
-        Math.floor(Math.random() * newspaperSettings.topics.length)
-      ] || '科技与当代生活';
+    if (loading) return;
 
-      const rawNews = await searchLatestNews(activeTopic, newspaperSettings);
-      
-      setStatusMessage('主编正在编撰与排版...');
+    setLoading(true);
+    setErrorMessage('');
+    setStatusMessage('正在整理今日可核验的资讯来源…');
+
+    try {
+      const topics = settings.topics?.filter(Boolean) || [];
+      const activeTopic = topics[
+        Math.floor(Math.random() * Math.max(topics.length, 1))
+      ] || '世界观察';
+
+      const rawNews = await searchLatestNews(activeTopic, settings);
+
+      setStatusMessage(
+        rawNews.length > 0
+          ? '主编正在阅读来源、编撰晨刊…'
+          : '外部来源暂不可用，主编正在写下今日观察…'
+      );
+
       const postData = await generateDailyPost({
         topic: activeTopic,
         rawNews
       });
 
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const activeChar = await db.characters.toCollection().first();
+      const activeCharacterSetting = await db.settings.get('activeCharacterId');
+      const activeCharacter = activeCharacterSetting?.value
+        ? await db.characters.get(Number(activeCharacterSetting.value))
+        : await db.characters.toCollection().first();
 
-      const newRecord = {
-        date: todayStr,
-        characterId: activeChar?.id || 1,
-        characterName: activeChar?.name || '主编',
+      const articles = (postData.articles || [])
+        .slice(0, 3)
+        .map((article, index) => normalizeArticle(article, index, rawNews));
+
+      const record = {
+        date: toDateKey(),
+        characterId: activeCharacter?.id || null,
+        characterName: activeCharacter?.name || '主编',
         editionNumber: postData.editionNumber || `NO. ${historyList.length + 1}`,
-        headlineLead: postData.headlineLead,
+        headlineLead: postData.headlineLead || '今天，世界仍在缓慢移动',
         topic: activeTopic,
-        editorNote: postData.editorNote,
-        articles: postData.articles || [],
-        dailyLexicon: postData.dailyLexicon,
+        editorNote: postData.editorNote || '',
+        articles,
+        dailyLexicon: postData.dailyLexicon || null,
         createdAt: Date.now()
       };
 
-      const savedId = await db.newspapers.add(newRecord);
-      newRecord.id = savedId;
+      const savedId = await db.newspapers.add(record);
+      const savedRecord = { ...record, id: savedId };
 
-      setHistoryList([newRecord, ...historyList]);
-      setCurrentPost(newRecord);
+      if (settings.autoClean) {
+        await cleanOldPosts();
+      }
+
+      const refreshedPosts = await db.newspapers
+        .orderBy('createdAt')
+        .reverse()
+        .toArray();
+
+      setHistoryList(refreshedPosts);
+      setCurrentPost(savedRecord);
       setCurrentIndex(0);
-    } catch (err) {
-      console.error('印报失败：', err);
-      alert('印发失败: ' + err.message);
+    } catch (error) {
+      console.error('印发晨报失败：', error);
+      setErrorMessage(error.message || '本期晨报未能完成印发，请稍后重试。');
     } finally {
       setLoading(false);
       setStatusMessage('');
     }
   };
 
+  const showOlderPost = () => {
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex >= historyList.length) return;
+
+    setCurrentIndex(nextIndex);
+    setCurrentPost(historyList[nextIndex]);
+  };
+
+  const showNewerPost = () => {
+    const previousIndex = currentIndex - 1;
+
+    if (previousIndex < 0) return;
+
+    setCurrentIndex(previousIndex);
+    setCurrentPost(historyList[previousIndex]);
+  };
+
   return (
-    <div className="-mx-4 -mt-6 flex min-h-[100dvh] flex-col bg-[var(--bg-main)] text-[var(--text-main)]">
-      
-      {/* 顶部极简操作条 */}
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-[var(--text-main)] border-opacity-15 bg-[var(--bg-main)]/95 px-4 py-2.5 backdrop-blur-md">
-        <button 
-          onClick={onClose} 
-          className="p-1 opacity-60 hover:opacity-100 transition-opacity"
-          aria-label="返回"
+    <div className="-mx-4 -mt-6 newspaper-shell">
+      <header className="newspaper-topbar">
+        <button
+          type="button"
+          className="newspaper-icon-button"
+          onClick={onClose}
+          aria-label="返回主页"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft size={20} />
         </button>
-        <div className="text-center font-serif">
-          <span className="text-[10px] tracking-[0.25em] font-bold uppercase opacity-80">
-            THE MORNING PRESS
-          </span>
+
+        <div className="newspaper-brand">
+          <div className="newspaper-brand-title">朝夕时报</div>
+          <div className="newspaper-brand-subtitle">The Daily Post</div>
         </div>
-        <button 
-          onClick={() => setIsSettingsOpen(true)} 
-          className="p-1 opacity-60 hover:opacity-100 transition-opacity"
-          aria-label="设置"
+
+        <button
+          type="button"
+          className="newspaper-icon-button"
+          onClick={() => setIsSettingsOpen(true)}
+          aria-label="报纸设置"
         >
-          <SettingsIcon className="w-4 h-4" />
+          <SettingsIcon size={17} />
         </button>
       </header>
 
-      {/* 核心报纸展卷区 */}
-      <main className="flex-1 px-3 py-4 flex flex-col items-center">
-        {loading ? (
-          <div className="my-auto flex flex-col items-center gap-4 py-24 text-center">
-            <RefreshCw className="w-6 h-6 animate-spin opacity-40" />
-            <div className="space-y-1">
-              <p className="text-xs font-serif tracking-wider opacity-80">{statusMessage}</p>
-              <p className="text-[10px] font-mono opacity-40 uppercase">Printing Edition...</p>
-            </div>
-          </div>
-        ) : currentPost ? (
-          /* 经典纸张容器：具有轻微内阴影与纸感边缘 */
-          <article className="relative w-full max-w-[420px] rounded-lg border border-[var(--text-main)] border-opacity-20 bg-[var(--control-soft-bg)] p-5 shadow-sm space-y-5 pb-12 select-text">
-            
-            {/* 1. 经典复古大报头 (Broadsheet Masthead) */}
-            <header className="text-center space-y-2">
-              <div className="flex justify-between items-center text-[8px] font-mono uppercase tracking-widest opacity-60 border-b border-[var(--text-main)] border-opacity-20 pb-1">
-                <span>{currentPost.editionNumber}</span>
+      {loading ? (
+        <main className="newspaper-loading">
+          <RefreshCw size={25} className="animate-spin opacity-50" />
+          <p>{statusMessage || '晨刊正在排印中…'}</p>
+        </main>
+      ) : currentPost ? (
+        <main className="newspaper-page">
+          <article>
+            <header className="newspaper-masthead">
+              <div className="newspaper-meta-row">
+                <span>{currentPost.editionNumber || 'NO. 001'}</span>
                 <span>{currentPost.date}</span>
-                <span className="truncate max-w-[120px]">{currentPost.topic}</span>
+                <span className="newspaper-meta-topic">{currentPost.topic}</span>
               </div>
 
-              {/* 经典报纸衬线大标题 */}
-              <h1 className="text-3xl sm:text-4xl font-serif font-black tracking-tight uppercase leading-none py-1">
-                NEWS PAPER
+              <h1 className="newspaper-title">
+                {currentPost.headlineLead}
               </h1>
 
-              {/* 报纸次标题横幅 */}
-              <div className="border-y-2 border-[var(--text-main)] border-opacity-80 py-1 flex items-center justify-between text-[9px] font-serif italic tracking-wide">
-                <span>“Informed Today, Empowered Tomorrow”</span>
-                <span className="font-mono text-[8px] uppercase not-italic font-bold tracking-widest">
-                  SPECIAL EDITION
-                </span>
+              <div className="newspaper-kicker">
+                A quiet selection from the moving world
               </div>
             </header>
 
-            {/* 2. 头版主头条 (Lead Story Banner) */}
-            <section className="space-y-2 border-b border-[var(--text-main)] border-opacity-20 pb-4">
-              <h2 className="text-lg sm:text-xl font-serif font-bold leading-tight tracking-tight text-left">
-                {currentPost.headlineLead}
-              </h2>
-
-              {/* 主编手记：经典双排引用栏 */}
-              <div className="relative border-l-2 border-[var(--text-main)] border-opacity-40 pl-3 py-1 space-y-1 text-left bg-black/[0.02] dark:bg-white/[0.02]">
-                <div className="flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-wider opacity-60">
-                  <Feather className="w-3 h-3" />
-                  <span>Editor's Note · {currentPost.characterName}</span>
-                </div>
-                <p className="text-xs font-serif leading-relaxed italic opacity-90">
-                  <span className="float-left text-2xl font-serif font-bold leading-none pr-1.5 pt-0.5 opacity-90">
-                    {currentPost.editorNote?.charAt(0) || '“'}
-                  </span>
-                  {currentPost.editorNote?.slice(1)}
-                </p>
+            <section className="newspaper-editorial">
+              <div className="newspaper-section-label">
+                <span>主编晨语</span>
               </div>
+
+              <p className="newspaper-editorial-copy">
+                “{currentPost.editorNote}”
+              </p>
+
+              <span className="newspaper-editorial-signature">
+                — {currentPost.characterName || '主编'}
+              </span>
             </section>
 
-            {/* 3. 经典双栏要闻排版 (Two-Column Broadsheet Layout) */}
-            <section className="grid grid-cols-2 gap-3 text-left">
-              {(currentPost.articles || []).map((art, idx) => (
-                <div 
-                  key={idx} 
-                  className={`space-y-1.5 ${
-                    idx % 2 === 0 
-                      ? 'border-r border-[var(--text-main)] border-opacity-15 pr-3' 
-                      : 'pl-1'
-                  } ${idx >= 2 ? 'border-t border-[var(--text-main)] border-opacity-15 pt-3' : ''}`}
+            <section className="newspaper-list" aria-label="本期新闻">
+              {(currentPost.articles || []).map((article, index) => (
+                <button
+                  type="button"
+                  key={article.id || `${article.headline}-${index}`}
+                  className="newspaper-story"
+                  onClick={() => setSelectedArticle(article)}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[7px] font-mono font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-[var(--text-main)] text-[var(--bg-main)]">
-                      {art.tag || 'TOPIC'}
+                  <div className="newspaper-story-topline">
+                    <span>
+                      <span className="newspaper-story-index">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      {' · '}
+                      {article.tag || 'BRIEF'}
                     </span>
-                    <span className="text-[8px] font-mono opacity-40 truncate max-w-[70px]">
-                      {art.source}
+
+                    <span className="newspaper-story-source">
+                      {getArticleSourceLabel(article)}
                     </span>
                   </div>
-                  <h3 className="text-xs font-serif font-bold leading-snug line-clamp-2">
-                    {art.headline}
-                  </h3>
-                  <p className="text-[11px] font-serif opacity-75 leading-relaxed line-clamp-4 text-justify">
-                    {art.content}
-                  </p>
-                </div>
+
+                  <h2 className="newspaper-story-title">{article.headline}</h2>
+
+                  {article.excerpt && (
+                    <p className="newspaper-story-excerpt">{article.excerpt}</p>
+                  )}
+
+                  <span className="newspaper-story-read">
+                    阅读剪报 <ChevronRight size={13} />
+                  </span>
+                </button>
               ))}
             </section>
 
-            {/* 4. 每日生词撕角 (Daily Lexicon Cutout Box) */}
             {currentPost.dailyLexicon && (
-              <section className="relative rounded border border-dashed border-[var(--text-main)] border-opacity-40 p-3 space-y-1.5 text-left bg-black/[0.015] dark:bg-white/[0.015]">
-                <div className="flex items-center justify-between text-[8px] font-mono uppercase tracking-widest opacity-50 border-b border-dashed border-[var(--text-main)] border-opacity-20 pb-1">
-                  <span className="flex items-center gap-1">
-                    <Scissors className="w-3 h-3" /> Cutout Lexicon
-                  </span>
-                  <span>Daily Word</span>
+              <section className="newspaper-lexicon">
+                <div className="newspaper-section-label">
+                  <span>词语剪报</span>
                 </div>
-                <div className="flex items-baseline gap-2 pt-0.5">
-                  <span className="font-serif font-bold text-sm">
-                    {currentPost.dailyLexicon.word}
-                  </span>
+
+                <p className="newspaper-lexicon-word">
+                  {currentPost.dailyLexicon.word}
                   {currentPost.dailyLexicon.phonetic && (
-                    <span className="text-[9px] font-mono opacity-50">
+                    <span className="newspaper-lexicon-phonetic">
                       {currentPost.dailyLexicon.phonetic}
                     </span>
                   )}
-                </div>
-                <p className="text-[11px] font-serif opacity-80 leading-snug">
+                </p>
+
+                <p className="newspaper-lexicon-translation">
                   {currentPost.dailyLexicon.translation}
                 </p>
+
                 {currentPost.dailyLexicon.quote && (
-                  <p className="text-[10px] font-serif italic opacity-60 leading-relaxed border-t border-[var(--text-main)] border-opacity-10 pt-1">
+                  <p className="newspaper-lexicon-quote">
                     “{currentPost.dailyLexicon.quote}”
                   </p>
                 )}
               </section>
             )}
 
-            {/* 5. 报刊底部双线与往期翻阅 (Broadsheet Footer & Pagination) */}
-            <footer className="border-t-2 border-[var(--text-main)] border-opacity-80 pt-3 flex items-center justify-between text-[10px] font-mono opacity-70">
-              {historyList.length > 1 ? (
-                <>
-                  <button
-                    disabled={currentIndex >= historyList.length - 1}
-                    onClick={() => {
-                      const next = currentIndex + 1;
-                      setCurrentIndex(next);
-                      setCurrentPost(historyList[next]);
-                    }}
-                    className="flex items-center gap-0.5 hover:opacity-100 disabled:opacity-20 transition-opacity"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" /> 往期
-                  </button>
-                  <span className="opacity-50 font-serif">
-                    PAGE {currentIndex + 1} OF {historyList.length}
-                  </span>
-                  <button
-                    disabled={currentIndex <= 0}
-                    onClick={() => {
-                      const prev = currentIndex - 1;
-                      setCurrentIndex(prev);
-                      setCurrentPost(historyList[prev]);
-                    }}
-                    className="flex items-center gap-0.5 hover:opacity-100 disabled:opacity-20 transition-opacity"
-                  >
-                    近期 <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              ) : (
-                <div className="w-full text-center font-serif text-[9px] uppercase tracking-widest opacity-50">
-                  First Issue · Complete Archive
-                </div>
-              )}
-            </footer>
-          </article>
-        ) : (
-          <div className="my-auto flex flex-col items-center gap-4 py-20 text-center max-w-xs">
-            <div className="w-12 h-12 rounded-2xl bg-[var(--control-soft-bg)] flex items-center justify-center border border-[var(--text-main)] border-opacity-15">
-              <BookOpen className="w-5 h-5 opacity-60" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-serif font-bold tracking-tight">今日晨刊尚未排印</h4>
-              <p className="text-[11px] font-serif opacity-50 leading-relaxed">
-                主编已就绪，点击下方按钮检索并编撰属于今天的独立早报。
-              </p>
-            </div>
-            <button
-              onClick={handleGenerateToday}
-              className="mt-2 px-5 py-2.5 text-xs font-serif font-bold rounded-xl bg-[var(--text-main)] text-[var(--bg-main)] hover:opacity-90 transition-opacity shadow-sm"
-            >
-              印发今日晨报
-            </button>
-          </div>
-        )}
-      </main>
+            {historyList.length > 1 && (
+              <nav className="mt-8 flex items-center justify-between border-t border-[color-mix(in_srgb,var(--text-main)_18%,transparent)] pt-4 text-[11px]">
+                <button
+                  type="button"
+                  disabled={currentIndex >= historyList.length - 1}
+                  onClick={showOlderPost}
+                  className="flex items-center gap-1 opacity-60 disabled:opacity-20"
+                >
+                  <ChevronLeft size={15} />
+                  往期
+                </button>
 
-      {/* 底部重印常驻栏 */}
-      {currentPost && !loading && (
-        <footer className="sticky bottom-0 z-20 p-2.5 border-t border-[var(--text-main)] border-opacity-10 flex justify-center bg-[var(--bg-main)]/90 backdrop-blur-md">
-          <button
-            onClick={handleGenerateToday}
-            className="flex items-center gap-2 px-4 py-1.5 text-xs font-serif font-bold rounded-full bg-[var(--control-soft-bg)] border border-[var(--text-main)] border-opacity-15 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5 opacity-60" /> 重新编撰今日刊
-          </button>
-        </footer>
+                <span className="font-mono text-[9px] opacity-40">
+                  {currentIndex + 1} / {historyList.length}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentIndex <= 0}
+                  onClick={showNewerPost}
+                  className="flex items-center gap-1 opacity-60 disabled:opacity-20"
+                >
+                  近期
+                  <ChevronRight size={15} />
+                </button>
+              </nav>
+            )}
+          </article>
+        </main>
+      ) : (
+        <main className="newspaper-empty">
+          <FileText size={26} className="opacity-45" />
+          <p>今天的晨刊尚未印发。主编会先整理可核验的外部来源，再开始编撰。</p>
+
+          {errorMessage && (
+            <p className="newspaper-status-error">{errorMessage}</p>
+          )}
+        </main>
       )}
 
-      {/* 设置弹窗 */}
+      <footer className="newspaper-bottom-actions">
+        <button
+          type="button"
+          className="newspaper-print-button"
+          onClick={handleGenerateToday}
+          disabled={loading}
+        >
+          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          {currentPost ? '印发新一期' : '印发今日晨刊'}
+        </button>
+      </footer>
+
+      {errorMessage && currentPost && (
+        <div className="fixed bottom-20 left-1/2 z-30 w-[min(calc(100%-32px),420px)] -translate-x-1/2 border border-[var(--text-main)] border-opacity-15 bg-[var(--bg-main)] px-4 py-3 text-center text-[11px] leading-relaxed opacity-90 shadow-sm">
+          {errorMessage}
+        </div>
+      )}
+
+      <DetailModal
+        article={selectedArticle}
+        onClose={() => setSelectedArticle(null)}
+      />
+
       <NewspaperSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        settings={newspaperSettings}
+        settings={settings}
         onSave={handleSaveSettings}
-        onCleanOldPosts={cleanOldPosts}
+        onCleanOldPosts={handleManualClean}
       />
     </div>
   );
