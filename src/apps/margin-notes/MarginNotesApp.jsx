@@ -1,249 +1,403 @@
-// src/apps/margin-notes/MarginNotesApp.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ArrowLeft,
-  MoreHorizontal,
   Bookmark,
-  Sparkles,
+  Check,
   Download,
-  Trash2,
-  SlidersHorizontal,
+  MoreHorizontal,
   RefreshCw,
-  X,
-  Check
+  Settings2,
+  Sparkles,
+  Trash2,
+  X
 } from 'lucide-react';
+
 import db from '../../db';
+
 import { CURATED_EXCERPTS } from './curatedExcerpts';
 import { generateMarginNotePage } from './marginNotesAiService';
 import { exportPageToImage } from './marginNotesExportService';
+
 import MarginNotesPage from './MarginNotesPage';
 import MarginNotesArchive from './MarginNotesArchive';
 import MarginNotesSettingsModal from './MarginNotesSettingsModal';
+
 import './marginNotes.css';
 
+const DEFAULT_SETTINGS = {
+  targetLang: 'en',
+  auxLang: '简体中文',
+  themePref: '文学与生活哲思',
+  customAuthorHint: ''
+};
+
+const LANGUAGE_LABELS = {
+  en: 'English',
+  ja: '日本語',
+  fr: 'Français',
+  de: 'Deutsch',
+  es: 'Español',
+  it: 'Italiano',
+  ru: 'Русский',
+  zh: '中文'
+};
+
 export default function MarginNotesApp({ onBackHub }) {
-  const [activeView, setActiveView] = useState('reading'); // 'reading' | 'archive'
+  const [activeView, setActiveView] = useState('reading');
   const [characters, setCharacters] = useState([]);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [currentPage, setCurrentPage] = useState(null);
   const [archiveList, setArchiveList] = useState([]);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showCompanionPicker, setShowCompanionPicker] = useState(false);
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
+
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const [settings, setSettings] = useState({
-    targetLang: 'en',
-    auxLang: '简体中文',
-    themePref: '文学与生活哲思',
-    customAuthorHint: ''
-  });
+  const [showMenu, setShowMenu] = useState(false);
+  const [showCharacters, setShowCharacters] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
-  const pageExportRef = useRef(null);
+  const [pageExportNode, setPageExportNode] = useState(null);
 
-  // 初始化加载
+  const refreshArchive = useCallback(async () => {
+    try {
+      const list = await db.marginNotes
+        .orderBy('createdAt')
+        .reverse()
+        .toArray();
+
+      setArchiveList(list || []);
+
+      return list || [];
+    } catch (error) {
+      console.error('[MarginNotes] 读取书架失败：', error);
+      return [];
+    }
+  }, []);
+
   useEffect(() => {
-    let isMounted = true;
-    const init = async () => {
+    let mounted = true;
+
+    async function initialize() {
       try {
-        const charList = await db.characters.toArray();
-        const settingsRecord = await db.settings.get('margin_notes_settings');
-        const archives = await db.marginNotes.reverse().toArray();
+        const [characterList, settingRecord, pages] =
+          await Promise.all([
+            db.characters.toArray(),
+            db.settings.get('margin_notes_settings'),
+            db.marginNotes
+              .orderBy('createdAt')
+              .reverse()
+              .toArray()
+          ]);
 
-        if (!isMounted) return;
+        if (!mounted) return;
 
-        setCharacters(charList || []);
-        if (charList && charList.length > 0) {
-          setSelectedCharacter(charList[0]);
+        const list = characterList || [];
+        const savedSettings = settingRecord?.value || DEFAULT_SETTINGS;
+
+        setCharacters(list);
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...savedSettings
+        });
+
+        if (list.length > 0) {
+          setSelectedCharacter(list[0]);
         }
-        if (settingsRecord?.value) {
-          setSettings(settingsRecord.value);
-        }
-        setArchiveList(archives || []);
 
-        if (archives && archives.length > 0) {
-          setCurrentPage(archives[0]);
-        } else {
-          // 预载公域名著首篇
-          const defaultEx = CURATED_EXCERPTS[0];
+        setArchiveList(pages || []);
+
+        if (pages?.length > 0) {
+          setCurrentPage(pages[0]);
+        } else if (CURATED_EXCERPTS.length > 0) {
           setCurrentPage({
-            ...defaultEx,
-            characterName: charList?.[0]?.name || 'Companion',
-            characterAvatar: charList?.[0]?.avatar || '',
+            ...CURATED_EXCERPTS[0],
+            characterId: list[0]?.id || null,
+            characterName: list[0]?.name || 'Companion',
+            characterAvatar: list[0]?.avatar || '',
             date: new Date().toISOString().slice(0, 10),
             createdAt: Date.now()
           });
         }
-      } catch (err) {
-        console.error('初始化页边注失败:', err);
+      } catch (error) {
+        console.error('[MarginNotes] 初始化失败：', error);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-    };
+    }
 
-    void init();
+    void initialize();
+
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, []);
 
-  const refreshArchive = useCallback(async () => {
-    const list = await db.marginNotes.reverse().toArray();
-    setArchiveList(list || []);
-  }, []);
+  const handlePageUpdated = useCallback(
+    async (updatedPage) => {
+      setCurrentPage(updatedPage);
 
-  // AI 翻开新一页
-  const handleTurnNewPage = async () => {
-    if (isLoadingAi) return;
-    setIsLoadingAi(true);
+      if (updatedPage?.id) {
+        await refreshArchive();
+      }
+    },
+    [refreshArchive]
+  );
+
+  const handleGeneratePage = async () => {
+    if (isGenerating) return;
+
+    setIsGenerating(true);
+    setShowMenu(false);
+
     try {
-      const pageData = await generateMarginNotePage({
+      const generated = await generateMarginNotePage({
         character: selectedCharacter,
         targetLanguage: settings.targetLang,
         targetLanguageLabel:
-          settings.targetLang === 'ja'
-            ? '日本語'
-            : settings.targetLang === 'fr'
-            ? 'Français'
-            : settings.targetLang === 'de'
-            ? 'Deutsch'
-            : 'English',
+          LANGUAGE_LABELS[settings.targetLang] || settings.targetLang,
         auxiliaryLanguageLabel: settings.auxLang,
         themePreference: settings.themePref,
         customWorkHint: settings.customAuthorHint
       });
 
-      const id = await db.marginNotes.add(pageData);
-      const saved = { ...pageData, id };
-      setCurrentPage(saved);
+      const page = {
+        ...generated,
+        characterId: selectedCharacter?.id || null,
+        characterName: selectedCharacter?.name || 'Companion',
+        characterAvatar: selectedCharacter?.avatar || '',
+        date: new Date().toISOString().slice(0, 10),
+        createdAt: Date.now()
+      };
+
+      const id = await db.marginNotes.add(page);
+      const savedPage = { ...page, id };
+
+      setCurrentPage(savedPage);
       setActiveView('reading');
+
       await refreshArchive();
-    } catch (err) {
-      alert(`无法翻开新页: ${err.message}`);
+    } catch (error) {
+      console.error('[MarginNotes] 生成新页失败：', error);
+      window.alert(
+        `翻开新页失败：${error?.message || '请检查 AI 设置'}`
+      );
     } finally {
-      setIsLoadingAi(false);
+      setIsGenerating(false);
     }
   };
 
-  // 导出书签
-  const handleExportImage = async () => {
-    if (!pageExportRef.current || isExporting) return;
+  const handleSelectCharacter = (character) => {
+    setSelectedCharacter(character);
+    setShowCharacters(false);
+  };
+
+  const handleDeleteCurrentPage = async () => {
+    if (!currentPage?.id) return;
+
+    const confirmed = window.confirm(
+      '确定要撕下这一页吗？删除后，文章、批注和回注都会被移除。'
+    );
+
+    if (!confirmed) return;
+
     try {
-      setIsExporting(true);
-      setShowMoreMenu(false);
+      await db.marginNotes.delete(currentPage.id);
+
+      const pages = await refreshArchive();
+
+      setCurrentPage(pages[0] || null);
+      setShowMenu(false);
+    } catch (error) {
+      console.error('[MarginNotes] 删除书页失败：', error);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!pageExportNode || isExporting) return;
+
+    setIsExporting(true);
+    setShowMenu(false);
+
+    try {
       await exportPageToImage(
-        pageExportRef.current,
+        pageExportNode,
         `margin-notes-${currentPage?.source?.workTitle || 'page'}.png`
       );
-    } catch (err) {
-      alert('导出图片失败');
+    } catch (error) {
+      console.error('[MarginNotes] 导出失败：', error);
+      window.alert('导出失败，请稍后重试。');
     } finally {
       setIsExporting(false);
     }
   };
 
-  // 删除当前书页
-  const handleDeleteCurrentPage = async () => {
-    if (!currentPage?.id) return;
-    if (window.confirm('撕下并移出此书页？')) {
-      await db.marginNotes.delete(currentPage.id);
-      setShowMoreMenu(false);
-      const remaining = archiveList.filter((a) => a.id !== currentPage.id);
-      setArchiveList(remaining);
-      setCurrentPage(remaining[0] || null);
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="margin-notes-root">
+        <div className="mn-empty">
+          <RefreshCw size={18} className="animate-spin" />
+          <div className="mn-empty__text">正在打开书页……</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="margin-notes-root">
-      {/* 顶部极简透明导航 */}
-      <header className="w-full flex items-center justify-between px-4 py-3 sticky top-0 z-30 backdrop-blur-xs bg-[var(--bg-main)]/80">
-        <button
-          onClick={onBackHub}
-          className="p-1.5 opacity-60 hover:opacity-100 transition-opacity"
-          title="返回"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-
-        <span className="font-serif text-xs font-semibold tracking-wider opacity-60">
-          THE MARGIN NOTES
-        </span>
-
-        {/* 右上角 ⋯ 菜单 */}
-        <div className="relative">
+      <header className="mn-topbar">
+        <div className="mn-topbar__side">
           <button
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className="p-1.5 opacity-60 hover:opacity-100 transition-opacity"
+            type="button"
+            className="mn-icon-button"
+            onClick={onBackHub}
+            aria-label="返回主页"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <ArrowLeft size={18} />
+          </button>
+        </div>
+
+        <div className="mn-topbar__title">
+          THE MARGIN NOTES
+          <small>READING TOGETHER</small>
+        </div>
+
+        <div className="mn-topbar__side">
+          <button
+            type="button"
+            className="mn-icon-button"
+            onClick={() => setActiveView(
+              activeView === 'reading' ? 'archive' : 'reading'
+            )}
+            aria-label={activeView === 'reading' ? '打开书架' : '返回书页'}
+          >
+            <Bookmark size={17} />
           </button>
 
-          {showMoreMenu && (
-            <div
-              className="absolute right-0 mt-1 w-36 rounded-xl py-1.5 shadow-xl text-xs z-50 animate-in fade-in duration-100 text-left"
-              style={{
-                backgroundColor: 'var(--card-bg)',
-                border: '1px solid var(--card-border)'
-              }}
-            >
-              <button
-                onClick={handleExportImage}
-                className="w-full px-3 py-2 flex items-center gap-2 opacity-80 hover:opacity-100 hover:bg-[var(--control-soft-bg)]"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>存为书签</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowSettings(true);
-                  setShowMoreMenu(false);
-                }}
-                className="w-full px-3 py-2 flex items-center gap-2 opacity-80 hover:opacity-100 hover:bg-[var(--control-soft-bg)]"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span>共读设置</span>
-              </button>
-              {currentPage?.id && (
-                <button
-                  onClick={handleDeleteCurrentPage}
-                  className="w-full px-3 py-2 flex items-center gap-2 text-red-500 hover:bg-red-500/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>撕下此页</span>
-                </button>
-              )}
-            </div>
-          )}
+          <button
+            type="button"
+            className="mn-icon-button"
+            onClick={() => setShowMenu((value) => !value)}
+            aria-label="打开更多操作"
+          >
+            <MoreHorizontal size={19} />
+          </button>
         </div>
+
+        {showMenu && (
+          <div className="mn-menu">
+            {activeView === 'reading' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleGeneratePage}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  <span>
+                    {isGenerating ? '正在翻阅……' : '翻开新一页'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting || !currentPage}
+                >
+                  <Download size={14} />
+                  <span>
+                    {isExporting ? '正在保存……' : '保存为书签'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCharacters(true);
+                    setShowMenu(false);
+                  }}
+                >
+                  <Settings2 size={14} />
+                  <span>选择共读角色</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettings(true);
+                    setShowMenu(false);
+                  }}
+                >
+                  <Settings2 size={14} />
+                  <span>共读设置</span>
+                </button>
+
+                {currentPage?.id && (
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={handleDeleteCurrentPage}
+                  >
+                    <Trash2 size={14} />
+                    <span>撕下这一页</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {activeView === 'archive' && (
+              <button
+                type="button"
+                onClick={() => setShowMenu(false)}
+              >
+                <Bookmark size={14} />
+                <span>正在浏览书架</span>
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
-      {/* 主视图 */}
-      <main className="w-full flex-1">
+      <main>
         {activeView === 'reading' ? (
-          <MarginNotesPage
-            page={currentPage}
-            character={selectedCharacter}
-            pageRef={pageExportRef}
-            onPageUpdated={(up) => {
-              setCurrentPage(up);
-              refreshArchive();
-            }}
-            onOpenCompanionPicker={() => setShowCompanionPicker(true)}
-          />
+          <div
+            ref={setPageExportNode}
+            className="mn-export-area"
+          >
+            <MarginNotesPage
+              page={currentPage}
+              character={selectedCharacter}
+              onPageUpdated={handlePageUpdated}
+              onOpenCompanionPicker={() => setShowCharacters(true)}
+              onOpenMenu={() => setShowMenu(true)}
+            />
+          </div>
         ) : (
-          <div className="pt-4">
+          <div className="mn-content">
+            <div className="mn-running-head">
+              <span>BOOKSHELF</span>
+              <span className="mn-running-head__right">
+                {archiveList.length} PAGES
+              </span>
+            </div>
+
             <MarginNotesArchive
               archiveList={archiveList}
               onSelectPage={(page) => {
                 setCurrentPage(page);
                 setActiveView('reading');
               }}
-              onDeletePage={(delId) => {
-                const remaining = archiveList.filter((a) => a.id !== delId);
-                setArchiveList(remaining);
-                if (currentPage?.id === delId) {
-                  setCurrentPage(remaining[0] || null);
+              onDeletePage={async (deletedId) => {
+                const pages = await refreshArchive();
+
+                if (currentPage?.id === deletedId) {
+                  setCurrentPage(pages[0] || null);
                 }
               }}
             />
@@ -251,92 +405,100 @@ export default function MarginNotesApp({ onBackHub }) {
         )}
       </main>
 
-      {/* 底部悬浮控制岛（书架切换与翻页） */}
-      <div className="mn-bottom-island">
-        <button
-          onClick={() => setActiveView(activeView === 'reading' ? 'archive' : 'reading')}
-          className="flex items-center gap-1.5 text-xs opacity-75 hover:opacity-100 font-serif"
+      {showCharacters && (
+        <div
+          className="mn-drawer-backdrop"
+          onClick={() => setShowCharacters(false)}
         >
-          <Bookmark className="h-3.5 w-3.5" />
-          <span>{activeView === 'reading' ? '书架' : '书页'}</span>
-        </button>
-
-        <div className="h-3 w-px bg-[var(--card-border)]" />
-
-        <button
-          onClick={handleTurnNewPage}
-          disabled={isLoadingAi}
-          className="flex items-center gap-1.5 text-xs font-serif opacity-90 hover:opacity-100 disabled:opacity-40"
-        >
-          {isLoadingAi ? (
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="h-3.5 w-3.5" />
-          )}
-          <span>{isLoadingAi ? '翻阅中...' : '翻开新一页'}</span>
-        </button>
-      </div>
-
-      {/* 伴读角色选择抽屉 */}
-      {showCompanionPicker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs animate-in fade-in">
-          <div
-            className="w-full max-w-md rounded-t-2xl p-5 shadow-2xl text-left space-y-4"
-            style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+          <section
+            className="mn-drawer"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--card-border)' }}>
+            <div className="mn-drawer__head">
               <div>
-                <h4 className="font-serif text-sm font-bold">选择共读伴侣</h4>
-                <p className="text-[10px] opacity-40">此后的新页批注将由其写下</p>
+                <div className="mn-drawer__title">
+                  选择今天一起读的人
+                </div>
+                <div className="mn-drawer__subtitle">
+                  THE NEXT PAGE WILL CARRY THEIR VOICE
+                </div>
               </div>
+
               <button
-                onClick={() => setShowCompanionPicker(false)}
-                className="p-1 opacity-50 hover:opacity-100"
+                type="button"
+                className="mn-icon-button"
+                onClick={() => setShowCharacters(false)}
+                aria-label="关闭角色选择"
               >
-                <X className="h-4 w-4" />
+                <X size={17} />
               </button>
             </div>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {characters.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => {
-                    setSelectedCharacter(c);
-                    setShowCompanionPicker(false);
-                  }}
-                  className={`p-3 rounded-xl cursor-pointer flex items-center justify-between transition-all ${
-                    selectedCharacter?.id === c.id ? 'font-bold' : 'opacity-70 hover:opacity-100'
-                  }`}
-                  style={{ backgroundColor: 'var(--control-soft-bg)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    {c.avatar ? (
-                      <img src={c.avatar} alt={c.name} className="h-7 w-7 rounded-full object-cover" />
-                    ) : (
-                      <div className="h-7 w-7 rounded-full bg-current opacity-20" />
-                    )}
-                    <div>
-                      <div className="text-xs">{c.name}</div>
-                      <div className="text-[10px] opacity-50 font-normal line-clamp-1">
-                        {c.bio || '安静地共读'}
-                      </div>
-                    </div>
-                  </div>
-                  {selectedCharacter?.id === c.id && <Check className="h-3.5 w-3.5" />}
+            {characters.length === 0 && (
+              <div className="mn-empty">
+                <div className="mn-empty__title">
+                  角色库还是空的
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="mn-empty__text">
+                  创建角色后，他们才可以出现在共读页。
+                </div>
+              </div>
+            )}
+
+            {characters.map((character) => {
+              const isSelected =
+                selectedCharacter?.id === character.id;
+
+              return (
+                <button
+                  type="button"
+                  className="mn-character-option"
+                  key={character.id}
+                  onClick={() => handleSelectCharacter(character)}
+                >
+                  {character.avatar ? (
+                    <img
+                      src={character.avatar}
+                      alt=""
+                      className="mn-character-option__avatar"
+                    />
+                  ) : (
+                    <span className="mn-character-option__placeholder" />
+                  )}
+
+                  <span>
+                    <span className="mn-character-option__name">
+                      {character.name}
+                    </span>
+
+                    <span className="mn-character-option__bio">
+                      {character.bio || '安静地共读。'}
+                    </span>
+                  </span>
+
+                  {isSelected && (
+                    <Check
+                      size={16}
+                      className="mn-character-option__check"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </section>
         </div>
       )}
 
-      {/* 偏好设置弹窗 */}
       {showSettings && (
         <MarginNotesSettingsModal
           currentSettings={settings}
           onClose={() => setShowSettings(false)}
-          onSave={(s) => setSettings(s)}
+          onSave={(nextSettings) => {
+            setSettings({
+              ...DEFAULT_SETTINGS,
+              ...nextSettings
+            });
+          }}
         />
       )}
     </div>

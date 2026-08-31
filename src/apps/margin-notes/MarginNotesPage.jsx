@@ -1,260 +1,475 @@
-// src/apps/margin-notes/MarginNotesPage.jsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Sparkles,
-  Send,
   ChevronDown,
   ChevronUp,
-  X
+  Send
 } from 'lucide-react';
-import { generateCharacterResonance } from './marginNotesAiService';
+
 import db from '../../db';
+import { generateCharacterResonance } from './marginNotesAiService';
+
+function escapeRegExp(value = '') {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function splitParagraphs(text = '') {
+  return text
+    .split(/\n{2,}/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function findVocabularyInParagraph(paragraph, vocabulary = []) {
+  return vocabulary.filter((item) => {
+    if (!item?.term) return false;
+
+    const term = item.term.trim();
+    if (!term) return false;
+
+    return new RegExp(escapeRegExp(term), 'i').test(paragraph);
+  });
+}
+
+function renderParagraphWithVocabulary(
+  paragraph,
+  vocabulary,
+  activeVocab,
+  onVocabularyClick
+) {
+  const matched = vocabulary
+    .filter((item) => item?.term)
+    .map((item) => ({
+      ...item,
+      index: vocabulary.indexOf(item)
+    }))
+    .filter((item) => {
+      const index = paragraph
+        .toLocaleLowerCase()
+        .indexOf(item.term.toLocaleLowerCase());
+
+      return index >= 0;
+    })
+    .sort((a, b) => {
+      const aIndex = paragraph
+        .toLocaleLowerCase()
+        .indexOf(a.term.toLocaleLowerCase());
+
+      const bIndex = paragraph
+        .toLocaleLowerCase()
+        .indexOf(b.term.toLocaleLowerCase());
+
+      return aIndex - bIndex;
+    });
+
+  if (matched.length === 0) {
+    return paragraph;
+  }
+
+  const result = [];
+  let cursor = 0;
+
+  matched.forEach((item) => {
+    const start = paragraph
+      .toLocaleLowerCase()
+      .indexOf(item.term.toLocaleLowerCase(), cursor);
+
+    if (start < 0) return;
+
+    if (start > cursor) {
+      result.push(
+        <React.Fragment key={`plain-${cursor}`}>
+          {paragraph.slice(cursor, start)}
+        </React.Fragment>
+      );
+    }
+
+    result.push(
+      <button
+        key={`vocab-${item.index}-${start}`}
+        type="button"
+        className={`mn-vocab-mark ${
+          activeVocab === item.index ? 'is-active' : ''
+        }`}
+        onClick={() => onVocabularyClick(item.index)}
+      >
+        {paragraph.slice(start, start + item.term.length)}
+      </button>
+    );
+
+    cursor = start + item.term.length;
+  });
+
+  if (cursor < paragraph.length) {
+    result.push(
+      <React.Fragment key={`plain-end-${cursor}`}>
+        {paragraph.slice(cursor)}
+      </React.Fragment>
+    );
+  }
+
+  return result;
+}
+
+function getNotesForParagraph(paragraph, notes = []) {
+  return notes.filter((note) => {
+    const anchor = note?.anchorPhrase?.trim();
+
+    if (!anchor) return false;
+
+    return paragraph
+      .toLocaleLowerCase()
+      .includes(anchor.toLocaleLowerCase());
+  });
+}
 
 export default function MarginNotesPage({
   page,
   character,
-  pageRef,
   onPageUpdated,
-  onOpenCompanionPicker
+  onOpenCompanionPicker,
+  onOpenMenu
 }) {
   const [activeVocab, setActiveVocab] = useState(null);
   const [showTranslation, setShowTranslation] = useState(false);
-  const [userNoteInput, setUserNoteInput] = useState('');
+  const [noteInput, setNoteInput] = useState('');
   const [isReplying, setIsReplying] = useState(false);
 
-  if (!page) return null;
+  const paragraphs = useMemo(
+    () => splitParagraphs(page?.originalText || ''),
+    [page?.originalText]
+  );
 
-  // 提交读者回注
-  const handleAddUserNote = async (e) => {
-    e.preventDefault();
-    if (!userNoteInput.trim() || isReplying) return;
+  if (!page) {
+    return (
+      <div className="mn-empty">
+        <div className="mn-empty__title">这本书还没有翻开。</div>
+        <div className="mn-empty__text">
+          从书架中选择一页，或翻开一篇新的共读文章。
+        </div>
+      </div>
+    );
+  }
 
-    const content = userNoteInput.trim();
-    setUserNoteInput('');
-    setIsReplying(true);
+  const vocabulary = Array.isArray(page.vocabulary)
+    ? page.vocabulary
+    : [];
+
+  const characterNotes = Array.isArray(page.characterNotes)
+    ? page.characterNotes
+    : [];
+
+  const userNotes = Array.isArray(page.userNotes)
+    ? page.userNotes
+    : [];
+
+  const handleVocabularyClick = (index) => {
+    setActiveVocab(activeVocab === index ? null : index);
+  };
+
+  const handleSubmitNote = async (event) => {
+    event.preventDefault();
+
+    const content = noteInput.trim();
+
+    if (!content || isReplying) return;
 
     const newNote = {
-      id: `un-${Date.now()}`,
+      id: `user-note-${Date.now()}`,
       content,
       createdAt: Date.now(),
       characterReply: null,
       characterReplyAt: null
     };
 
-    const updatedNotes = [...(page.userNotes || []), newNote];
-    const updatedPage = { ...page, userNotes: updatedNotes };
+    const updatedNotes = [...userNotes, newNote];
+    const optimisticPage = {
+      ...page,
+      userNotes: updatedNotes
+    };
+
+    setNoteInput('');
+    setIsReplying(true);
+    onPageUpdated?.(optimisticPage);
 
     try {
       if (page.id) {
-        await db.marginNotes.update(page.id, { userNotes: updatedNotes });
-      }
-      onPageUpdated?.(updatedPage);
-
-      // 请求伴读角色生成回响
-      if (character) {
-        const resonance = await generateCharacterResonance({
-          character,
-          pageData: page,
-          userNoteContent: content
+        await db.marginNotes.update(page.id, {
+          userNotes: updatedNotes
         });
-
-        if (resonance) {
-          newNote.characterReply = resonance;
-          newNote.characterReplyAt = Date.now();
-          const finalNotes = updatedNotes.map((n) =>
-            n.id === newNote.id ? newNote : n
-          );
-          if (page.id) {
-            await db.marginNotes.update(page.id, { userNotes: finalNotes });
-          }
-          onPageUpdated?.({ ...page, userNotes: finalNotes });
-        }
       }
-    } catch (err) {
-      console.error('提交回注失败:', err);
+
+      if (!character) return;
+
+      const reply = await generateCharacterResonance({
+        character,
+        pageData: page,
+        userNoteContent: content
+      });
+
+      if (!reply) return;
+
+      const completedNote = {
+        ...newNote,
+        characterReply: reply,
+        characterReplyAt: Date.now()
+      };
+
+      const completedNotes = updatedNotes.map((item) =>
+        item.id === completedNote.id ? completedNote : item
+      );
+
+      if (page.id) {
+        await db.marginNotes.update(page.id, {
+          userNotes: completedNotes
+        });
+      }
+
+      onPageUpdated?.({
+        ...page,
+        userNotes: completedNotes
+      });
+    } catch (error) {
+      console.error('[MarginNotes] 保存回注失败：', error);
     } finally {
       setIsReplying(false);
     }
   };
 
   return (
-    <div ref={pageRef} className="margin-notes-sheet text-left">
-      {/* 1. 书眉 Running Head */}
+    <div className="mn-content">
       <div className="mn-running-head">
-        The Margin Notes · {page.targetLanguageLabel || page.language?.toUpperCase()}
+        <span>
+          THE MARGIN NOTES
+        </span>
+
+        <span className="mn-running-head__right">
+          {page.targetLanguageLabel || page.language?.toUpperCase() || 'READING'}
+        </span>
       </div>
 
-      {/* 2. 扉页与出处元数据 */}
-      <div className="mn-front-matter">
-        <h2 className="mn-work-title">{page.source?.workTitle || 'Untitled'}</h2>
-        <div className="mn-author-meta">
-          {page.source?.author}
+      <section className="mn-source">
+        <div className="mn-source__eyebrow">
+          A passage kept for today
+        </div>
+
+        <h1 className="mn-source__title">
+          {page.source?.workTitle || 'Untitled passage'}
+        </h1>
+
+        <div className="mn-source__meta">
+          {page.source?.author || 'Unknown author'}
           {page.source?.year ? ` · ${page.source.year}` : ''}
-          {page.source?.section ? ` · ${page.source.section}` : ''}
         </div>
 
-        {/* 伴读签名徽章 (点击可切换伴读) */}
-        <div>
-          <button
-            type="button"
-            data-export-ignore="true"
-            onClick={onOpenCompanionPicker}
-            className="mn-companion-badge"
-          >
-            <span>with {page.characterName || character?.name || 'Companion'}</span>
-            <span className="opacity-50">✎</span>
-          </button>
-        </div>
-      </div>
+        {page.source?.section && (
+          <div className="mn-source__section">
+            {page.source.section}
+          </div>
+        )}
 
-      {/* 3. 正文排版 */}
-      <div className="mn-reading-text select-text whitespace-pre-line">
-        {page.originalText}
-      </div>
+        <button
+          type="button"
+          className="mn-companion-line"
+          onClick={onOpenCompanionPicker}
+          data-export-ignore="true"
+        >
+          {character?.avatar || page.characterAvatar ? (
+            <img
+              className="mn-companion-line__avatar"
+              src={character?.avatar || page.characterAvatar}
+              alt=""
+            />
+          ) : (
+            <span className="mn-companion-line__placeholder" />
+          )}
 
-      {/* 4. 译文小折叠 */}
+          <span>
+            with {character?.name || page.characterName || 'Companion'}
+          </span>
+
+          <span aria-hidden="true">·</span>
+          <span>change</span>
+        </button>
+      </section>
+
+      <section className="mn-reading">
+        {paragraphs.map((paragraph, paragraphIndex) => {
+          const paragraphNotes = getNotesForParagraph(
+            paragraph,
+            characterNotes
+          );
+
+          const paragraphVocabulary = findVocabularyInParagraph(
+            paragraph,
+            vocabulary
+          );
+
+          return (
+            <React.Fragment key={`paragraph-${paragraphIndex}`}>
+              <p className="mn-paragraph">
+                {renderParagraphWithVocabulary(
+                  paragraph,
+                  paragraphVocabulary,
+                  activeVocab,
+                  handleVocabularyClick
+                )}
+              </p>
+
+              {paragraphNotes.map((note, noteIndex) => (
+                <aside
+                  key={note.id || `${paragraphIndex}-${noteIndex}`}
+                  className={`mn-inline-bookmark ${
+                    (paragraphIndex + noteIndex) % 3 === 2
+                      ? 'is-left'
+                      : ''
+                  }`}
+                >
+                  <span className="mn-inline-bookmark__anchor">
+                    {note.anchorPhrase}
+                  </span>
+
+                  <p className="mn-inline-bookmark__text">
+                    {note.note}
+                  </p>
+
+                  <span className="mn-inline-bookmark__signature">
+                    — {page.characterName || character?.name || 'Companion'}
+                  </span>
+                </aside>
+              ))}
+            </React.Fragment>
+          );
+        })}
+      </section>
+
+      {activeVocab !== null && vocabulary[activeVocab] && (
+        <section className="mn-vocabulary">
+          <div className="mn-section-label">
+            Word note
+          </div>
+
+          <div className="mn-word">
+            <div className="mn-word__head">
+              <strong>{vocabulary[activeVocab].term}</strong>
+
+              {vocabulary[activeVocab].phonetic && (
+                <span className="mn-word__phonetic">
+                  {vocabulary[activeVocab].phonetic}
+                </span>
+              )}
+            </div>
+
+            <div className="mn-word__meaning">
+              {vocabulary[activeVocab].meaning}
+            </div>
+
+            {vocabulary[activeVocab].nuance && (
+              <div className="mn-word__nuance">
+                {vocabulary[activeVocab].nuance}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {page.translation && (
-        <div className="mt-6 pt-3 border-t border-dashed" style={{ borderColor: 'var(--card-border)' }}>
+        <section className="mn-translation">
           <button
             type="button"
+            className="mn-translation__toggle"
+            onClick={() => setShowTranslation((value) => !value)}
             data-export-ignore="true"
-            onClick={() => setShowTranslation(!showTranslation)}
-            className="flex items-center gap-1 text-[11px] opacity-40 hover:opacity-75 transition-opacity mb-2"
           >
-            <span>{showTranslation ? '收起译文' : '查看参考译文'}</span>
-            {showTranslation ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {showTranslation ? '收起参考译文' : '查看参考译文'}
+
+            {showTranslation ? (
+              <ChevronUp size={13} />
+            ) : (
+              <ChevronDown size={13} />
+            )}
           </button>
+
           {showTranslation && (
-            <p className="text-xs leading-relaxed opacity-70 font-serif whitespace-pre-line animate-in fade-in duration-200">
+            <p className="mn-translation__text">
               {page.translation}
             </p>
           )}
-        </div>
+        </section>
       )}
 
-      {/* 5. 角色的页边批注 */}
-      {page.characterNotes && page.characterNotes.length > 0 && (
-        <div className="mt-8 space-y-4">
-          {page.characterNotes.map((cn, idx) => (
-            <div key={cn.id || idx} className="mn-character-pencil">
-              {cn.anchorPhrase && (
-                <div className="mn-pencil-anchor">
-                  § {cn.anchorPhrase}
-                </div>
-              )}
-              <div>{cn.note}</div>
-              <div className="mn-character-sig">
-                — {page.characterName || character?.name || 'Companion'}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 6. 生词轻触标签条 */}
-      {page.vocabulary && page.vocabulary.length > 0 && (
-        <div className="mt-6 pt-3" data-export-ignore="true">
-          <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-[10px] uppercase font-mono tracking-widest opacity-35 mr-1">
-              Words
-            </span>
-            {page.vocabulary.map((vocab, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setActiveVocab(activeVocab === i ? null : i)}
-                className={`text-xs px-2 py-0.5 rounded transition-all font-serif ${
-                  activeVocab === i ? 'bg-[var(--control-soft-bg)] font-bold' : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{ border: '1px solid var(--card-border)' }}
-              >
-                {vocab.term}
-              </button>
-            ))}
+      {userNotes.length > 0 && (
+        <section className="mn-responses">
+          <div className="mn-section-label">
+            Notes left in the margin
           </div>
 
-          {/* 生词极简释义条 */}
-          {activeVocab !== null && page.vocabulary[activeVocab] && (
+          {userNotes.map((item) => (
             <div
-              className="mt-2.5 p-3 rounded-lg text-xs space-y-1 relative animate-in fade-in duration-150"
-              style={{ backgroundColor: 'var(--control-soft-bg)' }}
+              className="mn-response"
+              key={item.id || item.createdAt}
             >
-              <button
-                onClick={() => setActiveVocab(null)}
-                className="absolute right-2 top-2 opacity-40 hover:opacity-80"
-              >
-                <X className="h-3 w-3" />
-              </button>
-              <div className="font-bold flex items-center gap-2">
-                <span>{page.vocabulary[activeVocab].term}</span>
-                {page.vocabulary[activeVocab].phonetic && (
-                  <span className="font-mono text-[10px] opacity-40">
-                    {page.vocabulary[activeVocab].phonetic}
-                  </span>
-                )}
+              <div className="mn-response__user">
+                <span className="mn-response__name">
+                  YOU
+                </span>
+                {item.content}
               </div>
-              <div className="opacity-80">{page.vocabulary[activeVocab].meaning}</div>
-              {page.vocabulary[activeVocab].nuance && (
-                <div className="opacity-50 text-[11px] italic pt-0.5">
-                  {page.vocabulary[activeVocab].nuance}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* 7. 读者与伴读的历史回注流 */}
-      {page.userNotes && page.userNotes.length > 0 && (
-        <div className="mt-8 space-y-4">
-          {page.userNotes.map((un) => (
-            <div key={un.id} className="space-y-2 text-xs">
-              <div className="flex items-start gap-2 italic opacity-85 font-serif">
-                <span className="opacity-40">✎</span>
-                <span>{un.content}</span>
-              </div>
-              {un.characterReply && (
-                <div
-                  className="ml-4 pl-3 py-1 border-l text-xs italic opacity-75 font-serif"
-                  style={{ borderColor: 'var(--card-border)' }}
-                >
-                  <span className="not-italic opacity-45 mr-1.5 text-[10px]">
-                    {page.characterName || 'Companion'}:
+              {item.characterReply && (
+                <div className="mn-response__character">
+                  <span className="mn-response__name">
+                    {page.characterName || character?.name || 'COMPANION'}
                   </span>
-                  {un.characterReply}
+                  {item.characterReply}
                 </div>
               )}
             </div>
           ))}
-        </div>
+        </section>
       )}
 
-      {/* 8. 读者手写回注输入 */}
-      <div className="mn-reader-note-area" data-export-ignore="true">
-        <form onSubmit={handleAddUserNote} className="space-y-2">
+      <section className="mn-write" data-export-ignore="true">
+        <div className="mn-write__hint">
+          在这里留下你对这一页的回注。
+        </div>
+
+        <form
+          className="mn-write__form"
+          onSubmit={handleSubmitNote}
+        >
           <textarea
+            className="mn-write__input"
             rows={1}
-            value={userNoteInput}
-            onChange={(e) => setUserNoteInput(e.target.value)}
-            placeholder="在页边留下一句手写注..."
-            className="mn-handwritten-input"
+            value={noteInput}
+            onChange={(event) => setNoteInput(event.target.value)}
+            placeholder={
+              isReplying
+                ? '角色正在读你的字……'
+                : '写下一句，不必完整。'
+            }
+            disabled={isReplying}
           />
-          {userNoteInput.trim() && (
-            <div className="flex justify-end items-center gap-2 pt-1 animate-in fade-in">
-              <span className="text-[10px] opacity-40">
-                {isReplying ? '回想中...' : 'Enter 记下'}
-              </span>
-              <button
-                type="submit"
-                disabled={isReplying}
-                className="p-1.5 rounded-full bg-[var(--text-main)] text-[var(--bg-main)] opacity-90 hover:opacity-100"
-              >
-                <Send className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+
+          <button
+            className="mn-submit"
+            type="submit"
+            disabled={!noteInput.trim() || isReplying}
+            aria-label="保存回注"
+          >
+            <Send size={14} />
+          </button>
         </form>
-      </div>
+      </section>
+
+      <footer className="mn-footer-actions" data-export-ignore="true">
+        <button
+          type="button"
+          className="mn-footer-action"
+          onClick={() => onOpenMenu?.()}
+        >
+          <span>这页的出处与操作</span>
+        </button>
+      </footer>
     </div>
   );
 }

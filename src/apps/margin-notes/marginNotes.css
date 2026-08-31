@@ -1,188 +1,811 @@
-/* src/apps/margin-notes/marginNotes.css */
+/* =========================================================
+   The Margin Notes
+   页面本身就是书页，不再套白色 Card
+   ========================================================= */
 
 .margin-notes-root {
+  position: relative;
   width: 100%;
   min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-main);
   color: var(--text-main);
-  box-sizing: border-box;
-  position: relative;
+  background: var(--bg-main);
+  overflow-x: hidden;
 }
 
-/* 核心书页主排版区：自然撑满，但限制大屏下的阅读舒适行宽 */
-.margin-notes-sheet {
+/* 顶部导航 */
+
+.mn-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
   width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 1.5rem 1.25rem 6rem 1.25rem;
-  box-sizing: border-box;
+  min-height: 3.8rem;
+  padding:
+    calc(0.7rem + env(safe-area-inset-top, 0px))
+    clamp(1rem, 5vw, 2.2rem)
+    0.7rem;
+
+  background: color-mix(
+    in srgb,
+    var(--bg-main) 91%,
+    transparent
+  );
+
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--card-border) 55%,
+    transparent
+  );
+
+  backdrop-filter: blur(13px);
+  -webkit-backdrop-filter: blur(13px);
+}
+
+.mn-topbar__side {
   display: flex;
-  flex-direction: column;
-  position: relative;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 4rem;
 }
 
-/* 古典书眉 Running Head */
-.mn-running-head {
-  text-align: center;
-  font-family: Georgia, 'Times New Roman', 'Songti SC', serif;
-  font-size: 0.68rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  opacity: 0.55;
-  margin-bottom: 2rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--card-border);
+.mn-topbar__side:last-child {
+  justify-content: flex-end;
 }
 
-/* 书名与扉页信息 */
-.mn-front-matter {
-  margin-bottom: 2rem;
-}
-
-.mn-work-title {
-  font-family: Georgia, 'Times New Roman', 'Songti SC', 'Source Han Serif SC', serif;
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  color: var(--text-main);
-}
-
-.mn-author-meta {
-  font-family: Georgia, serif;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 0.35rem;
-  letter-spacing: 0.04em;
-}
-
-.mn-companion-badge {
+.mn-icon-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  font-style: italic;
-  font-family: Georgia, serif;
-  color: var(--text-sub);
-  margin-top: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  background-color: var(--control-soft-bg);
+  justify-content: center;
+
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+
+  color: var(--text-main);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  opacity: 0.58;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition:
+    opacity 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
 }
 
-.mn-companion-badge:hover {
+.mn-icon-button:hover {
+  opacity: 1;
+  background: var(--control-soft-bg);
+}
+
+.mn-icon-button:active {
+  transform: scale(0.92);
+}
+
+.mn-topbar__title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+
+  white-space: nowrap;
+  text-align: center;
+
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text-main);
+  opacity: 0.65;
+}
+
+.mn-topbar__title small {
+  display: block;
+  margin-top: 0.22rem;
+
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.48rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  opacity: 0.48;
+}
+
+/* 菜单 */
+
+.mn-menu {
+  position: absolute;
+  top: 3.35rem;
+  right: clamp(0.8rem, 4vw, 2rem);
+  z-index: 40;
+
+  width: 10rem;
+  padding: 0.35rem;
+
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow:
+    0 0.8rem 2rem color-mix(in srgb, var(--text-main) 13%, transparent);
+
+  animation: mn-menu-in 160ms ease-out;
+}
+
+.mn-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+
+  width: 100%;
+  padding: 0.62rem 0.65rem;
+
+  color: var(--text-main);
+  background: transparent;
+  border: 0;
+  text-align: left;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.mn-menu button:hover {
+  background: var(--control-soft-bg);
+}
+
+.mn-menu button.danger {
+  color: var(--danger-color, #b65353);
+}
+
+@keyframes mn-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.3rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 书页内容区域 */
+
+.mn-content {
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  padding:
+    2.2rem clamp(1.25rem, 7vw, 4rem)
+    calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* 书眉 */
+
+.mn-running-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 2.8rem;
+  padding-bottom: 0.65rem;
+
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--card-border) 70%,
+    transparent
+  );
+
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  line-height: 1.4;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mn-running-head__right {
+  opacity: 0.7;
+}
+
+/* 出处区 */
+
+.mn-source {
+  position: relative;
+  max-width: 38rem;
+  margin-bottom: 2.7rem;
+}
+
+.mn-source__eyebrow {
+  margin-bottom: 0.8rem;
+
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+
+.mn-source__title {
+  max-width: 35rem;
+  margin: 0;
+
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: clamp(1.55rem, 6vw, 2.3rem);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+
+.mn-source__meta {
+  margin-top: 0.8rem;
+
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: var(--text-sub);
+}
+
+.mn-source__section {
+  margin-top: 0.3rem;
+
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+  line-height: 1.6;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mn-companion-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+
+  margin-top: 1.25rem;
+  padding: 0;
+
+  color: var(--text-sub);
+  background: transparent;
+  border: 0;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.78rem;
+  font-style: italic;
+  cursor: pointer;
   opacity: 0.8;
 }
 
-/* 沉浸式正文文学排版 */
-.mn-reading-text {
-  font-family: Georgia, 'Songti SC', 'Source Han Serif SC', 'Times New Roman', serif;
-  font-size: 1.05rem;
-  line-height: 2.1;
-  letter-spacing: 0.025em;
+.mn-companion-line:hover {
+  opacity: 1;
+}
+
+.mn-companion-line__avatar {
+  width: 1.35rem;
+  height: 1.35rem;
+  object-fit: cover;
+  border-radius: 50%;
+  filter: saturate(0.7);
+}
+
+.mn-companion-line__placeholder {
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  opacity: 0.65;
+}
+
+/* 正文 */
+
+.mn-reading {
+  max-width: 39rem;
+}
+
+.mn-paragraph {
+  margin: 0 0 1.65rem;
+
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: clamp(1.05rem, 4.7vw, 1.28rem);
+  line-height: 2.02;
+  letter-spacing: 0.012em;
+  text-align: left;
   color: var(--text-main);
-  text-align: justify;
-  text-justify: inter-word;
-  word-break: break-word;
+  text-wrap: pretty;
 }
 
-/* 生词极细下划线 */
-.mn-vocab-word {
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-decoration-color: var(--text-muted);
-  text-underline-offset: 5px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  padding: 0 1px;
-}
+/* 文章中被识别出来的词 */
 
-.mn-vocab-word:hover,
-.mn-vocab-word.active {
-  background-color: var(--control-soft-bg);
-}
+.mn-vocab-mark {
+  padding: 0 0.06em 0.08em;
 
-/* 角色的页边铅笔批注：像夹在右侧空白处的便签 */
-.mn-character-pencil {
-  position: relative;
-  margin: 1.75rem 0 1rem 1.5rem;
-  padding: 0.75rem 1rem;
-  background-color: var(--control-soft-bg);
-  border-left: 2px solid var(--text-muted);
-  font-family: Georgia, 'Songti SC', 'Kaiti SC', serif;
-  font-style: italic;
-  font-size: 0.88rem;
-  line-height: 1.6;
-  color: var(--text-sub);
-  border-radius: 0 6px 6px 0;
-}
-
-.mn-pencil-anchor {
-  font-size: 0.68rem;
-  font-family: monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  margin-bottom: 0.35rem;
-}
-
-.mn-character-sig {
-  text-align: right;
-  font-size: 0.72rem;
-  font-style: normal;
-  color: var(--text-muted);
-  margin-top: 0.4rem;
-}
-
-/* 读者手写回注区 */
-.mn-reader-note-area {
-  margin-top: 2.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px dashed var(--card-border);
-}
-
-.mn-handwritten-input {
-  width: 100%;
+  color: inherit;
   background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--card-border);
-  padding: 0.5rem 0;
-  font-family: Georgia, 'Songti SC', 'Kaiti SC', serif;
-  font-size: 0.88rem;
-  color: var(--text-main);
-  outline: none;
-  resize: none;
+  border: 0;
+  border-bottom: 1px dotted var(--text-muted);
+
+  font: inherit;
+  cursor: pointer;
 }
 
-.mn-handwritten-input::placeholder {
+.mn-vocab-mark:hover,
+.mn-vocab-mark.is-active {
+  background: var(--control-soft-bg);
+}
+
+/* 穿插式批注书签 */
+
+.mn-inline-bookmark {
+  position: relative;
+
+  width: min(80%, 22rem);
+  margin: -0.25rem 0 2rem auto;
+  padding: 0.8rem 1rem 0.85rem;
+
+  border-top: 1px solid var(--card-border);
+  border-bottom: 1px solid var(--card-border);
+  border-left: 2px solid var(--text-muted);
+
+  color: var(--text-main);
+  transform: rotate(-0.35deg);
+}
+
+.mn-inline-bookmark:nth-of-type(4n) {
+  transform: rotate(0.45deg);
+}
+
+.mn-inline-bookmark.is-left {
+  margin-right: auto;
+  margin-left: 0;
+
+  border-right: 2px solid var(--text-muted);
+  border-left: 0;
+  transform: rotate(0.35deg);
+}
+
+.mn-inline-bookmark::after {
+  content: "";
+
+  position: absolute;
+  right: -1px;
+  bottom: -0.55rem;
+
+  width: 0;
+  height: 0;
+
+  border-top: 0.55rem solid var(--card-border);
+  border-left: 0.55rem solid transparent;
+}
+
+.mn-inline-bookmark.is-left::after {
+  right: auto;
+  left: -1px;
+  border-right: 0.55rem solid transparent;
+  border-left: 0;
+}
+
+.mn-inline-bookmark__anchor {
+  display: block;
+  margin-bottom: 0.45rem;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.68rem;
+  font-style: italic;
+  letter-spacing: 0.07em;
   color: var(--text-muted);
-  opacity: 0.45;
+}
+
+.mn-inline-bookmark__text {
+  margin: 0;
+
+  font-family: Georgia, "Kaiti SC", "Songti SC", serif;
+  font-size: 0.84rem;
+  font-style: italic;
+  line-height: 1.75;
+}
+
+.mn-inline-bookmark__signature {
+  display: block;
+  margin-top: 0.42rem;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.67rem;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+/* 生词解释 */
+
+.mn-vocabulary {
+  margin-top: 3rem;
+  padding-top: 1rem;
+
+  border-top: 1px solid var(--card-border);
+}
+
+.mn-section-label {
+  margin-bottom: 0.75rem;
+
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.57rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mn-word-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.mn-word {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px dotted var(--card-border);
+}
+
+.mn-word__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.86rem;
+}
+
+.mn-word__phonetic {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+  color: var(--text-muted);
+}
+
+.mn-word__meaning {
+  margin-top: 0.25rem;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.75rem;
+  line-height: 1.65;
+  color: var(--text-sub);
+}
+
+.mn-word__nuance {
+  margin-top: 0.18rem;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.7rem;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* 译文 */
+
+.mn-translation {
+  margin-top: 2.8rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.mn-translation__toggle {
+  padding: 0;
+
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.mn-translation__text {
+  margin: 1rem 0 0;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.88rem;
+  line-height: 1.9;
+  color: var(--text-sub);
+}
+
+/* 用户回注 */
+
+.mn-responses {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.mn-response {
+  margin-bottom: 1.3rem;
+  padding-left: 1rem;
+  border-left: 1px solid var(--card-border);
+}
+
+.mn-response__user,
+.mn-response__character {
+  font-family: Georgia, "Kaiti SC", "Songti SC", serif;
+  font-size: 0.8rem;
+  line-height: 1.75;
+}
+
+.mn-response__user {
   font-style: italic;
 }
 
-.mn-handwritten-input:focus {
-  border-bottom-color: var(--text-muted);
+.mn-response__character {
+  margin-top: 0.35rem;
+  color: var(--text-sub);
 }
 
-/* 底部悬浮控制岛（翻页与书架） */
-.mn-bottom-island {
+.mn-response__name {
+  margin-right: 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* 写下注释 */
+
+.mn-write {
+  margin-top: 3.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.mn-write__hint {
+  margin-bottom: 0.6rem;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.76rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.mn-write__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.mn-write__input {
+  flex: 1;
+  min-height: 2.4rem;
+  padding: 0.45rem 0;
+
+  color: var(--text-main);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--card-border);
+  outline: 0;
+  resize: vertical;
+
+  font-family: Georgia, "Kaiti SC", "Songti SC", serif;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.mn-write__input:focus {
+  border-bottom-color: var(--text-main);
+}
+
+.mn-write__input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.62;
+  font-style: italic;
+}
+
+.mn-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2rem;
+  height: 2rem;
+
+  color: var(--bg-main);
+  background: var(--text-main);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.82;
+}
+
+.mn-submit:hover {
+  opacity: 1;
+}
+
+.mn-submit:disabled {
+  cursor: default;
+  opacity: 0.25;
+}
+
+/* 底部操作区域，不使用胶囊 */
+
+.mn-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 3.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.mn-footer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  padding: 0;
+
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.mn-footer-action:hover {
+  color: var(--text-main);
+}
+
+/* 无页面 */
+
+.mn-empty {
+  padding: 8rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.mn-empty__title {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 1rem;
+}
+
+.mn-empty__text {
+  margin-top: 0.5rem;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.76rem;
+}
+
+/* 角色抽屉 */
+
+.mn-drawer-backdrop {
   position: fixed;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 40;
+  inset: 0;
+  z-index: 50;
+
+  background: color-mix(
+    in srgb,
+    var(--text-main) 20%,
+    transparent
+  );
+
+  animation: mn-fade-in 160ms ease-out;
+}
+
+.mn-drawer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  max-height: 78dvh;
+  padding:
+    1.2rem 1.25rem
+    calc(1.5rem + env(safe-area-inset-bottom, 0px));
+
+  overflow-y: auto;
+
+  color: var(--text-main);
+  background: var(--bg-main);
+  border-top: 1px solid var(--card-border);
+
+  animation: mn-drawer-up 220ms ease-out;
+}
+
+.mn-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  margin-bottom: 1.2rem;
+}
+
+.mn-drawer__title {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mn-drawer__subtitle {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.mn-character-option {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.4rem 0.6rem 0.4rem 0.9rem;
-  border-radius: 9999px;
-  background-color: var(--card-bg);
+
+  width: 100%;
+  padding: 0.8rem 0;
+
+  color: var(--text-main);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--card-border);
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.mn-character-option__avatar {
+  width: 2.3rem;
+  height: 2.3rem;
+  object-fit: cover;
+  border-radius: 50%;
+  filter: saturate(0.72);
+}
+
+.mn-character-option__placeholder {
+  width: 2.3rem;
+  height: 2.3rem;
   border: 1px solid var(--card-border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(8px);
+  border-radius: 50%;
+}
+
+.mn-character-option__name {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.84rem;
+}
+
+.mn-character-option__bio {
+  max-width: 17rem;
+  margin-top: 0.2rem;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.mn-character-option__check {
+  margin-left: auto;
+  color: var(--text-main);
+}
+
+@keyframes mn-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mn-drawer-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* 桌面端：正文稍微扩展，但仍保持书籍阅读宽度 */
+
+@media (min-width: 700px) {
+  .mn-content {
+    padding-right: 4rem;
+    padding-left: 4rem;
+  }
+
+  .mn-paragraph {
+    max-width: 38rem;
+  }
 }
