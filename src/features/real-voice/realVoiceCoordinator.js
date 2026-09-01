@@ -1,12 +1,6 @@
 import db from '../../db';
 
 import {
-  REAL_VOICE_MARKER,
-  hasUsableMiniMaxVoiceProfile,
-  normalizeVoiceProfile,
-} from './realVoiceDefaults';
-
-import {
   REAL_VOICE_END_MARKER,
   buildVoiceExpressionInstruction,
 } from './voiceExpressionGuides';
