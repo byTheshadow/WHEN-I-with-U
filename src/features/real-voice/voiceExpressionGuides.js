@@ -148,10 +148,12 @@ ${customSection}
 ${REAL_VOICE_MARKER}
 {
   "text": "专门为声音朗读写下的短文本",
+  "language": "auto",
   "emotion": "calm",
   "speed": 1,
   "pitch": 0
 }
+
 ${REAL_VOICE_END_MARKER}
 
 [隐藏区块规则]
@@ -164,6 +166,14 @@ ${REAL_VOICE_END_MARKER}
 7. 不值得生成声音时，不要输出隐藏区块。
 8. 每轮最多输出一个隐藏区块。
 9. 不要向用户解释、提及或展示这些标记、JSON 字段或内部规则。
+10. language 表示这一次真实声音实际朗读所使用的语言，只能填写：
+    auto、Chinese、English、Japanese、Korean、Spanish、French、German、Portuguese、Russian、Italian。
+11. language 可以与正常文字回复的语言不同。
+    例如：正常文字使用中文，但 voice text 使用日文时，language 填 Japanese，
+    并且 text 本身必须确实使用日文。
+12. 如果没有明确的语言表达意图，使用角色声音配置中的默认语言；如果默认语言为自动识别，则填写 auto。
+13. 不要因为可见文字使用中文，就强制让声音也使用中文。
+
 ${getModelCapabilityInstruction(profile.minimax.modelId)}
 `;
 };

@@ -15,6 +15,17 @@ import {
   synthesizeMiniMaxSpeech,
 } from './minimaxClient';
 
+import {
+  REAL_VOICE_MARKER,
+  VOICE_LANGUAGE_OPTIONS,
+  hasUsableMiniMaxVoiceProfile,
+  normalizeVoiceProfile,
+} from './realVoiceDefaults';
+
+const MINIMAX_LANGUAGES = new Set(
+  VOICE_LANGUAGE_OPTIONS.map((item) => item.value),
+);
+
 const MINIMAX_EMOTIONS = [
   'happy',
   'sad',
@@ -108,6 +119,15 @@ const normalizeVoiceIntent = ({
     .trim()
     .slice(0, 900);
 
+      const language = MINIMAX_LANGUAGES.has(rawIntent?.language)
+    ? rawIntent.language
+    : (
+      MINIMAX_LANGUAGES.has(config.language)
+        ? config.language
+        : 'auto'
+    );
+
+
   if (!rawText) {
     return null;
   }
@@ -140,14 +160,19 @@ const normalizeVoiceIntent = ({
     return null;
   }
 
-  return {
-    // 实际发送给 MiniMax 的文本，可能包含合法语气标签。
-    text: ttsText,
+ return {
+  // 实际发送给 MiniMax 的文本，可能包含合法语气标签。
+  text: ttsText,
 
-    // 用户界面与数据库内容展示的转写，不显示语气标签。
-    transcript,
+  // 用户界面与数据库内容展示的转写，不显示语气标签。
+  transcript,
 
-    emotion,
+  // 允许主 AI 为本次声音选择与可见文字不同的语言。
+  language,
+
+  emotion,
+
+   
 
     speed: clampNumber({
       value: rawIntent?.speed,
@@ -358,7 +383,9 @@ export const createRealVoiceMessagesForReply = async ({
     provider: 'minimax',
     modelId: profile.minimax.modelId,
     voiceId: profile.minimax.voiceId,
-    language: profile.minimax.language,
+  // 本次真实声音实际采用的语言。
+language: voiceIntent.language,
+
 
     // 本次由主文字 AI 决定，并已完成安全校验。
     emotion: voiceIntent.emotion,

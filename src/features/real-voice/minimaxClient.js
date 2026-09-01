@@ -267,12 +267,13 @@ const buildSpeechPayload = ({
     subtitle_enable: false,
   };
 
-  if (
-    config.language
-    && config.language !== 'auto'
-  ) {
-    payload.language_boost = config.language;
-  }
+ const language = voiceIntent?.language
+  || config.language
+  || 'auto';
+
+if (language !== 'auto') {
+  payload.language_boost = language;
+}
 
   return payload;
 };
