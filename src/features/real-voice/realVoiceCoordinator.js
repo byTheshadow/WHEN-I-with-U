@@ -7,6 +7,10 @@ import {
 } from './realVoiceDefaults';
 
 import {
+  buildVoiceExpressionInstruction,
+} from './voiceExpressionGuides';
+
+import {
   synthesizeMiniMaxSpeech,
 } from './minimaxClient';
 
@@ -27,27 +31,10 @@ export const buildRealVoiceDecisionInstruction = (character) => {
     return '';
   }
 
-  return `
-[真实语音留笺规则]
-你可以自行判断，本次回复是否值得额外留下一段真实声音。
-
-适合留下声音的情况包括：
-- 情绪明显、亲密、安慰、道歉、告白、晚安或早安；
-- 想低声分享一件重要的小事；
-- 适合被听见而非只适合阅读的一句话；
-- 需要停顿、语气或陪伴感才能完整传达的内容。
-
-不适合留下声音的情况包括：
-- 普通问答；
-- 连续解释；
-- 较长信息；
-- 清单、步骤、事实说明；
-- 用户需要快速阅读或检索的信息。
-
-如果决定留下声音，请在一条短文字的开头加入 ${REAL_VOICE_MARKER}。
-该标记不会被用户看见，只用于生成声音留笺。
-不要解释标记本身；不要频繁使用；一轮回复最多使用一次真实声音。
-`;
+  return buildVoiceExpressionInstruction({
+    voiceProfile: profile,
+    characterName: character?.name,
+  });
 };
 
 export const applyRealVoiceIntent = (messages = []) => (
@@ -79,6 +66,7 @@ export const createRealVoiceMessagesForReply = async ({
   if (
     !hasUsableMiniMaxVoiceProfile(profile)
     || !profile.aiMaySendVoice
+    || profile.voiceExpression?.mode === 'off'
   ) {
     return [];
   }

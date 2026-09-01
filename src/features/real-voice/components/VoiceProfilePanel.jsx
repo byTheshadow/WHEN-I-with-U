@@ -22,6 +22,8 @@ import {
 } from '../minimaxClient';
 
 import VoicePreviewBox from './VoicePreviewBox';
+import VoiceExpressionGuidePanel from './VoiceExpressionGuidePanel';
+
 
 const updateMiniMax = (profile, patch) => ({
   ...profile,
@@ -163,6 +165,14 @@ export default function VoiceProfilePanel({
             />
           </label>
 
+          {profile.aiMaySendVoice && (
+  <VoiceExpressionGuidePanel
+    value={profile}
+    onChange={onChange}
+  />
+)}
+
+
           <div>
             <label className="mb-1 block opacity-60">
               MiniMax 区域
@@ -294,8 +304,8 @@ export default function VoiceProfilePanel({
 
                 <span>
                   {isLoadingModels
-                    ? '读取中'
-                    : '读取模型'}
+                    ? '载入中'
+                    : '获取模型'}
                 </span>
               </button>
             </div>

@@ -78,6 +78,18 @@ export const createDefaultVoiceProfile = () => ({
 
   provider: 'minimax',
 
+  // 控制文字 AI 在什么情况下额外留下声音。
+  voiceExpression: {
+    // off | guided | intimate | reserved | custom
+    mode: 'guided',
+
+    // 仅改变角色何时及怎样留声，不能覆盖系统限制。
+    customInstruction: '',
+
+    // 第一版固定为 1；代码层同样保留硬限制。
+    maxVoiceNotesPerReply: 1,
+  },
+
   minimax: {
     // china | global | custom
     region: 'global',
@@ -91,7 +103,7 @@ export const createDefaultVoiceProfile = () => ({
     apiKey: '',
     groupId: '',
 
-    // 通过 GET /models 获取后选择。
+    // 使用本地维护的 MiniMax TTS 模型目录后选择。
     modelId: '',
 
     // 用户已有、已授权的克隆 Voice ID。
@@ -116,6 +128,13 @@ export const normalizeVoiceProfile = (profile) => {
   return {
     ...defaults,
     ...(profile || {}),
+    voiceExpression: {
+      ...defaults.voiceExpression,
+      ...(profile?.voiceExpression || {}),
+
+      // 第一版从数据层保持一轮至多一条。
+      maxVoiceNotesPerReply: 1,
+    },
     minimax: {
       ...defaults.minimax,
       ...(profile?.minimax || {}),
