@@ -1,6 +1,7 @@
 import { normalizeVoiceProfile } from './realVoiceDefaults';
 
-const DEFAULT_TTS_PATH = '/t2a_v2';
+const DEFAULT_TTS_PATH = '/v1/t2a_v2';
+
 const DEFAULT_MODELS_PATH = '/anthropic/v1/models';
 
 const trimTrailingSlash = (value = '') => (
@@ -19,14 +20,13 @@ const getActiveBaseUrl = (profile) => {
 const getModelsUrl = (profile) => {
   const baseUrl = getActiveBaseUrl(profile);
 
-  // TTS Base URL 通常是：
-  // https://api.minimaxi.com/v1
-  //
-  // 模型接口实际在：
-  // https://api.minimaxi.com/anthropic/v1/models
-  const hostBaseUrl = baseUrl.replace(/\/v1$/i, '');
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
 
-  return `${hostBaseUrl}/anthropic/v1/models`;
+  if (/\/v1$/i.test(normalizedBaseUrl)) {
+    return `${normalizedBaseUrl.replace(/\/v1$/i, '')}/anthropic/v1/models`;
+  }
+
+  return `${normalizedBaseUrl}/anthropic/v1/models`;
 };
 
 
