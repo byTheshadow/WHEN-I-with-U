@@ -16,6 +16,20 @@ const getActiveBaseUrl = (profile) => {
   );
 };
 
+const getModelsUrl = (profile) => {
+  const baseUrl = getActiveBaseUrl(profile);
+
+  // TTS Base URL 通常是：
+  // https://api.minimaxi.com/v1
+  //
+  // 模型接口实际在：
+  // https://api.minimaxi.com/anthropic/v1/models
+  const hostBaseUrl = baseUrl.replace(/\/v1$/i, '');
+
+  return `${hostBaseUrl}/anthropic/v1/models`;
+};
+
+
 const getApiKey = (profile) => {
   const normalized = normalizeVoiceProfile(profile);
   let apiKey = normalized.minimax.apiKey?.trim() || '';
