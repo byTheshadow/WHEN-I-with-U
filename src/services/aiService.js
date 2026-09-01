@@ -1562,7 +1562,11 @@ const parsedOrFallbackMessages = parsedMessages.length > 0
       }]
     : [];
 
-const safeParsedMessages = applyRealVoiceIntent(parsedOrFallbackMessages);
+const safeParsedMessages = applyRealVoiceIntent(
+  parsedOrFallbackMessages,
+  character.voiceProfile,
+);
+
 
 
 for (const [messageIndex, msgData] of safeParsedMessages.entries()) {

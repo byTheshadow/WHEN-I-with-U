@@ -224,8 +224,12 @@ export const fetchMiniMaxModels = async () => (
 const buildSpeechPayload = ({
   text,
   profile,
+  voiceIntent,
 }) => {
   const config = profile.minimax;
+
+  const speed = Number(voiceIntent?.speed);
+  const pitch = Number(voiceIntent?.pitch);
 
   const payload = {
     model: config.modelId.trim(),
@@ -234,10 +238,23 @@ const buildSpeechPayload = ({
 
     voice_setting: {
       voice_id: config.voiceId.trim(),
-      speed: Number(config.speed) || 1,
+
+      // 自动语音使用主 AI 已校验的参数；
+      // 试听没有 voiceIntent，继续使用角色档案参数。
+      speed: Number.isFinite(speed)
+        ? speed
+        : Number(config.speed) || 1,
+
+      // 音量始终由角色设置控制，不交给文字 AI 任意改变。
       vol: Number(config.volume) || 1,
-      pitch: Number(config.pitch) || 0,
-      emotion: config.emotion || 'neutral',
+
+      pitch: Number.isFinite(pitch)
+        ? pitch
+        : Number(config.pitch) || 0,
+
+      emotion: voiceIntent?.emotion
+        || config.emotion
+        || 'calm',
     },
 
     audio_setting: {
@@ -250,10 +267,6 @@ const buildSpeechPayload = ({
     subtitle_enable: false,
   };
 
-  /**
-   * MiniMax 文档的语言字段为 language_boost。
-   * auto 不发送该字段，让服务商根据文本自行判断。
-   */
   if (
     config.language
     && config.language !== 'auto'
@@ -264,10 +277,14 @@ const buildSpeechPayload = ({
   return payload;
 };
 
+
+
 export const synthesizeMiniMaxSpeech = async ({
   text,
   voiceProfile,
+  voiceIntent,
 }) => {
+
   const profile = validateProfileForRequest(voiceProfile);
   const config = profile.minimax;
   const baseUrl = getActiveBaseUrl(profile);
@@ -293,10 +310,12 @@ export const synthesizeMiniMaxSpeech = async ({
         method: 'POST',
         headers: createTtsHeaders(profile),
         body: JSON.stringify(
-          buildSpeechPayload({
-            text,
-            profile,
-          }),
+        buildSpeechPayload({
+  text,
+  profile,
+  voiceIntent,
+}),
+
         ),
       },
     );
@@ -358,12 +377,16 @@ export const synthesizeMiniMaxSpeech = async ({
   );
 
   return {
-    audioBlob,
-    mimeType: audioBlob.type || mimeType,
-    provider: 'minimax',
-    modelId: config.modelId,
-    voiceId: config.voiceId,
-    language: config.language,
-  };
+  audioBlob,
+  mimeType: audioBlob.type || mimeType,
+  provider: 'minimax',
+  modelId: config.modelId,
+  voiceId: config.voiceId,
+  language: config.language,
+  emotion: voiceIntent?.emotion || config.emotion || 'calm',
+  speed: voiceIntent?.speed ?? Number(config.speed) || 1,
+  pitch: voiceIntent?.pitch ?? Number(config.pitch) || 0,
+};
+
 };
 

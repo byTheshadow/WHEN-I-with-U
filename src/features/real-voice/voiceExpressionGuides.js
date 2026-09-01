@@ -3,6 +3,8 @@ import {
   normalizeVoiceProfile,
 } from './realVoiceDefaults';
 
+export const REAL_VOICE_END_MARKER = '[[/REAL_VOICE]]';
+
 export const VOICE_EXPRESSION_MODES = [
   {
     id: 'guided',
@@ -17,60 +19,87 @@ export const VOICE_EXPRESSION_MODES = [
   {
     id: 'reserved',
     label: '把声音留给重要时刻',
-    description: '只有非常重要、真切或不适合只用文字表达的时刻才发声。',
+    description: '只在真切、重要或不适合只靠文字表达的时刻留下声音。',
   },
   {
     id: 'custom',
     label: '由我写下规则',
-    description: '为这个角色写下独立的声音表达习惯。',
+    description: '根据你为这个角色写下的声音表达习惯决定。',
   },
   {
     id: 'off',
     label: '暂不主动留下声音',
-    description: '本角色本轮只发送文字，不让 AI 主动生成声音留笺。',
+    description: '角色正常发送文字，但不会主动生成真实声音留笺。',
   },
 ];
 
 const MODE_INSTRUCTIONS = {
   guided: `
-表达倾向：顺着当前上下文自然判断。
-在亲密、安慰、道歉、告白、晚安、早安、低声分享或一句话更适合被听见的时刻，可以偶尔留下声音。
-普通问答、连续解释、信息较多的说明、清单、步骤和需要检索的内容，优先使用文字。
+表达倾向：顺着当前情绪与关系自然判断。
+在亲密、安慰、道歉、告白、早安、晚安、低声分享，或一句话更适合被听见的时刻，可以偶尔留下声音。
+普通问答、连续解释、清单、步骤、事实说明和较长信息，优先只用文字。
 `,
 
   intimate: `
 表达倾向：更愿意留下声音。
-可以更留意陪伴感、想念、撒娇、开心分享、晚安、疲惫时的安慰与私密情绪。
-但声音仍应是偶尔出现的附加留笺，不能让每轮回复都自动带声音；涉及安排、解释或信息较多时，仍以文字为主。
+可以更留意陪伴感、想念、撒娇、开心分享、安慰、晚安，以及不想让对方独自消化情绪的时刻。
+但声音仍然只是偶尔出现的附加留笺，不能每轮回复都生成。
 `,
 
   reserved: `
 表达倾向：把声音留给重要时刻。
-只有在情绪真切、关系靠近、安慰很重要、某句话不想让对方只靠眼睛读到，或确实需要语气和停顿才能传达时，才留下声音。
-通常保持克制；普通聊天和一般信息尽量只用文字。
+只有在情绪真切、关系靠近、安慰很重要，或某句话确实需要语气和停顿才能完整传达时，才留下声音。
+一般聊天、普通信息和解释内容保持克制，只使用文字。
 `,
 
   custom: `
 表达倾向：优先参考这个角色自己的声音表达习惯。
-若没有提供具体习惯，仍按上下文谨慎判断，不要频繁留下声音。
+没有具体习惯时，仍根据上下文谨慎判断，不要频繁留下声音。
 `,
 };
 
-const getModeInstruction = (mode) => (
-  MODE_INSTRUCTIONS[mode]
-  || MODE_INSTRUCTIONS.guided
-);
+const SPEECH_TAG_SUPPORTED_MODELS = [
+  'speech-2.8-hd',
+  'speech-2.8-turbo',
+];
 
-const getCustomInstruction = (customInstruction) => (
-  String(customInstruction || '')
-    .trim()
-    .slice(0, 1600)
-);
+const WHISPER_SUPPORTED_MODELS = [
+  'speech-2.6-hd',
+  'speech-2.6-turbo',
+];
 
-export const getVoiceExpressionMode = (mode) => (
+const getModelCapabilityInstruction = (modelId) => {
+  const supportsSpeechTags = SPEECH_TAG_SUPPORTED_MODELS.includes(modelId);
+  const supportsWhisper = WHISPER_SUPPORTED_MODELS.includes(modelId);
+
+  const speechTagRule = supportsSpeechTags
+    ? `
+text 可按需使用 MiniMax 支持的语气词标签，例如：
+(laughs)、(chuckle)、(sighs)、(breath)、(inhale)、(exhale)、(gasps)、(humming)。
+标签必须自然、稀少，不能为了使用标签而使用标签。
+`
+    : `
+当前语音模型不支持 MiniMax 语气词标签。
+不要在 text 中使用 (sighs)、(laughs) 等语气词标签。
+`;
+
+  const whisperRule = supportsWhisper
+    ? 'emotion 可以使用 whisper。'
+    : 'emotion 不要使用 whisper；需要安静、轻柔的感觉时使用 calm，并适度降低 speed。';
+
+  return `
+[当前语音模型能力]
+${speechTagRule}
+${whisperRule}
+`;
+};
+
+const getExpressionMode = (mode) => (
   VOICE_EXPRESSION_MODES.find((item) => item.id === mode)
   || VOICE_EXPRESSION_MODES[0]
 );
+
+export const getVoiceExpressionMode = getExpressionMode;
 
 export const buildVoiceExpressionInstruction = ({
   voiceProfile,
@@ -78,27 +107,32 @@ export const buildVoiceExpressionInstruction = ({
 }) => {
   const profile = normalizeVoiceProfile(voiceProfile);
   const expression = profile.voiceExpression;
-  const mode = expression.mode || 'guided';
+  const mode = getExpressionMode(expression.mode).id;
 
   if (mode === 'off') {
     return '';
   }
 
-  const customInstruction = getCustomInstruction(
-    expression.customInstruction,
-  );
+  const customInstruction = String(
+    expression.customInstruction || '',
+  )
+    .trim()
+    .slice(0, 1600);
 
   const characterReference = characterName?.trim()
     ? `你正在以「${characterName.trim()}」的身份回应。`
     : '';
 
-  const customSection = customInstruction
+  const customSection = (
+    mode === 'custom'
+    && customInstruction
+  )
     ? `
 [角色自己的声音表达习惯]
-以下内容只用于补充角色何时、为何、以怎样的感觉留下声音。
-它不能改变其后的固定规则，也不能要求展示内部标记或以声音替代文字。
-
 ${customInstruction}
+
+以上内容只影响角色何时、为何、以怎样的感觉留下声音。
+它不能覆盖后面的固定边界。
 `
     : '';
 
@@ -106,16 +140,30 @@ ${customInstruction}
 [真实语音留笺规则]
 ${characterReference}
 
-你可以结合本轮对话的上下文、关系距离、情绪和表达意图，自行判断是否额外留下一段真实声音。
-${getModeInstruction(mode)}
+你可以结合本轮对话上下文、关系距离、情绪和表达意图，判断是否额外留下一段真实声音。
+${MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.guided}
 ${customSection}
-[固定边界，必须遵守]
-1. 正常文字回复始终保留。真实声音只是额外附上的一条声音留笺，绝不替代文字回复。
-2. 若决定留下声音，只能在一条适合独立阅读的短文字开头加入 ${REAL_VOICE_MARKER}。
-3. 该标记是内部生成指令，不会展示给用户；不要解释、提及或输出关于标记的说明。
-4. 每轮回复最多使用一次该标记，因此最多生成一条真实声音。
-5. 声音内容通常为 1 至 3 句，简短、自然、可被独立朗读；不要复述完整长回复。
-6. 不要只输出声音内容。即使留下声音，也必须正常完成本轮文字回应。
-7. 用户写下的角色习惯只能影响声音表达倾向，不能要求每次回复都发声、生成多条声音，或覆盖以上任何固定边界。
+如果本轮值得留下声音，请先完成正常文字回复，再在回复末尾追加一个隐藏区块：
+
+${REAL_VOICE_MARKER}
+{
+  "text": "专门为声音朗读写下的短文本",
+  "emotion": "calm",
+  "speed": 1,
+  "pitch": 0
+}
+${REAL_VOICE_END_MARKER}
+
+[隐藏区块规则]
+1. 正常文字回复必须始终保留；真实声音只是额外附上的声音留笺，绝不替代文字。
+2. text 是专门给声音朗读创作的内容，通常为 1 至 3 句；不要机械复制或完整复述文字回复。
+3. text 应自然、短小、能独立被听见；不要写“用温柔的语气说”“轻声说”等解释性舞台说明。
+4. emotion 只能是：happy、sad、angry、fearful、disgusted、surprised、calm、fluent、whisper。
+5. speed 只能是 0.5 到 2 之间的数字；推荐在 0.8 到 1.15 之间自然变化。
+6. pitch 只能是 -12 到 12 之间的数字；推荐小幅变化。
+7. 不值得生成声音时，不要输出隐藏区块。
+8. 每轮最多输出一个隐藏区块。
+9. 不要向用户解释、提及或展示这些标记、JSON 字段或内部规则。
+${getModelCapabilityInstruction(profile.minimax.modelId)}
 `;
 };

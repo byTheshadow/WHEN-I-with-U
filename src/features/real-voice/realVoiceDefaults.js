@@ -77,6 +77,17 @@ export const createDefaultVoiceProfile = () => ({
   autoPlay: false,
 
   provider: 'minimax',
+    voiceExpression: {
+    // off | guided | intimate | reserved | custom
+    mode: 'guided',
+
+    // custom 模式下的角色专属声音表达规则。
+    customInstruction: '',
+
+    // 当前版本固定一轮最多一条。
+    maxVoiceNotesPerReply: 1,
+  },
+
 
   // 控制文字 AI 在什么情况下额外留下声音。
   voiceExpression: {
@@ -115,7 +126,8 @@ export const createDefaultVoiceProfile = () => ({
     speed: 1,
     volume: 1,
     pitch: 0,
-    emotion: 'neutral',
+    emotion: 'calm',
+
 
     // mp3 | wav
     audioFormat: 'mp3',
@@ -132,7 +144,7 @@ export const normalizeVoiceProfile = (profile) => {
       ...defaults.voiceExpression,
       ...(profile?.voiceExpression || {}),
 
-      // 第一版从数据层保持一轮至多一条。
+      // 当前版本固定：每轮回复最多一段真实声音。
       maxVoiceNotesPerReply: 1,
     },
     minimax: {
@@ -141,6 +153,7 @@ export const normalizeVoiceProfile = (profile) => {
     },
   };
 };
+
 
 export const hasUsableMiniMaxVoiceProfile = (profile) => {
   const normalized = normalizeVoiceProfile(profile);
