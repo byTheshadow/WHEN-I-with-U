@@ -384,8 +384,9 @@ export const synthesizeMiniMaxSpeech = async ({
   voiceId: config.voiceId,
   language: config.language,
   emotion: voiceIntent?.emotion || config.emotion || 'calm',
-  speed: voiceIntent?.speed ?? Number(config.speed) || 1,
-  pitch: voiceIntent?.pitch ?? Number(config.pitch) || 0,
+  speed: voiceIntent?.speed ?? (Number(config.speed) || 1),
+pitch: voiceIntent?.pitch ?? (Number(config.pitch) || 0),
+
 };
 
 };
