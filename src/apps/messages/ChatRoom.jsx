@@ -42,6 +42,8 @@ import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
 import ChatInteractionMessage from './interactions/ChatInteractionMessage';
+import RealVoiceCard from '../../features/real-voice/components/RealVoiceCard';
+
 
 import { createInteractionMessage } from './interactions/interactionService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
@@ -863,6 +865,14 @@ export const ChatRoom = ({
                             metadata={msg.metadata}
                           />
                         )}
+
+                        {msg.type === 'realVoice' && (
+  <RealVoiceCard
+    content={msg.content}
+    metadata={msg.metadata}
+  />
+)}
+
 
                         {msg.type === 'transfer' && (
                           <TransferCard

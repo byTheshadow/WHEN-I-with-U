@@ -22,6 +22,11 @@ import {
   createMcpChatTraceSession,
   getMcpChatTraceSummary,
 } from './mcp/mcpChatTraceService';
+import {
+  applyRealVoiceIntent,
+  buildRealVoiceDecisionInstruction,
+  createRealVoiceMessagesForReply,
+} from '../features/real-voice/realVoiceCoordinator';
 
 
 
@@ -1450,7 +1455,12 @@ export const triggerAiResponse = async (chatId) => {
     const apiSettings = await db.settings.get('apiConfig');
     const apiConfig = apiSettings?.value || {};
 
-    const systemPrompt = await buildChatSystemPrompt(chatId, chat, character);
+    let systemPrompt = await buildChatSystemPrompt(chatId, chat, character);
+
+if (character.voiceProfile?.enabled && character.voiceProfile?.aiMaySendVoice) {
+  systemPrompt += buildRealVoiceDecisionInstruction(character);
+}
+
 
     const recentMsgs = await db.messages
   .where('chatId')
@@ -1542,16 +1552,18 @@ const mcpTrace = getMcpChatTraceSummary(
 );
 
 
+const parsedOrFallbackMessages = parsedMessages.length > 0
+  ? parsedMessages
+  : visibleReplyContent
+    ? [{
+        type: 'text',
+        content: visibleReplyContent,
+        metadata: {},
+      }]
+    : [];
 
-            const safeParsedMessages = parsedMessages.length > 0
-        ? parsedMessages
-        : visibleReplyContent
-          ? [{
-              type: 'text',
-              content: visibleReplyContent,
-              metadata: {}
-            }]
-          : [];
+const safeParsedMessages = applyRealVoiceIntent(parsedOrFallbackMessages);
+
 
 for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
         const newMessagePayload = {
@@ -1589,6 +1601,19 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
         const newMessageId = await db.messages.add(newMessagePayload);
         messageIds.push(newMessageId);
       }
+      try {
+  const realVoiceMessageIds = await createRealVoiceMessagesForReply({
+    chatId,
+    character,
+    sourceMessages: safeParsedMessages,
+  });
+
+  messageIds.push(...realVoiceMessageIds);
+} catch (realVoiceError) {
+  // 真实声音失败不能影响已经正常保存的文字回复。
+  console.warn('[RealVoice] 本次声音留笺跳过：', realVoiceError);
+}
+
 
             // AI 仅在本次正常回复中明确留下有效预约指令时，
       // 才创建稍后联系计划。该指令不会出现在用户可见气泡中。

@@ -634,19 +634,13 @@
   justify-content: center;
 }
 
-.mn-footer-action {
-  padding: 0 0 7px;
-  color: var(--mn-muted);
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--mn-line);
-  font-family: var(--mn-sans);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color 180ms ease, border-color 180ms ease;
+.mn-footer-actions {
+  margin-top: 76px;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 8px;
 }
+
 
 .mn-footer-action:hover {
   color: var(--mn-ink);

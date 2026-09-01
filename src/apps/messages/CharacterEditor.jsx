@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
+import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfilePanel';
+import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
 
 export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
   const [character, setCharacter] = useState({
@@ -21,7 +23,10 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
     autoDiary: characterData?.autoDiary ?? true,
     userPersona: characterData?.userPersona || '',
     userAvatar: characterData?.userAvatar || '',
-    statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此']
+    statusList: characterData?.statusList || ['月色与你同在', '在咖啡馆看书', '静候你的回应', '心绪停留于此'],
+voiceProfile: normalizeVoiceProfile(characterData?.voiceProfile),
+
+
   });
 
   // 控制世界书与知识库手风琴折叠展开状态 (Key: entryId -> boolean)
@@ -231,6 +236,17 @@ export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
         </div>
 
       </GlassCard>
+
+            <VoiceProfilePanel
+        value={character.voiceProfile}
+        onChange={(voiceProfile) => {
+          setCharacter((previous) => ({
+            ...previous,
+            voiceProfile,
+          }));
+        }}
+      />
+
 
       {/* 2. 状态列表 (Status List) */}
       <GlassCard className="space-y-3">
