@@ -317,10 +317,14 @@ export default function VoiceProfilePanel({
               </option>
 
               {models.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.label}
-                </option>
-              ))}
+  <option key={model.id} value={model.id}>
+    {model.label}
+    {model.source === 'remote'
+      ? ' · 接口返回'
+      : ' · TTS 推荐'}
+  </option>
+))}
+
             </select>
 
             {modelError && (

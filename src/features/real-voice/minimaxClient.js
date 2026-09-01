@@ -200,6 +200,26 @@ const audioValueToBlob = async (audioValue, mimeType) => {
   });
 };
 
+const LOCAL_MINIMAX_TTS_MODELS = [
+  {
+    id: 'speech-2.8-hd',
+    label: 'Speech 2.8 HD',
+    type: 'tts',
+    source: 'official-catalog',
+  },
+];
+
+const isLikelyTtsModel = (model) => {
+  const modelText = `${model.id} ${model.label}`.toLowerCase();
+
+  return (
+    modelText.includes('speech')
+    || modelText.includes('tts')
+    || modelText.includes('voice')
+    || modelText.includes('audio')
+  );
+};
+
 const normalizeModelList = (payload) => {
   const rawModels = Array.isArray(payload?.data)
     ? payload.data
@@ -207,37 +227,46 @@ const normalizeModelList = (payload) => {
       ? payload.models
       : [];
 
-  return rawModels
+  const remoteModels = rawModels
     .map((item) => {
       if (typeof item === 'string') {
         return {
           id: item,
           label: item,
           type: 'model',
+          source: 'remote',
         };
       }
 
       return {
         id: item?.id || item?.model || item?.name,
-        label: item?.display_name
+        label: (
+          item?.display_name
           || item?.name
           || item?.id
-          || item?.model,
+          || item?.model
+        ),
         type: item?.type || 'model',
+        source: 'remote',
       };
     })
     .filter((item) => item.id)
-    .filter((item) => {
-      const modelText = `${item.id} ${item.label}`.toLowerCase();
+    .filter(isLikelyTtsModel);
 
-      return (
-        modelText.includes('speech')
-        || modelText.includes('tts')
-        || modelText.includes('voice')
-        || modelText.includes('audio')
-      );
-    });
+  const allModels = [
+    ...LOCAL_MINIMAX_TTS_MODELS,
+    ...remoteModels,
+  ];
+
+  const uniqueModels = Array.from(
+    new Map(
+      allModels.map((model) => [model.id, model]),
+    ).values(),
+  );
+
+  return uniqueModels;
 };
+
 
 /**
  * 根据 MiniMax 官方模型列表文档：
@@ -251,19 +280,15 @@ const normalizeModelList = (payload) => {
  */
 export const fetchMiniMaxModels = async (profile) => {
   const normalized = validateProfileForRequest(profile);
-  const baseUrl = getActiveBaseUrl(normalized);
+  const modelsUrl = getModelsUrl(normalized);
 
   let response;
 
   try {
-    response = await fetch(
-  getModelsUrl(normalized),
-  {
-    method: 'GET',
-    headers: createModelsHeaders(normalized),
-  },
-);
-
+    response = await fetch(modelsUrl, {
+      method: 'GET',
+      headers: createModelsHeaders(normalized),
+    });
   } catch (error) {
     if (isLikelyCorsError(error)) {
       throw createCorsError();
@@ -283,55 +308,9 @@ export const fetchMiniMaxModels = async (profile) => {
     );
   }
 
-  const models = normalizeModelList(payload);
-
-  if (models.length === 0) {
-    throw new Error(
-      '模型列表接口没有返回可识别的语音模型。请确认当前 API Key 已开通 TTS 权限。',
-    );
-  }
-
-  return models;
+  return normalizeModelList(payload);
 };
 
-const buildSpeechPayload = ({
-  text,
-  profile,
-}) => {
-  const config = profile.minimax;
-
-  const payload = {
-    model: config.modelId.trim(),
-    text: text.trim(),
-    stream: false,
-
-    voice_setting: {
-      voice_id: config.voiceId.trim(),
-      speed: Number(config.speed) || 1,
-      vol: Number(config.volume) || 1,
-      pitch: Number(config.pitch) || 0,
-      emotion: config.emotion || 'neutral',
-    },
-
-    audio_setting: {
-      sample_rate: 32000,
-      bitrate: 128000,
-      format: config.audioFormat || 'mp3',
-      channel: 1,
-    },
-
-    subtitle_enable: false,
-  };
-
-  if (
-    config.language
-    && config.language !== 'auto'
-  ) {
-    payload.language_boost = config.language;
-  }
-
-  return payload;
-};
 
 export const synthesizeMiniMaxSpeech = async ({
   text,
