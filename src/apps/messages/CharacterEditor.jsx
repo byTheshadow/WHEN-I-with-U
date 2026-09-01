@@ -8,6 +8,7 @@ import db from '../../db';
 import VoiceProfilePanel from '../../features/real-voice/components/VoiceProfilePanel';
 import { normalizeVoiceProfile } from '../../features/real-voice/realVoiceDefaults';
 
+
 export const CharacterEditor = ({ characterData, onBack, onSaved }) => {
   const [character, setCharacter] = useState({
     id: characterData?.id || null,

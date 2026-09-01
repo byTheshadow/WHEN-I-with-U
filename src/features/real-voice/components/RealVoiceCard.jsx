@@ -1,4 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
 import {
   AudioLines,
   LoaderCircle,
@@ -8,7 +13,9 @@ import {
 } from 'lucide-react';
 
 const formatTime = (seconds) => {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '0:00';
+  }
 
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.floor(seconds % 60);
@@ -21,7 +28,7 @@ export default function RealVoiceCard({
   metadata,
 }) {
   const audioRef = useRef(null);
-  const objectUrlRef = useRef('');
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -30,18 +37,17 @@ export default function RealVoiceCard({
   const audioBlob = metadata?.audioBlob;
 
   useEffect(() => {
-    if (!audioBlob) return undefined;
+    if (!audioBlob || !audioRef.current) {
+      return undefined;
+    }
 
     const objectUrl = URL.createObjectURL(audioBlob);
-    objectUrlRef.current = objectUrl;
 
-    if (audioRef.current) {
-      audioRef.current.src = objectUrl;
-    }
+    audioRef.current.src = objectUrl;
+    audioRef.current.load();
 
     return () => {
       URL.revokeObjectURL(objectUrl);
-      objectUrlRef.current = '';
     };
   }, [audioBlob]);
 
@@ -66,8 +72,12 @@ export default function RealVoiceCard({
       <div className="w-[254px] rounded-[18px] border border-black/10 bg-black/[0.035] p-3 dark:border-white/10 dark:bg-white/[0.05]">
         <div className="flex items-center gap-2">
           <LoaderCircle className="h-4 w-4 animate-spin opacity-65" />
+
           <div>
-            <p className="text-[11px] font-semibold">声音正在被写下</p>
+            <p className="text-[11px] font-semibold">
+              声音正在被写下
+            </p>
+
             <p className="mt-0.5 text-[10px] opacity-55">
               这一段话正在变成可以保存的声音。
             </p>
@@ -82,12 +92,15 @@ export default function RealVoiceCard({
       <div className="w-[254px] rounded-[18px] border border-dashed border-red-400/40 bg-red-500/[0.04] p-3">
         <div className="flex items-start gap-2">
           <RotateCw className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+
           <div>
             <p className="text-[11px] font-semibold text-red-500">
               这段声音没有顺利抵达
             </p>
+
             <p className="mt-1 text-[10px] leading-relaxed opacity-65">
-              {metadata?.errorMessage || '请检查该角色的 MiniMax 设置后再试。'}
+              {metadata?.errorMessage
+                || '请检查该角色的 MiniMax 设置后再试。'}
             </p>
           </div>
         </div>
@@ -110,7 +123,9 @@ export default function RealVoiceCard({
           setDuration(event.currentTarget.duration || 0);
         }}
         onTimeUpdate={(event) => {
-          setCurrentTime(event.currentTarget.currentTime || 0);
+          setCurrentTime(
+            event.currentTarget.currentTime || 0,
+          );
         }}
       />
 
@@ -119,7 +134,11 @@ export default function RealVoiceCard({
           type="button"
           onClick={handleToggle}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/10 bg-[var(--bg-color)] transition-transform active:scale-95 dark:border-white/15"
-          aria-label={isPlaying ? '暂停声音留笺' : '播放声音留笺'}
+          aria-label={
+            isPlaying
+              ? '暂停声音留笺'
+              : '播放声音留笺'
+          }
         >
           {isPlaying ? (
             <Pause className="h-4 w-4" />
@@ -134,26 +153,35 @@ export default function RealVoiceCard({
               <AudioLines className="h-3 w-3" />
               声音留笺
             </span>
+
             <span className="font-mono text-[10px] opacity-50">
-              {formatTime(isPlaying ? currentTime : duration)}
+              {formatTime(
+                isPlaying
+                  ? currentTime
+                  : duration,
+              )}
             </span>
           </div>
 
           <div className="mt-2 flex h-4 items-end gap-[3px] opacity-60">
-            {[7, 12, 8, 15, 10, 14, 6, 13, 9, 16, 11, 7, 14, 8, 12].map(
-              (height, index) => (
-                <span
-                  key={index}
-                  className={`w-[2px] rounded-full bg-current ${
-                    isPlaying ? 'animate-pulse' : ''
-                  }`}
-                  style={{
-                    height: `${height}px`,
-                    animationDelay: `${index * 75}ms`,
-                  }}
-                />
-              ),
-            )}
+            {[
+              7, 12, 8, 15, 10,
+              14, 6, 13, 9, 16,
+              11, 7, 14, 8, 12,
+            ].map((height, index) => (
+              <span
+                key={index}
+                className={`w-[2px] rounded-full bg-current ${
+                  isPlaying
+                    ? 'animate-pulse'
+                    : ''
+                }`}
+                style={{
+                  height: `${height}px`,
+                  animationDelay: `${index * 75}ms`,
+                }}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -166,3 +194,4 @@ export default function RealVoiceCard({
     </div>
   );
 }
+
