@@ -1,6 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+// src/apps/margin-notes/MarginNotesApp.jsx
+
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
+
 import {
   ArrowLeft,
+  BookOpen,
   Bookmark,
   Check,
   Download,
@@ -13,12 +22,13 @@ import {
 } from 'lucide-react';
 
 import db from '../../db';
+
 import { CURATED_EXCERPTS } from './curatedExcerpts';
 import { generateMarginNotePage } from './marginNotesAiService';
 import { exportPageToImage } from './marginNotesExportService';
 
-import MarginNotesPage from './MarginNotesPage';
 import MarginNotesArchive from './MarginNotesArchive';
+import MarginNotesPage from './MarginNotesPage';
 import MarginNotesSettingsModal from './MarginNotesSettingsModal';
 
 import './marginNotes.css';
@@ -41,10 +51,27 @@ const LANGUAGE_LABELS = {
   zh: '中文'
 };
 
+function createFallbackPage(character) {
+  if (!CURATED_EXCERPTS.length) {
+    return null;
+  }
+
+  return {
+    ...CURATED_EXCERPTS[0],
+    characterId: character?.id || null,
+    characterName: character?.name || 'Companion',
+    characterAvatar: character?.avatar || '',
+    date: new Date().toISOString().slice(0, 10),
+    createdAt: Date.now()
+  };
+}
+
 export default function MarginNotesApp({ onBackHub }) {
   const [activeView, setActiveView] = useState('reading');
+
   const [characters, setCharacters] = useState([]);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
+
   const [currentPage, setCurrentPage] = useState(null);
   const [archiveList, setArchiveList] = useState([]);
 
@@ -59,13 +86,27 @@ export default function MarginNotesApp({ onBackHub }) {
   const [showSettings, setShowSettings] = useState(false);
 
   const pageExportRef = useRef(null);
+  const menuRef = useRef(null);
 
+  /**
+   * 从数据库刷新书架。
+   */
   const refreshArchive = useCallback(async () => {
-    const list = await db.marginNotes.orderBy('createdAt').reverse().toArray();
-    setArchiveList(list || []);
-    return list || [];
+    const list = await db.marginNotes
+      .orderBy('createdAt')
+      .reverse()
+      .toArray();
+
+    const pages = list || [];
+
+    setArchiveList(pages);
+
+    return pages;
   }, []);
 
+  /**
+   * 初始化：角色、设置、阅读记录并行读取。
+   */
   useEffect(() => {
     let mounted = true;
 
@@ -79,53 +120,97 @@ export default function MarginNotesApp({ onBackHub }) {
 
         if (!mounted) return;
 
-        const chars = characterList || [];
-        setCharacters(chars);
-        setSettings({ ...DEFAULT_SETTINGS, ...(settingRecord?.value || {}) });
+        const nextCharacters = characterList || [];
+        const nextPages = pages || [];
+        const firstCharacter = nextCharacters[0] || null;
 
-        if (chars.length > 0) {
-          setSelectedCharacter(chars[0]);
-        }
+        setCharacters(nextCharacters);
+        setSelectedCharacter(firstCharacter);
 
-        setArchiveList(pages || []);
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...(settingRecord?.value || {})
+        });
 
-        if (pages?.length > 0) {
-          setCurrentPage(pages[0]);
-        } else if (CURATED_EXCERPTS.length > 0) {
-          setCurrentPage({
-            ...CURATED_EXCERPTS[0],
-            characterId: chars[0]?.id || null,
-            characterName: chars[0]?.name || 'Companion',
-            characterAvatar: chars[0]?.avatar || '',
-            date: new Date().toISOString().slice(0, 10),
-            createdAt: Date.now()
-          });
+        setArchiveList(nextPages);
+
+        if (nextPages.length > 0) {
+          setCurrentPage(nextPages[0]);
+        } else {
+          setCurrentPage(createFallbackPage(firstCharacter));
         }
       } catch (error) {
         console.error('[MarginNotes] 初始化失败：', error);
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     }
 
     void init();
+
     return () => {
       mounted = false;
     };
   }, []);
 
+  /**
+   * 点击菜单外部或按 Esc 时关闭菜单。
+   */
+  useEffect(() => {
+    if (!showMenu) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      if (!menuRef.current?.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showMenu]);
+
+  /**
+   * 页面内回注更新时，同步当前书页和书架。
+   */
   const handlePageUpdated = useCallback(
     async (updatedPage) => {
+      if (!updatedPage) return;
+
       setCurrentPage(updatedPage);
-      if (updatedPage?.id) {
+
+      if (updatedPage.id) {
         await refreshArchive();
       }
     },
     [refreshArchive]
   );
 
+  /**
+   * 生成一张新的共读页面。
+   */
   const handleGeneratePage = async () => {
     if (isGenerating) return;
+
+    if (!selectedCharacter) {
+      setShowMenu(false);
+      setShowCharacters(true);
+      return;
+    }
 
     setIsGenerating(true);
     setShowMenu(false);
@@ -143,65 +228,175 @@ export default function MarginNotesApp({ onBackHub }) {
 
       const page = {
         ...generated,
-        characterId: selectedCharacter?.id || null,
-        characterName: selectedCharacter?.name || 'Companion',
-        characterAvatar: selectedCharacter?.avatar || '',
+        characterId: selectedCharacter.id,
+        characterName: selectedCharacter.name || 'Companion',
+        characterAvatar: selectedCharacter.avatar || '',
         date: new Date().toISOString().slice(0, 10),
         createdAt: Date.now()
       };
 
       const id = await db.marginNotes.add(page);
-      const savedPage = { ...page, id };
+
+      const savedPage = {
+        ...page,
+        id
+      };
 
       setCurrentPage(savedPage);
       setActiveView('reading');
+
       await refreshArchive();
     } catch (error) {
-      window.alert(`翻开新页失败：${error?.message || '请检查 API 设置'}`);
+      console.error('[MarginNotes] 翻开新页失败：', error);
+
+      window.alert(
+        `翻开新页失败：${error?.message || '请检查 API 设置后重试。'}`
+      );
     } finally {
       setIsGenerating(false);
     }
   };
 
+  /**
+   * 选择角色。
+   * 新角色将在下一次生成新页面时使用，不覆盖已保存书页的原始共读角色。
+   */
   const handleSelectCharacter = (character) => {
     setSelectedCharacter(character);
     setShowCharacters(false);
   };
 
+  /**
+   * 删除当前页面。
+   */
   const handleDeleteCurrentPage = async () => {
-    if (!currentPage?.id) return;
-    const ok = window.confirm('确定要撕下这一页吗？');
-    if (!ok) return;
+    if (!currentPage?.id) {
+      setShowMenu(false);
+      return;
+    }
 
-    await db.marginNotes.delete(currentPage.id);
-    const pages = await refreshArchive();
-    setCurrentPage(pages[0] || null);
-    setShowMenu(false);
+    const confirmed = window.confirm(
+      '确定要撕下这一页吗？该书页及其批注将被永久删除。'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await db.marginNotes.delete(currentPage.id);
+
+      const pages = await refreshArchive();
+      const nextPage = pages[0] || createFallbackPage(selectedCharacter);
+
+      setCurrentPage(nextPage);
+      setShowMenu(false);
+
+      if (pages.length === 0) {
+        setActiveView('reading');
+      }
+    } catch (error) {
+      console.error('[MarginNotes] 删除书页失败：', error);
+      window.alert('删除失败，请稍后再试。');
+    }
   };
 
+  /**
+   * 将当前阅读页导出为图片。
+   */
   const handleExport = async () => {
-    if (!pageExportRef.current || isExporting) return;
+    if (!pageExportRef.current || isExporting || !currentPage) {
+      return;
+    }
+
     setIsExporting(true);
     setShowMenu(false);
 
     try {
+      const rawTitle = currentPage.source?.workTitle || 'page';
+
+      const safeTitle = rawTitle
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .replace(/\s+/g, '-')
+        .slice(0, 80);
+
       await exportPageToImage(
         pageExportRef.current,
-        `margin-notes-${currentPage?.source?.workTitle || 'page'}.png`
+        `margin-notes-${safeTitle}.png`
       );
     } catch (error) {
+      console.error('[MarginNotes] 导出失败：', error);
       window.alert('导出失败，请稍后重试。');
     } finally {
       setIsExporting(false);
     }
   };
 
+  /**
+   * 打开书架。
+   */
+  const handleOpenArchive = () => {
+    setShowMenu(false);
+    setActiveView('archive');
+  };
+
+  /**
+   * 从书架选择某一页。
+   */
+  const handleSelectArchivePage = (page) => {
+    setCurrentPage(page);
+
+    const pageCharacter = characters.find(
+      (character) => character.id === page.characterId
+    );
+
+    if (pageCharacter) {
+      setSelectedCharacter(pageCharacter);
+    }
+
+    setActiveView('reading');
+  };
+
+  /**
+   * 从书架中删除页面后，处理当前页面状态。
+   */
+  const handleArchivePageDeleted = async (deletedId) => {
+    const pages = await refreshArchive();
+
+    if (currentPage?.id === deletedId) {
+      setCurrentPage(pages[0] || createFallbackPage(selectedCharacter));
+    }
+  };
+
+  /**
+   * 统一打开角色选择抽屉。
+   */
+  const handleOpenCharacterPicker = () => {
+    setShowMenu(false);
+    setShowSettings(false);
+    setShowCharacters(true);
+  };
+
+  /**
+   * 统一打开设置弹窗。
+   */
+  const handleOpenSettings = () => {
+    setShowMenu(false);
+    setShowCharacters(false);
+    setShowSettings(true);
+  };
+
   if (isLoading) {
     return (
       <div className="margin-notes-root">
         <div className="mn-empty">
-          <RefreshCw size={18} className="animate-spin" />
-          <div className="mn-empty__text">正在打开书页……</div>
+          <RefreshCw
+            size={18}
+            className="animate-spin"
+            aria-hidden="true"
+          />
+
+          <div className="mn-empty__text">
+            正在打开书页……
+          </div>
         </div>
       </div>
     );
@@ -209,125 +404,183 @@ export default function MarginNotesApp({ onBackHub }) {
 
   return (
     <div className="margin-notes-root">
-      <header className="mn-page">
+      <header className="mn-app-header">
         <div className="mn-topbar">
-          <div>
+          <div className="mn-topbar__left">
             <button
               type="button"
               className="mn-edge-action"
               onClick={onBackHub}
               aria-label="返回主页"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={18} strokeWidth={1.5} />
             </button>
           </div>
 
           <div className="mn-page-number">
-            THE MARGIN NOTES
+            {activeView === 'archive'
+              ? 'THE MARGIN NOTES · ARCHIVE'
+              : 'THE MARGIN NOTES'}
           </div>
 
-          <div className="mn-topbar__right">
+          <div
+            className="mn-topbar__right"
+            ref={menuRef}
+          >
             <button
               type="button"
-              className="mn-edge-action right"
-              onClick={() => setShowMenu((v) => !v)}
-              aria-label="更多操作"
+              className="mn-edge-action mn-edge-action--menu"
+              onClick={() => setShowMenu((value) => !value)}
+              aria-label="打开更多操作"
+              aria-expanded={showMenu}
+              aria-haspopup="menu"
             >
-              <MoreHorizontal size={19} />
+              <MoreHorizontal size={19} strokeWidth={1.5} />
             </button>
-          </div>
 
-          {showMenu && (
-            <div className="mn-menu">
-              {activeView === 'reading' && (
-                <>
-                  <button type="button" onClick={handleGeneratePage} disabled={isGenerating}>
-                    {isGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    <span>{isGenerating ? '正在翻阅……' : '翻开新一页'}</span>
-                  </button>
+            {showMenu && (
+              <nav
+                className="mn-menu"
+                aria-label="书页操作菜单"
+              >
+                {activeView === 'reading' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleGeneratePage}
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? (
+                        <RefreshCw
+                          size={14}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Sparkles size={14} strokeWidth={1.5} />
+                      )}
 
-                  <button type="button" onClick={handleExport} disabled={isExporting || !currentPage}>
-                    <Download size={14} />
-                    <span>{isExporting ? '正在保存……' : '保存为书签'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCharacters(true);
-                      setShowMenu(false);
-                    }}
-                  >
-                    <Settings2 size={14} />
-                    <span>选择共读角色</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSettings(true);
-                      setShowMenu(false);
-                    }}
-                  >
-                    <Settings2 size={14} />
-                    <span>共读设置</span>
-                  </button>
-
-                  {currentPage?.id && (
-                    <button type="button" onClick={handleDeleteCurrentPage}>
-                      <Trash2 size={14} />
-                      <span>撕下这一页</span>
+                      <span>
+                        {isGenerating
+                          ? '正在翻阅……'
+                          : selectedCharacter
+                            ? '翻开新一页'
+                            : '选择共读角色'}
+                      </span>
                     </button>
-                  )}
-                </>
-              )}
 
-              {activeView === 'archive' && (
-                <button type="button" onClick={() => setActiveView('reading')}>
-                  <Bookmark size={14} />
-                  <span>返回书页</span>
-                </button>
-              )}
-            </div>
-          )}
+                    <button
+                      type="button"
+                      onClick={handleOpenArchive}
+                    >
+                      <BookOpen size={14} strokeWidth={1.5} />
+                      <span>阅读书架</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExport}
+                      disabled={isExporting || !currentPage}
+                    >
+                      <Download size={14} strokeWidth={1.5} />
+                      <span>
+                        {isExporting
+                          ? '正在保存……'
+                          : '保存为书签'}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenCharacterPicker}
+                    >
+                      <Bookmark size={14} strokeWidth={1.5} />
+                      <span>选择共读角色</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenSettings}
+                    >
+                      <Settings2 size={14} strokeWidth={1.5} />
+                      <span>共读设置</span>
+                    </button>
+
+                    {currentPage?.id && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteCurrentPage}
+                      >
+                        <Trash2 size={14} strokeWidth={1.5} />
+                        <span>撕下这一页</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMenu(false);
+                        setActiveView('reading');
+                      }}
+                    >
+                      <Bookmark size={14} strokeWidth={1.5} />
+                      <span>返回书页</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenCharacterPicker}
+                    >
+                      <BookOpen size={14} strokeWidth={1.5} />
+                      <span>选择共读角色</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenSettings}
+                    >
+                      <Settings2 size={14} strokeWidth={1.5} />
+                      <span>共读设置</span>
+                    </button>
+                  </>
+                )}
+              </nav>
+            )}
+          </div>
         </div>
       </header>
 
-      <main>
+      <main className="mn-app-main">
         {activeView === 'reading' ? (
           <div ref={pageExportRef}>
             <MarginNotesPage
               page={currentPage}
               character={selectedCharacter}
               onPageUpdated={handlePageUpdated}
-              onOpenCompanionPicker={() => setShowCharacters(true)}
+              onOpenCompanionPicker={handleOpenCharacterPicker}
               onOpenMenu={() => setShowMenu(true)}
             />
           </div>
         ) : (
-          <div className="mn-page">
-          <div className="mn-topbar mn-topbar--archive">
-              <div className="mn-page-number">BOOKSHELF</div>
-              <div />
-             <div className="mn-page-number mn-page-number--right">
-                {archiveList.length} PAGES
-              </div>
+          <section className="mn-archive-page">
+            <div className="mn-archive-page__head">
+              <span className="mn-archive-page__label">
+                Bookshelf
+              </span>
+
+              <span className="mn-archive-page__total">
+                {archiveList.length}{' '}
+                {archiveList.length === 1 ? 'PAGE' : 'PAGES'}
+              </span>
             </div>
 
             <MarginNotesArchive
               archiveList={archiveList}
-              onSelectPage={(page) => {
-                setCurrentPage(page);
-                setActiveView('reading');
-              }}
-              onDeletePage={async (deletedId) => {
-                const pages = await refreshArchive();
-                if (currentPage?.id === deletedId) {
-                  setCurrentPage(pages[0] || null);
-                }
-              }}
+              onSelectPage={handleSelectArchivePage}
+              onDeletePage={handleArchivePageDeleted}
             />
-          </div>
+          </section>
         )}
       </main>
 
@@ -335,59 +588,100 @@ export default function MarginNotesApp({ onBackHub }) {
         <div
           className="mn-drawer-backdrop"
           onClick={() => setShowCharacters(false)}
+          role="presentation"
         >
-          <section className="mn-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="mn-drawer__head">
+          <section
+            className="mn-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mn-character-picker-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="mn-drawer__head">
               <div>
-                <div className="mn-drawer__title">选择今天一起读的人</div>
-                <div className="mn-drawer__subtitle">
+                <h2
+                  id="mn-character-picker-title"
+                  className="mn-drawer__title"
+                >
+                  选择今天一起读的人
+                </h2>
+
+                <p className="mn-drawer__subtitle">
                   THE NEXT PAGE WILL CARRY THEIR VOICE
-                </div>
+                </p>
               </div>
 
               <button
                 type="button"
                 className="mn-edge-action"
                 onClick={() => setShowCharacters(false)}
-                aria-label="关闭"
+                aria-label="关闭角色选择"
               >
-                <X size={17} />
+                <X size={17} strokeWidth={1.5} />
               </button>
-            </div>
+            </header>
 
             {characters.length === 0 ? (
-              <div className="mn-empty">
-                <div className="mn-empty__title">角色库还是空的</div>
-                <div className="mn-empty__text">先创建角色，再回来共读。</div>
+              <div className="mn-empty mn-empty--drawer">
+                <div className="mn-empty__title">
+                  角色库还是空的
+                </div>
+
+                <div className="mn-empty__text">
+                  先创建角色，再回来一起读。
+                </div>
               </div>
             ) : (
-              characters.map((character) => {
-                const isSelected = selectedCharacter?.id === character.id;
+              <div className="mn-character-list">
+                {characters.map((character) => {
+                  const isSelected =
+                    selectedCharacter?.id === character.id;
 
-                return (
-                  <button
-                    type="button"
-                    className="mn-character"
-                    key={character.id}
-                    onClick={() => handleSelectCharacter(character)}
-                  >
-                    {character.avatar ? (
-                      <img src={character.avatar} alt="" className="mn-character__avatar" />
-                    ) : (
-                      <span className="mn-character__placeholder" />
-                    )}
+                  return (
+                    <button
+                      type="button"
+                      className={`mn-character ${
+                        isSelected ? 'is-selected' : ''
+                      }`}
+                      key={character.id}
+                      onClick={() => handleSelectCharacter(character)}
+                      aria-pressed={isSelected}
+                    >
+                      {character.avatar ? (
+                        <img
+                          src={character.avatar}
+                          alt=""
+                          className="mn-character__avatar"
+                        />
+                      ) : (
+                        <span
+                          className="mn-character__placeholder"
+                          aria-hidden="true"
+                        />
+                      )}
 
-                    <span>
-                      <span className="mn-character__name">{character.name}</span>
-                      <span className="mn-character__bio">
-                        {character.bio || '安静地共读。'}
+                      <span className="mn-character__content">
+                        <span className="mn-character__name">
+                          {character.name || 'Unnamed companion'}
+                        </span>
+
+                        <span className="mn-character__bio">
+                          {character.bio || '安静地共读。'}
+                        </span>
                       </span>
-                    </span>
 
-                    {isSelected && <Check size={16} style={{ marginLeft: 'auto' }} />}
-                  </button>
-                );
-              })
+                      {isSelected && (
+                        <Check
+                          className="mn-character__check"
+                          size={16}
+                          strokeWidth={1.7}
+                          aria-label="当前已选择"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </section>
         </div>
@@ -398,7 +692,10 @@ export default function MarginNotesApp({ onBackHub }) {
           currentSettings={settings}
           onClose={() => setShowSettings(false)}
           onSave={(nextSettings) => {
-            setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
+            setSettings({
+              ...DEFAULT_SETTINGS,
+              ...nextSettings
+            });
           }}
         />
       )}

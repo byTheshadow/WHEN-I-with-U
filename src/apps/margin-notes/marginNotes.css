@@ -1459,3 +1459,101 @@
     font-size: 10px;
   }
 }
+/* =========================================================
+   MarginNotesApp shell additions
+   ========================================================= */
+
+.mn-app-header {
+  width: 100%;
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  background: rgba(253, 253, 252, 0.92);
+  border-bottom: 1px solid var(--mn-line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.mn-app-main {
+  min-height: calc(100dvh - 63px);
+}
+
+.mn-topbar__left,
+.mn-topbar__right {
+  display: flex;
+  align-items: center;
+}
+
+.mn-topbar__right {
+  position: relative;
+  justify-self: end;
+}
+
+.mn-edge-action--menu {
+  justify-self: end;
+}
+
+.mn-archive-page {
+  width: min(100% - 40px, 720px);
+  margin: 0 auto;
+  padding: 48px 0 120px;
+}
+
+.mn-archive-page__head {
+  padding-bottom: 20px;
+  margin-bottom: 29px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--mn-line);
+}
+
+.mn-archive-page__label,
+.mn-archive-page__total {
+  color: var(--mn-muted);
+  font-family: var(--mn-sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.mn-archive-page__total {
+  letter-spacing: 0.1em;
+}
+
+.mn-empty--drawer {
+  width: 100%;
+  min-height: 42vh;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.mn-character-list {
+  width: 100%;
+}
+
+.mn-character__content {
+  min-width: 0;
+}
+
+.mn-character__check {
+  margin-left: auto;
+  color: var(--mn-ink);
+}
+
+.mn-character.is-selected {
+  background: linear-gradient(
+    90deg,
+    var(--mn-wash),
+    transparent
+  );
+}
+
+@media (max-width: 640px) {
+  .mn-archive-page {
+    width: min(100% - 40px, 720px);
+    padding-top: 34px;
+    padding-bottom: 100px;
+  }
+}
