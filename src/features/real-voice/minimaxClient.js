@@ -1,30 +1,7 @@
 import { normalizeVoiceProfile } from './realVoiceDefaults';
 
-const MINIMAX_TTS_MODELS = {
-  china: [
-    {
-      id: 'speech-2.8-hd',
-      label: 'Speech 2.8 HD',
-      description: '高保真语音合成',
-    },
-  ],
-
-  global: [
-    {
-      id: 'speech-2.8-hd',
-      label: 'Speech 2.8 HD',
-      description: '高保真语音合成',
-    },
-  ],
-
-  custom: [
-    {
-      id: 'speech-2.8-hd',
-      label: 'Speech 2.8 HD',
-      description: '默认推荐模型',
-    },
-  ],
-};
+const DEFAULT_TTS_PATH = '/t2a_v2';
+const DEFAULT_MODELS_PATH = '/anthropic/v1/models';
 
 const trimTrailingSlash = (value = '') => (
   String(value).replace(/\/+$/, '')
@@ -39,13 +16,34 @@ const getActiveBaseUrl = (profile) => {
   );
 };
 
-const createHeaders = (profile) => {
+const getApiKey = (profile) => {
   const normalized = normalizeVoiceProfile(profile);
-  const { apiKey } = normalized.minimax;
+  let apiKey = normalized.minimax.apiKey?.trim() || '';
+
+  // 防止用户把 "Bearer " 一起粘贴进输入框，
+  // 避免最终请求变成 Bearer Bearer xxxxx。
+  apiKey = apiKey.replace(/^Bearer\s+/i, '').trim();
+
+  return apiKey;
+};
+
+const createTtsHeaders = (profile) => {
+  const apiKey = getApiKey(profile);
 
   return {
+    Accept: 'application/json',
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey.trim()}`,
+    Authorization: `Bearer ${apiKey}`,
+  };
+};
+
+const createModelsHeaders = (profile) => {
+  const apiKey = getApiKey(profile);
+
+  return {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'X-Api-Key': apiKey,
   };
 };
 
@@ -54,6 +52,7 @@ const getErrorMessage = (payload, fallback) => (
   || payload?.base_response?.status_msg
   || payload?.error?.message
   || payload?.message
+  || payload?.error
   || fallback
 );
 
@@ -84,9 +83,24 @@ const isLikelyCorsError = (error) => (
 
 const createCorsError = () => (
   new Error(
-    '浏览器无法直接连接 MiniMax：该接口没有向当前网站开放跨域请求。请在该角色的声音设置中填写兼容 MiniMax 的代理地址后重试。',
+    '浏览器无法直接连接 MiniMax。当前接口没有允许此 PWA 跨域访问，请填写代理地址后重试。',
   )
 );
+
+const validateProfileForRequest = (profile) => {
+  const normalized = normalizeVoiceProfile(profile);
+  const config = normalized.minimax;
+
+  if (!config.apiKey?.trim()) {
+    throw new Error('请先填写 MiniMax API Key。');
+  }
+
+  if (!getActiveBaseUrl(normalized)) {
+    throw new Error('请先填写 MiniMax Base URL。');
+  }
+
+  return normalized;
+};
 
 const decodeBase64ToBytes = (value) => {
   const raw = window.atob(value);
@@ -152,7 +166,7 @@ const audioValueToBlob = async (audioValue, mimeType) => {
 
     if (!response.ok) {
       throw new Error(
-        `MiniMax 音频文件下载失败：HTTP ${response.status}`,
+        `音频文件下载失败：HTTP ${response.status}`,
       );
     }
 
@@ -172,20 +186,98 @@ const audioValueToBlob = async (audioValue, mimeType) => {
   });
 };
 
+const normalizeModelList = (payload) => {
+  const rawModels = Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.models)
+      ? payload.models
+      : [];
+
+  return rawModels
+    .map((item) => {
+      if (typeof item === 'string') {
+        return {
+          id: item,
+          label: item,
+          type: 'model',
+        };
+      }
+
+      return {
+        id: item?.id || item?.model || item?.name,
+        label: item?.display_name
+          || item?.name
+          || item?.id
+          || item?.model,
+        type: item?.type || 'model',
+      };
+    })
+    .filter((item) => item.id)
+    .filter((item) => {
+      const modelText = `${item.id} ${item.label}`.toLowerCase();
+
+      return (
+        modelText.includes('speech')
+        || modelText.includes('tts')
+        || modelText.includes('voice')
+        || modelText.includes('audio')
+      );
+    });
+};
+
 /**
- * MiniMax 官方 TTS 文档没有确认 /models 是公开可调用的模型枚举接口。
- * 因此不请求 /models，而是依据本地维护的、可控的模型目录生成下拉。
+ * 根据 MiniMax 官方模型列表文档：
  *
- * 后续官方明确提供模型列表接口后，只需要替换本函数。
+ * GET /anthropic/v1/models
+ * Header: X-Api-Key: API_KEY
+ *
+ * 注意：
+ * /models 返回的是平台支持的模型，不一定只有 TTS 模型。
+ * 这里仅筛选 speech / tts / voice / audio 相关模型。
  */
 export const fetchMiniMaxModels = async (profile) => {
-  const normalized = normalizeVoiceProfile(profile);
-  const region = normalized.minimax.region || 'custom';
+  const normalized = validateProfileForRequest(profile);
+  const baseUrl = getActiveBaseUrl(normalized);
 
-  return (
-    MINIMAX_TTS_MODELS[region]
-    || MINIMAX_TTS_MODELS.custom
-  );
+  let response;
+
+  try {
+    response = await fetch(
+  getModelsUrl(normalized),
+  {
+    method: 'GET',
+    headers: createModelsHeaders(normalized),
+  },
+);
+
+  } catch (error) {
+    if (isLikelyCorsError(error)) {
+      throw createCorsError();
+    }
+
+    throw error;
+  }
+
+  const payload = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(
+        payload,
+        `读取 MiniMax 模型失败：HTTP ${response.status}`,
+      ),
+    );
+  }
+
+  const models = normalizeModelList(payload);
+
+  if (models.length === 0) {
+    throw new Error(
+      '模型列表接口没有返回可识别的语音模型。请确认当前 API Key 已开通 TTS 权限。',
+    );
+  }
+
+  return models;
 };
 
 const buildSpeechPayload = ({
@@ -217,11 +309,6 @@ const buildSpeechPayload = ({
     subtitle_enable: false,
   };
 
-  /**
-   * 官方文档中的 language_boost 使用语言名称形式，
-   * 例如 Chinese、English、Japanese。
-   * 自动模式则完全不传此字段。
-   */
   if (
     config.language
     && config.language !== 'auto'
@@ -236,20 +323,12 @@ export const synthesizeMiniMaxSpeech = async ({
   text,
   voiceProfile,
 }) => {
-  const profile = normalizeVoiceProfile(voiceProfile);
-  const config = profile.minimax;
-  const baseUrl = getActiveBaseUrl(profile);
+  const normalized = validateProfileForRequest(voiceProfile);
+  const config = normalized.minimax;
+  const baseUrl = getActiveBaseUrl(normalized);
 
   if (!text?.trim()) {
     throw new Error('没有可生成声音的文字。');
-  }
-
-  if (!config.apiKey?.trim()) {
-    throw new Error('该角色尚未填写 MiniMax API Key。');
-  }
-
-  if (!baseUrl) {
-    throw new Error('该角色尚未填写 MiniMax Base URL。');
   }
 
   if (!config.modelId?.trim()) {
@@ -257,20 +336,25 @@ export const synthesizeMiniMaxSpeech = async ({
   }
 
   if (!config.voiceId?.trim()) {
-    throw new Error('该角色尚未填写已有的 Voice ID。');
+    throw new Error('请先填写已有的 Voice ID。');
   }
 
   let response;
 
   try {
-    response = await fetch(`${baseUrl}/t2a_v2`, {
-      method: 'POST',
-      headers: createHeaders(profile),
-      body: JSON.stringify(buildSpeechPayload({
-        text,
-        profile,
-      })),
-    });
+    response = await fetch(
+      `${baseUrl}${DEFAULT_TTS_PATH}`,
+      {
+        method: 'POST',
+        headers: createTtsHeaders(normalized),
+        body: JSON.stringify(
+          buildSpeechPayload({
+            text,
+            profile: normalized,
+          }),
+        ),
+      },
+    );
   } catch (error) {
     if (isLikelyCorsError(error)) {
       throw createCorsError();
@@ -308,10 +392,6 @@ export const synthesizeMiniMaxSpeech = async ({
     );
   }
 
-  /**
-   * MiniMax 非流式 T2A 通常会在 data.audio 返回编码后的音频。
-   * 同时兼容 URL 形式和部分兼容服务的字段名。
-   */
   const audioValue = (
     payload?.data?.audio
     || payload?.data?.audio_url
