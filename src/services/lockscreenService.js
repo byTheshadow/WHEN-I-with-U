@@ -1,6 +1,7 @@
 import db from '../db';
 
-export const LOCKSCREEN_ENABLED_KEY = 'lockscreenCompanionEnabled';
+export const LOCKSCREEN_ENABLED_KEY =
+  'lockscreenCompanionEnabled';
 
 export const DEFAULT_LOCKSCREEN_QUOTES = [
   '今天辛苦啦，记得早点休息哦。',
@@ -12,11 +13,13 @@ export const DEFAULT_LOCKSCREEN_QUOTES = [
 ];
 
 let companionAudio = null;
+let companionAudioUrl = null;
 let quoteRotateTimer = null;
 let startPromise = null;
-let lifecycleToken = 0;
 
+let lifecycleToken = 0;
 let activeMetadata = null;
+
 let retryCharacter = null;
 let retryListenersAttached = false;
 let retryInProgress = false;
@@ -42,17 +45,97 @@ const normalizeQuotes = (quotes) => {
     return [...DEFAULT_LOCKSCREEN_QUOTES];
   }
 
-  const normalized = quotes
+  const normalizedQuotes = quotes
     .map((quote) => String(quote || '').trim())
     .filter(Boolean)
     .map((quote) => quote.slice(0, 120))
     .filter(
-      (quote, index, array) => array.indexOf(quote) === index,
+      (quote, index, array) =>
+        array.indexOf(quote) === index,
     );
 
-  return normalized.length > 0
-    ? normalized
+  return normalizedQuotes.length > 0
+    ? normalizedQuotes
     : [...DEFAULT_LOCKSCREEN_QUOTES];
+};
+
+/**
+ * 创建一个标准 PCM WAV 音频。
+ *
+ * 不使用固定 Base64 MP3，避免部分手机浏览器无法识别
+ * data:audio/mp3 音频源。
+ */
+const createSilentWavUrl = () => {
+  if (
+    typeof window === 'undefined' ||
+    typeof Blob === 'undefined' ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
+    return null;
+  }
+
+  const sampleRate = 8000;
+  const durationSeconds = 1;
+  const channelCount = 1;
+  const bitsPerSample = 16;
+  const bytesPerSample = bitsPerSample / 8;
+  const sampleCount = sampleRate * durationSeconds;
+  const dataSize =
+    sampleCount * channelCount * bytesPerSample;
+
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  const writeString = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(
+        offset + index,
+        value.charCodeAt(index),
+      );
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(
+    28,
+    sampleRate * channelCount * bytesPerSample,
+    true,
+  );
+  view.setUint16(
+    32,
+    channelCount * bytesPerSample,
+    true,
+  );
+  view.setUint16(34, bitsPerSample, true);
+
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  /*
+   * PCM 数据保持为 0，生成无声音频。
+   */
+  for (
+    let offset = 44;
+    offset < buffer.byteLength;
+    offset += 2
+  ) {
+    view.setInt16(offset, 0, true);
+  }
+
+  return URL.createObjectURL(
+    new Blob([buffer], {
+      type: 'audio/wav',
+    }),
+  );
 };
 
 const clearRetryListeners = () => {
@@ -97,7 +180,9 @@ const attachRetryListeners = (character) => {
   window.addEventListener(
     'pointerdown',
     handleRetryGesture,
-    { passive: true },
+    {
+      passive: true,
+    },
   );
 
   window.addEventListener(
@@ -108,6 +193,28 @@ const attachRetryListeners = (character) => {
   retryListenersAttached = true;
 };
 
+/**
+ * 判断当前 Media Session 是否仍然属于锁屏陪伴。
+ *
+ * 如果其他模块已经接管了媒体卡片，则锁屏服务不清理、
+ * 不覆盖其他模块的 metadata。
+ */
+const ownsCurrentMediaSession = () => {
+  if (!getMediaSessionSupport()) {
+    return false;
+  }
+
+  return (
+    activeMetadata &&
+    navigator.mediaSession.metadata === activeMetadata
+  );
+};
+
+/**
+ * 更新锁屏媒体卡片。
+ *
+ * 如果已有其他媒体功能占用 Media Session，则不覆盖它。
+ */
 const updateMediaSessionMetadata = (
   characterName,
   quoteText,
@@ -119,6 +226,21 @@ const updateMediaSessionMetadata = (
   }
 
   try {
+    const currentMetadata =
+      navigator.mediaSession.metadata;
+
+    /*
+     * AudioKeepAlive 或其他播放器已经接管媒体卡片时，
+     * 不覆盖它的内容。
+     */
+    if (
+      currentMetadata &&
+      currentMetadata !== activeMetadata
+    ) {
+      lastStartStatus = 'media-session-busy';
+      return false;
+    }
+
     const metadata = new window.MediaMetadata({
       title: quoteText || '陪在你身边',
       artist: characterName || '陪伴伴侣',
@@ -138,9 +260,10 @@ const updateMediaSessionMetadata = (
     activeMetadata = metadata;
 
     /*
-     * 不在这里注册 play/pause handler。
-     * navigator.mediaSession 是全局对象，避免覆盖项目原有的
-     * AudioKeepAlive 媒体控制逻辑。
+     * 不在这里调用 setActionHandler。
+     *
+     * Media Session 是全局对象。锁屏服务不注册 play/pause
+     * handler，避免覆盖项目原有 AudioKeepAlive 的控制逻辑。
      */
     return true;
   } catch (error) {
@@ -156,7 +279,9 @@ const updateMediaSessionMetadata = (
 
 export const getLockscreenQuotes = async () => {
   try {
-    const item = await db.settings.get('lockscreenQuotes');
+    const item = await db.settings.get(
+      'lockscreenQuotes',
+    );
 
     if (item && Array.isArray(item.value)) {
       return normalizeQuotes(item.value);
@@ -171,58 +296,66 @@ export const getLockscreenQuotes = async () => {
   return [...DEFAULT_LOCKSCREEN_QUOTES];
 };
 
-export const saveLockscreenQuotes = async (quotesArray) => {
-  const normalizedQuotes = normalizeQuotes(quotesArray);
+export const saveLockscreenQuotes = async (
+  quotesArray,
+) => {
+  const normalizedQuotes = normalizeQuotes(
+    quotesArray,
+  );
 
   try {
     await db.settings.put({
       key: 'lockscreenQuotes',
       value: normalizedQuotes,
     });
+
+    return true;
   } catch (error) {
     console.error(
       '[LockscreenService] 保存台词失败:',
       error,
     );
-  }
-};
-
-export const getLockscreenCompanionEnabled = async () => {
-  try {
-    const setting = await db.settings.get(
-      LOCKSCREEN_ENABLED_KEY,
-    );
-
-    return setting?.value === true;
-  } catch (error) {
-    console.warn(
-      '[LockscreenService] 读取锁屏陪伴开关失败:',
-      error,
-    );
 
     return false;
   }
 };
 
-export const setLockscreenCompanionEnabled = async (
-  enabled,
-) => {
-  try {
-    await db.settings.put({
-      key: LOCKSCREEN_ENABLED_KEY,
-      value: Boolean(enabled),
-    });
+export const getLockscreenCompanionEnabled =
+  async () => {
+    try {
+      const setting = await db.settings.get(
+        LOCKSCREEN_ENABLED_KEY,
+      );
 
-    return true;
-  } catch (error) {
-    console.error(
-      '[LockscreenService] 保存锁屏陪伴开关失败:',
-      error,
-    );
+      return setting?.value === true;
+    } catch (error) {
+      console.warn(
+        '[LockscreenService] 读取锁屏陪伴开关失败:',
+        error,
+      );
 
-    return false;
-  }
-};
+      return false;
+    }
+  };
+
+export const setLockscreenCompanionEnabled =
+  async (enabled) => {
+    try {
+      await db.settings.put({
+        key: LOCKSCREEN_ENABLED_KEY,
+        value: Boolean(enabled),
+      });
+
+      return true;
+    } catch (error) {
+      console.error(
+        '[LockscreenService] 保存锁屏陪伴开关失败:',
+        error,
+      );
+
+      return false;
+    }
+  };
 
 export const isLockscreenCompanionRunning = () => {
   return Boolean(
@@ -234,7 +367,6 @@ export const isLockscreenCompanionRunning = () => {
 
 export const getLockscreenCompanionStatus = () => {
   return {
-    enabled: false,
     running: isLockscreenCompanionRunning(),
     waitingForGesture: retryListenersAttached,
     status: lastStartStatus,
@@ -277,12 +409,36 @@ export const startLockscreenCompanion = async (
   startPromise = (async () => {
     try {
       if (!companionAudio) {
-        const silentMp3 =
-          'data:audio/mp3;base64,SUQ3BAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//5AwAAAAAAAAAAAAAAAAAAAAAAAABGluZm8AAAAPAAAAAQAAAAAAAD8AMjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw//5AQAAAAAAAD8AAAAA';
+        companionAudioUrl = createSilentWavUrl();
 
-        companionAudio = new Audio(silentMp3);
+        if (!companionAudioUrl) {
+          lastStartStatus = 'audio-source-unavailable';
+          return false;
+        }
+
+        companionAudio = new Audio(
+          companionAudioUrl,
+        );
+
         companionAudio.loop = true;
+        companionAudio.preload = 'auto';
+
+        /*
+         * 保留原有极低音量设置。
+         */
         companionAudio.volume = 0.01;
+
+        companionAudio.addEventListener(
+          'error',
+          () => {
+            lastStartStatus = 'audio-error';
+
+            console.warn(
+              '[LockscreenService] 锁屏陪伴音频源无法播放:',
+              companionAudio?.error,
+            );
+          },
+        );
       }
 
       await companionAudio.play();
@@ -293,12 +449,15 @@ export const startLockscreenCompanion = async (
       }
 
       const quotes = await getLockscreenQuotes();
-      const randomQuote =
-        quotes[Math.floor(Math.random() * quotes.length)];
 
       if (currentToken !== lifecycleToken) {
         return false;
       }
+
+      const randomQuote =
+        quotes[
+          Math.floor(Math.random() * quotes.length)
+        ];
 
       updateMediaSessionMetadata(
         character?.name || '陪伴伴侣',
@@ -310,33 +469,45 @@ export const startLockscreenCompanion = async (
         clearInterval(quoteRotateTimer);
       }
 
-      quoteRotateTimer = window.setInterval(async () => {
-        if (
-          currentToken !== lifecycleToken ||
-          !isLockscreenCompanionRunning()
-        ) {
-          return;
-        }
+      quoteRotateTimer = window.setInterval(
+        async () => {
+          if (
+            currentToken !== lifecycleToken ||
+            !isLockscreenCompanionRunning()
+          ) {
+            return;
+          }
 
-        const latestQuotes = await getLockscreenQuotes();
+          const latestQuotes =
+            await getLockscreenQuotes();
 
-        if (currentToken !== lifecycleToken) {
-          return;
-        }
+          if (
+            currentToken !== lifecycleToken ||
+            !isLockscreenCompanionRunning()
+          ) {
+            return;
+          }
 
-        const nextQuote =
-          latestQuotes[
-            Math.floor(Math.random() * latestQuotes.length)
-          ];
+          const nextQuote =
+            latestQuotes[
+              Math.floor(
+                Math.random() * latestQuotes.length,
+              )
+            ];
 
-        updateMediaSessionMetadata(
-          character?.name || '陪伴伴侣',
-          nextQuote,
-          character?.avatar,
-        );
-      }, 10 * 60 * 1000);
+          updateMediaSessionMetadata(
+            character?.name || '陪伴伴侣',
+            nextQuote,
+            character?.avatar,
+          );
+        },
+        10 * 60 * 1000,
+      );
 
-      lastStartStatus = 'running';
+      lastStartStatus = getMediaSessionSupport()
+        ? 'running'
+        : 'running-without-media-session';
+
       clearRetryListeners();
 
       return true;
@@ -347,8 +518,19 @@ export const startLockscreenCompanion = async (
       ) {
         lastStartStatus = 'autoplay-blocked';
         attachRetryListeners(character);
+      } else if (
+        error?.name === 'NotSupportedError' ||
+        error?.name === 'MediaError'
+      ) {
+        lastStartStatus = 'audio-error';
+
+        console.warn(
+          '[LockscreenService] 当前浏览器不支持锁屏陪伴音频:',
+          error,
+        );
       } else {
         lastStartStatus = 'audio-error';
+
         console.warn(
           '[LockscreenService] 启动锁屏陪伴失败:',
           error,
@@ -367,7 +549,9 @@ export const startLockscreenCompanion = async (
 export const stopLockscreenCompanion = () => {
   lifecycleToken += 1;
   lastStartStatus = 'idle';
+
   retryCharacter = null;
+  retryInProgress = false;
   clearRetryListeners();
 
   if (quoteRotateTimer) {
@@ -376,21 +560,37 @@ export const stopLockscreenCompanion = () => {
   }
 
   if (companionAudio) {
-    companionAudio.pause();
-    companionAudio.currentTime = 0;
+    try {
+      companionAudio.pause();
+      companionAudio.currentTime = 0;
+      companionAudio.removeAttribute('src');
+      companionAudio.load();
+    } catch (error) {
+      console.warn(
+        '[LockscreenService] 停止锁屏陪伴音频失败:',
+        error,
+      );
+    }
+
+    companionAudio = null;
+  }
+
+  if (
+    companionAudioUrl &&
+    typeof URL !== 'undefined' &&
+    typeof URL.revokeObjectURL === 'function'
+  ) {
+    URL.revokeObjectURL(companionAudioUrl);
+    companionAudioUrl = null;
   }
 
   /*
-   * 只有当前 metadata 仍然是锁屏陪伴写入的对象时才清除。
-   * 如果 AudioKeepAlive 或其他媒体功能已经接管 Media Session，
-   * 不触碰它的 metadata。
+   * 只清除锁屏服务自己写入的 metadata。
+   *
+   * 如果 AudioKeepAlive 已经接管 Media Session，
+   * 则不触碰它的媒体卡片。
    */
-  if (
-    typeof navigator !== 'undefined' &&
-    'mediaSession' in navigator &&
-    activeMetadata &&
-    navigator.mediaSession.metadata === activeMetadata
-  ) {
+  if (ownsCurrentMediaSession()) {
     try {
       navigator.mediaSession.metadata = null;
     } catch (error) {
