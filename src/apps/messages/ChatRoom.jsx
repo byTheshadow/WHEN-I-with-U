@@ -76,6 +76,10 @@ import McpUsageTraceCard from './components/cards/McpUsageTraceCard';
 import McpToolUsageIndicator from './components/McpToolUsageIndicator';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
+import CompanionshipButton from './companionship/CompanionshipButton';
+import CompanionshipPanel from './companionship/CompanionshipPanel';
+import './companionship/companionship.css';
+
 
 import {
   cancelPendingScheduledMessagesForChat,
@@ -99,6 +103,11 @@ export const ChatRoom = ({
   const [quotedMsg, setQuotedMsg] = useState(null);
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
+  const [
+  showCompanionshipPanel,
+  setShowCompanionshipPanel,
+] = useState(false);
+
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
@@ -663,6 +672,12 @@ export const ChatRoom = ({
               <BookOpen className="h-4 w-4" />
             </button>
           </div>
+
+          <CompanionshipButton
+  chatId={chatId}
+  onClick={() => setShowCompanionshipPanel(true)}
+/>
+
 
           <div className="flex items-center gap-2">
             <button
@@ -1405,6 +1420,17 @@ export const ChatRoom = ({
           onClose={() => setShowBubbleCustomizer(false)}
         />
       )}
+
+      {showCompanionshipPanel && (
+  <CompanionshipPanel
+    chatId={chatId}
+    chat={chat}
+    character={character}
+    onClose={() => setShowCompanionshipPanel(false)}
+    onChatUpdated={loadChatData}
+  />
+)}
+
 
       {showChatSettings && (
         <ChatSettingsModal

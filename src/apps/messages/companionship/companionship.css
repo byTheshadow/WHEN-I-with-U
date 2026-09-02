@@ -1,0 +1,354 @@
+.companionship-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: var(--text-main);
+}
+
+.companionship-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+
+.companionship-panel {
+  position: relative;
+  width: min(100%, 440px);
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--card-border);
+  border-bottom: 0;
+  border-radius: 1.4rem 1.4rem 0 0;
+  background: var(--bg-main);
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.18);
+  animation: companionship-panel-in 180ms ease-out;
+}
+
+.companionship-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.companionship-kicker {
+  margin: 0 0 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.companionship-panel h2,
+.companionship-panel h3,
+.companionship-panel p {
+  margin-top: 0;
+}
+
+.companionship-panel h2 {
+  margin-bottom: 0;
+  font-family: Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.companionship-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  color: var(--text-main);
+  background: var(--control-soft-bg);
+  cursor: pointer;
+}
+
+.companionship-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  color: var(--text-main);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.companionship-field textarea,
+.companionship-field select,
+.companionship-option select {
+  width: 100%;
+  border: 1px solid var(--card-border);
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.75rem;
+  color: var(--text-main);
+  background: var(--control-soft-bg);
+  outline: none;
+  font: inherit;
+  font-weight: 400;
+}
+
+.companionship-field textarea {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.companionship-field textarea:focus,
+.companionship-field select:focus,
+.companionship-option select:focus {
+  border-color: var(--accent-color);
+}
+
+.companionship-counter {
+  align-self: flex-end;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 400;
+}
+
+.companionship-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.companionship-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.companionship-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.9rem;
+  background: var(--control-soft-bg);
+}
+
+.companionship-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--accent-color);
+}
+
+.companionship-option-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.companionship-option-copy strong {
+  font-size: 0.75rem;
+}
+
+.companionship-option-copy small {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.companionship-option input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent-color);
+}
+
+.companionship-option select {
+  width: auto;
+  max-width: 7rem;
+  padding: 0.45rem;
+  font-size: 0.68rem;
+}
+
+.companionship-notice {
+  display: flex;
+  gap: 0.6rem;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-left: 2px solid var(--accent-color);
+  color: var(--text-muted);
+  background: var(--control-soft-bg);
+  line-height: 1.55;
+}
+
+.companionship-notice p {
+  margin: 0;
+  font-size: 0.68rem;
+}
+
+.companionship-error {
+  margin: 0.75rem 0;
+  color: var(--danger-color, #a44);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.companionship-primary-button,
+.companionship-secondary-button,
+.companionship-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.55rem;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.companionship-primary-button {
+  width: 100%;
+  border: 1px solid var(--accent-color);
+  color: var(--accent-foreground);
+  background: var(--accent-color);
+}
+
+.companionship-secondary-button {
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  background: var(--control-soft-bg);
+}
+
+.companionship-danger-button {
+  width: 100%;
+  margin-top: 1.2rem;
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  background: var(--control-soft-bg);
+}
+
+.companionship-primary-button:disabled,
+.companionship-secondary-button:disabled,
+.companionship-danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.companionship-running {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 0 1rem;
+  text-align: center;
+}
+
+.companionship-running-mark,
+.companionship-confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  color: var(--accent-foreground);
+  background: var(--accent-color);
+}
+
+.companionship-running-label {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.companionship-running-time {
+  margin-bottom: 0.5rem;
+  font-family: Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.companionship-muted {
+  max-width: 18rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.companionship-confirm-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(
+    in srgb,
+    var(--bg-main) 86%,
+    transparent
+  );
+}
+
+.companionship-confirm-card {
+  width: 100%;
+  padding: 1.1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 1rem;
+  background: var(--bg-main);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+.companionship-confirm-icon {
+  width: 2.3rem;
+  height: 2.3rem;
+  margin-bottom: 0.9rem;
+}
+
+.companionship-confirm-card h3 {
+  margin-bottom: 0.7rem;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+}
+
+.companionship-confirm-card p {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.companionship-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+@keyframes companionship-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 360px) {
+  .companionship-grid,
+  .companionship-confirm-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .companionship-panel {
+    padding: 1rem;
+  }
+}
