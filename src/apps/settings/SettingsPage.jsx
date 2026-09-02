@@ -42,9 +42,14 @@ import db from '../../db';
 import {
   getLockscreenQuotes,
   saveLockscreenQuotes,
+  getLockscreenCompanionEnabled,
+  setLockscreenCompanionEnabled,
+  isLockscreenCompanionRunning,
+  getLockscreenCompanionStatus,
   startLockscreenCompanion,
   stopLockscreenCompanion,
 } from '../../services/lockscreenService';
+
 import {
   generateBackupData,
   restoreBackupData,
@@ -99,7 +104,10 @@ const [newCategoryQuoteInputs, setNewCategoryQuoteInputs] = useState({});
 
   const [lockscreenQuotes, setLockscreenQuotes] = useState([]);
   const [newQuoteInput, setNewQuoteInput] = useState('');
-  const [isCompanionActive, setIsCompanionActive] = useState(false);
+ const [isCompanionEnabled, setIsCompanionEnabled] = useState(false);
+const [isCompanionRunning, setIsCompanionRunning] = useState(false);
+const [isCompanionLoading, setIsCompanionLoading] = useState(true);
+
 
   const [models, setModels] = useState([]);
   const [apiStatus, setApiStatus] = useState('idle');
@@ -206,10 +214,25 @@ const [newCategoryQuoteInputs, setNewCategoryQuoteInputs] = useState({});
           }));
         }
 
-        const quotes = await getLockscreenQuotes();
-        setLockscreenQuotes(quotes);
+       const [
+  quotes,
+  savedCompanionEnabled,
+] = await Promise.all([
+  getLockscreenQuotes(),
+  getLockscreenCompanionEnabled(),
+]);
+
+setLockscreenQuotes(quotes);
+setIsCompanionEnabled(savedCompanionEnabled);
+setIsCompanionRunning(
+  savedCompanionEnabled &&
+  isLockscreenCompanionRunning(),
+);
+setIsCompanionLoading(false);
+
       } catch (error) {
         console.error('Unable to load settings:', error);
+        setIsCompanionLoading(false);
       }
     };
 
@@ -399,38 +422,96 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
 };
 
 
-  const handleToggleCompanion = async () => {
+   const handleToggleCompanion = async () => {
+    if (isCompanionLoading) return;
+
     try {
-      if (isCompanionActive) {
+      if (isCompanionEnabled) {
+        const saved = await setLockscreenCompanionEnabled(false);
+
+        if (!saved) {
+          showSaveResult(
+            'error',
+            '锁屏陪伴状态保存失败，请稍后重试。',
+          );
+          return;
+        }
+
         stopLockscreenCompanion();
-        setIsCompanionActive(false);
-        showSaveResult('success', '锁屏陪伴已关闭。');
+        setIsCompanionEnabled(false);
+        setIsCompanionRunning(false);
+
+        showSaveResult(
+          'success',
+          '锁屏陪伴已关闭。',
+        );
+
         return;
       }
+
+      const saved = await setLockscreenCompanionEnabled(true);
+
+      if (!saved) {
+        showSaveResult(
+          'error',
+          '锁屏陪伴状态保存失败，请稍后重试。',
+        );
+        return;
+      }
+
+      setIsCompanionEnabled(true);
 
       const character = await db.characters
         .filter((item) => item.isNpc !== true)
         .first();
 
-      const started = await startLockscreenCompanion(character || null);
+      const started = await startLockscreenCompanion(
+        character || null,
+      );
+
+      setIsCompanionRunning(started);
 
       if (started) {
-        setIsCompanionActive(true);
         showSaveResult(
           'success',
-          '锁屏陪伴已开启。请保持音频播放，系统才可能展示媒体卡片。',
+          '锁屏陪伴已开启。',
+        );
+        return;
+      }
+
+      const status = getLockscreenCompanionStatus();
+
+      if (status.status === 'autoplay-blocked') {
+        showSaveResult(
+          'success',
+          '锁屏陪伴已记住。请再点击一次页面，允许手机浏览器启动音频。',
+        );
+      } else if (status.status === 'media-session-unsupported') {
+        showSaveResult(
+          'error',
+          '当前手机浏览器不支持锁屏媒体卡片，但开启设置已经保存。',
         );
       } else {
         showSaveResult(
           'error',
-          '无法启动锁屏陪伴。请在手机浏览器中通过点击按钮授权播放。',
+          '锁屏陪伴暂时无法启动，但开启设置已经保存。',
         );
       }
     } catch (error) {
-      console.error('Unable to toggle lockscreen companion:', error);
-      showSaveResult('error', '锁屏陪伴启动失败，请稍后重试。');
+      console.error(
+        'Unable to toggle lockscreen companion:',
+        error,
+      );
+
+      setIsCompanionRunning(false);
+
+      showSaveResult(
+        'error',
+        '锁屏陪伴启动失败，但开启设置已经保存。',
+      );
     }
   };
+
 
   const handleSaveAll = async () => {
     setIsSaving(true);
@@ -667,7 +748,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 
     try {
       stopLockscreenCompanion();
-      setIsCompanionActive(false);
+      setisCompanionEnabled(false);
 
       await db.transaction(
         'rw',
@@ -1086,20 +1167,27 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
             <div>
               <p className="font-semibold">开启锁屏陪伴通道</p>
               <p className="mt-0.5 text-[10px] opacity-50">
-                使用手机端浏览器时需授权音频播放
-              </p>
+  使用手机端浏览器时需通过页面操作授权音频播放
+</p>
+
+{isCompanionEnabled && !isCompanionRunning && (
+  <p className="mt-1 text-[10px] opacity-60">
+    等待下一次页面操作以恢复锁屏陪伴
+  </p>
+)}
+
             </div>
 
             <button
               type="button"
               onClick={handleToggleCompanion}
               className={`relative h-6 w-11 rounded-full transition-colors ${
-                isCompanionActive ? 'bg-black dark:bg-white' : 'bg-black/10'
+                isCompanionEnabled ? 'bg-black dark:bg-white' : 'bg-black/10'
               }`}
             >
               <span
                 className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform dark:bg-black ${
-                  isCompanionActive ? 'translate-x-5' : 'translate-x-0'
+                  isCompanionEnabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>

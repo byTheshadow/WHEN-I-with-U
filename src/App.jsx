@@ -51,6 +51,12 @@ import {
   startAutoMessageScheduler,
   stopAutoMessageScheduler
 } from './services/aiService';
+import {
+  getLockscreenCompanionEnabled,
+  startLockscreenCompanion,
+  stopLockscreenCompanion,
+} from './services/lockscreenService';
+
 
 import {
   startTravelPostcardScheduler,
@@ -190,6 +196,56 @@ export const App = () => {
     stopParallelOrbitScheduler();
   };
 }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreLockscreenCompanion = async () => {
+      try {
+        const enabled = await getLockscreenCompanionEnabled();
+
+        if (!enabled || cancelled) {
+          return;
+        }
+
+        const character = await db.characters
+          .filter((item) => item.isNpc !== true)
+          .first();
+
+        if (cancelled) {
+          return;
+        }
+
+        /*
+         * 手机浏览器可能因为当前没有用户手势而拒绝播放。
+         * Service 会保留开启状态，并等待后续用户手势重试。
+         */
+        await startLockscreenCompanion(
+          character || null,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          console.warn(
+            '[App] 恢复锁屏陪伴失败:',
+            error,
+          );
+        }
+      }
+    };
+
+    void restoreLockscreenCompanion();
+
+    return () => {
+      cancelled = true;
+
+      /*
+       * 这里只停止运行中的临时音频，不修改 Dexie 中的开启设置。
+       * 下次 App 挂载时仍会根据持久化设置尝试恢复。
+       */
+      stopLockscreenCompanion();
+    };
+  }, []);
+
 
 
 
