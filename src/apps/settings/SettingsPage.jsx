@@ -29,6 +29,13 @@ import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
 import BondConnection from './mcp/BondConnection';
+import {
+  DEFAULT_PRELOADER_QUOTE_CONFIG,
+  createPreloaderQuoteCategory,
+  normalizePreloaderQuoteConfig,
+  savePreloaderQuoteConfig,
+} from '../../services/preloaderQuoteService';
+
 
 
 import db from '../../db';
@@ -68,6 +75,13 @@ export const SettingsPage = ({
 
   const [draftTheme, setDraftTheme] = useState(currentTheme);
   const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
+
+const [preloaderQuoteConfig, setPreloaderQuoteConfig] = useState(
+  DEFAULT_PRELOADER_QUOTE_CONFIG,
+);
+const [newCategoryName, setNewCategoryName] = useState('');
+const [newCategoryQuoteInputs, setNewCategoryQuoteInputs] = useState({});
+
 
   const [autoMessage, setAutoMessage] = useState(false);
   const [frequency, setFrequency] = useState('moderate');
@@ -156,6 +170,13 @@ export const SettingsPage = ({
         if (typeof settingMap.showTitle === 'boolean') {
           setDraftShowTitle(settingMap.showTitle);
         }
+
+        if (settingMap.preloaderQuoteConfig) {
+  setPreloaderQuoteConfig(
+    normalizePreloaderQuoteConfig(settingMap.preloaderQuoteConfig),
+  );
+}
+
 
         if (typeof settingMap.autoMessage === 'boolean') {
           setAutoMessage(settingMap.autoMessage);
@@ -256,6 +277,128 @@ export const SettingsPage = ({
     );
   };
 
+  const handleAddPreloaderCategory = () => {
+  const name = newCategoryName.trim();
+
+  if (!name) {
+    showSaveResult('error', '请先填写分类名称。');
+    return;
+  }
+
+  const duplicated = preloaderQuoteConfig.categories.some(
+    (category) => category.name === name,
+  );
+
+  if (duplicated) {
+    showSaveResult('error', '这个分类名称已经存在。');
+    return;
+  }
+
+  const category = createPreloaderQuoteCategory(name);
+
+  setPreloaderQuoteConfig((previous) => ({
+    ...previous,
+    activeCategoryId:
+      previous.activeCategoryId || category.id,
+    categories: [...previous.categories, category],
+  }));
+
+  setNewCategoryName('');
+};
+
+const handleDeletePreloaderCategory = (categoryId) => {
+  setPreloaderQuoteConfig((previous) => {
+    const categories = previous.categories.filter(
+      (category) => category.id !== categoryId,
+    );
+
+    return {
+      ...previous,
+      categories,
+      activeCategoryId:
+        previous.activeCategoryId === categoryId
+          ? categories[0]?.id || ''
+          : previous.activeCategoryId,
+    };
+  });
+};
+
+const handleRenamePreloaderCategory = (categoryId, value) => {
+  setPreloaderQuoteConfig((previous) => ({
+    ...previous,
+    categories: previous.categories.map((category) =>
+      category.id === categoryId
+        ? { ...category, name: value.slice(0, 40) }
+        : category,
+    ),
+  }));
+};
+
+const handleAddPreloaderQuote = (categoryId) => {
+  const quote = String(newCategoryQuoteInputs[categoryId] || '').trim();
+
+  if (!quote) return;
+
+  if (quote.length > 120) {
+    showSaveResult('error', '单条加载页文案请控制在 120 个字符以内。');
+    return;
+  }
+
+  setPreloaderQuoteConfig((previous) => ({
+    ...previous,
+    categories: previous.categories.map((category) => {
+      if (category.id !== categoryId) return category;
+
+      if (category.quotes.includes(quote)) {
+        return category;
+      }
+
+      return {
+        ...category,
+        quotes: [...category.quotes, quote],
+      };
+    }),
+  }));
+
+  setNewCategoryQuoteInputs((previous) => ({
+    ...previous,
+    [categoryId]: '',
+  }));
+};
+
+const handleEditPreloaderQuote = (categoryId, quoteIndex, value) => {
+  setPreloaderQuoteConfig((previous) => ({
+    ...previous,
+    categories: previous.categories.map((category) =>
+      category.id === categoryId
+        ? {
+            ...category,
+            quotes: category.quotes.map((quote, index) =>
+              index === quoteIndex ? value.slice(0, 120) : quote,
+            ),
+          }
+        : category,
+    ),
+  }));
+};
+
+const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
+  setPreloaderQuoteConfig((previous) => ({
+    ...previous,
+    categories: previous.categories.map((category) =>
+      category.id === categoryId
+        ? {
+            ...category,
+            quotes: category.quotes.filter(
+              (_, index) => index !== quoteIndex,
+            ),
+          }
+        : category,
+    ),
+  }));
+};
+
+
   const handleToggleCompanion = async () => {
     try {
       if (isCompanionActive) {
@@ -297,6 +440,22 @@ export const SettingsPage = ({
         .map((quote) => quote.trim())
         .filter(Boolean)
         .filter((quote, index, array) => array.indexOf(quote) === index);
+            const cleanPreloaderQuoteConfig = normalizePreloaderQuoteConfig({
+      ...preloaderQuoteConfig,
+      categories: preloaderQuoteConfig.categories
+        .map((category) => ({
+          ...category,
+          name: category.name.trim(),
+          quotes: category.quotes
+            .map((quote) => quote.trim())
+            .filter(Boolean)
+            .filter(
+              (quote, index, array) => array.indexOf(quote) === index,
+            ),
+        }))
+        .filter((category) => category.name),
+    });
+
 
       await db.transaction('rw', db.settings, async () => {
         await db.settings.bulkPut([
@@ -306,10 +465,18 @@ export const SettingsPage = ({
           { key: 'frequency', value: frequency },
           { key: 'quietHours', value: quietHours },
           { key: 'apiConfig', value: apiConfig },
+          {
+  key: 'preloaderQuoteConfig',
+  value: cleanPreloaderQuoteConfig,
+},
+
         ]);
       });
 
       await saveLockscreenQuotes(cleanQuotes);
+      await savePreloaderQuoteConfig(cleanPreloaderQuoteConfig);
+setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
+
 
       if (draftTheme !== currentTheme) {
         onChangeTheme(draftTheme);
@@ -619,6 +786,177 @@ export const SettingsPage = ({
           </div>
         </div>
       </GlassCard>
+
+      {/* 2. 加载页文案库 */}
+<GlassCard className="space-y-4 text-left">
+  <div className="flex items-center gap-2 text-sm font-bold">
+    <BookOpen className="h-4 w-4" />
+    <span>加载页文案库</span>
+  </div>
+
+  <p className="text-[11px] leading-relaxed opacity-60">
+    为不同角色建立独立的文案分类。加载页会从当前启用的分类中随机留下文字；没有可用文案时，继续使用原有随机文案。
+  </p>
+
+  <div className="space-y-2">
+    <label className="block opacity-60">
+      新建分类
+    </label>
+
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={newCategoryName}
+        onChange={(event) => setNewCategoryName(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            handleAddPreloaderCategory();
+          }
+        }}
+        placeholder="例如：角色 A"
+        className="min-w-0 flex-1 rounded-xl bg-black/5 p-3 outline-none focus:bg-black/10 dark:bg-white/10"
+      />
+
+      <button
+        type="button"
+        onClick={handleAddPreloaderCategory}
+        className="rounded-xl bg-black px-4 font-semibold text-white transition-transform active:scale-95 dark:bg-white dark:text-black"
+        aria-label="新建分类"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+
+  {preloaderQuoteConfig.categories.length > 0 && (
+    <div className="space-y-4 border-t border-black/5 pt-4 dark:border-white/5">
+      <div>
+        <label className="mb-2 block opacity-60">
+          加载页当前使用的分类
+        </label>
+
+        <select
+          value={preloaderQuoteConfig.activeCategoryId}
+          onChange={(event) =>
+            setPreloaderQuoteConfig((previous) => ({
+              ...previous,
+              activeCategoryId: event.target.value,
+            }))
+          }
+          className="w-full rounded-xl bg-black/5 p-3 outline-none dark:bg-white/10"
+        >
+          <option value="">使用原有随机文案</option>
+
+          {preloaderQuoteConfig.categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {preloaderQuoteConfig.categories.map((category) => (
+        <div
+          key={category.id}
+          className="space-y-3 rounded-2xl bg-black/5 p-3 dark:bg-white/5"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={category.name}
+              onChange={(event) =>
+                handleRenamePreloaderCategory(
+                  category.id,
+                  event.target.value,
+                )
+              }
+              className="min-w-0 flex-1 bg-transparent font-semibold outline-none"
+              aria-label="分类名称"
+            />
+
+            <button
+              type="button"
+              onClick={() =>
+                handleDeletePreloaderCategory(category.id)
+              }
+              className="rounded-full p-1.5 opacity-50 transition-opacity hover:opacity-100"
+              aria-label={`删除${category.name}分类`}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {category.quotes.map((quote, quoteIndex) => (
+              <div
+                key={`${category.id}-${quoteIndex}`}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="text"
+                  value={quote}
+                  onChange={(event) =>
+                    handleEditPreloaderQuote(
+                      category.id,
+                      quoteIndex,
+                      event.target.value,
+                    )
+                  }
+                  className="min-w-0 flex-1 rounded-xl bg-white/60 p-2.5 text-[11px] outline-none dark:bg-black/20"
+                  aria-label={`${category.name}文案`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleDeletePreloaderQuote(
+                      category.id,
+                      quoteIndex,
+                    )
+                  }
+                  className="rounded-full p-1.5 opacity-50 transition-opacity hover:opacity-100"
+                  aria-label="删除文案"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newCategoryQuoteInputs[category.id] || ''}
+                onChange={(event) =>
+                  setNewCategoryQuoteInputs((previous) => ({
+                    ...previous,
+                    [category.id]: event.target.value,
+                  }))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    handleAddPreloaderQuote(category.id);
+                  }
+                }}
+                placeholder="新建一条文案"
+                className="min-w-0 flex-1 rounded-xl bg-black/5 p-2.5 text-[11px] outline-none dark:bg-white/10"
+              />
+
+              <button
+                type="button"
+                onClick={() => handleAddPreloaderQuote(category.id)}
+                className="rounded-xl bg-black px-3 text-white transition-transform active:scale-95 dark:bg-white dark:text-black"
+                aria-label={`为${category.name}新增文案`}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</GlassCard>
+
 
       {/* 2. 陪伴系统行为设定 */}
       <GlassCard className="space-y-4 text-left">

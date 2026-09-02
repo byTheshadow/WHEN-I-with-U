@@ -7,7 +7,11 @@ import VinylLoader from './VinylLoader';
 import PolaroidLoader from './PolaroidLoader';
 import LetterLoader from './LetterLoader';
 
-import { getRandomInspiration } from '../data/dailyInspirations';
+import {
+  getPreloaderQuote,
+  getPreloaderQuoteSync,
+} from '../services/preloaderQuoteService';
+
 import {
   DEFAULT_STARTUP_ANIMATION_ID,
   isAvailableStartupAnimation,
@@ -50,7 +54,7 @@ const LOADER_MAP = {
 };
 
 export const Preloader = ({ onFinish }) => {
-  const [quote, setQuote] = useState('');
+  const [quote, setQuote] = useState(getPreloaderQuoteSync);
   const [isFading, setIsFading] = useState(false);
 
   /*
@@ -65,22 +69,30 @@ export const Preloader = ({ onFinish }) => {
     onFinishRef.current = onFinish;
   }, [onFinish]);
 
-  useEffect(() => {
-    setQuote(getRandomInspiration());
+useEffect(() => {
+  let isMounted = true;
 
-    const fadeTimer = window.setTimeout(() => {
-      setIsFading(true);
-    }, 3600);
+  getPreloaderQuote().then((nextQuote) => {
+    if (isMounted && nextQuote) {
+      setQuote(nextQuote);
+    }
+  });
 
-    const finishTimer = window.setTimeout(() => {
-      onFinishRef.current?.();
-    }, 4300);
+  const fadeTimer = window.setTimeout(() => {
+    setIsFading(true);
+  }, 3600);
 
-    return () => {
-      window.clearTimeout(fadeTimer);
-      window.clearTimeout(finishTimer);
-    };
-  }, []);
+  const finishTimer = window.setTimeout(() => {
+    onFinishRef.current?.();
+  }, 4300);
+
+  return () => {
+    isMounted = false;
+    window.clearTimeout(fadeTimer);
+    window.clearTimeout(finishTimer);
+  };
+}, []);
+
 
   const activeLoader = LOADER_MAP[loaderType] || LOADER_MAP.astrology;
   const ActiveLoader = activeLoader.Component;
