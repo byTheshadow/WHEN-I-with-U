@@ -17,7 +17,24 @@ export const DEFAULT_STICKERS = [
   { name: '超心动', url: 'https://u2.fukit.cn/mSVQW0LeA', category: 'preset' },
   { name: '你好可爱', url: 'https://u2.fukit.cn/RQmg53mU9', category: 'preset' },
   { name: '哭了', url: 'https://u2.fukit.cn/sBcqPCOgz', category: 'preset' },
+
+  { name: '安慰的摸摸', url: 'https://u2.fukit.cn/7gOI3ss2g', category: 'preset' },
+  { name: '甜甜的互相亲亲', url: 'https://u2.fukit.cn/QjAR1yP3g', category: 'preset' },
+  { name: '亲亲？直接打飞', url: 'https://u2.fukit.cn/AiR0BJ1OR', category: 'preset' },
+  { name: '融化了', url: 'https://u2.fukit.cn/J8kX0acuu', category: 'preset' },
+  { name: '开心的惊讶', url: 'https://u2.fukit.cn/kM3mk1lSa', category: 'preset' },
+  { name: '严肃', url: 'https://u2.fukit.cn/06HqmURab', category: 'preset' },
+  { name: '开心的鞠躬', url: 'https://u2.fukit.cn/4tvBwFw2h', category: 'preset' },
+  { name: '海绵宝宝散播爱', url: 'https://u2.fukit.cn/cP44KRRyb', category: 'preset' },
+  { name: '萌萌小雪糕', url: 'https://u2.fukit.cn/zr9JRopqe', category: 'preset' },
+  { name: '有点尴尬', url: 'https://u2.fukit.cn/8kDMgPuwo', category: 'preset' },
+  { name: '踩你', url: 'https://u2.fukit.cn/3PduOKFFW', category: 'preset' },
+  { name: '好的哦', url: 'https://u2.fukit.cn/QWTsdWwRt', category: 'preset' },
+  { name: '哭哭', url: 'https://u2.fukit.cn/CSj8oSevJ', category: 'preset' },
+  { name: '微笑', url: 'https://u2.fukit.cn/DkJLOMoZP', category: 'preset' },
+  { name: '惊喜的哇', url: 'https://u2.fukit.cn/7bxw2ubLy', category: 'preset' },
 ];
+
 
 /**
  * 初始化并补齐预设表情包。
