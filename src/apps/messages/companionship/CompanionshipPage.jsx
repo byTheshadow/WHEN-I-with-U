@@ -330,22 +330,33 @@ export const CompanionshipPage = ({
   const handleConfirmStart = async () => {
     setIsLoading(true);
     setErrorMessage('');
-    setEvents([]);
 
     try {
+      const chatId = selectedChat?.id;
+
+      if (
+        chatId === undefined
+        || chatId === null
+        || chatId === ''
+      ) {
+        throw new Error('请先选择一个聊天框。');
+      }
+
       const created = await createCompanionshipSession({
-        chatId: selectedChat.id,
-        characterId: selectedChat.characterId,
+        chatId,
         goal,
         durationMinutes,
         intervalMinutes,
         notificationEnabled,
       });
 
+      setSelectedChatId(String(created.chatId));
       setSession(created);
       setShowAuthorization(false);
     } catch (error) {
-      setErrorMessage(error?.message || '暂时无法开始陪伴。');
+      setErrorMessage(
+        error?.message || '暂时无法绑定这个聊天框。',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -410,14 +421,19 @@ export const CompanionshipPage = ({
 
           <label className="companionship-field">
             <span>绑定聊天框</span>
+            <p className="companionship-field-hint">
+              陪伴会沿用这个聊天框里的消息、记忆、摘要与角色状态。
+            </p>
             <select
               value={selectedChatId}
               onChange={(event) => setSelectedChatId(event.target.value)}
             >
               <option value="">请选择聊天框</option>
               {chats.map((chat) => (
-                <option key={chat.id} value={chat.id}>
-                  {chat.title || getChatCharacterName(chat, characters)}
+                <option key={chat.id} value={String(chat.id)}>
+                  {chat.title || '未命名聊天框'}
+                  {' · '}
+                  {getChatCharacterName(chat, characters)}
                 </option>
               ))}
             </select>

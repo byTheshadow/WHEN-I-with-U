@@ -14,6 +14,44 @@ const normalizeId = (value) => {
   return String(value);
 };
 
+const getChatById = async (chatId) => {
+  if (
+    chatId === undefined
+    || chatId === null
+    || chatId === ''
+  ) {
+    return null;
+  }
+
+  // 先按原始类型查询，兼容 Dexie 数字主键。
+  const directChat = await db.chats.get(chatId);
+
+  if (directChat) {
+    return directChat;
+  }
+
+  // select、路由参数等场景通常会把 id 变成字符串。
+  const chats = await db.chats.toArray();
+
+  return chats.find(
+    (chat) => String(chat.id) === String(chatId),
+  ) || null;
+};
+
+const getSessionById = async (sessionId) => {
+  const directSession = await db.companionshipSessions.get(sessionId);
+
+  if (directSession) {
+    return directSession;
+  }
+
+  const sessions = await db.companionshipSessions.toArray();
+
+  return sessions.find(
+    (session) => String(session.id) === String(sessionId),
+  ) || null;
+};
+
 export const normalizeCompanionshipSettings = ({
   chatId,
   goal = '',
@@ -47,6 +85,14 @@ export const normalizeCompanionshipSettings = ({
 };
 
 export const getRunningCompanionship = async (chatId) => {
+  if (
+    chatId === undefined
+    || chatId === null
+    || chatId === ''
+  ) {
+    return null;
+  }
+
   const sessions = await db.companionshipSessions.toArray();
 
   const running = sessions
@@ -55,14 +101,20 @@ export const getRunningCompanionship = async (chatId) => {
       && String(session.chatId) === String(chatId)
     ))
     .sort(
-      (a, b) =>
+      (a, b) => (
         new Date(b.createdAt).getTime()
-        - new Date(a.createdAt).getTime(),
+        - new Date(a.createdAt).getTime()
+      ),
     )[0];
 
-  if (!running) return null;
+  if (!running) {
+    return null;
+  }
 
-  if (Date.now() >= new Date(running.endsAt).getTime()) {
+  if (
+    !running.endsAt
+    || Date.now() >= new Date(running.endsAt).getTime()
+  ) {
     await stopCompanionship(running.id, 'completed');
     return null;
   }
@@ -78,31 +130,28 @@ export const createCompanionshipSession = async ({
   intervalMinutes,
   notificationEnabled,
 }) => {
+  const chat = await getChatById(chatId);
+
+  if (!chat) {
+    throw new Error('找不到需要绑定的聊天框。');
+  }
+
+  const actualChatId = chat.id;
+  const actualCharacterId = chat.characterId;
+
   const settings = normalizeCompanionshipSettings({
-    chatId,
+    chatId: actualChatId,
     goal,
     durationMinutes,
     intervalMinutes,
     notificationEnabled,
   });
 
-  if (!settings.chatId) {
-    throw new Error('缺少需要绑定的聊天框。');
-  }
-
-  const existing = await getRunningCompanionship(settings.chatId);
+  const existing = await getRunningCompanionship(actualChatId);
 
   if (existing) {
     throw new Error('这个聊天框已经有一段正在进行的陪伴。');
   }
-
-  const chat = await db.chats.get(settings.chatId);
-
-  if (!chat) {
-    throw new Error('找不到需要绑定的聊天框。');
-  }
-
-  const previousKeepAlive = chat.keepAlive === true;
 
   const startedAt = new Date();
   const endsAt = new Date(
@@ -113,10 +162,11 @@ export const createCompanionshipSession = async ({
   );
 
   const createdAt = nowIso();
+  const previousKeepAlive = chat.keepAlive === true;
 
   const session = {
-    chatId: settings.chatId,
-    characterId,
+    chatId: actualChatId,
+    characterId: actualCharacterId,
 
     goal: settings.goal,
     durationMinutes: settings.durationMinutes,
@@ -134,6 +184,7 @@ export const createCompanionshipSession = async ({
     startedAt: startedAt.toISOString(),
     endsAt: endsAt.toISOString(),
     nextTriggerAt: nextTriggerAt.toISOString(),
+
     lastTriggeredAt: null,
     lastDecision: null,
     lastError: null,
@@ -144,9 +195,9 @@ export const createCompanionshipSession = async ({
 
   const id = await db.companionshipSessions.add(session);
 
-  await db.chats.update(settings.chatId, {
+  await db.chats.update(actualChatId, {
     keepAlive: true,
-    updatedAt: nowIso(),
+    updatedAt: createdAt,
   });
 
   return {
@@ -221,7 +272,7 @@ export const isCompanionshipAuthorizationValid = async ({
   chatId,
   characterId,
 }) => {
-  const session = await db.companionshipSessions.get(sessionId);
+  const session = await getSessionById(sessionId);
 
   if (!session) return false;
 
@@ -243,7 +294,7 @@ export {
 export const getCompanionshipSession = async (sessionId) => {
   if (!sessionId) return null;
 
-  return db.companionshipSessions.get(sessionId);
+  return getSessionById(sessionId);
 };
 
 export const getRecoverableCompanionship = async () => {
