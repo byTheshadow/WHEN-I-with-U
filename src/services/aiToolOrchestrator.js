@@ -234,6 +234,7 @@ const executeMcpToolCall = async ({
   automationId = null,
   executorId = null,
   requestToolApproval,
+  companionshipAuthorization = null,
 }) => {
   const temporaryName = toolCall?.function?.name;
   const tool = registry.get(temporaryName);
@@ -381,6 +382,7 @@ const executeMcpToolCall = async ({
       automationId,
       executorId,
       requestApproval: requestToolApproval,
+      companionshipAuthorization,
     });
 
     const isToolError = runtimeResult.rawResult?.isError === true;
@@ -463,6 +465,7 @@ export const runAiToolOrchestrator = async ({
   requestAiCompletion,
   requestToolApproval,
   mcpTraceSession = null,
+  companionshipAuthorization = null,
 }) => {
   if (typeof requestAiCompletion !== 'function') {
     return {
@@ -569,6 +572,7 @@ export const runAiToolOrchestrator = async ({
         automationId,
         executorId,
         requestToolApproval,
+        companionshipAuthorization,
       });
 
       messages.push({
@@ -594,4 +598,3 @@ export const runAiToolOrchestrator = async ({
     }
   }
 };
-

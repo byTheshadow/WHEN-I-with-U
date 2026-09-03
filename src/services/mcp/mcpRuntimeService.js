@@ -3,8 +3,10 @@ import { callMcpTool } from './mcpClientService';
 import {
   getMcpToolAuthorizationState,
   MCP_PERMISSION_DECISIONS,
+  MCP_PERMISSION_SCOPES,
   saveMcpPermission,
 } from './mcpPermissionService';
+
 import {
   normalizeMcpToolResult,
 } from './mcpResultNormalizer';
@@ -95,7 +97,32 @@ const resolvePermission = async ({
   characterId = null,
   permission = null,
   requestApproval = null,
+  companionshipAuthorization = null,
 }) => {
+  if (
+    companionshipAuthorization?.granted === true
+    && typeof companionshipAuthorization.validate === 'function'
+  ) {
+    const isValid = await companionshipAuthorization.validate({
+      tool,
+      chatId,
+      characterId,
+    });
+
+    if (!isValid) {
+      throw createRuntimeError(
+        'COMPANIONSHIP_AUTHORIZATION_EXPIRED',
+        '本次陪伴授权已经结束，无法继续调用 MCP 工具。',
+      );
+    }
+
+    return {
+      decision: MCP_PERMISSION_DECISIONS.ALLOW,
+      scope: MCP_PERMISSION_SCOPES.ONCE,
+      persisted: false,
+      source: 'companionship-session',
+    };
+  }
 
   const authorizationState = await getMcpToolAuthorizationState({
     tool,
@@ -134,13 +161,12 @@ const resolvePermission = async ({
     );
   }
 
-const approval = await requestApproval({
-  tool,
-  arguments: toolArguments,
-  chatId,
-  characterId,
-});
-
+  const approval = await requestApproval({
+    tool,
+    arguments: toolArguments,
+    chatId,
+    characterId,
+  });
 
   if (
     approval?.decision !== MCP_PERMISSION_DECISIONS.ALLOW
@@ -173,6 +199,7 @@ export const callMcpToolRuntime = async ({
   executorId = null,
   permission = null,
   requestApproval = null,
+  companionshipAuthorization = null,
 }) => {
   const activityContext = {
     connectionId,
@@ -192,17 +219,15 @@ export const callMcpToolRuntime = async ({
       toolName,
     });
 
-   
-
-        await resolvePermission({
+    await resolvePermission({
       tool,
       toolArguments,
       chatId,
       characterId,
       permission,
       requestApproval,
+      companionshipAuthorization,
     });
-
 
     const rawResult = await callMcpTool({
       connection: tool.connection,

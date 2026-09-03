@@ -27,6 +27,10 @@ import {
   buildRealVoiceDecisionInstruction,
   createRealVoiceMessagesForReply,
 } from '../features/real-voice/realVoiceCoordinator';
+import {
+  buildCompanionshipPrompt,
+} from '../apps/messages/companionship/companionshipPrompt';
+
 
 
 
@@ -1435,6 +1439,312 @@ const buildUserReturnContext = (messages) => {
 - 不要机械地逐字复述“你离开了多久”，不要因此责备、质问、制造压力，也不要每次都以此作为回复开头。
 - 若用户明确说明了离开的原因，应以用户说明为准，不要重复追问。
 `;
+};
+
+export const triggerCompanionshipResponse = async ({
+  session,
+  companionshipAuthorization = null,
+  onEvent,
+}) => {
+
+  const chatId = session?.chatId;
+
+  if (!chatId) {
+    return {
+      error: true,
+      code: 'COMPANIONSHIP_CHAT_MISSING',
+      message: '长期陪伴没有绑定聊天框。',
+    };
+  }
+
+  const chat = await db.chats.get(chatId);
+
+  if (!chat) {
+    return {
+      error: true,
+      code: 'COMPANIONSHIP_CHAT_NOT_FOUND',
+      message: '找不到长期陪伴绑定的聊天框。',
+    };
+  }
+
+  const character = await db.characters.get(chat.characterId);
+
+  if (!character) {
+    return {
+      error: true,
+      code: 'COMPANIONSHIP_CHARACTER_NOT_FOUND',
+      message: '找不到聊天框对应的角色。',
+    };
+  }
+
+  const apiSettings = await db.settings.get('apiConfig');
+  const apiConfig = apiSettings?.value || {};
+
+  const recentMsgs = await db.messages
+    .where('chatId')
+    .equals(chatId)
+    .sortBy('timestamp');
+
+  const historyContext = buildHistoryContext(
+    recentMsgs
+      .filter((message) => message.type !== 'error')
+      .slice(-15),
+  );
+
+  const latestUserMessage = [...recentMsgs]
+    .reverse()
+    .find((message) => (
+      message.sender === 'user'
+      && message.type !== 'error'
+      && typeof message.content === 'string'
+      && message.content.trim()
+    ));
+
+  const memoryContext = await getSafeChatMemoryContext({
+    chatId,
+    userText: latestUserMessage?.content || '',
+    recentMessages: recentMsgs,
+  });
+
+  const characterEmotionContext = await getSafeCharacterEmotionContext({
+    chatId,
+    characterId: character.id,
+  });
+
+  let systemPrompt = await buildChatSystemPrompt(
+    chatId,
+    chat,
+    character,
+  );
+
+  if (
+    character.voiceProfile?.enabled
+    && character.voiceProfile?.aiMaySendVoice
+  ) {
+    systemPrompt += buildRealVoiceDecisionInstruction(character);
+  }
+
+  const companionshipPrompt = buildCompanionshipPrompt({
+    goal: session.goal,
+    durationMinutes: session.durationMinutes,
+    intervalMinutes: session.intervalMinutes,
+  });
+
+  const finalSystemPrompt = `
+${systemPrompt}
+${memoryContext}
+${characterEmotionContext}
+${companionshipPrompt}
+`;
+
+  const mcpTraceSession = createMcpChatTraceSession({
+    chatId,
+    characterId: character.id,
+  });
+
+  /*
+   * 这里先使用现有普通 MCP 审批函数。
+   *
+   * 下一步在 aiToolOrchestrator / mcpRuntimeService 增加
+   * companionshipAuthorization 后，再替换为临时会话授权。
+   */
+  const result = await runAiToolOrchestrator({
+    systemPrompt: finalSystemPrompt,
+    historyContext,
+    apiConfig,
+    chatId,
+    characterId: character.id,
+    source: 'companionship',
+    requestAiCompletion: fetchAiCompletionWithTools,
+    requestToolApproval: requestMcpToolApproval,
+    mcpTraceSession,
+     companionshipAuthorization,
+  });
+
+  if (result?.error) {
+    await onEvent?.({
+      type: 'error',
+      title: '陪伴暂时停顿',
+      content: result.message || '这一次没有顺利完成。',
+      metadata: {
+        source: 'companionship',
+        errorCode: result.code,
+      },
+    });
+
+    return result;
+  }
+
+  const rawContent = String(result.content || '').trim();
+
+  if (rawContent.includes('[[COMPANIONSHIP_SILENT]]')) {
+    const mcpTrace = getMcpChatTraceSummary(mcpTraceSession);
+
+    await onEvent?.({
+      type: 'silent',
+      title: '这一刻没有打扰你',
+      content: '陪伴仍在继续。',
+      metadata: {
+        source: 'companionship',
+        decision: 'silent',
+        mcpTrace,
+      },
+    });
+
+    return {
+      ...result,
+      decision: 'silent',
+      mcpTrace,
+    };
+  }
+
+  const {
+    content: visibleReplyContent,
+  } = extractScheduledMessageDirective(rawContent);
+
+  const parsedMessages = await parseAiResponseToMessages(
+    visibleReplyContent,
+  );
+
+  const parsedOrFallbackMessages = parsedMessages.length > 0
+    ? parsedMessages
+    : visibleReplyContent
+      ? [{
+          type: 'text',
+          content: visibleReplyContent,
+          metadata: {},
+        }]
+      : [];
+
+  const safeParsedMessages = applyRealVoiceIntent(
+    parsedOrFallbackMessages,
+    character.voiceProfile,
+  );
+
+  const mcpTrace = getMcpChatTraceSummary(mcpTraceSession);
+  const messageIds = [];
+  const nowIso = new Date().toISOString();
+
+  for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
+    const metadata = {
+      ...(msgData.metadata || {}),
+      source: 'companionship',
+      companionshipSessionId: session.id,
+      ...(messageIndex === 0 && mcpTrace
+        ? { mcpTrace }
+        : {}),
+    };
+
+    const messagePayload = {
+      chatId,
+      characterId: character.id,
+      sender: 'character',
+      type: msgData.type || 'text',
+      content: msgData.content || '',
+      metadata,
+      versions: [{
+        type: msgData.type || 'text',
+        content: msgData.content || '',
+        metadata,
+        timestamp: nowIso,
+      }],
+      currentVersionIndex: 0,
+      isRead: false,
+      timestamp: nowIso,
+    };
+
+    const messageId = await db.messages.add(messagePayload);
+
+    messageIds.push(messageId);
+
+    await onEvent?.({
+      type: msgData.type === 'realVoice' ? 'voice' : 'assistant',
+      title: msgData.type === 'realVoice'
+        ? '语音留在这里'
+        : character.name || '陪伴消息',
+      content: msgData.content || '',
+      metadata: {
+        source: 'companionship',
+        companionshipSessionId: session.id,
+        messageId,
+      },
+    });
+  }
+
+  /*
+   * 复用现有 MiniMax 语音流程。
+   * 这里不能删，也不能改成自己 fetch MiniMax。
+   */
+  try {
+    const realVoiceMessageIds = await createRealVoiceMessagesForReply({
+      chatId,
+      character,
+      sourceMessages: safeParsedMessages,
+    });
+
+    messageIds.push(...realVoiceMessageIds);
+
+    for (const messageId of realVoiceMessageIds) {
+      const voiceMessage = await db.messages.get(messageId);
+
+      await onEvent?.({
+        type: 'voice',
+        title: '语音已经准备好',
+        content: voiceMessage?.content || '语音消息',
+        metadata: {
+          source: 'companionship',
+          companionshipSessionId: session.id,
+          messageId,
+          generationStatus: voiceMessage?.metadata?.generationStatus,
+        },
+      });
+    }
+  } catch (error) {
+    console.warn(
+      '[Companionship] MiniMax 语音生成失败，保留文字回复：',
+      error,
+    );
+
+    await onEvent?.({
+      type: 'error',
+      title: '声音没有顺利生成',
+      content: '文字陪伴已经留下，语音这次没有完成。',
+      metadata: {
+        source: 'companionship',
+        errorMessage: error?.message || '语音生成失败',
+      },
+    });
+  }
+
+  await db.chats.update(chatId, {
+    updatedAt: nowIso,
+  });
+
+  if (messageIds.length > 0) {
+    notifyListeners({
+      type: 'NEW_MESSAGE',
+      chatId,
+      characterId: character.id,
+      characterName: character.name,
+      characterAvatar: character.avatar || '',
+      preview: safeParsedMessages.find(
+        (message) => message.type === 'text',
+      )?.content || '陪伴留下了一点动静',
+      messageIds,
+      timestamp: nowIso,
+      isCurrentPageVisible: isDocumentVisible(),
+      source: 'companionship',
+    });
+  }
+
+  const finalTrace = getMcpChatTraceSummary(mcpTraceSession);
+
+  return {
+    error: false,
+    decision: messageIds.length > 0 ? 'active' : 'silent',
+    messageIds,
+    mcpTrace: finalTrace,
+  };
 };
 
 

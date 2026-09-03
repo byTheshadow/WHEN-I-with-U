@@ -47,23 +47,13 @@ export const normalizeCompanionshipSettings = ({
 };
 
 export const getRunningCompanionship = async (chatId) => {
- const sessions = await db.companionshipSessions
-  .toArray();
-
-const running = sessions
-  .filter((session) => (
-    session.status === 'running'
-    && String(session.chatId) === String(chatId)
-  ))
-  .sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime()
-      - new Date(a.createdAt).getTime(),
-  )[0];
-
+  const sessions = await db.companionshipSessions.toArray();
 
   const running = sessions
-    .filter((session) => session.status === 'running')
+    .filter((session) => (
+      session.status === 'running'
+      && String(session.chatId) === String(chatId)
+    ))
     .sort(
       (a, b) =>
         new Date(b.createdAt).getTime()
@@ -106,6 +96,14 @@ export const createCompanionshipSession = async ({
     throw new Error('这个聊天框已经有一段正在进行的陪伴。');
   }
 
+  const chat = await db.chats.get(settings.chatId);
+
+  if (!chat) {
+    throw new Error('找不到需要绑定的聊天框。');
+  }
+
+  const previousKeepAlive = chat.keepAlive === true;
+
   const startedAt = new Date();
   const endsAt = new Date(
     startedAt.getTime() + settings.durationMinutes * 60 * 1000,
@@ -117,18 +115,20 @@ export const createCompanionshipSession = async ({
   const createdAt = nowIso();
 
   const session = {
-    chatId,
-characterId,
-
+    chatId: settings.chatId,
+    characterId,
 
     goal: settings.goal,
     durationMinutes: settings.durationMinutes,
     intervalMinutes: settings.intervalMinutes,
     notificationEnabled: settings.notificationEnabled,
 
-    responseMode: 'mcp-and-voice',
+    responseMode: 'auto',
     mcpAuthorizationGranted: true,
     mcpAuthorizationGrantedAt: createdAt,
+
+    previousKeepAlive,
+    keepAliveEnabledByCompanionship: true,
 
     status: 'running',
     startedAt: startedAt.toISOString(),
@@ -143,6 +143,11 @@ characterId,
   };
 
   const id = await db.companionshipSessions.add(session);
+
+  await db.chats.update(settings.chatId, {
+    keepAlive: true,
+    updatedAt: nowIso(),
+  });
 
   return {
     ...session,
@@ -167,12 +172,29 @@ export const stopCompanionship = async (
 ) => {
   if (!id) return false;
 
+  const session = await db.companionshipSessions.get(id);
+
+  if (!session) return false;
+
+  const stoppedAt = nowIso();
+
   await db.companionshipSessions.update(id, {
     status,
     mcpAuthorizationGranted: false,
-    authorizationRevokedAt: nowIso(),
-    updatedAt: nowIso(),
+    authorizationRevokedAt: stoppedAt,
+    updatedAt: stoppedAt,
   });
+
+  if (
+    session.keepAliveEnabledByCompanionship === true
+    && session.chatId !== undefined
+    && session.chatId !== null
+  ) {
+    await db.chats.update(session.chatId, {
+      keepAlive: session.previousKeepAlive === true,
+      updatedAt: nowIso(),
+    });
+  }
 
   return true;
 };
@@ -217,6 +239,7 @@ export {
   MIN_DURATION_MINUTES,
   MIN_INTERVAL_MINUTES,
 };
+
 export const getCompanionshipSession = async (sessionId) => {
   if (!sessionId) return null;
 

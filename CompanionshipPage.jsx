@@ -11,6 +11,8 @@ import {
   Square,
 } from 'lucide-react';
 
+import db from '../../../db';
+
 import {
   createCompanionshipSession,
   getRunningCompanionship,
@@ -22,9 +24,17 @@ import {
 } from './companionshipScheduler';
 
 import {
-  notifyCompanionship,
+  runCompanionshipTurn,
+} from './companionshipAiService';
+
+import {
   requestCompanionshipNotificationPermission,
 } from './companionshipNotificationService';
+
+import {
+  createCompanionshipEvent,
+  listCompanionshipEvents,
+} from './companionshipEventService';
 
 import './companionship.css';
 
@@ -65,22 +75,12 @@ export const CompanionshipPage = ({
   const [notificationEnabled, setNotificationEnabled] = useState(true);
 
   const [session, setSession] = useState(null);
+  const [boundChat, setBoundChat] = useState(null);
+  const [boundCharacter, setBoundCharacter] = useState(null);
   const [events, setEvents] = useState([]);
-  const [schedulerError, setSchedulerError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthorization, setShowAuthorization] = useState(false);
-
-  const appendEvent = (event) => {
-    setEvents((current) => [
-      ...current,
-      {
-        id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-        createdAt: new Date().toISOString(),
-        ...event,
-      },
-    ].slice(-80));
-  };
 
   const selectedChat = useMemo(
     () => chats.find(
@@ -89,8 +89,46 @@ export const CompanionshipPage = ({
     [chats, selectedChatId],
   );
 
+  const appendEvent = async (event, sessionId = session?.id) => {
+    const localEvent = {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      createdAt: new Date().toISOString(),
+      ...event,
+    };
+
+    setEvents((current) => [
+      ...current,
+      localEvent,
+    ].slice(-80));
+
+    if (!sessionId) return;
+
+    try {
+      const persistedEvent = await createCompanionshipEvent({
+        sessionId,
+        ...event,
+      });
+
+      if (persistedEvent?.id) {
+        setEvents((current) => current.map((item) => (
+          item.id === localEvent.id
+            ? {
+              ...item,
+              ...persistedEvent,
+            }
+            : item
+        )));
+      }
+    } catch (error) {
+      console.error('[Companionship] create event failed:', error);
+    }
+  };
+
   useEffect(() => {
-    if (!selectedChatId) return undefined;
+    if (!selectedChatId) {
+      setSession(null);
+      return undefined;
+    }
 
     let cancelled = false;
 
@@ -102,6 +140,10 @@ export const CompanionshipPage = ({
       })
       .catch((error) => {
         console.error('[Companionship] load session failed:', error);
+
+        if (!cancelled) {
+          setSession(null);
+        }
       });
 
     return () => {
@@ -110,79 +152,162 @@ export const CompanionshipPage = ({
   }, [selectedChatId]);
 
   useEffect(() => {
-    if (!session?.id || session.status !== 'running') {
+    if (!session?.id) {
+      setEvents([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    listCompanionshipEvents({
+      sessionId: session.id,
+    })
+      .then((items) => {
+        if (!cancelled) {
+          setEvents(items);
+        }
+      })
+      .catch((error) => {
+        console.error('[Companionship] load events failed:', error);
+
+        if (!cancelled) {
+          setEvents([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    setGoal(session.goal || '');
+    setDurationMinutes(session.durationMinutes || 30);
+    setIntervalMinutes(session.intervalMinutes || 5);
+    setNotificationEnabled(
+      session.notificationEnabled !== false,
+    );
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!selectedChatId) {
+      setBoundChat(null);
+      setBoundCharacter(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    Promise.all([
+      db.chats.get(selectedChatId),
+      db.characters.toCollection().toArray(),
+    ])
+      .then(([chatData, characterList]) => {
+        if (cancelled) return;
+
+        setBoundChat(chatData || null);
+
+        const character = characterList.find(
+          (item) => String(item.id) === String(chatData?.characterId),
+        );
+
+        setBoundCharacter(character || null);
+      })
+      .catch((error) => {
+        console.error('[Companionship] load bound chat failed:', error);
+
+        if (!cancelled) {
+          setBoundChat(null);
+          setBoundCharacter(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedChatId]);
+
+  useEffect(() => {
+    if (
+      !session?.id
+      || session.status !== 'running'
+    ) {
       return undefined;
     }
 
     const scheduler = startCompanionshipScheduler({
       sessionId: session.id,
 
-      onSessionChange: (latest) => {
-        if (latest) {
-          setSession(latest);
-        }
-      },
-
-      onTrigger: async ({ session: activeSession, reason }) => {
+      onTrigger: async ({
+        session: activeSession,
+        reason,
+      }) => {
         appendEvent({
           type: 'status',
-          title: '陪伴回合开始',
-          content: reason === 'recovered-missed-trigger'
-            ? '刚才错过的陪伴时刻已经被温柔地接住。'
-            : 'AI 正在根据当前聊天框的记忆决定这一刻如何靠近。',
+          title: reason === 'recovered-missed-trigger'
+            ? '接住错过的时刻'
+            : '陪伴回合开始',
+          content: '正在根据这个聊天框的记忆，决定如何陪伴你。',
         });
 
-        notifyCompanionship({
-          title: '长期陪伴',
-          body: '陪伴空间有新的动静。',
+        await runCompanionshipTurn({
+          session: activeSession,
+          onEvent: (event) => {
+            appendEvent(event);
+          },
         });
+      },
 
-        /*
-         * 这里先保留为独立回调入口。
-         *
-         * 下一步接入 companionshipAiService 后，
-         * 这里会统一处理：
-         * - 读取 chatId 的历史消息和记忆；
-         * - 注入 goal；
-         * - 调用 AI Tool Orchestrator；
-         * - 写入文字消息；
-         * - 写入 MCP 动作事件；
-         * - 生成 MiniMax realVoice 消息；
-         * - 更新事件气泡。
-         */
-        void activeSession;
+      onSessionChange: (latestSession) => {
+        setSession(latestSession);
       },
 
       onError: (error) => {
-        setSchedulerError(error?.message || '陪伴触发失败。');
-
         appendEvent({
           type: 'error',
           title: '陪伴暂时停顿',
-          content: error?.message || '这一次没有顺利完成。',
+          content: error?.message || '这一回合没有顺利完成。',
         });
       },
     });
 
-    const handleVisibility = () => {
+    const refreshScheduler = () => {
       void scheduler.refresh();
     };
 
     document.addEventListener(
       'visibilitychange',
-      handleVisibility,
+      refreshScheduler,
     );
 
-    window.addEventListener('focus', handleVisibility);
-    window.addEventListener('pageshow', handleVisibility);
+    window.addEventListener(
+      'focus',
+      refreshScheduler,
+    );
+
+    window.addEventListener(
+      'pageshow',
+      refreshScheduler,
+    );
 
     return () => {
       document.removeEventListener(
         'visibilitychange',
-        handleVisibility,
+        refreshScheduler,
       );
-      window.removeEventListener('focus', handleVisibility);
-      window.removeEventListener('pageshow', handleVisibility);
+
+      window.removeEventListener(
+        'focus',
+        refreshScheduler,
+      );
+
+      window.removeEventListener(
+        'pageshow',
+        refreshScheduler,
+      );
+
       scheduler.destroy();
     };
   }, [session?.id, session?.status]);
@@ -205,7 +330,6 @@ export const CompanionshipPage = ({
   const handleConfirmStart = async () => {
     setIsLoading(true);
     setErrorMessage('');
-    setSchedulerError('');
     setEvents([]);
 
     try {
@@ -240,6 +364,16 @@ export const CompanionshipPage = ({
   };
 
   const isRunning = session?.status === 'running';
+
+  const runningChatTitle = (
+    boundChat?.title
+    || selectedChat?.title
+    || getChatCharacterName(
+      boundChat || selectedChat,
+      boundCharacter ? [boundCharacter] : characters,
+    )
+    || '这段陪伴'
+  );
 
   return (
     <main className="companionship-page">
@@ -377,9 +511,7 @@ export const CompanionshipPage = ({
           <div className="companionship-running-top">
             <div>
               <span className="companionship-eyebrow">NOW GROWING</span>
-              <h2>
-                {selectedChat?.title || '这段陪伴'}
-              </h2>
+              <h2>{runningChatTitle}</h2>
             </div>
 
             <div className="companionship-timer">
@@ -406,10 +538,6 @@ export const CompanionshipPage = ({
               MCP 会话授权已开启。文字、语音和动作会根据情境自然组合。
             </span>
           </div>
-
-          {schedulerError && (
-            <p className="companionship-error">{schedulerError}</p>
-          )}
 
           <div className="companionship-event-stream">
             {events.length === 0 && (
