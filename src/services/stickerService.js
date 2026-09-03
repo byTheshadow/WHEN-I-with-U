@@ -33,6 +33,26 @@ export const DEFAULT_STICKERS = [
   { name: '哭哭', url: 'https://u2.fukit.cn/CSj8oSevJ', category: 'preset' },
   { name: '微笑', url: 'https://u2.fukit.cn/DkJLOMoZP', category: 'preset' },
   { name: '惊喜的哇', url: 'https://u2.fukit.cn/7bxw2ubLy', category: 'preset' },
+ 
+  
+{ name: '点头点头', url: 'https://u2.fukit.cn/tSJOZObg6', category: 'preset' },
+{ name: '哇万岁！', url: 'https://u2.fukit.cn/ySiuUjtoB', category: 'preset' },
+{ name: '有点难过', url: 'https://u2.fukit.cn/4BWpQ9bG3', category: 'preset' },
+{ name: '心情好好', url: 'https://u2.fukit.cn/hPDYDjeUc', category: 'preset' },
+{ name: '摇摇尾巴', url: 'https://u2.fukit.cn/SpzB76LHh', category: 'preset' },
+{ name: '炸毛', url: 'https://u2.fukit.cn/4v9wwCyKG', category: 'preset' },
+{ name: '对不起', url: 'https://u2.fukit.cn/7aiynoBXz', category: 'preset' },
+{ name: '放空', url: 'https://u2.fukit.cn/Xn9MHFYrQ', category: 'preset' },
+{ name: '只是来巡视', url: 'https://u2.fukit.cn/6zx1mMVha', category: 'preset' },
+{ name: '眨眨眼', url: 'https://u2.fukit.cn/OlxvrsGDQ', category: 'preset' },
+{ name: '没干劲', url: 'https://u2.fukit.cn/sbrygXOha', category: 'preset' },
+{ name: '对你火热的爱', url: 'https://u2.fukit.cn/cVdEY67fe', category: 'preset' },
+{ name: '累了但还是要工作', url: 'https://u2.fukit.cn/PpWP6uE0a', category: 'preset' },
+{ name: '摄入奶茶', url: 'https://u2.fukit.cn/wmsOyGvS6', category: 'preset' },
+{ name: '散步走走', url: 'https://u2.fukit.cn/WQTKbclmD', category: 'preset' },
+{ name: '躺倒了', url: 'https://u2.fukit.cn/d46NZVRrl', category: 'preset' },
+{ name: '我来了！！', url: 'https://u2.fukit.cn/J9oZGPAgb', category: 'preset' },
+
 ];
 
 
