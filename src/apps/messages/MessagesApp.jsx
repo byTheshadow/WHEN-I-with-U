@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Trash2,
   Settings,
+  Music2,
 } from 'lucide-react';
 
 import GlassCard from '../../components/GlassCard';
@@ -14,14 +15,13 @@ import db from '../../db';
 import { subscribeAiEvents } from '../../services/aiService';
 import { destroyChatWithMemories } from '../memory/memoryService';
 
-
 import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
 import CharacterEditor from './CharacterEditor';
 import NewChatModal from './NewChatModal';
 import CheckInSettings from './check-in/CheckInSettings';
+import CompanionshipPage from './companionship/CompanionshipPage';
 import './check-in/check-in.css';
-
 
 export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [chats, setChats] = useState([]);
@@ -32,8 +32,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [deletingChatTarget, setDeletingChatTarget] = useState(null);
-    const [showCheckInSettings, setShowCheckInSettings] = useState(false);
-
+  const [showCheckInSettings, setShowCheckInSettings] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -47,20 +46,21 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
     const unsubscribe = subscribeAiEvents(() => {
       loadData();
     });
+
     return unsubscribe;
   }, []);
 
-    const loadData = async () => {
+  const loadData = async () => {
     try {
       const chatList = await db.chats.orderBy('updatedAt').reverse().toArray();
       const charList = await db.characters.toArray();
+
       setChats(Array.isArray(chatList) ? chatList : []);
       setCharacters(Array.isArray(charList) ? charList : []);
     } catch (err) {
       console.error('[MessagesApp] loadData failed safely:', err);
     }
   };
-
 
   const handleOpenChat = (chatId) => {
     setActiveChatId(chatId);
@@ -73,42 +73,64 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   };
 
   const handleDeleteChatEntity = async (chatId) => {
-  if (!chatId) return;
+    if (!chatId) return;
 
-  try {
-    await destroyChatWithMemories(chatId);
-    setDeletingChatTarget(null);
-    await loadData();
-  } catch (error) {
-    console.error('[MessagesApp] destroy chat with memories failed:', error);
-  }
-};
+    try {
+      await destroyChatWithMemories(chatId);
+      setDeletingChatTarget(null);
+      await loadData();
+    } catch (error) {
+      console.error(
+        '[MessagesApp] destroy chat with memories failed:',
+        error
+      );
+    }
+  };
 
-
-  const filteredChats = chats.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredChats = chats.filter((c) =>
+    (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (view === 'chat_room' && activeChatId) {
     return (
       <ChatRoom
         chatId={activeChatId}
-                onOpenChat={(nextChatId) => {
+        onOpenChat={(nextChatId) => {
           if (!nextChatId) return;
 
           setActiveChatId(nextChatId);
           setView('chat_room');
           void loadData();
         }}
-
         onBack={() => {
           setView('chats');
           loadData();
         }}
-        onRoomStateChange={(inRoom) => onChatRoomStateChange?.(inRoom)}
+        onRoomStateChange={(inRoom) =>
+          onChatRoomStateChange?.(inRoom)
+        }
         onOpenCharacterEditor={() => {
-          const currentChat = chats.find((c) => c.id === activeChatId);
-          const char = characters.find((ch) => ch.id === currentChat?.characterId);
-          if (char) handleOpenCharEditor(char);
+          const currentChat = chats.find(
+            (c) => c.id === activeChatId
+          );
+          const char = characters.find(
+            (ch) => ch.id === currentChat?.characterId
+          );
+
+          if (char) {
+            handleOpenCharEditor(char);
+          }
         }}
+      />
+    );
+  }
+
+  if (view === 'companionship') {
+    return (
+      <CompanionshipPage
+        chats={chats}
+        characters={characters}
+        onBack={() => setView('chats')}
       />
     );
   }
@@ -136,7 +158,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
           <span>返回主页</span>
         </button>
 
-             <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowCheckInSettings(true)}
@@ -152,11 +174,26 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
             <Settings className="w-3.5 h-3.5" />
           </button>
 
+          <button
+            type="button"
+            onClick={() => setView('companionship')}
+            className="rounded-full p-2 transition-opacity opacity-75 hover:opacity-100"
+            style={{
+              background: 'var(--control-soft-bg)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--card-border)',
+            }}
+            title="长期陪伴"
+            aria-label="打开长期陪伴"
+          >
+            <Music2 className="w-3.5 h-3.5" />
+          </button>
+
           <div
             className="flex items-center gap-1 p-1 rounded-full border shadow-sm"
             style={{
               background: 'var(--control-soft-bg)',
-              borderColor: 'var(--card-border)'
+              borderColor: 'var(--card-border)',
             }}
           >
             <button
@@ -164,9 +201,15 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
               onClick={() => setView('chats')}
               className="px-3 py-1 rounded-full transition-all text-xs"
               style={{
-                background: view === 'chats' ? 'var(--accent-color)' : 'transparent',
-                color: view === 'chats' ? 'var(--accent-foreground)' : 'var(--text-sub)',
-                fontWeight: view === 'chats' ? 600 : 400
+                background:
+                  view === 'chats'
+                    ? 'var(--accent-color)'
+                    : 'transparent',
+                color:
+                  view === 'chats'
+                    ? 'var(--accent-foreground)'
+                    : 'var(--text-sub)',
+                fontWeight: view === 'chats' ? 600 : 400,
               }}
             >
               对话
@@ -177,19 +220,22 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
               onClick={() => setView('characters')}
               className="px-3 py-1 rounded-full transition-all text-xs"
               style={{
-                background: view === 'characters' ? 'var(--accent-color)' : 'transparent',
-                color: view === 'characters' ? 'var(--accent-foreground)' : 'var(--text-sub)',
-                fontWeight: view === 'characters' ? 600 : 400
+                background:
+                  view === 'characters'
+                    ? 'var(--accent-color)'
+                    : 'transparent',
+                color:
+                  view === 'characters'
+                    ? 'var(--accent-foreground)'
+                    : 'var(--text-sub)',
+                fontWeight: view === 'characters' ? 600 : 400,
               }}
             >
               角色
             </button>
           </div>
-          
-
-
+        </div>
       </div>
-            </div>
 
       {view === 'chats' && (
         <div className="space-y-4">
@@ -198,10 +244,11 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
               className="flex-1 flex items-center gap-2 px-3 py-2 rounded-2xl border"
               style={{
                 background: 'var(--control-soft-bg)',
-                borderColor: 'var(--card-border)'
+                borderColor: 'var(--card-border)',
               }}
             >
               <Search className="w-3.5 h-3.5 opacity-40" />
+
               <input
                 type="text"
                 placeholder="搜索心绪对话..."
@@ -211,13 +258,14 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                 style={{ color: 'var(--text-main)' }}
               />
             </div>
+
             <button
               type="button"
               onClick={() => setShowNewChatModal(true)}
               className="p-2.5 rounded-2xl active:scale-95 transition-transform shadow-sm"
               style={{
                 background: 'var(--accent-color)',
-                color: 'var(--accent-foreground)'
+                color: 'var(--accent-foreground)',
               }}
               title="开启新对话"
             >
@@ -228,14 +276,21 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
           {filteredChats.length === 0 ? (
             <GlassCard className="py-12 text-center space-y-2 opacity-60">
               <MessageSquare className="w-8 h-8 mx-auto opacity-30" />
-              <p className="text-xs" style={{ color: 'var(--text-sub)' }}>
+
+              <p
+                className="text-xs"
+                style={{ color: 'var(--text-sub)' }}
+              >
                 风停在这里，点击右上角 + 开始第一段浪漫陪伴。
               </p>
             </GlassCard>
           ) : (
             <div className="space-y-2.5">
               {filteredChats.map((chatItem) => {
-                const char = characters.find((c) => c.id === chatItem.characterId);
+                const char = characters.find(
+                  (c) => c.id === chatItem.characterId
+                );
+
                 return (
                   <GlassCard
                     key={chatItem.id}
@@ -246,13 +301,17 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
                       className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                     >
                       {char?.avatar ? (
-                        <img src={char.avatar} alt={chatItem.title} className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm" />
+                        <img
+                          src={char.avatar}
+                          alt={chatItem.title}
+                          className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0 shadow-sm"
+                        />
                       ) : (
                         <div
                           className="w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm"
                           style={{
                             background: 'var(--control-soft-bg)',
-                            color: 'var(--text-main)'
+                            color: 'var(--text-main)',
                           }}
                         >
                           {chatItem.title?.[0] || 'C'}
@@ -261,44 +320,86 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 
                       <div className="space-y-1 min-w-0 flex-1 pr-2">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-serif font-bold text-sm truncate" style={{ color: 'var(--text-main)' }}>{chatItem.title}</h4>
+                          <h4
+                            className="font-serif font-bold text-sm truncate"
+                            style={{ color: 'var(--text-main)' }}
+                          >
+                            {chatItem.title}
+                          </h4>
+
                           <span
                             className="px-2 py-0.5 rounded-full text-[9px] font-mono border"
                             style={{
                               borderColor: 'var(--divider)',
                               background: 'var(--control-soft-bg)',
-                              color: 'var(--text-muted)'
+                              color: 'var(--text-muted)',
                             }}
                           >
                             {chatItem.mode === 'rp' ? 'RP' : 'Real'}
                           </span>
                         </div>
-                        <p className="text-[11px] opacity-60 truncate" style={{ color: 'var(--text-sub)' }}>
-  {(() => {
-    const s = chatItem.summary;
-    if (!s) return `开启与 ${char?.name || '伴侣'} 的独处时刻`;
 
-    // 1. 如果是纯文本
-    if (typeof s === 'string' && s.trim()) return s;
+                        <p
+                          className="text-[11px] opacity-60 truncate"
+                          style={{ color: 'var(--text-sub)' }}
+                        >
+                          {(() => {
+                            const s = chatItem.summary;
 
-    // 2. 如果是数组 (阶段性总结条目)
-    if (Array.isArray(s) && s.length > 0) {
-      const lastItem = s[s.length - 1]; // 取最新一条总结
-      if (typeof lastItem === 'string') return lastItem;
-      if (typeof lastItem === 'object' && lastItem !== null) {
-        return lastItem.text || lastItem.content || lastItem.summary || `开启与 ${char?.name || '伴侣'} 的独处时刻`;
-      }
-    }
+                            if (!s) {
+                              return `开启与 ${
+                                char?.name || '伴侣'
+                              } 的独处时刻`;
+                            }
 
-    // 3. 如果单条总结是个对象
-    if (typeof s === 'object' && s !== null) {
-      return s.text || s.content || s.summary || `开启与 ${char?.name || '伴侣'} 的独处时刻`;
-    }
+                            // 1. 如果是纯文本
+                            if (typeof s === 'string' && s.trim()) {
+                              return s;
+                            }
 
-    return `开启与 ${char?.name || '伴侣'} 的独处时刻`;
-  })()}
-</p>
+                            // 2. 如果是数组 (阶段性总结条目)
+                            if (Array.isArray(s) && s.length > 0) {
+                              const lastItem = s[s.length - 1];
 
+                              if (typeof lastItem === 'string') {
+                                return lastItem;
+                              }
+
+                              if (
+                                typeof lastItem === 'object' &&
+                                lastItem !== null
+                              ) {
+                                return (
+                                  lastItem.text ||
+                                  lastItem.content ||
+                                  lastItem.summary ||
+                                  `开启与 ${
+                                    char?.name || '伴侣'
+                                  } 的独处时刻`
+                                );
+                              }
+                            }
+
+                            // 3. 如果单条总结是个对象
+                            if (
+                              typeof s === 'object' &&
+                              s !== null
+                            ) {
+                              return (
+                                s.text ||
+                                s.content ||
+                                s.summary ||
+                                `开启与 ${
+                                  char?.name || '伴侣'
+                                } 的独处时刻`
+                              );
+                            }
+
+                            return `开启与 ${
+                              char?.name || '伴侣'
+                            } 的独处时刻`;
+                          })()}
+                        </p>
                       </div>
                     </div>
 
@@ -342,15 +443,17 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         />
       )}
 
-     <ConfirmModal
-  isOpen={!!deletingChatTarget}
-  title="抹去对话实体"
-  message={`确定要彻底销毁“${deletingChatTarget?.title}”吗？此操作不可逆。本消息框的聊天记录、阶段性总结、长期记忆、待确认候选与修订记录都会一并永久删除。`}
-  confirmText="彻底抹去"
-  cancelText="留存"
-  onCancel={() => setDeletingChatTarget(null)}
-  onConfirm={() => handleDeleteChatEntity(deletingChatTarget.id)}
-/>
+      <ConfirmModal
+        isOpen={!!deletingChatTarget}
+        title="抹去对话实体"
+        message={`确定要彻底销毁“${deletingChatTarget?.title}”吗？此操作不可逆。本消息框的聊天记录、阶段性总结、长期记忆、待确认候选与修订记录都会一并永久删除。`}
+        confirmText="彻底抹去"
+        cancelText="留存"
+        onCancel={() => setDeletingChatTarget(null)}
+        onConfirm={() =>
+          handleDeleteChatEntity(deletingChatTarget.id)
+        }
+      />
 
       <CheckInSettings
         isOpen={showCheckInSettings}
@@ -358,11 +461,10 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         chats={chats}
         characters={characters}
       />
-
-
     </div>
   );
 };
 
 export default MessagesApp;
+
 

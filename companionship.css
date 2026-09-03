@@ -1,0 +1,461 @@
+.companionship-page {
+  min-height: 100%;
+  padding: 1rem 1rem 3rem;
+  color: var(--text-main);
+  letter-spacing: 0.015em;
+}
+
+.companionship-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+
+.companionship-back-button,
+.companionship-secondary-button,
+.companionship-primary-button,
+.companionship-stop-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.companionship-back-button {
+  padding: 0.5rem 0;
+  color: var(--text-sub);
+  background: transparent;
+  font-size: 0.72rem;
+}
+
+.companionship-back-button:hover,
+.companionship-secondary-button:hover,
+.companionship-primary-button:hover,
+.companionship-stop-button:hover {
+  opacity: 0.78;
+}
+
+.companionship-heading {
+  flex: 1;
+  text-align: right;
+}
+
+.companionship-eyebrow {
+  display: block;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+}
+
+.companionship-heading h1,
+.companionship-running-top h2 {
+  margin: 0.28rem 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.companionship-heading h1 {
+  font-size: clamp(1.45rem, 6vw, 2rem);
+}
+
+.companionship-heading p {
+  margin: 0.35rem 0 0;
+  color: var(--text-sub);
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+.companionship-setup,
+.companionship-running {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.companionship-note-scene,
+.companionship-focus-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background:
+    radial-gradient(circle at center, var(--control-soft-bg), transparent 68%),
+    var(--bg-main);
+}
+
+.companionship-note-scene {
+  height: 180px;
+  margin-bottom: 1rem;
+  border-radius: 2rem;
+}
+
+.companionship-note-orbit,
+.companionship-focus-ring {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 45%, transparent);
+  border-radius: 50%;
+  animation: companionship-breathe 5s ease-in-out infinite;
+}
+
+.companionship-note-orbit {
+  width: 145px;
+  height: 82px;
+  transform: rotate(-18deg);
+}
+
+.companionship-note {
+  position: absolute;
+  color: var(--accent-color);
+  opacity: 0.7;
+  animation: companionship-float 5s ease-in-out infinite;
+}
+
+.note-one {
+  width: 19px;
+  top: 30%;
+  left: 30%;
+}
+
+.note-two {
+  width: 15px;
+  right: 28%;
+  bottom: 28%;
+  animation-delay: 1.4s;
+}
+
+.note-three {
+  width: 12px;
+  top: 22%;
+  right: 36%;
+  animation-delay: 2.2s;
+}
+
+.companionship-bubble {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin: 0.7rem 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--card-border);
+  border-radius: 1.15rem;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+  font-size: 0.74rem;
+  line-height: 1.75;
+}
+
+.companionship-bubble p {
+  margin: 0;
+}
+
+.companionship-bubble svg {
+  flex: 0 0 auto;
+  margin-top: 0.16rem;
+  color: var(--accent-color);
+}
+
+.companionship-bubble-label {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.companionship-bubble-notice {
+  color: var(--text-main);
+}
+
+.companionship-bubble-warning {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.companionship-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  margin-top: 1rem;
+}
+
+.companionship-field > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-sub);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.companionship-field input,
+.companionship-field textarea,
+.companionship-field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--card-border);
+  border-radius: 0.9rem;
+  outline: none;
+  padding: 0.72rem 0.8rem;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.76rem;
+  line-height: 1.65;
+}
+
+.companionship-field textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.companionship-field input:focus,
+.companionship-field textarea:focus,
+.companionship-field select:focus {
+  border-color: var(--accent-color);
+}
+
+.companionship-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.companionship-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.48rem;
+  margin: 1rem 0;
+  color: var(--text-sub);
+  font-size: 0.7rem;
+}
+
+.companionship-toggle input {
+  accent-color: var(--accent-color);
+}
+
+.companionship-primary-button,
+.companionship-secondary-button,
+.companionship-stop-button {
+  min-height: 2.5rem;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-size: 0.72rem;
+}
+
+.companionship-primary-button {
+  width: 100%;
+  margin-top: 1rem;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.companionship-secondary-button {
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+}
+
+.companionship-stop-button {
+  width: 100%;
+  margin-top: 1.5rem;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+}
+
+.companionship-error {
+  margin: 0.8rem 0;
+  color: var(--text-main);
+  font-size: 0.72rem;
+}
+
+.companionship-running-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.companionship-running-top h2 {
+  font-size: 1.2rem;
+}
+
+.companionship-timer {
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  line-height: 1.6;
+}
+
+.companionship-timer strong {
+  display: block;
+  color: var(--text-main);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.companionship-focus-scene {
+  height: 260px;
+  margin: 1.5rem 0 1rem;
+  border-radius: 2.2rem;
+}
+
+.companionship-focus-scene span {
+  position: absolute;
+  bottom: 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.companionship-focus-note {
+  z-index: 1;
+  width: 2.2rem;
+  height: 2.2rem;
+  color: var(--accent-color);
+  animation: companionship-float 4s ease-in-out infinite;
+}
+
+.companionship-focus-ring {
+  width: 150px;
+  height: 90px;
+}
+
+.ring-one {
+  transform: rotate(18deg);
+}
+
+.ring-two {
+  width: 210px;
+  height: 125px;
+  transform: rotate(-24deg);
+  animation-delay: 1.2s;
+}
+
+.companionship-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.companionship-dialog {
+  width: min(100%, 360px);
+  padding: 1.2rem;
+  border: 1px solid var(--card-border);
+  border-radius: 1.4rem;
+  background: var(--bg-main);
+  color: var(--text-main);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.18);
+}
+
+.companionship-dialog h2 {
+  margin: 0.8rem 0 0.45rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.companionship-dialog p {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 0.73rem;
+  line-height: 1.8;
+}
+
+.companionship-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.companionship-dialog-actions .companionship-primary-button {
+  width: auto;
+  margin-top: 0;
+}
+
+@keyframes companionship-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(4deg);
+  }
+}
+
+@keyframes companionship-breathe {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.96) rotate(-18deg);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04) rotate(-18deg);
+  }
+}
+
+@media (max-width: 420px) {
+  .companionship-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .companionship-dialog-actions {
+    grid-template-columns: 1fr;
+  }
+}
+.companionship-event-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.companionship-event-stream .companionship-bubble {
+  margin: 0;
+  animation: companionship-event-in 420ms ease both;
+}
+
+.companionship-bubble-mcp {
+  border-color: color-mix(
+    in srgb,
+    var(--accent-color) 45%,
+    var(--card-border)
+  );
+}
+
+.companionship-bubble-voice {
+  background: color-mix(
+    in srgb,
+    var(--accent-color) 12%,
+    var(--control-soft-bg)
+  );
+}
+
+.companionship-bubble-error {
+  color: var(--text-main);
+}
+
+@keyframes companionship-event-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

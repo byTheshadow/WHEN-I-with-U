@@ -2277,8 +2277,6 @@ db.version(30).stores({
   marginNotes: '++id, date, characterId, language, createdAt'
 });
 
-export default db;
-
 db.version(31).stores({
 
       profile: 'id, name, handle, bio, location, joined, avatar, banner',
@@ -2534,7 +2532,271 @@ db.version(31).stores({
   `,
 });
 
+db.version(31).stores({
 
+      profile: 'id, name, handle, bio, location, joined, avatar, banner',
+  pinnedGallery: 'id, title, caption, photos',
+
+  characters: '++id, name, handle, avatar, bio, extraNotes, summaryFrequency, isAutoMessageActive, statusList, userPersona, userAvatar',
+  chats: '++id, characterId, mode, title, summary, bgImage, bgOpacity, customCss, keepAlive, updatedAt, userName, userAvatar, userPersona, inputPlaceholder, typingText, typingStyle, isBgDimmed, soundEnabled',
+  messages: '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex',
+
+  worldBooks: '++id, type, title, isEnabled',
+  homeBoard: '++id, characterId, characterName, avatar, content, timestamp, isRead',
+  diaries: '++id, chatId, characterId, author, title, date, timestamp',
+  todos: '++id, title, dueDate, priority, category, characterId, isCompleted, createdAt',
+
+  travels: '++id, characterId, status, createdAt',
+  travelWishlists: '++id, characterId, creator, destination, reason, isMatched, createdAt',
+  travelPostcards: '++id, travelId, characterId, spotName, photoStyle, letterContent, giftItem, metPerson, timestamp, isRead',
+
+  snapshots: '++id, characterId, createdAt, linkedChatId, timestamp',
+  snapshotComments: '++id, snapshotId, characterId, createdAt',
+  snapshotRelations: '++id, characterId, targetCharacterId, relation',
+  snapshotSettings: 'key, value',
+
+  settings: 'key',
+  pebblings: '++id, characterId, status, stoneType, createdAt, respondAt',
+  stickers: '++id, name, url, category, createdAt',
+
+  imaginariumChats: '++id, title, createdAt, updatedAt',
+  imaginariumMessages: '++id, chatId, senderId, timestamp',
+  imaginariumSummaries: '++id, chatId, createdAt',
+
+  ensembleChats: '++id, title, createdAt, updatedAt',
+  ensembleMessages: '++id, chatId, senderId, timestamp',
+  ensembleSummaries: '++id, chatId, createdAt',
+
+  habitats: '++id, name, type, guardianCharacterId, createdAt',
+  habitatLogs: '++id, habitatId, logType, timestamp',
+
+  ephemeras: '++id, characterId, templateType, title, createdAt',
+  dailyOfferingImages: '++id, createdAt, updatedAt',
+  dailyOfferings: 'date, characterId, createdAt',
+  askBoxQuestions: '++id, characterId, sender, isAnonymous, content, reply, replyAt, needPassword, password, isPasswordUnlocked, createdAt',
+  parallelOrbits: '++id, chatId, characterId, timestamp',
+  schedules: '++id, characterId, title, dayOfWeek, startTime, endTime, category, date, weeks, createdAt',
+  scheduledMessages: '++id, chatId, characterId, status, scheduledFor, createdAt',
+
+  memories: `
+    ++id,
+    &memoryId,
+    chatId,
+    type,
+    status,
+    importance,
+    confidence,
+    subject,
+    topicKey,
+    memoryScope,
+    temporalStatus,
+    createdAt,
+    updatedAt,
+    sourceState,
+    normalizedContent,
+    supersededByMemoryId,
+    supersedesMemoryId,
+    duplicateOfMemoryId,
+    [chatId+status],
+    [chatId+type+status],
+    [chatId+normalizedContent],
+    [chatId+topicKey],
+    [chatId+temporalStatus]
+  `,
+
+  memoryCandidates: `
+    ++id,
+    &candidateId,
+    chatId,
+    type,
+    status,
+    priority,
+    subject,
+    topicKey,
+    proposalType,
+    targetMemoryId,
+    createdAt,
+    updatedAt,
+    [chatId+status],
+    [chatId+proposalType],
+    [chatId+targetMemoryId],
+    [chatId+topicKey]
+  `,
+
+  memoryRevisions: '++id, &revisionId, memoryId, chatId, action, createdAt',
+  memoryJobs: '++id, &chatId, status, nextRunAt, lastProcessedMessageId, updatedAt',
+  memorySettings: 'key',
+    characterStates: `
+    &chatId,
+    characterId,
+    dominantEmotion,
+    intensity,
+    updatedAt,
+    lastInteractionAt,
+    [characterId+updatedAt]
+  `,
+
+
+  mcpConnections: `
+    &id,
+    enabled,
+    endpoint,
+    provider,
+    transport,
+    executionMode,
+    bridgeId,
+    status,
+    createdAt,
+    updatedAt
+  `,
+
+  mcpTools: `
+    &id,
+    connectionId,
+    toolName,
+    enabled,
+    riskLevel,
+    updatedAt,
+    [connectionId+toolName]
+  `,
+
+  mcpPermissions: `
+    &id,
+    connectionId,
+    toolName,
+    chatId,
+    characterId,
+    decision,
+    scope,
+    updatedAt,
+    [connectionId+toolName],
+    [chatId+connectionId+toolName],
+    [characterId+connectionId+toolName]
+  `,
+
+  mcpActivities: `
+    ++id,
+    connectionId,
+    toolName,
+    chatId,
+    characterId,
+    source,
+    automationId,
+    executorId,
+    status,
+    errorCode,
+    createdAt,
+    [connectionId+createdAt],
+    [chatId+createdAt],
+    [source+createdAt]
+  `,
+
+  mcpOAuthSessions: `
+    &id,
+    connectionId,
+    state,
+    status,
+    expiresAt,
+    createdAt,
+    updatedAt,
+    [connectionId+status]
+  `,
+
+  mcpBridges: `
+    &id,
+    endpoint,
+    status,
+    createdAt,
+    updatedAt
+  `,
+
+  mcpExecutors: `
+    &id,
+    endpoint,
+    status,
+    createdAt,
+    updatedAt
+  `,
+
+  mcpAutomations: `
+    &id,
+    enabled,
+    connectionId,
+    toolName,
+    executorId,
+    triggerType,
+    createdAt,
+    updatedAt
+  `,
+
+  mcpAutomationRuns: `
+    ++id,
+    automationId,
+    connectionId,
+    status,
+    startedAt,
+    completedAt,
+    [automationId+startedAt] `,
+
+  mcpConnections: `
+    &id,
+    enabled,
+    endpoint,
+    provider,
+    transport,
+    executionMode,
+    bridgeId,
+    status,
+    authStatus,
+    createdAt,
+    updatedAt
+  `,
+
+  mcpOAuthSessions: `
+    &id,
+    connectionId,
+    state,
+    status,
+    expiresAt,
+    createdAt,
+    updatedAt,
+    [connectionId+status]
+  `,
+
+  newspapers: '++id, date, characterId, createdAt',
+  marginNotes: '++id, date, characterId, language, createdAt',
+
+  companionshipSessions: `
+    ++id,
+    chatId,
+    characterId,
+    status,
+    nextTriggerAt,
+    endsAt,
+    updatedAt
+  `,
+
+  companionshipTurns: `
+    ++id,
+    sessionId,
+    chatId,
+    scheduledFor,
+    status,
+    createdAt,
+    [sessionId+scheduledFor]
+  `,
+   companionshipSessions: `
+    ++id,
+    chatId,
+    characterId,
+    status,
+    nextTriggerAt,
+    endsAt,
+    updatedAt
+  `,
+});
+
+export default db;
 
 
 
