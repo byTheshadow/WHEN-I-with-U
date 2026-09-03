@@ -1,16 +1,131 @@
+/* =========================================================
+   Long-term Companionship
+   Setup page visual layer
+   Designed to follow themes.css
+   ========================================================= */
+
 .companionship-page {
+  --companionship-paper: var(--bg-main, #ffffff);
+  --companionship-surface: var(--bg-surface, #f6f6f3);
+  --companionship-surface-strong: var(
+    --bg-surface-strong,
+    var(--control-soft-bg, #eeeeeb)
+  );
+  --companionship-ink: var(--text-main, #111111);
+  --companionship-ink-soft: var(--text-sub, #4d4d4d);
+  --companionship-muted: var(--text-muted, #858585);
+  --companionship-line: var(--divider, var(--card-border, #d9d9d5));
+  --companionship-line-strong: color-mix(
+    in srgb,
+    var(--companionship-ink) 72%,
+    var(--companionship-paper)
+  );
+  --companionship-accent: var(--accent-color, #111111);
+  --companionship-accent-foreground: var(
+    --accent-foreground,
+    var(--companionship-paper)
+  );
+  --companionship-shadow: rgba(0, 0, 0, 0.08);
+
+  position: relative;
   min-height: 100%;
-  padding: 1rem 1rem 3rem;
-  color: var(--text-main);
+  overflow: hidden;
+  padding: 1.35rem 1.2rem 3.5rem;
+  color: var(--companionship-ink);
   letter-spacing: 0.015em;
+  isolation: isolate;
 }
 
+/*
+ * 页面背景只保留很淡的层次。
+ * 不使用固定颜色，让深色主题也能自然适配。
+ */
+.companionship-page::before {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(
+      circle at 8% 5%,
+      color-mix(
+        in srgb,
+        var(--companionship-accent) 5%,
+        transparent
+      ),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 95% 70%,
+      color-mix(
+        in srgb,
+        var(--companionship-ink) 3%,
+        transparent
+      ),
+      transparent 30rem
+    );
+}
+
+.companionship-page::after {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  opacity: 0.24;
+  background-image:
+    linear-gradient(
+      90deg,
+      color-mix(
+        in srgb,
+        var(--companionship-ink) 3%,
+        transparent
+      ) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      color-mix(
+        in srgb,
+        var(--companionship-ink) 3%,
+        transparent
+      ) 1px,
+      transparent 1px
+    );
+  background-size: 42px 42px;
+  mask-image: linear-gradient(
+    to bottom,
+    black,
+    transparent 70%
+  );
+}
+
+/* =========================================================
+   Header
+   ========================================================= */
+
 .companionship-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.4rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 1.4rem;
+  width: min(100%, 720px);
+  margin: 0 auto 1.55rem;
+  padding: 0.35rem 0 1.15rem;
+  border-bottom: 1px solid var(--companionship-line-strong);
+}
+
+.companionship-header::after {
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  content: "";
+  background: var(--companionship-accent);
+  animation: companionship-pulse 3.6s ease-in-out infinite;
 }
 
 .companionship-back-button,
@@ -24,61 +139,107 @@
   border: 0;
   cursor: pointer;
   font: inherit;
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .companionship-back-button {
-  padding: 0.5rem 0;
-  color: var(--text-sub);
+  width: fit-content;
+  padding: 0.3rem 0;
+  color: var(--companionship-ink-soft);
   background: transparent;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
-.companionship-back-button:hover,
-.companionship-secondary-button:hover,
-.companionship-primary-button:hover,
-.companionship-stop-button:hover {
-  opacity: 0.78;
+.companionship-back-button svg {
+  transition: transform 180ms ease;
+}
+
+.companionship-back-button:hover {
+  color: var(--companionship-accent);
+}
+
+.companionship-back-button:hover svg {
+  transform: translateX(-3px);
 }
 
 .companionship-heading {
-  flex: 1;
+  position: relative;
+  min-width: 13rem;
   text-align: right;
 }
 
 .companionship-eyebrow {
   display: block;
-  color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 0.58rem;
-  letter-spacing: 0.16em;
+  color: var(--companionship-muted);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  font-size: 0.57rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   line-height: 1.5;
+  text-transform: uppercase;
 }
 
 .companionship-heading h1,
 .companionship-running-top h2 {
-  margin: 0.28rem 0 0;
-  font-family: Georgia, 'Times New Roman', serif;
+  margin: 0.32rem 0 0;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.025em;
 }
 
 .companionship-heading h1 {
-  font-size: clamp(1.45rem, 6vw, 2rem);
+  font-size: clamp(1.7rem, 6vw, 2.55rem);
+  line-height: 1;
 }
 
 .companionship-heading p {
-  margin: 0.35rem 0 0;
-  color: var(--text-sub);
-  font-size: 0.72rem;
-  line-height: 1.7;
+  margin: 0.45rem 0 0;
+  color: var(--companionship-ink-soft);
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 0.77rem;
+  font-style: italic;
+  line-height: 1.65;
 }
+
+/* =========================================================
+   Setup container
+   ========================================================= */
 
 .companionship-setup,
 .companionship-running {
-  width: min(100%, 620px);
+  width: min(100%, 720px);
   margin: 0 auto;
 }
+
+/*
+ * 通过伪元素给设置页增加杂志式编号。
+ * 不需要改 JSX 结构。
+ */
+.companionship-setup {
+  counter-reset: companionship-section;
+}
+
+/* =========================================================
+   Music scene
+   ========================================================= */
 
 .companionship-note-scene,
 .companionship-focus-scene {
@@ -86,71 +247,185 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--companionship-line);
   background:
-    radial-gradient(circle at center, var(--control-soft-bg), transparent 68%),
-    var(--bg-main);
+    radial-gradient(
+      circle at 50% 48%,
+      color-mix(
+        in srgb,
+        var(--companionship-accent) 7%,
+        transparent
+      ),
+      transparent 35%
+    ),
+    linear-gradient(
+      135deg,
+      var(--companionship-paper),
+      var(--companionship-surface)
+    );
 }
 
 .companionship-note-scene {
-  height: 180px;
-  margin-bottom: 1rem;
-  border-radius: 2rem;
+  height: clamp(210px, 32vw, 285px);
+  margin-bottom: 1.35rem;
+  border-radius: 0.2rem;
+  box-shadow:
+    0 14px 38px var(--companionship-shadow),
+    inset 0 0 0 1px color-mix(
+      in srgb,
+      var(--companionship-paper) 60%,
+      transparent
+    );
+}
+
+/* 中轴线 */
+.companionship-note-scene::before,
+.companionship-focus-scene::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  content: "";
+  background: color-mix(
+    in srgb,
+    var(--companionship-ink) 8%,
+    transparent
+  );
+}
+
+/* 横向细线 */
+.companionship-note-scene::after,
+.companionship-focus-scene::after {
+  position: absolute;
+  right: 0;
+  bottom: 22%;
+  left: 0;
+  height: 1px;
+  content: "";
+  background: color-mix(
+    in srgb,
+    var(--companionship-ink) 8%,
+    transparent
+  );
 }
 
 .companionship-note-orbit,
 .companionship-focus-ring {
   position: absolute;
-  border: 1px solid color-mix(in srgb, var(--accent-color) 45%, transparent);
+  border: 1px solid color-mix(
+    in srgb,
+    var(--companionship-accent) 24%,
+    transparent
+  );
   border-radius: 50%;
-  animation: companionship-breathe 5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .companionship-note-orbit {
-  width: 145px;
-  height: 82px;
-  transform: rotate(-18deg);
+  width: min(52%, 280px);
+  height: 42%;
+  transform: rotate(-16deg);
+  animation: companionship-orbit-breathe 6s ease-in-out infinite;
+}
+
+.companionship-note-orbit::before,
+.companionship-note-orbit::after {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  content: "";
+  background: var(--companionship-accent);
+}
+
+.companionship-note-orbit::before {
+  top: 12%;
+  left: 16%;
+}
+
+.companionship-note-orbit::after {
+  right: 11%;
+  bottom: 16%;
+  opacity: 0.5;
 }
 
 .companionship-note {
   position: absolute;
-  color: var(--accent-color);
-  opacity: 0.7;
-  animation: companionship-float 5s ease-in-out infinite;
+  z-index: 2;
+  color: var(--companionship-accent);
+  opacity: 0.62;
+  filter: drop-shadow(
+    0 5px 9px color-mix(
+      in srgb,
+      var(--companionship-accent) 13%,
+      transparent
+    )
+  );
+  animation: companionship-note-float 5s ease-in-out infinite;
 }
 
 .note-one {
-  width: 19px;
-  top: 30%;
-  left: 30%;
+  top: 25%;
+  left: 27%;
+  width: 1.45rem;
 }
 
 .note-two {
-  width: 15px;
-  right: 28%;
-  bottom: 28%;
-  animation-delay: 1.4s;
+  right: 25%;
+  bottom: 25%;
+  width: 1.15rem;
+  opacity: 0.42;
+  animation-delay: 1.25s;
 }
 
 .note-three {
-  width: 12px;
-  top: 22%;
-  right: 36%;
-  animation-delay: 2.2s;
+  top: 19%;
+  right: 34%;
+  width: 0.9rem;
+  opacity: 0.3;
+  animation-delay: 2.1s;
 }
+
+.companionship-note-scene .note-one::after {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  content: "";
+  background: var(--companionship-accent);
+}
+
+.companionship-bubble-system {
+  position: relative;
+  margin-top: 0.25rem !important;
+}
+
+/* =========================================================
+   Information bubbles
+   ========================================================= */
 
 .companionship-bubble {
   display: flex;
-  gap: 0.65rem;
   align-items: flex-start;
-  margin: 0.7rem 0;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--card-border);
-  border-radius: 1.15rem;
-  background: var(--control-soft-bg);
-  color: var(--text-sub);
-  font-size: 0.74rem;
+  gap: 0.7rem;
+  margin: 0.78rem 0;
+  padding: 0.82rem 0.95rem;
+  border: 1px solid var(--companionship-line);
+  border-radius: 0.25rem;
+  background: color-mix(
+    in srgb,
+    var(--companionship-surface) 78%,
+    transparent
+  );
+  color: var(--companionship-ink-soft);
+  font-size: 0.73rem;
   line-height: 1.75;
+  box-shadow: 0 5px 18px color-mix(
+    in srgb,
+    var(--companionship-ink) 3%,
+    transparent
+  );
 }
 
 .companionship-bubble p {
@@ -159,173 +434,324 @@
 
 .companionship-bubble svg {
   flex: 0 0 auto;
-  margin-top: 0.16rem;
-  color: var(--accent-color);
+  margin-top: 0.2rem;
+  color: var(--companionship-accent);
 }
 
 .companionship-bubble-label {
-  color: var(--text-muted);
-  font-size: 0.62rem;
-  white-space: nowrap;
+  display: block;
+  margin-bottom: 0.18rem;
+  color: var(--companionship-muted);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  text-transform: uppercase;
 }
 
 .companionship-bubble-notice {
-  color: var(--text-main);
+  border-left: 3px solid var(--companionship-accent);
+  color: var(--companionship-ink);
 }
 
 .companionship-bubble-warning {
   display: block;
-  color: var(--text-muted);
+  color: var(--companionship-muted);
   font-size: 0.68rem;
+  line-height: 1.75;
 }
+
+/* =========================================================
+   Form
+   ========================================================= */
 
 .companionship-field {
   display: flex;
   flex-direction: column;
-  gap: 0.42rem;
-  margin-top: 1rem;
+  gap: 0.48rem;
+  margin-top: 1.35rem;
 }
 
-.companionship-field > span {
+.companionship-field > span:first-child {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--text-sub);
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
+  color: var(--companionship-ink);
+  font-size: 0.71rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.companionship-field > span:first-child::before {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  content: "";
+  background: var(--companionship-accent);
+  opacity: 0.55;
+}
+
+.companionship-field-hint {
+  margin: -0.12rem 0 0.22rem;
+  color: var(--companionship-muted);
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 0.72rem;
+  font-style: italic;
+  line-height: 1.6;
 }
 
 .companionship-field input,
 .companionship-field textarea,
 .companionship-field select {
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
-  border: 1px solid var(--card-border);
-  border-radius: 0.9rem;
+  border: 1px solid var(--companionship-line);
+  border-radius: 0.15rem;
   outline: none;
-  padding: 0.72rem 0.8rem;
-  background: var(--control-soft-bg);
-  color: var(--text-main);
+  padding: 0.78rem 0.82rem;
+  background: color-mix(
+    in srgb,
+    var(--companionship-paper) 72%,
+    var(--companionship-surface)
+  );
+  color: var(--companionship-ink);
   font: inherit;
   font-size: 0.76rem;
   line-height: 1.65;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.companionship-field select {
+  min-height: 2.85rem;
 }
 
 .companionship-field textarea {
-  min-height: 6rem;
+  min-height: 6.4rem;
   resize: vertical;
+}
+
+.companionship-field input::placeholder,
+.companionship-field textarea::placeholder {
+  color: var(--companionship-muted);
+  opacity: 0.75;
+}
+
+.companionship-field input:hover,
+.companionship-field textarea:hover,
+.companionship-field select:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--companionship-ink) 32%,
+    var(--companionship-line)
+  );
 }
 
 .companionship-field input:focus,
 .companionship-field textarea:focus,
 .companionship-field select:focus {
-  border-color: var(--accent-color);
+  border-color: var(--companionship-accent);
+  background: var(--companionship-paper);
+  box-shadow: 0 0 0 3px color-mix(
+    in srgb,
+    var(--companionship-accent) 8%,
+    transparent
+  );
+  transform: translateY(-1px);
 }
 
 .companionship-field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.85rem;
+}
+
+.companionship-field-grid .companionship-field {
+  min-width: 0;
 }
 
 .companionship-toggle {
   display: flex;
   align-items: center;
-  gap: 0.48rem;
-  margin: 1rem 0;
-  color: var(--text-sub);
+  gap: 0.5rem;
+  margin: 1.25rem 0 0.2rem;
+  color: var(--companionship-ink-soft);
   font-size: 0.7rem;
 }
 
 .companionship-toggle input {
-  accent-color: var(--accent-color);
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: var(--companionship-accent);
 }
+
+.companionship-toggle svg {
+  color: var(--companionship-muted);
+}
+
+/* =========================================================
+   Buttons
+   ========================================================= */
 
 .companionship-primary-button,
 .companionship-secondary-button,
 .companionship-stop-button {
-  min-height: 2.5rem;
-  border-radius: 999px;
-  padding: 0.65rem 1rem;
+  min-height: 2.85rem;
+  border-radius: 0.15rem;
+  padding: 0.72rem 1rem;
   font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
 }
 
 .companionship-primary-button {
   width: 100%;
-  margin-top: 1rem;
-  background: var(--accent-color);
-  color: var(--accent-foreground);
+  margin-top: 1.15rem;
+  border: 1px solid var(--companionship-accent);
+  background: var(--companionship-accent);
+  color: var(--companionship-accent-foreground);
+  box-shadow: 0 8px 20px color-mix(
+    in srgb,
+    var(--companionship-accent) 12%,
+    transparent
+  );
+}
+
+.companionship-primary-button:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px color-mix(
+    in srgb,
+    var(--companionship-accent) 17%,
+    transparent
+  );
+}
+
+.companionship-primary-button:active {
+  transform: translateY(0);
+}
+
+.companionship-primary-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+  transform: none;
 }
 
 .companionship-secondary-button {
-  background: var(--control-soft-bg);
-  color: var(--text-main);
+  border: 1px solid var(--companionship-line);
+  background: transparent;
+  color: var(--companionship-ink);
+}
+
+.companionship-secondary-button:hover {
+  border-color: var(--companionship-ink);
+  background: var(--companionship-surface);
+  transform: translateY(-2px);
 }
 
 .companionship-stop-button {
   width: 100%;
-  margin-top: 1.5rem;
-  background: var(--control-soft-bg);
-  color: var(--text-sub);
+  margin-top: 1.35rem;
+  border: 1px solid var(--companionship-line);
+  background: transparent;
+  color: var(--companionship-ink-soft);
+}
+
+.companionship-stop-button:hover {
+  border-color: var(--companionship-ink);
+  background: var(--companionship-surface);
+  transform: translateY(-2px);
 }
 
 .companionship-error {
-  margin: 0.8rem 0;
-  color: var(--text-main);
+  margin: 0.75rem 0;
+  color: var(--companionship-ink);
   font-size: 0.72rem;
+  line-height: 1.6;
 }
+
+/* =========================================================
+   Running page compatibility
+   后续会单独重新设计，这里先保持干净、稳定
+   ========================================================= */
 
 .companionship-running-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--companionship-line);
 }
 
 .companionship-running-top h2 {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .companionship-timer {
+  flex: 0 0 auto;
   text-align: right;
-  color: var(--text-muted);
+  color: var(--companionship-muted);
   font-size: 0.62rem;
   line-height: 1.6;
 }
 
 .companionship-timer strong {
   display: block;
-  color: var(--text-main);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 1rem;
+  color: var(--companionship-ink);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  font-size: 1.15rem;
   font-weight: 500;
   letter-spacing: 0.08em;
 }
 
 .companionship-focus-scene {
-  height: 260px;
-  margin: 1.5rem 0 1rem;
-  border-radius: 2.2rem;
+  height: 280px;
+  margin: 1.35rem 0 1rem;
+  border-radius: 0.2rem;
 }
 
 .companionship-focus-scene span {
   position: absolute;
   bottom: 1.1rem;
-  color: var(--text-muted);
-  font-size: 0.68rem;
+  color: var(--companionship-muted);
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 0.72rem;
+  font-style: italic;
 }
 
 .companionship-focus-note {
   z-index: 1;
-  width: 2.2rem;
-  height: 2.2rem;
-  color: var(--accent-color);
-  animation: companionship-float 4s ease-in-out infinite;
+  width: 2.35rem;
+  height: 2.35rem;
+  color: var(--companionship-accent);
+  animation: companionship-note-float 4s ease-in-out infinite;
 }
 
 .companionship-focus-ring {
   width: 150px;
   height: 90px;
+  animation: companionship-orbit-breathe 5s ease-in-out infinite;
 }
 
 .ring-one {
@@ -333,93 +759,17 @@
 }
 
 .ring-two {
-  width: 210px;
-  height: 125px;
+  width: 220px;
+  height: 130px;
+  opacity: 0.52;
   transform: rotate(-24deg);
   animation-delay: 1.2s;
 }
 
-.companionship-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  padding: 1.2rem;
-  background: rgba(0, 0, 0, 0.28);
-}
-
-.companionship-dialog {
-  width: min(100%, 360px);
-  padding: 1.2rem;
-  border: 1px solid var(--card-border);
-  border-radius: 1.4rem;
-  background: var(--bg-main);
-  color: var(--text-main);
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.18);
-}
-
-.companionship-dialog h2 {
-  margin: 0.8rem 0 0.45rem;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1.1rem;
-  font-weight: 500;
-}
-
-.companionship-dialog p {
-  margin: 0;
-  color: var(--text-sub);
-  font-size: 0.73rem;
-  line-height: 1.8;
-}
-
-.companionship-dialog-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-  margin-top: 1rem;
-}
-
-.companionship-dialog-actions .companionship-primary-button {
-  width: auto;
-  margin-top: 0;
-}
-
-@keyframes companionship-float {
-  0%, 100% {
-    transform: translateY(0) rotate(-4deg);
-  }
-
-  50% {
-    transform: translateY(-10px) rotate(4deg);
-  }
-}
-
-@keyframes companionship-breathe {
-  0%, 100% {
-    opacity: 0.35;
-    transform: scale(0.96) rotate(-18deg);
-  }
-
-  50% {
-    opacity: 0.85;
-    transform: scale(1.04) rotate(-18deg);
-  }
-}
-
-@media (max-width: 420px) {
-  .companionship-field-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .companionship-dialog-actions {
-    grid-template-columns: 1fr;
-  }
-}
 .companionship-event-stream {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
   margin-top: 1rem;
 }
 
@@ -429,23 +779,155 @@
 }
 
 .companionship-bubble-mcp {
-  border-color: color-mix(
-    in srgb,
-    var(--accent-color) 45%,
-    var(--card-border)
-  );
+  border-left: 3px solid var(--companionship-accent);
 }
 
 .companionship-bubble-voice {
   background: color-mix(
     in srgb,
-    var(--accent-color) 12%,
-    var(--control-soft-bg)
+    var(--companionship-accent) 7%,
+    var(--companionship-surface)
   );
 }
 
 .companionship-bubble-error {
-  color: var(--text-main);
+  color: var(--companionship-ink);
+}
+
+.companionship-bubble-silent {
+  color: var(--companionship-muted);
+}
+
+/* =========================================================
+   Authorization dialog
+   ========================================================= */
+
+.companionship-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  background: color-mix(
+    in srgb,
+    var(--companionship-ink) 24%,
+    transparent
+  );
+  backdrop-filter: blur(7px);
+  animation: companionship-fade-in 220ms ease both;
+}
+
+.companionship-dialog {
+  width: min(100%, 380px);
+  padding: 1.35rem;
+  border: 1px solid var(--companionship-line-strong);
+  border-radius: 0.2rem;
+  background: var(--companionship-paper);
+  color: var(--companionship-ink);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.16);
+  animation: companionship-dialog-in 300ms cubic-bezier(
+    0.2,
+    0.8,
+    0.2,
+    1.1
+  ) both;
+}
+
+.companionship-dialog > svg {
+  color: var(--companionship-accent);
+}
+
+.companionship-dialog h2 {
+  margin: 0.85rem 0 0.5rem;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.companionship-dialog p {
+  margin: 0;
+  color: var(--companionship-ink-soft);
+  font-size: 0.73rem;
+  line-height: 1.85;
+}
+
+.companionship-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-top: 1.15rem;
+}
+
+.companionship-dialog-actions .companionship-primary-button {
+  width: auto;
+  margin-top: 0;
+}
+
+/* =========================================================
+   Animations
+   ========================================================= */
+
+@keyframes companionship-note-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-5deg);
+  }
+
+  50% {
+    transform: translate3d(0, -10px, 0) rotate(5deg);
+  }
+}
+
+@keyframes companionship-orbit-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.96) rotate(-16deg);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.04) rotate(-16deg);
+  }
+}
+
+@keyframes companionship-pulse {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: scale(0.86);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes companionship-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes companionship-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes companionship-event-in {
@@ -457,5 +939,103 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+
+@media (max-width: 640px) {
+  .companionship-page {
+    padding: 1rem 0.8rem 2.8rem;
+  }
+
+  .companionship-header {
+    gap: 0.8rem;
+    margin-bottom: 1.15rem;
+  }
+
+  .companionship-heading {
+    min-width: 0;
+  }
+
+  .companionship-heading h1 {
+    font-size: 1.8rem;
+  }
+
+  .companionship-heading p {
+    font-size: 0.7rem;
+  }
+
+  .companionship-note-scene {
+    height: 220px;
+  }
+
+  .companionship-field-grid {
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .companionship-page {
+    padding-right: 0.7rem;
+    padding-left: 0.7rem;
+  }
+
+  .companionship-header {
+    grid-template-columns: 1fr;
+  }
+
+  .companionship-heading {
+    text-align: left;
+  }
+
+  .companionship-header::after {
+    right: auto;
+    left: 0;
+  }
+
+  .companionship-field-grid,
+  .companionship-dialog-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .companionship-running-top {
+    flex-direction: column;
+  }
+
+  .companionship-timer {
+    text-align: left;
+  }
+
+  .companionship-timer strong {
+    font-size: 1.05rem;
+  }
+
+  .companionship-note-scene {
+    height: 200px;
+  }
+
+  .companionship-note-orbit {
+    width: 68%;
+  }
+
+  .companionship-bubble {
+    font-size: 0.7rem;
+  }
+}
+
+/*
+ * 尊重系统的减少动态效果设置。
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
