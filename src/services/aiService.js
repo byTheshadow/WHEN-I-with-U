@@ -1848,34 +1848,79 @@ const result = await runAiToolOrchestrator({
         errorCode: result.code
       });
     } else {
-     const {
+      const {
   content: visibleReplyContent,
-  schedule: scheduledMessage
+  schedule: scheduledMessage,
 } = extractScheduledMessageDirective(result.content);
-
-const parsedMessages = await parseAiResponseToMessages(
-  visibleReplyContent
-);
 
 const mcpTrace = getMcpChatTraceSummary(
   mcpTraceSession,
 );
 
+/**
+ * 必须先处理真实声音隐藏区块，再解析普通消息。
+ *
+ * 如果先调用 parseAiResponseToMessages()，
+ * [[REAL_VOICE]] 内部的 JSON 会被当成普通文字，
+ * 后续 applyRealVoiceIntent() 就无法稳定识别。
+ */
+const voiceProcessedMessages = applyRealVoiceIntent(
+  [{
+    type: 'text',
+    content: visibleReplyContent,
+    metadata: {},
+  }],
+  character.voiceProfile,
+);
+
+const voiceProcessedTextMessage = voiceProcessedMessages.find(
+  (message) => message?.type === 'text',
+);
+
+const cleanedReplyContent = voiceProcessedTextMessage?.content || '';
+
+const parsedMessages = await parseAiResponseToMessages(
+  cleanedReplyContent,
+);
 
 const parsedOrFallbackMessages = parsedMessages.length > 0
   ? parsedMessages
-  : visibleReplyContent
+  : cleanedReplyContent
     ? [{
         type: 'text',
-        content: visibleReplyContent,
+        content: cleanedReplyContent,
         metadata: {},
       }]
     : [];
 
-const safeParsedMessages = applyRealVoiceIntent(
-  parsedOrFallbackMessages,
-  character.voiceProfile,
-);
+/**
+ * 将已经从原始回复中提取出的声音意图，
+ * 挂回解析后的最后一条文字消息。
+ */
+const safeParsedMessages = (
+  voiceProcessedMessages.some(
+    (message) => message?.realVoiceRequested,
+  )
+  && parsedOrFallbackMessages.length > 0
+)
+  ? parsedOrFallbackMessages.map((message, index) => {
+      if (
+        message?.type !== 'text'
+        || index !== parsedOrFallbackMessages.length - 1
+      ) {
+        return message;
+      }
+
+      return {
+        ...message,
+        realVoiceRequested: true,
+        realVoiceIntent: voiceProcessedMessages.find(
+          (item) => item?.realVoiceRequested,
+        )?.realVoiceIntent,
+      };
+    })
+  : parsedOrFallbackMessages;
+
 
 
 
@@ -2493,20 +2538,63 @@ const finalMessages = [
       console.warn('[ProactiveMessage] AI 返回了空内容，未创建消息。');
       return null;
     }
+const voiceProcessedMessages = applyRealVoiceIntent(
+  [{
+    type: 'text',
+    content: replyText,
+    metadata: {},
+  }],
+  character.voiceProfile,
+);
 
-    const parsedMessages = await parseAiResponseToMessages(replyText);
+const voiceProcessedTextMessage = voiceProcessedMessages.find(
+  (message) => message?.type === 'text',
+);
+
+const cleanedReplyText = voiceProcessedTextMessage?.content || '';
+
+const parsedMessages = await parseAiResponseToMessages(
+  cleanedReplyText,
+);
+
+const parsedOrFallbackMessages = parsedMessages.length > 0
+  ? parsedMessages
+  : cleanedReplyText
+    ? [{
+        type: 'text',
+        content: cleanedReplyText,
+        metadata: {},
+      }]
+    : [];
+
+const proactiveMessages = (
+  voiceProcessedMessages.some(
+    (message) => message?.realVoiceRequested,
+  )
+  && parsedOrFallbackMessages.length > 0
+)
+  ? parsedOrFallbackMessages.map((message, index) => {
+      if (
+        message?.type !== 'text'
+        || index !== parsedOrFallbackMessages.length - 1
+      ) {
+        return message;
+      }
+
+      return {
+        ...message,
+        realVoiceRequested: true,
+        realVoiceIntent: voiceProcessedMessages.find(
+          (item) => item?.realVoiceRequested,
+        )?.realVoiceIntent,
+      };
+    })
+  : parsedOrFallbackMessages;
+
 
     // 当 AI 返回的内容不含普通文本、或卡片解析未得到结果时，
     // 必须保留原始回复，避免“AI 已回复但数据库没有可显示文本”。
-    const proactiveMessages = parsedMessages.length > 0
-      ? parsedMessages
-      : [
-          {
-            type: 'text',
-            content: replyText,
-            metadata: {}
-          }
-        ];
+    
 
     const nowIso = new Date().toISOString();
     const insertedMessageIds = [];
