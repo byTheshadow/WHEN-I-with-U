@@ -18,6 +18,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Bell,
   Sliders,
   Trash2,
   Upload,
@@ -29,6 +30,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
 import BondConnection from './mcp/BondConnection';
+import { requestNotificationPermission } from '../../services/aiService';
+
 import {
   DEFAULT_PRELOADER_QUOTE_CONFIG,
   createPreloaderQuoteCategory,
@@ -107,6 +110,22 @@ const [newCategoryQuoteInputs, setNewCategoryQuoteInputs] = useState({});
  const [isCompanionEnabled, setIsCompanionEnabled] = useState(false);
 const [isCompanionRunning, setIsCompanionRunning] = useState(false);
 const [isCompanionLoading, setIsCompanionLoading] = useState(true);
+
+  const getNotificationPermission = () => {
+    if (typeof Notification === 'undefined') {
+      return 'unsupported';
+    }
+
+    return Notification.permission;
+  };
+
+  const [notificationStatus, setNotificationStatus] = useState(
+    getNotificationPermission,
+  );
+
+  const [isRequestingNotification, setIsRequestingNotification] =
+    useState(false);
+
 
 
   const [models, setModels] = useState([]);
@@ -246,6 +265,29 @@ setIsCompanionLoading(false);
     };
   }, []);
 
+    useEffect(() => {
+    const refreshNotificationStatus = () => {
+      setNotificationStatus(getNotificationPermission());
+    };
+
+    document.addEventListener(
+      'visibilitychange',
+      refreshNotificationStatus,
+    );
+
+    window.addEventListener('focus', refreshNotificationStatus);
+
+    return () => {
+      document.removeEventListener(
+        'visibilitychange',
+        refreshNotificationStatus,
+      );
+
+      window.removeEventListener('focus', refreshNotificationStatus);
+    };
+  }, []);
+
+
   const hasUnsavedChanges =
     draftTheme !== currentTheme ||
     draftShowTitle !== showTitle ||
@@ -266,6 +308,33 @@ setIsCompanionLoading(false);
       setSaveStatus({ type: 'idle', message: '' });
     }, 2500);
   };
+
+    const handleRequestNotificationPermission = async () => {
+    if (
+      typeof Notification === 'undefined' ||
+      notificationStatus === 'unsupported' ||
+      notificationStatus === 'granted'
+    ) {
+      return;
+    }
+
+    setIsRequestingNotification(true);
+
+    try {
+      // 必须由真实用户点击直接触发
+      await requestNotificationPermission();
+
+      setNotificationStatus(getNotificationPermission());
+    } catch (error) {
+      console.error('Unable to request notification permission:', error);
+
+      setNotificationStatus(getNotificationPermission());
+      showSaveResult('error', '通知权限请求失败，请稍后重试。');
+    } finally {
+      setIsRequestingNotification(false);
+    }
+  };
+
 
   const handleAddQuote = () => {
     const quote = newQuoteInput.trim();
@@ -1150,6 +1219,59 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
           )}
         </div>
       </GlassCard>
+
+            {/* 3. 消息通知设置 */}
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Bell className="h-4 w-4" />
+          <span>消息通知 (Notifications)</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-medium">允许消息通知</p>
+
+            <p className="mt-1 text-[10px] leading-relaxed opacity-50">
+              开启后，你可以在离开页面时收到重要消息提醒。
+            </p>
+
+            {notificationStatus === 'denied' && (
+              <p className="mt-1 text-[10px] leading-relaxed text-rose-500">
+                通知权限已被拒绝，请前往 iOS 设置中的浏览器设置手动开启。
+              </p>
+            )}
+
+            {notificationStatus === 'unsupported' && (
+              <p className="mt-1 text-[10px] leading-relaxed opacity-50">
+                当前浏览器或运行环境不支持通知。
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRequestNotificationPermission}
+            disabled={
+              isRequestingNotification ||
+              notificationStatus === 'granted' ||
+              notificationStatus === 'unsupported'
+            }
+            className="shrink-0 rounded-full bg-black px-5 py-2 text-xs font-semibold text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
+          >
+            {isRequestingNotification
+              ? '请求中…'
+              : {
+                  granted: '通知已开启',
+                  denied: '前往系统设置',
+                  default: '开启消息通知',
+                  unsupported: '不支持通知',
+                }[notificationStatus]}
+          </button>
+        </div>
+      </GlassCard>
+
+      {/* 4. 锁屏音频陪伴 */}
+
 
       {/* 3. 锁屏音频陪伴 */}
       <GlassCard className="space-y-4 text-left">

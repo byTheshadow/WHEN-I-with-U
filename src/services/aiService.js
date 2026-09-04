@@ -136,19 +136,20 @@ export const requestNotificationPermission = async () => {
   }
 };
 
-export const triggerSystemNotification = (title, body, icon) => {
-  if (typeof window !== 'undefined' && 'Notification' in window) {
-    if (Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body,
-          icon: icon || '/favicon.ico',
-          tag: `notice_${Date.now()}`
-        });
-      } catch (err) {
-        console.warn('Triggering system notification failed:', err);
-      }
-    }
+export const triggerSystemNotification = async (title, body, icon) => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification(title, {
+      body,
+      icon: icon || '/favicon.ico',
+      tag: `notice_${Date.now()}`
+    });
+  } catch (err) {
+    console.warn('Triggering system notification failed:', err);
   }
 };
 

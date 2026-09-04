@@ -2,7 +2,7 @@
 
 // 每次发布一个需要用户更新的版本时，都应递增此版本号。
 // 例如：v4 → v5。否则已缓存的静态资源可能继续沿用旧版本。
-const CACHE_NAME = 'when-i-with-u-v7';
+const CACHE_NAME = 'when-i-with-u-v8';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径。
 // 本地示例：       http://localhost:5173/
@@ -174,6 +174,26 @@ self.addEventListener('sync', (event) => {
             type: 'SYNC_OFFLINE_MESSAGES',
           });
         });
+      }),
+  );
+});
+
+// 点击系统通知时，尝试聚焦已打开的窗口，否则新开一个 App 入口。
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  event.waitUntil(
+    self.clients
+      .matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      .then((clientList) => {
+        if (clientList.length > 0) {
+          return clientList[0].focus();
+        }
+
+        return self.clients.openWindow(APP_INDEX_URL);
       }),
   );
 });

@@ -182,7 +182,7 @@ export const App = () => {
   const [activeCharacterId, setActiveCharacterId] = useState(null);
 
   useEffect(() => {
-  void requestNotificationPermission();
+  
 
   startAutoMessageScheduler();
   startTravelPostcardScheduler();
