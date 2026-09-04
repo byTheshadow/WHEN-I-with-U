@@ -281,22 +281,29 @@ class CompanionshipScheduler {
   }
 
   async finishSession(session) {
-    if (!session?.id) return;
+  if (!session?.id) return;
 
-    await stopCompanionship(
-      session.id,
-      'completed',
-    );
+  await stopCompanionship(
+    session.id,
+    'completed',
+  );
 
-    const completedSession = {
+  const completedSession = await getCompanionshipSession(
+    session.id,
+  );
+
+  this.emitSessionChange(
+    completedSession || {
       ...session,
       status: 'completed',
+      endedAt: session.endedAt || new Date().toISOString(),
       mcpAuthorizationGranted: false,
-    };
+    },
+  );
 
-    this.emitSessionChange(completedSession);
-    this.clearTimer();
-  }
+  this.clearTimer();
+}
+
 
   emitSessionChange(session) {
     if (typeof this.onSessionChange !== 'function') {

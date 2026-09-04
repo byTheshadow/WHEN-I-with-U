@@ -122,6 +122,30 @@ export const getRunningCompanionship = async (chatId) => {
   return running;
 };
 
+export const getLatestCompanionship = async (chatId) => {
+  if (
+    chatId === undefined
+    || chatId === null
+    || chatId === ''
+  ) {
+    return null;
+  }
+
+  const sessions = await db.companionshipSessions.toArray();
+
+  return sessions
+    .filter((session) => (
+      String(session.chatId) === String(chatId)
+    ))
+    .sort(
+      (a, b) => (
+        new Date(b.createdAt).getTime()
+        - new Date(a.createdAt).getTime()
+      ),
+    )[0] || null;
+};
+
+
 export const createCompanionshipSession = async ({
   chatId,
   characterId,
@@ -238,6 +262,7 @@ export const createCompanionshipSession = async ({
 
 export const updateCompanionshipSession = async (id, changes = {}) => {
   if (!id) return null;
+  
 
   await db.companionshipSessions.update(id, {
     ...changes,
@@ -260,11 +285,13 @@ export const stopCompanionship = async (
   const stoppedAt = nowIso();
 
   await db.companionshipSessions.update(id, {
-    status,
-    mcpAuthorizationGranted: false,
-    authorizationRevokedAt: stoppedAt,
-    updatedAt: stoppedAt,
-  });
+  status,
+  endedAt: session.endedAt || stoppedAt,
+  mcpAuthorizationGranted: false,
+  authorizationRevokedAt: stoppedAt,
+  updatedAt: stoppedAt,
+});
+
 
   if (
     session.keepAliveEnabledByCompanionship === true

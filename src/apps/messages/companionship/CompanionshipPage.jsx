@@ -1,24 +1,35 @@
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
-import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   Bell,
   Check,
+  CircleAlert,
   Clock3,
+  MessageCircle,
   Music2,
   Pause,
   Play,
   ShieldCheck,
   Square,
+  TimerReset,
+  Wrench,
 } from 'lucide-react';
+
 
 import db from '../../../db';
 
 import {
   createCompanionshipSession,
-  getRunningCompanionship,
+  getLatestCompanionship,
   stopCompanionship,
 } from './companionshipService';
+
 
 import {
   startCompanionshipScheduler,
@@ -53,6 +64,139 @@ const formatRemaining = (endsAt) => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
+const formatClockTime = (value) => {
+  if (!value) return '--:--';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '--:--';
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '时间未知';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '时间未知';
+  }
+
+  return date.toLocaleString([], {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatDuration = (startedAt, endedAt, now = Date.now()) => {
+  if (!startedAt) return '00 分 00 秒';
+
+  const startedTime = new Date(startedAt).getTime();
+
+  const endedTime = endedAt
+    ? new Date(endedAt).getTime()
+    : now;
+
+  if (
+    !Number.isFinite(startedTime)
+    || !Number.isFinite(endedTime)
+  ) {
+    return '00 分 00 秒';
+  }
+
+  const seconds = Math.max(
+    0,
+    Math.floor((endedTime - startedTime) / 1000),
+  );
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${String(minutes).padStart(2, '0')} 分 ${
+    String(remainingSeconds).padStart(2, '0')
+  } 秒`;
+};
+
+const getEventIcon = (type) => {
+  switch (type) {
+    case 'voice':
+      return <Music2 size={15} />;
+    case 'mcp':
+      return <Wrench size={15} />;
+    case 'error':
+      return <AlertTriangle size={15} />;
+    case 'reminder':
+      return <Bell size={15} />;
+    case 'assistant':
+    case 'text':
+      return <MessageCircle size={15} />;
+    case 'silent':
+      return <Pause size={15} />;
+    case 'status':
+    default:
+      return <Check size={15} />;
+  }
+};
+
+const getEventTypeLabel = (type) => {
+  switch (type) {
+    case 'voice':
+      return '语音';
+    case 'mcp':
+      return '动作';
+    case 'error':
+      return '错误';
+    case 'reminder':
+      return '提醒';
+    case 'assistant':
+    case 'text':
+      return '文字';
+    case 'silent':
+      return '静默';
+    case 'status':
+    default:
+      return '状态';
+  }
+};
+
+const getRelativeEventTime = (event, session) => {
+  if (!event?.createdAt || !session?.startedAt) {
+    return '';
+  }
+
+  const eventTime = new Date(event.createdAt).getTime();
+  const startedTime = new Date(session.startedAt).getTime();
+
+  if (
+    !Number.isFinite(eventTime)
+    || !Number.isFinite(startedTime)
+  ) {
+    return '';
+  }
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((eventTime - startedTime) / 1000),
+  );
+
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds % 60;
+
+  return `陪伴 ${String(minutes).padStart(2, '0')}:${
+    String(seconds).padStart(2, '0')
+  }`;
+};
+
+
 const getChatCharacterName = (chat, characters) => {
   const character = characters.find(
     (item) => String(item.id) === String(chat?.characterId),
@@ -60,6 +204,99 @@ const getChatCharacterName = (chat, characters) => {
 
   return character?.name || '未命名陪伴';
 };
+
+const CompanionshipVoicePlayer = ({ messageId }) => {
+  const [audioUrl, setAudioUrl] = useState('');
+  const [status, setStatus] = useState('loading');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadVoice = async () => {
+      if (!messageId) {
+        setStatus('missing');
+        return;
+      }
+
+      try {
+        const message = await db.messages.get(messageId);
+        const audioBlob = message?.metadata?.audioBlob;
+
+        if (!(audioBlob instanceof Blob)) {
+          if (!cancelled) {
+            setStatus('missing');
+          }
+          return;
+        }
+
+        const nextUrl = URL.createObjectURL(
+          audioBlob,
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        /*
+         * 不在陪伴页面卸载时 revoke。
+         * 音频已经属于聊天消息，后续 ChatRoom 仍需要继续使用。
+         */
+        setAudioUrl(nextUrl);
+        setStatus('ready');
+      } catch (error) {
+        if (!cancelled) {
+          setStatus('error');
+          setErrorMessage(
+            error?.message || '语音暂时无法播放。',
+          );
+        }
+      }
+    };
+
+    void loadVoice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messageId]);
+
+  if (status === 'loading') {
+    return (
+      <span className="companionship-voice-state">
+        正在准备语音
+      </span>
+    );
+  }
+
+  if (status === 'missing') {
+    return (
+      <span className="companionship-voice-state">
+        语音数据已保存，但当前没有可播放的音频
+      </span>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <span className="companionship-voice-state">
+        {errorMessage}
+      </span>
+    );
+  }
+
+  return (
+    <audio
+      className="companionship-audio-player"
+      src={audioUrl}
+      controls
+      preload="metadata"
+    >
+      你的浏览器不支持音频播放。
+    </audio>
+  );
+};
+
 
 export const CompanionshipPage = ({
   chats = [],
@@ -82,6 +319,21 @@ export const CompanionshipPage = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthorization, setShowAuthorization] = useState(false);
+  const [clock, setClock] = useState(Date.now());
+useEffect(() => {
+  if (!session?.id || session.status !== 'running') {
+    return undefined;
+  }
+
+  const timer = window.setInterval(() => {
+    setClock(Date.now());
+  }, 1000);
+
+  return () => {
+    window.clearInterval(timer);
+  };
+}, [session?.id, session?.status]);
+
 
   const selectedChat = useMemo(
     () => chats.find(
@@ -89,41 +341,79 @@ export const CompanionshipPage = ({
     ),
     [chats, selectedChatId],
   );
+const appendEvent = async (
+  event,
+  sessionId = session?.id,
+) => {
+  const localEvent = {
+    id: event?.id
+      || `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    createdAt: event?.createdAt
+      || new Date().toISOString(),
+    ...event,
+  };
 
-  const appendEvent = async (event, sessionId = session?.id) => {
-    const localEvent = {
-      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      createdAt: new Date().toISOString(),
-      ...event,
-    };
+  setEvents((current) => {
+    const exists = current.some(
+      (item) => String(item.id) === String(localEvent.id),
+    );
 
-    setEvents((current) => [
+    if (exists) {
+      return current.map((item) => (
+        String(item.id) === String(localEvent.id)
+          ? {
+            ...item,
+            ...localEvent,
+          }
+          : item
+      ));
+    }
+
+    return [
       ...current,
       localEvent,
-    ].slice(-80));
+    ].slice(-100);
+  });
 
-    if (!sessionId) return;
+  /*
+   * AI Service 已经持久化过的事件只更新界面，
+   * 不再重复写入数据库。
+   */
+  if (event?.id || !sessionId) {
+    return localEvent;
+  }
 
-    try {
-      const persistedEvent = await createCompanionshipEvent({
-        sessionId,
-        ...event,
-      });
+  try {
+    const persistedEvent = await createCompanionshipEvent({
+      sessionId,
+      chatId: session?.chatId,
+      ...event,
+    });
 
-      if (persistedEvent?.id) {
-        setEvents((current) => current.map((item) => (
-          item.id === localEvent.id
-            ? {
-              ...item,
-              ...persistedEvent,
-            }
-            : item
-        )));
-      }
-    } catch (error) {
-      console.error('[Companionship] create event failed:', error);
+    if (!persistedEvent?.id) {
+      return localEvent;
     }
-  };
+
+    setEvents((current) => current.map((item) => (
+      item.id === localEvent.id
+        ? {
+          ...item,
+          ...persistedEvent,
+        }
+        : item
+    )));
+
+    return persistedEvent;
+  } catch (error) {
+    console.error(
+      '[Companionship] create event failed:',
+      error,
+    );
+
+    return localEvent;
+  }
+};
+
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -133,12 +423,13 @@ export const CompanionshipPage = ({
 
     let cancelled = false;
 
-    getRunningCompanionship(selectedChatId)
-      .then((running) => {
-        if (!cancelled) {
-          setSession(running);
-        }
-      })
+    getLatestCompanionship(selectedChatId)
+  .then((latest) => {
+    if (!cancelled) {
+      setSession(latest);
+    }
+  })
+
       .catch((error) => {
         console.error('[Companionship] load session failed:', error);
 
@@ -364,18 +655,45 @@ export const CompanionshipPage = ({
   };
 
   const handleStop = async () => {
-    if (!session?.id) return;
+  if (!session?.id || !isRunning) return;
 
-    await stopCompanionship(session.id, 'stopped');
+  await stopCompanionship(
+    session.id,
+    'stopped',
+  );
 
-    setSession((current) => ({
-      ...current,
-      status: 'stopped',
-      mcpAuthorizationGranted: false,
-    }));
-  };
+  const endedAt = new Date().toISOString();
+
+  setSession((current) => ({
+    ...current,
+    status: 'stopped',
+    endedAt: current?.endedAt || endedAt,
+    mcpAuthorizationGranted: false,
+  }));
+
+  await appendEvent({
+    type: 'status',
+    title: '陪伴由你结束',
+    content: '这段陪伴已经停下，时间线仍会为你保留。',
+    createdAt: endedAt,
+  });
+};
+
+
+  const handleExitFinishedSession = () => {
+  setSession(null);
+  setEvents([]);
+  setErrorMessage('');
+};
+
 
   const isRunning = session?.status === 'running';
+
+const isFinished = (
+  session?.status === 'completed'
+  || session?.status === 'stopped'
+);
+
 
   const runningChatTitle = (
     boundChat?.title
@@ -412,8 +730,8 @@ export const CompanionshipPage = ({
       </div>
     </header>
 
-    {!isRunning ? (
-      <section className="companionship-setup">
+    {!isRunning && !isFinished ? (
+  <section className="companionship-setup">
         <div className="companionship-setup-layout">
           <div className="companionship-setup-visual">
             <div className="companionship-visual-caption">
@@ -608,8 +926,8 @@ export const CompanionshipPage = ({
           </div>
         </div>
       </section>
-    ) : (
-      <section className="companionship-running">
+    ) : isRunning ? (
+  <section className="companionship-running">
         <div className="companionship-running-layout">
           <div className="companionship-running-visual">
             <div className="companionship-running-meta">
@@ -699,53 +1017,62 @@ export const CompanionshipPage = ({
               </span>
             </div>
 
-            <div className="companionship-event-stream">
-              {events.length === 0 && (
-                <div className="companionship-bubble companionship-bubble-silent">
-                  <Pause size={14} />
+          <div className="companionship-event-stream">
+  {events.length === 0 && (
+    <div className="companionship-empty-timeline">
+      陪伴已经开始，下一次主动出现会在合适的时候发生。
+    </div>
+  )}
 
-                  <span>
-                    陪伴已经开始，下一次主动出现会在合适的时候发生。
-                  </span>
-                </div>
-              )}
+  {events.map((event) => (
+    <div
+      key={event.id}
+      className={[
+        'companionship-timeline-event',
+        `companionship-timeline-event-${
+          event.type || 'status'
+        }`,
+      ].join(' ')}
+    >
+      <div className="companionship-timeline-marker">
+        {getEventIcon(event.type)}
+      </div>
 
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className={[
-                    'companionship-bubble',
-                    `companionship-bubble-${event.type || 'status'}`,
-                  ].join(' ')}
-                >
-                  {event.type === 'mcp' && (
-                    <Music2 size={14} />
-                  )}
+      <div className="companionship-timeline-content">
+        <div className="companionship-timeline-meta">
+          <span>
+            {formatClockTime(event.createdAt)}
+          </span>
 
-                  {event.type === 'voice' && (
-                    <Music2 size={14} />
-                  )}
+          <span>
+            {getRelativeEventTime(event, session)}
+          </span>
 
-                  {event.type === 'error' && (
-                    <Pause size={14} />
-                  )}
+          <span>
+            {getEventTypeLabel(event.type)}
+          </span>
+        </div>
 
-                  {event.type === 'status' && (
-                    <Check size={14} />
-                  )}
+        {event.title && (
+          <strong>
+            {event.title}
+          </strong>
+        )}
 
-                  <div>
-                    {event.title && (
-                      <span className="companionship-bubble-label">
-                        {event.title}
-                      </span>
-                    )}
+        {event.content && (
+          <p>{event.content}</p>
+        )}
 
-                    <p>{event.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {event.type === 'voice'
+          && event.metadata?.messageId && (
+          <CompanionshipVoicePlayer
+            messageId={event.metadata.messageId}
+          />
+        )}
+      </div>
+    </div>
+  ))}
+</div>
 
             <button
               type="button"
@@ -757,8 +1084,141 @@ export const CompanionshipPage = ({
             </button>
           </aside>
         </div>
+           </section>
+    ) : isFinished ? (
+
+    
+           <section className="companionship-finished">
+        <div className="companionship-finished-header">
+          <span className="companionship-eyebrow">
+            THE INTERVAL HAS ENDED
+          </span>
+
+          <h2>
+            这段陪伴已经结束。
+          </h2>
+
+          <p>
+            时间停在这里，但刚才发生过的事情仍然被好好保存着。
+          </p>
+        </div>
+
+        <div className="companionship-finished-summary">
+          <div className="companionship-finished-duration">
+            <span>ACTUAL COMPANIONSHIP TIME</span>
+
+            <strong>
+              {formatDuration(
+                session?.startedAt,
+                session?.endedAt,
+                clock,
+              )}
+            </strong>
+          </div>
+
+          <dl className="companionship-finished-times">
+            <div>
+              <dt>开始时间</dt>
+              <dd>
+                {formatDateTime(session?.startedAt)}
+              </dd>
+            </div>
+
+            <div>
+              <dt>结束时间</dt>
+              <dd>
+                {formatDateTime(
+                  session?.endedAt || session?.endsAt,
+                )}
+              </dd>
+            </div>
+
+            <div>
+              <dt>结束方式</dt>
+              <dd>
+                {session?.status === 'completed'
+                  ? '预定时间已到'
+                  : '你手动结束了陪伴'}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <div className="companionship-finished-timeline">
+          <div className="companionship-finished-timeline-heading">
+            <TimerReset size={16} />
+
+            <span>本次陪伴时间线</span>
+          </div>
+
+          {events.length === 0 ? (
+            <p className="companionship-empty-timeline">
+              这次陪伴没有留下可见事件。
+            </p>
+          ) : (
+            <div className="companionship-event-stream">
+              {events.map((event) => (
+                <div
+                  key={event.id}
+                  className={[
+                    'companionship-timeline-event',
+                    `companionship-timeline-event-${
+                      event.type || 'status'
+                    }`,
+                  ].join(' ')}
+                >
+                  <div className="companionship-timeline-marker">
+                    {getEventIcon(event.type)}
+                  </div>
+
+                  <div className="companionship-timeline-content">
+                    <div className="companionship-timeline-meta">
+                      <span>
+                        {formatClockTime(event.createdAt)}
+                      </span>
+
+                      <span>
+                        {getRelativeEventTime(event, session)}
+                      </span>
+
+                      <span>
+                        {getEventTypeLabel(event.type)}
+                      </span>
+                    </div>
+
+                    {event.title && (
+                      <strong>
+                        {event.title}
+                      </strong>
+                    )}
+
+                    {event.content && (
+                      <p>{event.content}</p>
+                    )}
+
+                    {event.type === 'voice'
+                      && event.metadata?.messageId && (
+                      <CompanionshipVoicePlayer
+                        messageId={event.metadata.messageId}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          className="companionship-primary-button"
+          onClick={handleExitFinishedSession}
+        >
+          <ArrowLeft size={15} />
+          <span>退出本次陪伴</span>
+        </button>
       </section>
-    )}
+) : null}
 
     {showAuthorization && (
       <div className="companionship-dialog-backdrop">
