@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Clock3, FileClock, Trash2, X } from 'lucide-react';
+import {
+  Clock3,
+  FileClock,
+  RotateCcw,
+  Trash2,
+  X
+} from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
 import {
   deleteScheduledMessageArchiveItem,
@@ -7,7 +13,8 @@ import {
   getScheduledMessageDisplayState,
   getScheduledMessageTypeLabel,
   getScheduledMessageCancelLabel,
-  formatScheduledMessageDate
+  formatScheduledMessageDate,
+  retryScheduledMessageArchiveItem
 } from '../scheduledMessageArchiveService';
 import './ScheduledMessageArchive.css';
 
@@ -19,12 +26,15 @@ const ScheduledMessageArchive = ({
   const [records, setRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingRecord, setDeletingRecord] = useState(null);
+  const [retryingRecordId, setRetryingRecordId] = useState(null);
 
   const loadRecords = async () => {
     setIsLoading(true);
 
     try {
-      const nextRecords = await getScheduledMessageArchive(chatId);
+      const nextRecords =
+        await getScheduledMessageArchive(chatId);
+
       setRecords(nextRecords);
     } catch (error) {
       console.error(
@@ -46,10 +56,14 @@ const ScheduledMessageArchive = ({
     }
 
     try {
-      await deleteScheduledMessageArchiveItem(deletingRecord.id);
+      await deleteScheduledMessageArchiveItem(
+        deletingRecord.id
+      );
 
       setRecords((previous) => (
-        previous.filter((item) => item.id !== deletingRecord.id)
+        previous.filter(
+          (item) => item.id !== deletingRecord.id
+        )
       ));
     } catch (error) {
       console.error(
@@ -58,6 +72,47 @@ const ScheduledMessageArchive = ({
       );
     } finally {
       setDeletingRecord(null);
+    }
+  };
+
+  const handleRetry = async (record) => {
+    if (!record?.id || retryingRecordId) {
+      return;
+    }
+
+    setRetryingRecordId(record.id);
+
+    try {
+      const success =
+        await retryScheduledMessageArchiveItem(
+          record.id
+        );
+
+      if (!success) {
+        return;
+      }
+
+      setRecords((previous) => (
+        previous.map((item) => (
+          item.id === record.id
+            ? {
+                ...item,
+                status: 'pending',
+                attemptCount: 0,
+                cancelledReason: '',
+                sentMessageId: null,
+                updatedAt: new Date().toISOString()
+              }
+            : item
+        ))
+      ));
+    } catch (error) {
+      console.error(
+        '[ScheduledMessageArchive] 重新安排预约失败：',
+        error
+      );
+    } finally {
+      setRetryingRecordId(null);
     }
   };
 
@@ -78,9 +133,11 @@ const ScheduledMessageArchive = ({
               <p className="scheduled-archive-kicker">
                 PRIVATE RECORD
               </p>
+
               <h2 id="scheduled-archive-title">
                 {character?.name || '伴侣'}留下的时间票据
               </h2>
+
               <p className="scheduled-archive-subtitle">
                 这里保存着曾经约定过的稍后联系。
               </p>
@@ -118,7 +175,17 @@ const ScheduledMessageArchive = ({
             {!isLoading && records.length > 0 && (
               <div className="scheduled-archive-list">
                 {records.map((record) => {
-                  const state = getScheduledMessageDisplayState(record);
+                  const state =
+                    getScheduledMessageDisplayState(
+                      record
+                    );
+
+                  const canRetry =
+                    record.status === 'failed' ||
+                    record.status === 'cancelled';
+
+                  const isRetrying =
+                    retryingRecordId === record.id;
 
                   return (
                     <article
@@ -127,18 +194,62 @@ const ScheduledMessageArchive = ({
                     >
                       <div className="scheduled-ticket-topline">
                         <span className="scheduled-ticket-type">
-                          {getScheduledMessageTypeLabel(record)}
+                          {getScheduledMessageTypeLabel(
+                            record
+                          )}
                         </span>
 
-                        <button
-                          type="button"
-                          className="scheduled-ticket-delete"
-                          onClick={() => setDeletingRecord(record)}
-                          title="删除这张票据"
-                          aria-label="删除这张票据"
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                          {canRetry && (
+                            <button
+                              type="button"
+                              className="scheduled-ticket-retry"
+                              onClick={() => (
+                                void handleRetry(record)
+                              )}
+                              disabled={Boolean(
+                                retryingRecordId
+                              )}
+                              title="重新安排这次预约"
+                              aria-label="重新安排这次预约"
+                              style={{
+                                opacity: isRetrying
+                                  ? 0.55
+                                  : 1,
+                                cursor: retryingRecordId
+                                  ? 'wait'
+                                  : 'pointer'
+                              }}
+                            >
+                              <RotateCcw
+                                className="h-3.5 w-3.5"
+                              />
+                              <span>
+                                {isRetrying
+                                  ? '安排中'
+                                  : '重试'}
+                              </span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            className="scheduled-ticket-delete"
+                            onClick={() => (
+                              setDeletingRecord(record)
+                            )}
+                            title="删除这张票据"
+                            aria-label="删除这张票据"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="scheduled-ticket-status">
@@ -148,23 +259,32 @@ const ScheduledMessageArchive = ({
 
                       <div className="scheduled-ticket-time">
                         <Clock3 className="h-3.5 w-3.5" />
+
                         <span>
                           预计：
-                          {formatScheduledMessageDate(record.scheduledFor)}
+                          {formatScheduledMessageDate(
+                            record.scheduledFor
+                          )}
                         </span>
                       </div>
 
                       <p className="scheduled-ticket-intent">
-                        {record.intent || '自然地延续之前尚未说完的关心。'}
+                        {record.intent ||
+                          '自然地延续之前尚未说完的关心。'}
                       </p>
 
                       <div className="scheduled-ticket-meta">
                         <span>
                           写下：
-                          {formatScheduledMessageDate(record.createdAt)}
+                          {formatScheduledMessageDate(
+                            record.createdAt
+                          )}
                         </span>
+
                         <span>
-                          {getScheduledMessageCancelLabel(record)}
+                          {getScheduledMessageCancelLabel(
+                            record
+                          )}
                         </span>
                       </div>
 

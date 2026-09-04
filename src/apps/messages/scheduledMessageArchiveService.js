@@ -45,6 +45,43 @@ export const deleteScheduledMessageArchive = async (chatId) => {
     .delete();
 };
 
+/**
+ * 将失败或已取消的预约重新放回待处理状态。
+ *
+ * 已发送和正在处理的记录不能被手动重试，
+ * 避免重复发送或干扰当前执行流程。
+ */
+export const retryScheduledMessageArchiveItem = async (
+  id
+) => {
+  if (!id) {
+    return false;
+  }
+
+  const record = await db.scheduledMessages.get(id);
+
+  if (!record) {
+    return false;
+  }
+
+  if (
+    record.status !== 'failed' &&
+    record.status !== 'cancelled'
+  ) {
+    return false;
+  }
+
+  await db.scheduledMessages.update(id, {
+    status: 'pending',
+    attemptCount: 0,
+    cancelledReason: '',
+    sentMessageId: null,
+    updatedAt: getNowIso()
+  });
+
+  return true;
+};
+
 export const getScheduledMessageDisplayState = (record) => {
   if (!record) {
     return {
@@ -127,7 +164,9 @@ export const getScheduledMessageCancelLabel = (record) => {
     : '用户回来后可自然收回';
 };
 
-export const markScheduledMessageArchiveUpdated = async (id) => {
+export const markScheduledMessageArchiveUpdated = async (
+  id
+) => {
   if (!id) {
     return;
   }

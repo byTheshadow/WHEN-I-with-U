@@ -36,13 +36,11 @@ import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
 
-
-
-
-// 👈 导入新增的 Rhythm 模块
+// 导入 Rhythm 模块
 import RhythmApp from './apps/rhythm/RhythmApp';
-import { triggerRhythmActiveReminder } from './services/rhythmReminderService';
-
+import {
+  triggerRhythmActiveReminder
+} from './services/rhythmReminderService';
 
 import db from './db';
 
@@ -51,12 +49,12 @@ import {
   startAutoMessageScheduler,
   stopAutoMessageScheduler
 } from './services/aiService';
+
 import {
   getLockscreenCompanionEnabled,
   startLockscreenCompanion,
   stopLockscreenCompanion,
 } from './services/lockscreenService';
-
 
 import {
   startTravelPostcardScheduler,
@@ -67,11 +65,11 @@ import {
   startScheduledMessageScheduler,
   stopScheduledMessageScheduler
 } from './apps/messages/scheduledMessageService';
+
 import {
   startParallelOrbitScheduler,
   stopParallelOrbitScheduler
 } from './services/parallelOrbitScheduler';
-
 
 import './apps/daily-offering/daily-offering.css';
 import './apps/manual/manual.css';
@@ -90,7 +88,6 @@ const CHAT_APPS = [
   'habitat'
 ];
 
-// 👈 注册 rhythm 到可用子应用列表中
 const REGISTERED_APPS = [
   'hub',
   'settings',
@@ -111,8 +108,7 @@ const REGISTERED_APPS = [
   'rhythm',
   'memory',
   'newspaper',
-  'margin-notes',
-
+  'margin-notes'
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -125,12 +121,24 @@ export const App = () => {
   const [activeTheme, setActiveTheme] = useState('mono-mist');
   const [showTitle, setShowTitle] = useState(true);
   const [currentApp, setCurrentApp] = useState('hub');
-  const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
+  const [isInsideChatRoom, setIsInsideChatRoom] =
+    useState(false);
 
-  const [activeKeepAliveChats, setActiveKeepAliveChats] = useState([]);
-  const [audioConfig, setAudioConfig] = useState(DEFAULT_AUDIO_CONFIG);
-  
-    useEffect(() => {
+  const [
+    activeKeepAliveChats,
+    setActiveKeepAliveChats
+  ] = useState([]);
+
+  const [audioConfig, setAudioConfig] = useState(
+    DEFAULT_AUDIO_CONFIG
+  );
+
+  const [
+    pendingScheduledCount,
+    setPendingScheduledCount
+  ] = useState(0);
+
+  useEffect(() => {
     const finishOAuthCallback = async () => {
       const currentUrl = new URL(window.location.href);
 
@@ -144,12 +152,18 @@ export const App = () => {
       }
 
       try {
-        await consumeMcpOAuthCallback(currentUrl.toString());
+        await consumeMcpOAuthCallback(
+          currentUrl.toString()
+        );
       } catch (error) {
-        console.warn('[MCP OAuth] 授权回调未完成：', error);
+        console.warn(
+          '[MCP OAuth] 授权回调未完成：',
+          error
+        );
       } finally {
         /*
-         * 无论成功、拒绝或失败，均不能把 code/state 留在浏览器历史和地址栏。
+         * 无论成功、拒绝或失败，
+         * 均不能把 code/state 留在浏览器历史和地址栏。
          */
         [
           'code',
@@ -157,7 +171,7 @@ export const App = () => {
           'error',
           'error_description',
           'error_uri',
-          'iss',
+          'iss'
         ].forEach((key) => {
           currentUrl.searchParams.delete(key);
         });
@@ -170,7 +184,7 @@ export const App = () => {
         window.history.replaceState(
           window.history.state,
           document.title,
-          safeUrl,
+          safeUrl
         );
       }
     };
@@ -178,31 +192,33 @@ export const App = () => {
     void finishOAuthCallback();
   }, []);
 
-  // 缓存当前角色ID，用于传递给 RhythmApp 子应用
-  const [activeCharacterId, setActiveCharacterId] = useState(null);
+  // 缓存当前角色 ID，用于传递给 RhythmApp 子应用
+  const [
+    activeCharacterId,
+    setActiveCharacterId
+  ] = useState(null);
 
   useEffect(() => {
-  
+    startAutoMessageScheduler();
+    startTravelPostcardScheduler();
+    startScheduledMessageScheduler();
+    startParallelOrbitScheduler();
 
-  startAutoMessageScheduler();
-  startTravelPostcardScheduler();
-  startScheduledMessageScheduler();
-  startParallelOrbitScheduler();
-
-  return () => {
-    stopAutoMessageScheduler();
-    stopTravelPostcardScheduler();
-    stopScheduledMessageScheduler();
-    stopParallelOrbitScheduler();
-  };
-}, []);
+    return () => {
+      stopAutoMessageScheduler();
+      stopTravelPostcardScheduler();
+      stopScheduledMessageScheduler();
+      stopParallelOrbitScheduler();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const restoreLockscreenCompanion = async () => {
       try {
-        const enabled = await getLockscreenCompanionEnabled();
+        const enabled =
+          await getLockscreenCompanionEnabled();
 
         if (!enabled || cancelled) {
           return;
@@ -221,13 +237,13 @@ export const App = () => {
          * Service 会保留开启状态，并等待后续用户手势重试。
          */
         await startLockscreenCompanion(
-          character || null,
+          character || null
         );
       } catch (error) {
         if (!cancelled) {
           console.warn(
             '[App] 恢复锁屏陪伴失败:',
-            error,
+            error
           );
         }
       }
@@ -239,88 +255,128 @@ export const App = () => {
       cancelled = true;
 
       /*
-       * 这里只停止运行中的临时音频，不修改 Dexie 中的开启设置。
+       * 这里只停止运行中的临时音频，
+       * 不修改 Dexie 中的开启设置。
        * 下次 App 挂载时仍会根据持久化设置尝试恢复。
        */
       stopLockscreenCompanion();
     };
   }, []);
 
-
-
-
-  // 👈 新增：开门与切回应用时触发 AI 作息/待办提醒自检
+  // 开门与切回应用时触发 AI 作息/待办提醒自检
   useEffect(() => {
     const handleCheckReminder = async () => {
       try {
         // 获取最新的聊天会话和角色
-        const latestChat = await db.chats.orderBy('updatedAt').reverse().first();
-        if (!latestChat) return;
+        const latestChat = await db.chats
+          .orderBy('updatedAt')
+          .reverse()
+          .first();
 
-        const character = await db.characters.get(latestChat.characterId);
-        if (!character) return;
+        if (!latestChat) {
+          return;
+        }
+
+        const character = await db.characters.get(
+          latestChat.characterId
+        );
+
+        if (!character) {
+          return;
+        }
 
         // 设置当前活跃角色 ID 缓存
         setActiveCharacterId(character.id);
 
         // 尝试静默触发 AI 提醒
-const result = await triggerRhythmActiveReminder(
-  latestChat.id,
-  character,
-  false
-);
+        const result =
+          await triggerRhythmActiveReminder(
+            latestChat.id,
+            character,
+            false
+          );
 
-if (result?.status === 'success') {
-  console.log(
-    `[RhythmScheduler] AI 已主动留下提醒消息: "${result.text}"`
-  );
-}
+        if (result?.status === 'success') {
+          console.log(
+            `[RhythmScheduler] AI 已主动留下提醒消息: "${result.text}"`
+          );
+        }
       } catch (err) {
-        console.warn('[RhythmScheduler] 提醒自检未通过或暂无可用角色:', err);
+        console.warn(
+          '[RhythmScheduler] 提醒自检未通过或暂无可用角色:',
+          err
+        );
       }
     };
 
-    // 1. 初始化时（开门）自检
+    // 初始化时自检
     void handleCheckReminder();
 
-    // 2. 切回标签页/回到 PWA 时自检
+    // 切回标签页/回到 PWA 时自检
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         void handleCheckReminder();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibility
+    );
+
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibility
+      );
     };
   }, []);
 
   useEffect(() => {
     const subscription = liveQuery(async () => {
-      const [activeChats, savedAudioConfig] = await Promise.all([
+      const [
+        activeChats,
+        savedAudioConfig,
+        pendingCount
+      ] = await Promise.all([
         db.chats
           .filter((chat) => chat.keepAlive === true)
           .toArray(),
 
-        db.settings.get('keep_alive_audio_config')
+        db.settings.get('keep_alive_audio_config'),
+
+        db.scheduledMessages
+          .where('status')
+          .equals('pending')
+          .count()
       ]);
 
       return {
         activeChats,
-        audioConfig: savedAudioConfig?.value || DEFAULT_AUDIO_CONFIG
+        audioConfig:
+          savedAudioConfig?.value ||
+          DEFAULT_AUDIO_CONFIG,
+        pendingCount
       };
     }).subscribe({
-      next: ({ activeChats, audioConfig: nextAudioConfig }) => {
+      next: ({
+        activeChats,
+        audioConfig: nextAudioConfig,
+        pendingCount
+      }) => {
         const normalizedAudioConfig = {
-          playlist: Array.isArray(nextAudioConfig?.playlist)
+          playlist: Array.isArray(
+            nextAudioConfig?.playlist
+          )
             ? nextAudioConfig.playlist
             : [],
-          activeTrackId: nextAudioConfig?.activeTrackId || ''
+          activeTrackId:
+            nextAudioConfig?.activeTrackId || ''
         };
 
         setActiveKeepAliveChats(activeChats);
         setAudioConfig(normalizedAudioConfig);
+        setPendingScheduledCount(pendingCount);
       },
 
       error: (error) => {
@@ -331,6 +387,7 @@ if (result?.status === 'success') {
 
         setActiveKeepAliveChats([]);
         setAudioConfig(DEFAULT_AUDIO_CONFIG);
+        setPendingScheduledCount(0);
       }
     });
 
@@ -386,7 +443,8 @@ if (result?.status === 'success') {
   }, []);
 
   const isKeepAliveActive =
-    activeKeepAliveChats.length > 0;
+    activeKeepAliveChats.length > 0 ||
+    pendingScheduledCount > 0;
 
   const activeAudioTrack = audioConfig.playlist.find(
     (track) => track.id === audioConfig.activeTrackId
@@ -397,35 +455,36 @@ if (result?.status === 'success') {
   const shouldDisplayHubHeader =
     currentApp === 'hub' && !isInsideChatRoom;
 
-const isMarginNotesApp = currentApp === 'margin-notes';
+  const isMarginNotesApp =
+    currentApp === 'margin-notes';
 
-const mainClassName = isInsideChatRoom
-  ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
-  : isMarginNotesApp
-    ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
-    : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
-
+  const mainClassName = isInsideChatRoom
+    ? 'relative z-10 mx-auto h-[100dvh] w-full max-w-[420px] overflow-hidden'
+    : isMarginNotesApp
+      ? 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] overflow-x-hidden'
+      : 'relative z-10 mx-auto min-h-[100dvh] w-full max-w-[420px] space-y-6 px-4 pb-20 pt-6';
 
   return (
     <ErrorBoundary>
       {showPreloader && (
         <ErrorBoundary>
-          <Preloader onFinish={handlePreloaderFinish} />
+          <Preloader
+            onFinish={handlePreloaderFinish}
+          />
         </ErrorBoundary>
       )}
 
-     <NotificationToast />
+      <NotificationToast />
 
-<AppUpdatePrompt
-  isAppReady={!showPreloader}
-  isInsideChatRoom={isInsideChatRoom}
-/>
+      <AppUpdatePrompt
+        isAppReady={!showPreloader}
+        isInsideChatRoom={isInsideChatRoom}
+      />
 
-<AudioKeepAlive
-  isActive={isKeepAliveActive}
-  audioSrc={activeAudioUrl}
-/>
-
+      <AudioKeepAlive
+        isActive={isKeepAliveActive}
+        audioSrc={activeAudioUrl}
+      />
 
       <KeepAliveIndicator
         isVisible={isKeepAliveActive}
@@ -436,37 +495,46 @@ const mainClassName = isInsideChatRoom
 
       <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"
-        style={{ backgroundColor: 'var(--bg-main)' }}
+        style={{
+          backgroundColor: 'var(--bg-main)'
+        }}
       >
         <div
           className="absolute -left-32 -top-32 h-[25rem] w-[25rem] rounded-full blur-[115px] transition-colors duration-700"
-          style={{ backgroundColor: 'var(--bg-blob-1)' }}
+          style={{
+            backgroundColor: 'var(--bg-blob-1)'
+          }}
         />
 
         <div
           className="absolute -right-40 top-[28%] h-[28rem] w-[28rem] rounded-full blur-[130px] transition-colors duration-700"
-          style={{ backgroundColor: 'var(--bg-blob-2)' }}
+          style={{
+            backgroundColor: 'var(--bg-blob-2)'
+          }}
         />
 
         <div
           className="absolute -bottom-48 left-[10%] h-[25rem] w-[25rem] rounded-full blur-[135px] transition-colors duration-700"
-          style={{ backgroundColor: 'var(--bg-blob-3)' }}
+          style={{
+            backgroundColor: 'var(--bg-blob-3)'
+          }}
         />
       </div>
 
-    <main
-  className={mainClassName}
-  style={{
-    paddingTop: isInsideChatRoom || isMarginNotesApp
-      ? '0'
-      : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+      <main
+        className={mainClassName}
+        style={{
+          paddingTop:
+            isInsideChatRoom || isMarginNotesApp
+              ? '0'
+              : 'calc(1.5rem + env(safe-area-inset-top, 0px))',
 
-    paddingBottom: isInsideChatRoom || isMarginNotesApp
-      ? '0'
-      : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
-  }}
->
-
+          paddingBottom:
+            isInsideChatRoom || isMarginNotesApp
+              ? '0'
+              : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+        }}
+      >
         {shouldDisplayHubHeader && (
           <header
             className={`flex items-start animate-fade-in-up ${
@@ -479,7 +547,9 @@ const mainClassName = isInsideChatRoom
               <div>
                 <h1
                   className="font-serif text-5xl font-semibold leading-none tracking-tighter"
-                  style={{ color: 'var(--text-main)' }}
+                  style={{
+                    color: 'var(--text-main)'
+                  }}
                 >
                   WHEN I
                   <br />
@@ -568,7 +638,9 @@ const mainClassName = isInsideChatRoom
           <ErrorBoundary>
             <MessagesApp
               onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={setIsInsideChatRoom}
+              onChatRoomStateChange={
+                setIsInsideChatRoom
+              }
             />
           </ErrorBoundary>
         )}
@@ -598,9 +670,10 @@ const mainClassName = isInsideChatRoom
         )}
 
         {currentApp === 'margin-notes' && (
-  <MarginNotesApp onBackHub={() => openApp('hub')} />
-)}
-
+          <MarginNotesApp
+            onBackHub={() => openApp('hub')}
+          />
+        )}
 
         {currentApp === 'snapshots' && (
           <ErrorBoundary>
@@ -622,7 +695,9 @@ const mainClassName = isInsideChatRoom
           <ErrorBoundary>
             <ImaginariumApp
               onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={setIsInsideChatRoom}
+              onChatRoomStateChange={
+                setIsInsideChatRoom
+              }
             />
           </ErrorBoundary>
         )}
@@ -631,7 +706,9 @@ const mainClassName = isInsideChatRoom
           <ErrorBoundary>
             <EnsembleApp
               onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={setIsInsideChatRoom}
+              onChatRoomStateChange={
+                setIsInsideChatRoom
+              }
             />
           </ErrorBoundary>
         )}
@@ -640,15 +717,18 @@ const mainClassName = isInsideChatRoom
           <ErrorBoundary>
             <HabitatApp
               onBackHub={() => openApp('hub')}
-              onChatRoomStateChange={setIsInsideChatRoom}
+              onChatRoomStateChange={
+                setIsInsideChatRoom
+              }
             />
           </ErrorBoundary>
         )}
 
         {currentApp === 'newspaper' && (
-  <NewspaperApp onClose={() => setCurrentApp('hub')} />
-)}
-
+          <NewspaperApp
+            onClose={() => setCurrentApp('hub')}
+          />
+        )}
 
         {currentApp === 'ephemera' && (
           <ErrorBoundary>
@@ -666,7 +746,6 @@ const mainClassName = isInsideChatRoom
           </ErrorBoundary>
         )}
 
-        {/* 👈 新增：Rhythm 页面条件分支 */}
         {currentApp === 'rhythm' && (
           <ErrorBoundary>
             <RhythmApp
@@ -677,23 +756,28 @@ const mainClassName = isInsideChatRoom
         )}
 
         {currentApp === 'memory' && (
-  <MemoryApp onBackHub={() => openApp('hub')} />
-)}
-
+          <MemoryApp
+            onBackHub={() => openApp('hub')}
+          />
+        )}
 
         {!REGISTERED_APPS.includes(currentApp) && (
           <ErrorBoundary>
             <section className="py-14 text-center">
               <h2
                 className="text-xl font-semibold uppercase tracking-[0.16em]"
-                style={{ color: 'var(--text-main)' }}
+                style={{
+                  color: 'var(--text-main)'
+                }}
               >
                 {currentApp}
               </h2>
 
               <p
                 className="mt-3 text-xs"
-                style={{ color: 'var(--text-sub)' }}
+                style={{
+                  color: 'var(--text-sub)'
+                }}
               >
                 此模块将在后续阶段为您呈现。
               </p>
@@ -718,6 +802,7 @@ const mainClassName = isInsideChatRoom
 };
 
 export default App;
+
 
 
 

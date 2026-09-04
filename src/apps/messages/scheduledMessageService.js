@@ -13,10 +13,11 @@ const CANCEL_POLICIES = {
   CANCEL_IF_USER_REPLIES: 'cancel_if_user_replies'
 };
 
-
 const MIN_DELAY_MINUTES = 10;
 const MAX_DELAY_MINUTES = 24 * 60;
 const SCHEDULER_INTERVAL_MS = 60 * 1000;
+const MAX_ATTEMPT_COUNT = 3;
+const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
 
 let schedulerTimer = null;
 let isProcessingDueMessages = false;
@@ -92,7 +93,6 @@ const getMessageContentForContext = (message) => {
  * 返回：
  * - content: 可直接展示给用户的正文
  * - schedule: AI 有效预约时的计划数据，否则为 null
-
  */
 export const extractScheduledMessageDirective = (rawText) => {
   const originalText = String(rawText || '');
@@ -113,6 +113,7 @@ export const extractScheduledMessageDirective = (rawText) => {
             '[ScheduledMessage] 忽略不在允许范围内的预约时间：',
             delayValue
           );
+
           return '';
         }
 
@@ -138,9 +139,10 @@ export const extractScheduledMessageDirective = (rawText) => {
         matchedSchedule = {
           delayMinutes,
           scheduleType,
-          cancelPolicy: scheduleType === SCHEDULE_TYPES.REMINDER
-            ? CANCEL_POLICIES.KEEP
-            : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES,
+          cancelPolicy:
+            scheduleType === SCHEDULE_TYPES.REMINDER
+              ? CANCEL_POLICIES.KEEP
+              : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES,
           intent: intent.slice(0, 240)
         };
 
@@ -160,7 +162,6 @@ export const extractScheduledMessageDirective = (rawText) => {
  * 普通 AI 对话回复成功后调用。
  * 每个 chat 只保留一条 pending 预约；新计划会替代旧计划。
  */
-
 export const createScheduledMessage = async ({
   chatId,
   characterId,
@@ -169,33 +170,33 @@ export const createScheduledMessage = async ({
   scheduleType = SCHEDULE_TYPES.FOLLOW_UP,
   cancelPolicy = null
 }) => {
-
   if (!chatId || !characterId) {
     return null;
   }
 
   const normalizedDelay = normalizeDelayMinutes(delayMinutes);
 
-
   if (!normalizedDelay) {
     return null;
   }
 
   const normalizedScheduleType = (
-  scheduleType === SCHEDULE_TYPES.REMINDER ||
-  scheduleType === SCHEDULE_TYPES.FOLLOW_UP
-)
-  ? scheduleType
-  : SCHEDULE_TYPES.FOLLOW_UP;
+    scheduleType === SCHEDULE_TYPES.REMINDER ||
+    scheduleType === SCHEDULE_TYPES.FOLLOW_UP
+  )
+    ? scheduleType
+    : SCHEDULE_TYPES.FOLLOW_UP;
 
-const normalizedCancelPolicy = normalizedScheduleType === SCHEDULE_TYPES.REMINDER
-  ? CANCEL_POLICIES.KEEP
-  : (
-      cancelPolicy || CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
-    );
-
+  const normalizedCancelPolicy =
+    normalizedScheduleType === SCHEDULE_TYPES.REMINDER
+      ? CANCEL_POLICIES.KEEP
+      : (
+          cancelPolicy ||
+          CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+        );
 
   const nowIso = getNowIso();
+
   const scheduledFor = new Date(
     Date.now() + normalizedDelay * 60 * 1000
   ).toISOString();
@@ -206,35 +207,37 @@ const normalizedCancelPolicy = normalizedScheduleType === SCHEDULE_TYPES.REMINDE
     'rw',
     db.scheduledMessages,
     async () => {
-      // 不删除历史计划，以便保留原因；仅取消尚未执行的旧计划。
+      // 不删除历史计划，以便保留原因；
+      // 仅取消尚未执行的旧 follow_up 计划。
+      if (
+        normalizedScheduleType ===
+        SCHEDULE_TYPES.FOLLOW_UP
+      ) {
+        await db.scheduledMessages
+          .where('chatId')
+          .equals(chatId)
+          .and((item) => (
+            item.status === 'pending' &&
+            (
+              item.scheduleType ||
+              SCHEDULE_TYPES.FOLLOW_UP
+            ) === SCHEDULE_TYPES.FOLLOW_UP
+          ))
+          .modify({
+            status: 'cancelled',
+            cancelledReason: 'replaced_by_new_follow_up',
+            updatedAt: nowIso
+          });
+      }
 
-     if (normalizedScheduleType === SCHEDULE_TYPES.FOLLOW_UP) {
-  await db.scheduledMessages
-    .where('chatId')
-    .equals(chatId)
-    .and((item) => (
-      item.status === 'pending' &&
-      (
-        item.scheduleType || SCHEDULE_TYPES.FOLLOW_UP
-      ) === SCHEDULE_TYPES.FOLLOW_UP
-    ))
-    .modify({
-      status: 'cancelled',
-      cancelledReason: 'replaced_by_new_follow_up',
-      updatedAt: nowIso
-    });
-}
-
-
-     await db.scheduledMessages.add({
-  chatId,
-  characterId,
-  scheduleType: normalizedScheduleType,
-  cancelPolicy: normalizedCancelPolicy,
-  intent: normalizeText(intent),
-  scheduledFor,
-  status: 'pending',
-
+      scheduleId = await db.scheduledMessages.add({
+        chatId,
+        characterId,
+        scheduleType: normalizedScheduleType,
+        cancelPolicy: normalizedCancelPolicy,
+        intent: normalizeText(intent),
+        scheduledFor,
+        status: 'pending',
         attemptCount: 0,
         sentMessageId: null,
         cancelledReason: '',
@@ -262,25 +265,26 @@ export const cancelPendingScheduledMessagesForChat = async (
   chatId,
   reason = 'user_returned_to_chat'
 ) => {
-  if (!chatId) return 0;
+  if (!chatId) {
+    return 0;
+  }
 
   const nowIso = getNowIso();
 
   return db.scheduledMessages
     .where('chatId')
     .equals(chatId)
-  .and((item) => (
-  item.status === 'pending' &&
-  (
-    item.cancelPolicy ||
-    (
-      item.scheduleType === SCHEDULE_TYPES.REMINDER
-        ? CANCEL_POLICIES.KEEP
-        : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
-    )
-  ) === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
-))
-
+    .and((item) => (
+      item.status === 'pending' &&
+      (
+        item.cancelPolicy ||
+        (
+          item.scheduleType === SCHEDULE_TYPES.REMINDER
+            ? CANCEL_POLICIES.KEEP
+            : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+        )
+      ) === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+    ))
     .modify({
       status: 'cancelled',
       cancelledReason: reason,
@@ -312,7 +316,9 @@ const fetchScheduledMessageCompletion = async ({
     ))
     .slice(-12)
     .map((message) => ({
-      role: message.sender === 'user' ? 'user' : 'assistant',
+      role: message.sender === 'user'
+        ? 'user'
+        : 'assistant',
       content: getMessageContentForContext(message)
     }))
     .filter((message) => message.content);
@@ -322,6 +328,7 @@ const fetchScheduledMessageCompletion = async ({
   );
 
   const now = new Date();
+
   const nowText = now.toLocaleString('zh-CN', {
     year: 'numeric',
     month: 'long',
@@ -359,27 +366,31 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
 8. 若近期对话已经明显不适合原本意图，请自然地表达一句不过度打扰的关心即可。`;
 
   try {
-    const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
+    const baseUrl = String(apiConfig.baseUrl)
+      .replace(/\/$/, '');
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: apiConfig.model || 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          ...history
-        ],
-        temperature: 0.8,
-        max_tokens: 1000
-      })
-    });
+    const response = await fetch(
+      `${baseUrl}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: apiConfig.model || 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            ...history
+          ],
+          temperature: 0.8,
+          max_tokens: 1000
+        })
+      }
+    );
 
     if (!response.ok) {
       return {
@@ -390,7 +401,9 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
 
     const data = await response.json();
     const choice = data?.choices?.[0];
-    const content = normalizeText(choice?.message?.content);
+    const content = normalizeText(
+      choice?.message?.content
+    );
 
     if (choice?.finish_reason === 'length') {
       console.warn(
@@ -411,7 +424,10 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
       content
     };
   } catch (error) {
-    console.error('[ScheduledMessage] 到期消息请求失败：', error);
+    console.error(
+      '[ScheduledMessage] 到期消息请求失败：',
+      error
+    );
 
     return {
       error: true,
@@ -420,120 +436,193 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
   }
 };
 
+/**
+ * 抢占一条到期预约。
+ *
+ * 返回实际被抢占的最新记录，而不是简单返回 boolean，
+ * 确保后续失败处理读取到本次递增后的 attemptCount。
+ */
 const claimDueScheduledMessage = async (scheduleId) => {
   const nowIso = getNowIso();
-  let claimed = false;
+  let claimedMessage = null;
 
   await db.transaction(
     'rw',
     db.scheduledMessages,
     async () => {
-      const current = await db.scheduledMessages.get(scheduleId);
+      const current = await db.scheduledMessages.get(
+        scheduleId
+      );
 
       if (!current || current.status !== 'pending') {
         return;
       }
 
-      const dueAt = new Date(current.scheduledFor).getTime();
+      const dueAt = new Date(
+        current.scheduledFor
+      ).getTime();
 
-      if (Number.isNaN(dueAt) || dueAt > Date.now()) {
+      if (
+        Number.isNaN(dueAt) ||
+        dueAt > Date.now()
+      ) {
         return;
       }
 
-      await db.scheduledMessages.update(scheduleId, {
-        status: 'processing',
-        attemptCount: Number(current.attemptCount || 0) + 1,
-        updatedAt: nowIso
-      });
+      const nextAttemptCount =
+        Number(current.attemptCount || 0) + 1;
 
-      claimed = true;
+      const updatedFields = {
+        status: 'processing',
+        attemptCount: nextAttemptCount,
+        updatedAt: nowIso
+      };
+
+      await db.scheduledMessages.update(
+        scheduleId,
+        updatedFields
+      );
+
+      claimedMessage = {
+        ...current,
+        ...updatedFields
+      };
     }
   );
 
-  return claimed;
+  return claimedMessage;
 };
 
-const markScheduledMessageFailed = async (scheduleId, reason) => {
-  await db.scheduledMessages.update(scheduleId, {
-    status: 'failed',
-    cancelledReason: reason || 'generation_failed',
-    updatedAt: getNowIso()
-  });
+const handleScheduledMessageFailure = async (
+  scheduledMessage,
+  reason
+) => {
+  const attemptCount = Number(
+    scheduledMessage.attemptCount || 0
+  );
+
+  const nowIso = getNowIso();
+
+  await db.scheduledMessages.update(
+    scheduledMessage.id,
+    attemptCount < MAX_ATTEMPT_COUNT
+      ? {
+          status: 'pending',
+          cancelledReason:
+            reason || 'generation_failed',
+          updatedAt: nowIso
+        }
+      : {
+          status: 'failed',
+          cancelledReason:
+            reason || 'generation_failed',
+          updatedAt: nowIso
+        }
+  );
 };
 
-const executeScheduledMessage = async (scheduledMessage) => {
-  const claimed = await claimDueScheduledMessage(scheduledMessage.id);
+const executeScheduledMessage = async (
+  scheduledMessage
+) => {
+  const claimedScheduledMessage =
+    await claimDueScheduledMessage(
+      scheduledMessage.id
+    );
 
-  if (!claimed) {
+  if (!claimedScheduledMessage) {
     return;
   }
 
   try {
-    const [chat, character, recentMessages] = await Promise.all([
-      db.chats.get(scheduledMessage.chatId),
-      db.characters.get(scheduledMessage.characterId),
+    const [
+      chat,
+      character,
+      recentMessages
+    ] = await Promise.all([
+      db.chats.get(
+        claimedScheduledMessage.chatId
+      ),
+      db.characters.get(
+        claimedScheduledMessage.characterId
+      ),
       db.messages
         .where('chatId')
-        .equals(scheduledMessage.chatId)
+        .equals(claimedScheduledMessage.chatId)
         .sortBy('timestamp')
     ]);
 
     if (!chat || !character) {
-      await markScheduledMessageFailed(
-        scheduledMessage.id,
+      await handleScheduledMessageFailure(
+        claimedScheduledMessage,
         'chat_or_character_not_found'
       );
+
       return;
     }
 
     const createdAtTime = new Date(
-      scheduledMessage.createdAt
+      claimedScheduledMessage.createdAt
     ).getTime();
 
-   const cancelPolicy = scheduledMessage.cancelPolicy || (
-  scheduledMessage.scheduleType === SCHEDULE_TYPES.REMINDER
-    ? CANCEL_POLICIES.KEEP
-    : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
-);
+    const cancelPolicy =
+      claimedScheduledMessage.cancelPolicy || (
+        claimedScheduledMessage.scheduleType ===
+        SCHEDULE_TYPES.REMINDER
+          ? CANCEL_POLICIES.KEEP
+          : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+      );
 
-if (cancelPolicy === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES) {
-  const userReturnedAfterScheduling = recentMessages.some((message) => (
-    message.sender === 'user' &&
-    new Date(message.timestamp).getTime() > createdAtTime
-  ));
+    if (
+      cancelPolicy ===
+      CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+    ) {
+      const userReturnedAfterScheduling =
+        recentMessages.some((message) => (
+          message.sender === 'user' &&
+          new Date(message.timestamp).getTime() >
+            createdAtTime
+        ));
 
-  if (userReturnedAfterScheduling) {
-    await db.scheduledMessages.update(scheduledMessage.id, {
-      status: 'cancelled',
-      cancelledReason: 'user_sent_message_after_schedule',
-      updatedAt: getNowIso()
-    });
-    return;
-  }
-}
+      if (userReturnedAfterScheduling) {
+        await db.scheduledMessages.update(
+          claimedScheduledMessage.id,
+          {
+            status: 'cancelled',
+            cancelledReason:
+              'user_sent_message_after_schedule',
+            updatedAt: getNowIso()
+          }
+        );
 
-    const result = await fetchScheduledMessageCompletion({
-      chat,
-      character,
-      scheduledMessage,
-      historyMessages: recentMessages
-    });
+        return;
+      }
+    }
+
+    const result =
+      await fetchScheduledMessageCompletion({
+        chat,
+        character,
+        scheduledMessage: claimedScheduledMessage,
+        historyMessages: recentMessages
+      });
 
     if (result.error) {
-      await markScheduledMessageFailed(
-        scheduledMessage.id,
+      await handleScheduledMessageFailure(
+        claimedScheduledMessage,
         result.code
       );
+
       return;
     }
 
     const content = normalizeText(result.content);
 
     if (!content) {
-      await markScheduledMessageFailed(
-        scheduledMessage.id,
+      await handleScheduledMessageFailure(
+        claimedScheduledMessage,
         'empty_message_content'
       );
+
       return;
     }
 
@@ -542,7 +631,7 @@ if (cancelPolicy === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES) {
     const metadata = {
       isAutoGenerated: true,
       source: 'scheduled-message',
-      scheduledMessageId: scheduledMessage.id
+      scheduledMessageId: claimedScheduledMessage.id
     };
 
     let messageId = null;
@@ -577,65 +666,160 @@ if (cancelPolicy === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES) {
           updatedAt: nowIso
         });
 
-        await db.scheduledMessages.update(scheduledMessage.id, {
-          status: 'sent',
-          sentMessageId: messageId,
-          cancelledReason: '',
-          updatedAt: nowIso
-        });
+        await db.scheduledMessages.update(
+          claimedScheduledMessage.id,
+          {
+            status: 'sent',
+            sentMessageId: messageId,
+            cancelledReason: '',
+            updatedAt: nowIso
+          }
+        );
       }
     );
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
-        new CustomEvent('new-local-message-inserted', {
-          detail: {
-            chatId: chat.id,
-            messageId
+        new CustomEvent(
+          'new-local-message-inserted',
+          {
+            detail: {
+              chatId: chat.id,
+              messageId
+            }
           }
-        })
+        )
       );
     }
 
-    console.log('[ScheduledMessage] 已发送到期预约消息：', {
-      scheduleId: scheduledMessage.id,
-      messageId,
-      chatId: chat.id
-    });
-  } catch (error) {
-    console.error('[ScheduledMessage] 执行预约消息失败：', error);
+    if (
+      typeof window !== 'undefined' &&
+      'Notification' in window &&
+      Notification.permission === 'granted' &&
+      navigator.serviceWorker?.controller
+    ) {
+      try {
+        const registration =
+          await navigator.serviceWorker.ready;
 
-    await markScheduledMessageFailed(
-      scheduledMessage.id,
+        await registration.showNotification(
+          character.name || '消息提醒',
+          {
+            body: content.slice(0, 80),
+            tag: `scheduled-${claimedScheduledMessage.id}`,
+            icon: '/icon-192.png'
+          }
+        );
+      } catch (error) {
+        console.warn(
+          '[ScheduledMessage] 显示本地通知失败：',
+          error
+        );
+      }
+    }
+
+    console.log(
+      '[ScheduledMessage] 已发送到期预约消息：',
+      {
+        scheduleId: claimedScheduledMessage.id,
+        messageId,
+        chatId: chat.id
+      }
+    );
+  } catch (error) {
+    console.error(
+      '[ScheduledMessage] 执行预约消息失败：',
+      error
+    );
+
+    await handleScheduledMessageFailure(
+      claimedScheduledMessage,
       'unexpected_execution_error'
     );
   }
 };
 
-export const checkAndSendDueScheduledMessages = async () => {
-  if (isProcessingDueMessages) {
-    return;
-  }
-
-  isProcessingDueMessages = true;
-
-  try {
+const recoverStaleProcessingScheduledMessages =
+  async () => {
     const nowIso = getNowIso();
 
-    const dueMessages = await db.scheduledMessages
-      .where('status')
-      .equals('pending')
-      .and((item) => item.scheduledFor <= nowIso)
-      .sortBy('scheduledFor');
+    const staleThreshold = new Date(
+      Date.now() - STALE_PROCESSING_TIMEOUT_MS
+    ).toISOString();
 
-    // 一次只处理最多两条，避免应用重新打开时出现大量突发消息。
-    for (const scheduledMessage of dueMessages.slice(0, 2)) {
-      await executeScheduledMessage(scheduledMessage);
+    const staleItems = await db.scheduledMessages
+      .where('status')
+      .equals('processing')
+      .and((item) => (
+        item.updatedAt <= staleThreshold
+      ))
+      .toArray();
+
+    for (const item of staleItems) {
+      const attemptCount = Number(
+        item.attemptCount || 0
+      );
+
+      await db.scheduledMessages.update(
+        item.id,
+        attemptCount >= MAX_ATTEMPT_COUNT
+          ? {
+              status: 'failed',
+              cancelledReason:
+                'stuck_processing_exceeded_retry',
+              updatedAt: nowIso
+            }
+          : {
+              status: 'pending',
+              updatedAt: nowIso
+            }
+      );
     }
-  } catch (error) {
-    console.error('[ScheduledMessage] 检查到期计划失败：', error);
-  } finally {
-    isProcessingDueMessages = false;
+  };
+
+export const checkAndSendDueScheduledMessages =
+  async () => {
+    if (isProcessingDueMessages) {
+      return;
+    }
+
+    isProcessingDueMessages = true;
+
+    try {
+      await recoverStaleProcessingScheduledMessages();
+
+      const nowIso = getNowIso();
+
+      const dueMessages = await db.scheduledMessages
+        .where('status')
+        .equals('pending')
+        .and((item) => (
+          item.scheduledFor <= nowIso
+        ))
+        .sortBy('scheduledFor');
+
+      // 一次只处理最多两条，避免应用重新打开时出现大量突发消息。
+      for (
+        const scheduledMessage of
+        dueMessages.slice(0, 2)
+      ) {
+        await executeScheduledMessage(
+          scheduledMessage
+        );
+      }
+    } catch (error) {
+      console.error(
+        '[ScheduledMessage] 检查到期计划失败：',
+        error
+      );
+    } finally {
+      isProcessingDueMessages = false;
+    }
+  };
+
+const handleWakeUp = () => {
+  if (document.visibilityState === 'visible') {
+    void checkAndSendDueScheduledMessages();
   }
 };
 
@@ -650,7 +834,17 @@ export const startScheduledMessageScheduler = () => {
     void checkAndSendDueScheduledMessages();
   }, SCHEDULER_INTERVAL_MS);
 
-  console.log('[ScheduledMessage] 对话预约调度器已启动。');
+  document.addEventListener(
+    'visibilitychange',
+    handleWakeUp
+  );
+
+  window.addEventListener('focus', handleWakeUp);
+  window.addEventListener('pageshow', handleWakeUp);
+
+  console.log(
+    '[ScheduledMessage] 对话预约调度器已启动。'
+  );
 };
 
 export const stopScheduledMessageScheduler = () => {
@@ -661,5 +855,15 @@ export const stopScheduledMessageScheduler = () => {
   window.clearInterval(schedulerTimer);
   schedulerTimer = null;
 
-  console.log('[ScheduledMessage] 对话预约调度器已停止。');
+  document.removeEventListener(
+    'visibilitychange',
+    handleWakeUp
+  );
+
+  window.removeEventListener('focus', handleWakeUp);
+  window.removeEventListener('pageshow', handleWakeUp);
+
+  console.log(
+    '[ScheduledMessage] 对话预约调度器已停止。'
+  );
 };
