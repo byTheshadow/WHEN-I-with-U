@@ -11,8 +11,11 @@
 }
 
 .scheduled-archive-panel {
+  display: flex;
+  flex-direction: column;
   width: min(100%, 420px);
-  max-height: min(760px, calc(100dvh - 32px));
+  height: min(760px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   border: 1px solid var(--modal-border);
   background: var(--modal-bg);
@@ -23,6 +26,7 @@
 
 .scheduled-archive-header {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
@@ -66,18 +70,24 @@
   border-radius: 50%;
   background: var(--control-soft-bg);
   color: var(--text-main);
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    color 0.2s ease;
 }
 
 .scheduled-archive-close:hover {
   background: var(--control-soft-hover);
+  color: var(--text-main);
   transform: rotate(4deg);
 }
 
 .scheduled-archive-paper {
   position: relative;
-  max-height: calc(100dvh - 210px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 17px 15px 25px;
   background:
     linear-gradient(
@@ -89,6 +99,25 @@
       transparent 8px
     ),
     var(--bg-surface);
+  scrollbar-color: var(--text-muted) transparent;
+  scrollbar-width: thin;
+}
+
+.scheduled-archive-paper::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scheduled-archive-paper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scheduled-archive-paper::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--text-muted) 45%,
+    transparent
+  );
 }
 
 .scheduled-archive-paper-mark {
@@ -158,28 +187,75 @@
   gap: 10px;
 }
 
+.scheduled-ticket-topline > div {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
 .scheduled-ticket-type {
+  min-width: 0;
   color: var(--text-main);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.4;
+}
+
+.scheduled-ticket-delete,
+.scheduled-ticket-retry {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
 .scheduled-ticket-delete {
-  display: grid;
   width: 27px;
   height: 27px;
-  place-items: center;
   border: 1px solid var(--card-border);
   border-radius: 50%;
   background: var(--control-soft-bg);
-  color: var(--text-muted);
-  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .scheduled-ticket-delete:hover {
   background: var(--control-soft-hover);
   color: var(--text-main);
+  transform: translateY(-1px);
+}
+
+.scheduled-ticket-retry {
+  gap: 4px;
+  min-height: 27px;
+  padding: 3px 5px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.scheduled-ticket-retry:hover:not(:disabled) {
+  border-bottom-color: var(--accent-color);
+  color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.scheduled-ticket-retry:disabled {
+  pointer-events: none;
+}
+
+.scheduled-ticket-retry svg {
+  width: 13px;
+  height: 13px;
 }
 
 .scheduled-ticket-status {
@@ -195,6 +271,7 @@
 .scheduled-ticket-status-dot {
   width: 6px;
   height: 6px;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: var(--text-muted);
 }
@@ -258,6 +335,7 @@
 
 .scheduled-archive-tear {
   height: 9px;
+  flex: 0 0 auto;
   margin: 18px -15px -25px;
   background:
     linear-gradient(
@@ -268,6 +346,7 @@
 }
 
 .scheduled-archive-footer {
+  flex: 0 0 auto;
   margin: 0;
   padding: 13px 20px 17px;
   color: var(--text-muted);
@@ -297,7 +376,13 @@
 
 @media (max-width: 360px) {
   .scheduled-archive-overlay {
+    align-items: flex-start;
     padding: 10px;
+  }
+
+  .scheduled-archive-panel {
+    height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px);
   }
 
   .scheduled-archive-header {
@@ -309,8 +394,22 @@
     padding-left: 11px;
   }
 
+  .scheduled-ticket {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
   .scheduled-ticket-meta {
     flex-direction: column;
     gap: 3px;
+  }
+
+  .scheduled-ticket-retry span {
+    display: none;
+  }
+
+  .scheduled-ticket-retry {
+    width: 27px;
+    padding: 3px;
   }
 }

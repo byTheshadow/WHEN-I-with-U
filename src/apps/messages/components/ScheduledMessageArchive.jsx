@@ -218,14 +218,7 @@ const ScheduledMessageArchive = ({
                               )}
                               title="重新安排这次预约"
                               aria-label="重新安排这次预约"
-                              style={{
-                                opacity: isRetrying
-                                  ? 0.55
-                                  : 1,
-                                cursor: retryingRecordId
-                                  ? 'wait'
-                                  : 'pointer'
-                              }}
+                             
                             >
                               <RotateCcw
                                 className="h-3.5 w-3.5"
