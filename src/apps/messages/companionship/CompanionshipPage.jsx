@@ -418,9 +418,7 @@ export const CompanionshipPage = ({
           <div className="companionship-setup-visual">
             <div className="companionship-visual-caption">
               <strong>把时间交给一首歌</strong>
-              <span>
-                选择一个熟悉的聊天框，让陪伴从已有的记忆里开始。
-              </span>
+  
             </div>
 
             <div
