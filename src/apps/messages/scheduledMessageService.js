@@ -433,28 +433,6 @@ const fetchScheduledMessageCompletion = async ({
       content: getMessageContentForContext(message)
     }))
     .filter((message) => message.content);
-    const requestMessages = [
-  {
-    role: 'system',
-    content: systemPrompt
-  },
-  ...history
-];
-
-const lastRequestMessage =
-  requestMessages[requestMessages.length - 1];
-
-if (
-  !lastRequestMessage ||
-  lastRequestMessage.role !== 'user'
-) {
-  requestMessages.push({
-    role: 'user',
-    content:
-      '请根据上面的预约意图，现在自然地给用户留下一条消息。'
-  });
-}
-
 
   const userName = normalizeText(
     chat.userName ||
@@ -523,8 +501,13 @@ ${
         body: JSON.stringify({
           model:
             apiConfig.model || 'gpt-3.5-turbo',
-         messages: requestMessages,
-
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            ...history
+          ],
           temperature: 0.8,
           max_tokens: 1000
         })
@@ -572,16 +555,15 @@ ${
 
     if (!content) {
       console.warn(
-        '[ScheduledMessage] API 返回成功但未找到文本内容：',
+        '[ScheduledMessage] API 返回成功但文本内容为空：',
         {
-          topLevelKeys: Object.keys(data || {}),
-          choiceKeys: Object.keys(choice || {}),
-          messageKeys: Object.keys(message || {}),
-          contentType: typeof message?.content,
-          contentIsArray:
-            Array.isArray(message?.content),
-          finishReason:
-            choice?.finish_reason
+          responseData: data,
+          choice,
+          message,
+          content: message?.content,
+          reasoningContent: message?.reasoning_content,
+          refusal: message?.refusal,
+          finishReason: choice?.finish_reason
         }
       );
 
