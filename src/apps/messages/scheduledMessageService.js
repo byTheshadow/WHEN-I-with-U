@@ -433,6 +433,28 @@ const fetchScheduledMessageCompletion = async ({
       content: getMessageContentForContext(message)
     }))
     .filter((message) => message.content);
+    const requestMessages = [
+  {
+    role: 'system',
+    content: systemPrompt
+  },
+  ...history
+];
+
+const lastRequestMessage =
+  requestMessages[requestMessages.length - 1];
+
+if (
+  !lastRequestMessage ||
+  lastRequestMessage.role !== 'user'
+) {
+  requestMessages.push({
+    role: 'user',
+    content:
+      '请根据上面的预约意图，现在自然地给用户留下一条消息。'
+  });
+}
+
 
   const userName = normalizeText(
     chat.userName ||
@@ -501,13 +523,8 @@ ${
         body: JSON.stringify({
           model:
             apiConfig.model || 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            ...history
-          ],
+         messages: requestMessages,
+
           temperature: 0.8,
           max_tokens: 1000
         })
