@@ -388,256 +388,422 @@ export const CompanionshipPage = ({
   );
 
   return (
-    <main className="companionship-page">
-      <header className="companionship-header">
-        <button
-          type="button"
-          className="companionship-back-button"
-          onClick={onBack}
-        >
-          <ArrowLeft size={16} />
-          <span>返回对话</span>
-        </button>
+  <main className="companionship-page">
+    <header className="companionship-header">
+      <button
+        type="button"
+        className="companionship-back-button"
+        onClick={onBack}
+      >
+        <ArrowLeft size={16} />
+        <span>返回对话</span>
+      </button>
 
-        <div className="companionship-heading">
-          <span className="companionship-eyebrow">A QUIET INTERVAL</span>
-          <h1>长期陪伴</h1>
-          <p>让一段时间慢慢长出自己的节奏。</p>
-        </div>
-      </header>
+      <div className="companionship-heading">
+        <span className="companionship-eyebrow">
+          A QUIET INTERVAL
+        </span>
 
-      {!isRunning ? (
-        <section className="companionship-setup">
-          <div className="companionship-note-scene" aria-hidden="true">
-            <Music2 className="companionship-note note-one" />
-            <Music2 className="companionship-note note-two" />
-            <Music2 className="companionship-note note-three" />
-            <div className="companionship-note-orbit" />
-          </div>
+        <h1>长期陪伴</h1>
 
-          <div className="companionship-bubble companionship-bubble-system">
-            <Music2 size={15} />
-            <span>选择一个聊天框，让陪伴沿着已有的记忆继续。</span>
-          </div>
+        <p>
+          让一段时间慢慢长出自己的节奏。
+        </p>
+      </div>
+    </header>
 
-          <label className="companionship-field">
-            <span>绑定聊天框</span>
-            <p className="companionship-field-hint">
-              陪伴会沿用这个聊天框里的消息、记忆、摘要与角色状态。
-            </p>
-            <select
-              value={selectedChatId}
-              onChange={(event) => setSelectedChatId(event.target.value)}
+    {!isRunning ? (
+      <section className="companionship-setup">
+        <div className="companionship-setup-layout">
+          <div className="companionship-setup-visual">
+            <div className="companionship-visual-caption">
+              <strong>把时间交给一首歌</strong>
+              <span>
+                选择一个熟悉的聊天框，让陪伴从已有的记忆里开始。
+              </span>
+            </div>
+
+            <div
+              className="companionship-note-scene"
+              aria-hidden="true"
             >
-              <option value="">请选择聊天框</option>
-              {chats.map((chat) => (
-                <option key={chat.id} value={String(chat.id)}>
-                  {chat.title || '未命名聊天框'}
-                  {' · '}
-                  {getChatCharacterName(chat, characters)}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className="companionship-floating-note note-one">
+                ♪
+              </span>
 
-          <label className="companionship-field">
-            <span>本次陪伴目标</span>
-            <textarea
-              value={goal}
-              onChange={(event) => setGoal(event.target.value)}
-              placeholder="例如：陪我学习两个小时，适时提醒我保持专注，但不要频繁打扰。"
-              maxLength={1200}
-              rows={4}
-            />
-          </label>
+              <span className="companionship-floating-note note-two">
+                ♫
+              </span>
 
-          <div className="companionship-field-grid">
+              <span className="companionship-floating-note note-three">
+                ·
+              </span>
+
+              <div className="companionship-note-orbit">
+                <span className="companionship-record-highlight" />
+              </div>
+            </div>
+          </div>
+
+          <div className="companionship-setup-content">
+            <span className="companionship-eyebrow">
+              SET YOUR RHYTHM
+            </span>
+
+            <h2 className="companionship-setup-title">
+              准备一段
+              <br />
+              不被打扰的时间。
+            </h2>
+
+            <p className="companionship-setup-description">
+              像开始播放一张唱片一样，先为这次陪伴选定对象、目标和节奏。
+              AI 不会持续打断你，只会在合适的间隔里出现。
+            </p>
+
             <label className="companionship-field">
-              <span><Clock3 size={14} />陪伴时长</span>
+              <span className="companionship-field-title">
+                <b>绑定聊天框</b>
+                <small>MEMORY SOURCE</small>
+              </span>
+
               <select
-                value={durationMinutes}
+                value={selectedChatId}
                 onChange={(event) => {
-                  const value = Number(event.target.value);
-                  setDurationMinutes(value);
-                  setIntervalMinutes((current) => Math.min(current, value));
+                  setSelectedChatId(event.target.value);
                 }}
               >
-                {[15, 30, 45, 60, 90, 120].map((value) => (
-                  <option key={value} value={value}>
-                    {value} 分钟
+                <option value="">请选择聊天框</option>
+
+                {chats.map((chat) => (
+                  <option
+                    key={chat.id}
+                    value={String(chat.id)}
+                  >
+                    {chat.title || '未命名聊天框'}
+                    {' · '}
+                    {getChatCharacterName(chat, characters)}
                   </option>
                 ))}
               </select>
+
+              <p className="companionship-field-hint">
+                陪伴会沿用这个聊天框里的消息、记忆、摘要与角色状态。
+              </p>
             </label>
 
             <label className="companionship-field">
-              <span><Clock3 size={14} />主动间隔</span>
-              <select
-                value={intervalMinutes}
-                onChange={(event) => setIntervalMinutes(Number(event.target.value))}
-              >
-                {[1, 3, 5, 10, 15, 20, 30].map((value) => (
-                  <option
-                    key={value}
-                    value={value}
-                    disabled={value > durationMinutes}
-                  >
-                    每 {value} 分钟
-                  </option>
-                ))}
-              </select>
+              <span className="companionship-field-title">
+                <b>本次陪伴目标</b>
+                <small>YOUR INTENTION</small>
+              </span>
+
+              <textarea
+                value={goal}
+                onChange={(event) => {
+                  setGoal(event.target.value);
+                }}
+                placeholder="例如：陪我学习两个小时，适时提醒我保持专注，但不要频繁打扰。"
+                maxLength={1200}
+                rows={4}
+              />
             </label>
-          </div>
 
-          <label className="companionship-toggle">
-            <input
-              type="checkbox"
-              checked={notificationEnabled}
-              onChange={(event) => setNotificationEnabled(event.target.checked)}
-            />
-            <Bell size={15} />
-            <span>允许浏览器通知</span>
-          </label>
+            <div className="companionship-field-grid">
+              <label className="companionship-field">
+                <span className="companionship-field-title">
+                  <b>
+                    <Clock3 size={13} />
+                    陪伴时长
+                  </b>
+                  <small>SESSION</small>
+                </span>
 
-          <div className="companionship-bubble companionship-bubble-notice">
-            <ShieldCheck size={15} />
-            <span>
-              开始时会一次确认本次 MCP 授权。确认后，本次陪伴最长两小时内允许使用当前已启用的 MCP 工具。
-            </span>
-          </div>
+                <select
+                  value={durationMinutes}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
 
-          <div className="companionship-bubble companionship-bubble-warning">
-            陪伴会尝试在后台继续运行，但浏览器和系统可能限制后台任务。建议尽量留在此页面，以获得更及时、完整的陪伴体验。
-          </div>
+                    setDurationMinutes(value);
+                    setIntervalMinutes((current) => (
+                      Math.min(current, value)
+                    ));
+                  }}
+                >
+                  {[15, 30, 45, 60, 90, 120].map((value) => (
+                    <option key={value} value={value}>
+                      {value} 分钟
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          {errorMessage && (
-            <p className="companionship-error">{errorMessage}</p>
-          )}
+              <label className="companionship-field">
+                <span className="companionship-field-title">
+                  <b>
+                    <Clock3 size={13} />
+                    主动间隔
+                  </b>
+                  <small>INTERVAL</small>
+                </span>
 
-          <button
-            type="button"
-            className="companionship-primary-button"
-            onClick={handleStart}
-          >
-            <Play size={15} />
-            开始陪伴
-          </button>
-        </section>
-      ) : (
-        <section className="companionship-running">
-          <div className="companionship-running-top">
-            <div>
-              <span className="companionship-eyebrow">NOW GROWING</span>
-              <h2>{runningChatTitle}</h2>
+                <select
+                  value={intervalMinutes}
+                  onChange={(event) => {
+                    setIntervalMinutes(
+                      Number(event.target.value),
+                    );
+                  }}
+                >
+                  {[1, 3, 5, 10, 15, 20, 30].map((value) => (
+                    <option
+                      key={value}
+                      value={value}
+                      disabled={value > durationMinutes}
+                    >
+                      每 {value} 分钟
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
-            <div className="companionship-timer">
-              <span>剩余</span>
-              <strong>{formatRemaining(session.endsAt)}</strong>
+            <div className="companionship-setup-note">
+              <ShieldCheck size={15} />
+
+              <span>
+                开始时会确认一次本次 MCP 授权。陪伴结束或手动停止后，
+                授权会立即失效。
+              </span>
             </div>
-          </div>
 
-          <div className="companionship-focus-scene" aria-label="音符专注场景">
-            <div className="companionship-focus-ring ring-one" />
-            <div className="companionship-focus-ring ring-two" />
-            <Music2 className="companionship-focus-note" />
-            <span>这段时间正在被好好留住</span>
-          </div>
+            <div className="companionship-setup-footer">
+              <label className="companionship-toggle">
+                <input
+                  type="checkbox"
+                  checked={notificationEnabled}
+                  onChange={(event) => {
+                    setNotificationEnabled(event.target.checked);
+                  }}
+                />
 
-          <div className="companionship-bubble companionship-bubble-goal">
-            <span className="companionship-bubble-label">本次目标</span>
-            <p>{goal || session.goal || '保持自然、低打扰的陪伴。'}</p>
-          </div>
+                <Bell size={14} />
 
-          <div className="companionship-bubble companionship-bubble-status">
-            <Check size={15} />
-            <span>
-              MCP 会话授权已开启。文字、语音和动作会根据情境自然组合。
-            </span>
-          </div>
-
-          <div className="companionship-event-stream">
-            {events.length === 0 && (
-              <div className="companionship-bubble companionship-bubble-silent">
-                <Pause size={14} />
-                <span>陪伴已经开始，下一次主动出现会在合适的时候发生。</span>
-              </div>
-            )}
-
-            {events.map((event) => (
-              <div
-                key={event.id}
-                className={[
-                  'companionship-bubble',
-                  `companionship-bubble-${event.type || 'status'}`,
-                ].join(' ')}
-              >
-                {event.type === 'mcp' && <Music2 size={14} />}
-                {event.type === 'voice' && <Music2 size={14} />}
-                {event.type === 'error' && <Pause size={14} />}
-                {event.type === 'status' && <Check size={14} />}
-
-                <div>
-                  {event.title && (
-                    <span className="companionship-bubble-label">
-                      {event.title}
-                    </span>
-                  )}
-                  <p>{event.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            className="companionship-stop-button"
-            onClick={handleStop}
-          >
-            <Square size={14} />
-            结束陪伴
-          </button>
-        </section>
-      )}
-
-      {showAuthorization && (
-        <div className="companionship-dialog-backdrop">
-          <section
-            className="companionship-dialog"
-            role="dialog"
-            aria-modal="true"
-          >
-            <ShieldCheck size={20} />
-            <h2>确认本次陪伴授权</h2>
-            <p>
-              在这次陪伴结束前，AI 可以使用当前已启用的全部 MCP 工具。
-              该授权只对本次陪伴有效，结束或停止后立即失效。
-            </p>
-
-            <div className="companionship-dialog-actions">
-              <button
-                type="button"
-                className="companionship-secondary-button"
-                onClick={() => setShowAuthorization(false)}
-              >
-                先不开始
-              </button>
+                <span>允许浏览器通知</span>
+              </label>
 
               <button
                 type="button"
                 className="companionship-primary-button"
-                onClick={handleConfirmStart}
-                disabled={isLoading}
+                onClick={handleStart}
               >
-                <ShieldCheck size={15} />
-                {isLoading ? '正在准备' : '确认并开始'}
+                <Play size={15} />
+                <span>开始陪伴</span>
               </button>
             </div>
-          </section>
+
+            {errorMessage && (
+              <p className="companionship-error">
+                {errorMessage}
+              </p>
+            )}
+          </div>
         </div>
-      )}
-    </main>
-  );
-};
+      </section>
+    ) : (
+      <section className="companionship-running">
+        <div className="companionship-running-layout">
+          <div className="companionship-running-visual">
+            <div className="companionship-running-meta">
+              <span className="companionship-eyebrow">
+                NOW PLAYING · COMPANIONSHIP
+              </span>
+
+              <h2>{runningChatTitle}</h2>
+
+              <p>
+                这段时间正在被好好留住。
+              </p>
+            </div>
+
+            <div
+              className="companionship-focus-scene"
+              aria-label="音符专注场景"
+            >
+              <div className="companionship-focus-ring ring-two" />
+
+              <div className="companionship-focus-ring ring-one">
+                <span className="companionship-record-highlight" />
+              </div>
+
+              <span className="companionship-focus-note">
+                <span className="companionship-needle-arm" />
+                <span className="companionship-needle-head" />
+              </span>
+            </div>
+
+            <p className="companionship-running-slogan">
+              你专心做自己的事，
+              <br />
+              我会在这里听着。
+            </p>
+          </div>
+
+          <aside className="companionship-running-content">
+            <div className="companionship-timer">
+              <span>REMAINING TIME</span>
+
+              <strong>
+                {formatRemaining(session.endsAt)}
+              </strong>
+
+              <div className="companionship-timer-track">
+                <span />
+              </div>
+            </div>
+
+            <div className="companionship-companion-message">
+              <span className="companionship-message-label">
+                {boundCharacter?.name || '陪伴中'} · 刚刚
+              </span>
+
+              <p>
+                你可以继续做自己的事，不用急着回复我。
+                等你看到想分享的地方，再告诉我。
+              </p>
+            </div>
+
+            <div className="companionship-running-status">
+              <span className="companionship-status-dot" />
+
+              <span>
+                陪伴已连接。下一次主动出现会在合适的时候发生。
+              </span>
+            </div>
+
+            <div className="companionship-bubble companionship-bubble-goal">
+              <span className="companionship-bubble-label">
+                本次目标
+              </span>
+
+              <p>
+                {goal
+                  || session.goal
+                  || '保持自然、低打扰的陪伴。'}
+              </p>
+            </div>
+
+            <div className="companionship-bubble companionship-bubble-status">
+              <Check size={15} />
+
+              <span>
+                MCP 会话授权已开启。文字、语音和动作会根据情境自然组合。
+              </span>
+            </div>
+
+            <div className="companionship-event-stream">
+              {events.length === 0 && (
+                <div className="companionship-bubble companionship-bubble-silent">
+                  <Pause size={14} />
+
+                  <span>
+                    陪伴已经开始，下一次主动出现会在合适的时候发生。
+                  </span>
+                </div>
+              )}
+
+              {events.map((event) => (
+                <div
+                  key={event.id}
+                  className={[
+                    'companionship-bubble',
+                    `companionship-bubble-${event.type || 'status'}`,
+                  ].join(' ')}
+                >
+                  {event.type === 'mcp' && (
+                    <Music2 size={14} />
+                  )}
+
+                  {event.type === 'voice' && (
+                    <Music2 size={14} />
+                  )}
+
+                  {event.type === 'error' && (
+                    <Pause size={14} />
+                  )}
+
+                  {event.type === 'status' && (
+                    <Check size={14} />
+                  )}
+
+                  <div>
+                    {event.title && (
+                      <span className="companionship-bubble-label">
+                        {event.title}
+                      </span>
+                    )}
+
+                    <p>{event.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="companionship-stop-button"
+              onClick={handleStop}
+            >
+              <Square size={14} />
+              <span>结束陪伴</span>
+            </button>
+          </aside>
+        </div>
+      </section>
+    )}
+
+    {showAuthorization && (
+      <div className="companionship-dialog-backdrop">
+        <section
+          className="companionship-dialog"
+          role="dialog"
+          aria-modal="true"
+        >
+          <ShieldCheck size={20} />
+
+          <h2>确认本次陪伴授权</h2>
+
+          <p>
+            在这次陪伴结束前，AI 可以使用当前已启用的全部 MCP 工具。
+            该授权只对本次陪伴有效，结束或停止后立即失效。
+          </p>
+
+          <div className="companionship-dialog-actions">
+            <button
+              type="button"
+              className="companionship-secondary-button"
+              onClick={() => {
+                setShowAuthorization(false);
+              }}
+            >
+              先不开始
+            </button>
+
+            <button
+              type="button"
+              className="companionship-primary-button"
+              onClick={handleConfirmStart}
+              disabled={isLoading}
+            >
+              <ShieldCheck size={15} />
+
+              {isLoading ? '正在准备' : '确认并开始'}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
+  </main>
+);
 
 export default CompanionshipPage;
