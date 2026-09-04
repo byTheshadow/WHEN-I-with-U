@@ -4,92 +4,98 @@ let generatedKeepAliveUrl = null;
 
 const KEEP_ALIVE_DURATION_SECONDS = 10 * 60;
 const KEEP_ALIVE_SAMPLE_RATE = 8000;
+const KEEP_ALIVE_CHANNEL_COUNT = 1;
+const KEEP_ALIVE_BITS_PER_SAMPLE = 8;
 
 /**
- * 生成一段真实存在、时长 10 分钟的低幅度 WAV。
+ * 生成一段有效的 10 分钟 WAV 音频。
  *
- * 不是零长度音频，也不是完全空白的 WAV。
- * 使用极低幅度的稳定底噪，避免部分浏览器将其视为无效媒体。
+ * 这是程序生成的数字静音：
+ * - 具有完整 WAV 文件头；
+ * - 具有真实的 10 分钟时长；
+ * - 不是零长度音频；
+ * - 采样数据全部位于 8-bit PCM 静音中心值 128；
+ * - 不创建振荡器，不产生可听见的音调。
  */
 const createKeepAliveWavUrl = () => {
   if (generatedKeepAliveUrl) {
     return generatedKeepAliveUrl;
   }
 
-  const channelCount = 1;
-  const bitsPerSample = 8;
   const sampleCount =
-    KEEP_ALIVE_DURATION_SECONDS * KEEP_ALIVE_SAMPLE_RATE;
-  const dataSize = sampleCount * channelCount;
+    KEEP_ALIVE_DURATION_SECONDS *
+    KEEP_ALIVE_SAMPLE_RATE;
+
+  const bytesPerSample =
+    KEEP_ALIVE_BITS_PER_SAMPLE / 8;
+
+  const dataSize =
+    sampleCount *
+    KEEP_ALIVE_CHANNEL_COUNT *
+    bytesPerSample;
+
   const headerSize = 44;
   const buffer = new ArrayBuffer(headerSize + dataSize);
   const view = new DataView(buffer);
 
   const writeAscii = (offset, value) => {
     for (let index = 0; index < value.length; index += 1) {
-      view.setUint8(offset + index, value.charCodeAt(index));
+      view.setUint8(
+        offset + index,
+        value.charCodeAt(index),
+      );
     }
-  };
-
-  const writeUint32 = (offset, value) => {
-    view.setUint32(offset, value, true);
   };
 
   const writeUint16 = (offset, value) => {
     view.setUint16(offset, value, true);
   };
 
-  // RIFF header
+  const writeUint32 = (offset, value) => {
+    view.setUint32(offset, value, true);
+  };
+
+  const blockAlign =
+    KEEP_ALIVE_CHANNEL_COUNT *
+    bytesPerSample;
+
+  const byteRate =
+    KEEP_ALIVE_SAMPLE_RATE *
+    blockAlign;
+
+  /*
+   * RIFF / WAVE 文件头
+   */
   writeAscii(0, 'RIFF');
   writeUint32(4, 36 + dataSize);
   writeAscii(8, 'WAVE');
 
-  // fmt chunk
+  /*
+   * fmt 子块
+   */
   writeAscii(12, 'fmt ');
   writeUint32(16, 16);
   writeUint16(20, 1); // PCM
-  writeUint16(22, channelCount);
+  writeUint16(22, KEEP_ALIVE_CHANNEL_COUNT);
   writeUint32(24, KEEP_ALIVE_SAMPLE_RATE);
-
-  const byteRate =
-    KEEP_ALIVE_SAMPLE_RATE *
-    channelCount *
-    (bitsPerSample / 8);
-
-  const blockAlign =
-    channelCount * (bitsPerSample / 8);
-
   writeUint32(28, byteRate);
   writeUint16(32, blockAlign);
-  writeUint16(34, bitsPerSample);
+  writeUint16(34, KEEP_ALIVE_BITS_PER_SAMPLE);
 
-  // data chunk
+  /*
+   * data 子块
+   */
   writeAscii(36, 'data');
   writeUint32(40, dataSize);
 
   /*
-   * 8-bit PCM 的静音中心点是 128。
-   * 加入极低幅度的确定性变化，避免整段数据完全相同。
-   *
-   * 这不是可感知的音乐，只是有效的、极低幅度的媒体内容。
+   * 8-bit PCM 的静音中心值为 128。
+   * 整段使用真正的数字静音，不生成正弦波、不生成噪声。
    */
-  for (let index = 0; index < sampleCount; index += 1) {
-    const slowWave =
-      Math.sin((index / KEEP_ALIVE_SAMPLE_RATE) * Math.PI * 2 * 0.17) *
-      0.45;
+  const silenceValue = 128;
 
-    const tinyNoise =
-      ((index * 17) % 7) - 3;
-
-    const sample = Math.max(
-      0,
-      Math.min(
-        255,
-        Math.round(128 + slowWave + tinyNoise * 0.12),
-      ),
-    );
-
-    view.setUint8(headerSize + index, sample);
+  for (let index = 0; index < dataSize; index += 1) {
+    view.setUint8(headerSize + index, silenceValue);
   }
 
   const blob = new Blob([buffer], {
@@ -101,43 +107,34 @@ const createKeepAliveWavUrl = () => {
   return generatedKeepAliveUrl;
 };
 
-const revokeGeneratedKeepAliveUrl = () => {
-  if (!generatedKeepAliveUrl) {
-    return;
-  }
-
-  URL.revokeObjectURL(generatedKeepAliveUrl);
-  generatedKeepAliveUrl = null;
-};
-
-// 仅在页面真正卸载时释放 Blob URL。
-// 不在 React effect cleanup 中释放，避免组件重渲染导致音频 URL 失效。
-if (typeof window !== 'undefined') {
-  window.addEventListener(
-    'pagehide',
-    revokeGeneratedKeepAliveUrl,
-    { once: true },
-  );
-}
-
 export const AudioKeepAlive = ({
   isActive = false,
   audioSrc = '',
 }) => {
   const audioRef = useRef(null);
-  const activeSourceRef = useRef('');
+
   const isActiveRef = useRef(isActive);
+  const activeSourceRef = useRef('');
   const isActivatingRef = useRef(false);
   const hasPlaybackStartedRef = useRef(false);
 
+  /*
+   * 保持最新的保活开关状态。
+   * 用户关闭设置后，后续事件不会重新启动音频。
+   */
   useEffect(() => {
     isActiveRef.current = isActive;
   }, [isActive]);
 
   /**
-   * 只复用现有的 audio 元素。
-   * 不创建新的 Audio、不创建新的 AudioContext，
-   * 因此重复点击不会不断累积内存。
+   * 尝试播放当前已有的唯一 audio 元素。
+   *
+   * 这个函数是幂等的：
+   * - 已经播放时直接返回；
+   * - 不创建新的 Audio；
+   * - 不创建新的 AudioContext；
+   * - 不重复加载音频；
+   * - 不会因为多次点击而累积对象。
    */
   const tryPlayExistingAudio = async () => {
     const audio = audioRef.current;
@@ -161,13 +158,21 @@ export const AudioKeepAlive = ({
       await audio.play();
 
       hasPlaybackStartedRef.current = true;
+
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.playbackState = 'playing';
+        } catch {
+          // 忽略不完整的 Media Session 实现
+        }
+      }
     } catch (error) {
       /*
-       * 自动播放被浏览器拒绝时不抛出到 React。
-       * 后续用户手势仍会再次调用本函数。
+       * 移动浏览器可能因为没有用户手势而拒绝播放。
+       * 后续用户点击、触摸或按键时会再次尝试。
        */
       console.warn(
-        '[AudioKeepAlive] 等待用户手势后启动音频：',
+        '[AudioKeepAlive] 音频需要用户交互后才能播放：',
         error,
       );
     } finally {
@@ -176,8 +181,14 @@ export const AudioKeepAlive = ({
   };
 
   /**
-   * 保活开启时，使用用户音频；没有用户音频时使用
-   * 程序生成的 10 分钟有效 WAV。
+   * 保活状态或用户音频来源发生变化时处理播放器。
+   *
+   * isActive：
+   *   决定播放器是否持续工作。
+   *
+   * audioSrc：
+   *   只决定当前播放的是用户音频还是默认静音音频，
+   *   不决定保活生命周期。
    */
   useEffect(() => {
     const audio = audioRef.current;
@@ -189,28 +200,42 @@ export const AudioKeepAlive = ({
     if (!isActive) {
       audio.pause();
       audio.currentTime = 0;
-      hasPlaybackStartedRef.current = false;
+
       activeSourceRef.current = '';
+      hasPlaybackStartedRef.current = false;
 
       if ('mediaSession' in navigator) {
         try {
           navigator.mediaSession.playbackState = 'none';
           navigator.mediaSession.metadata = null;
         } catch {
-          // 某些浏览器的 Media Session 实现不完整
+          // 忽略不完整的 Media Session 实现
         }
       }
 
       return undefined;
     }
 
+    /*
+     * 用户音频优先。
+     * 没有用户音频时，才生成并使用 10 分钟数字静音 WAV。
+     */
     const nextSource =
       audioSrc || createKeepAliveWavUrl();
 
+    const usingGeneratedSilence = !audioSrc;
+
     /*
-     * audioSrc 变化时只更换当前音频，
-     * 不销毁组件、不创建第二个 audio。
+     * 默认音频本身是数字静音。
+     * 这里再设置极低音量作为额外安全层。
+     *
+     * 用户音频则恢复为正常音量，
+     * 保持用户在悬浮球中配置音频的原有行为。
      */
+    audio.volume = usingGeneratedSilence
+      ? 0.0001
+      : 1;
+
     if (activeSourceRef.current !== nextSource) {
       const wasPlaying =
         !audio.paused && !audio.ended;
@@ -223,31 +248,41 @@ export const AudioKeepAlive = ({
       activeSourceRef.current = nextSource;
       hasPlaybackStartedRef.current = false;
 
+      /*
+       * 如果只是用户切换了音频，
+       * 尝试让同一个播放器继续播放。
+       */
       if (wasPlaying) {
         void tryPlayExistingAudio();
       }
     }
 
-    if ('mediaSession' in navigator && 'MediaMetadata' in window) {
+    if (
+      'mediaSession' in navigator &&
+      'MediaMetadata' in window
+    ) {
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: audioSrc ? '音乐保活' : 'WHEN I with U',
-          artist: '个人陪伴空间',
-          album: '后台保活运行中',
-        });
+        navigator.mediaSession.metadata =
+          new MediaMetadata({
+            title: audioSrc
+              ? '音乐保活'
+              : 'WHEN I with U',
+            artist: '个人陪伴空间',
+            album: '后台保活运行中',
+          });
 
         navigator.mediaSession.playbackState =
           hasPlaybackStartedRef.current
             ? 'playing'
             : 'none';
       } catch {
-        // 某些浏览器的 Media Session 实现不完整
+        // 忽略不完整的 Media Session 实现
       }
     }
 
     /*
-     * 先尝试自动播放。
-     * 如果被浏览器拒绝，下面的全局手势监听会负责重试。
+     * 保活开启后主动尝试播放。
+     * 如果被浏览器拦截，则等待后续用户手势。
      */
     void tryPlayExistingAudio();
 
@@ -255,10 +290,10 @@ export const AudioKeepAlive = ({
   }, [isActive, audioSrc]);
 
   /**
-   * 用户点击“回应”、点击悬浮球或进行其他操作时，
-   * 只恢复同一个播放器，不重新创建音频资源。
+   * 用户手势只用于解锁或恢复已有播放器。
    *
-   * 该监听器只在保活开启期间存在。
+   * 保活播放器本身由 isActive 控制，
+   * 不会因为 AI 请求完成而停止。
    */
   useEffect(() => {
     if (!isActive) {
@@ -269,11 +304,6 @@ export const AudioKeepAlive = ({
       void tryPlayExistingAudio();
     };
 
-    const eventOptions = {
-      passive: true,
-      capture: true,
-    };
-
     const gestureEvents = [
       'touchstart',
       'pointerdown',
@@ -281,6 +311,11 @@ export const AudioKeepAlive = ({
       'keydown',
       'click',
     ];
+
+    const eventOptions = {
+      passive: true,
+      capture: true,
+    };
 
     gestureEvents.forEach((eventName) => {
       window.addEventListener(
@@ -302,8 +337,8 @@ export const AudioKeepAlive = ({
   }, [isActive]);
 
   /**
-   * 仅当用户关闭保活时停止。
-   * AI 请求完成不会触发这里。
+   * 用户关闭保活时才会进入 isActive=false 分支。
+   * 组件卸载时进行最终清理。
    */
   useEffect(() => {
     return () => {
@@ -316,6 +351,9 @@ export const AudioKeepAlive = ({
       audio.pause();
       audio.removeAttribute('src');
       audio.load();
+
+      activeSourceRef.current = '';
+      hasPlaybackStartedRef.current = false;
     };
   }, []);
 
@@ -324,6 +362,7 @@ export const AudioKeepAlive = ({
       ref={audioRef}
       loop
       preload="auto"
+      playsInline
       aria-hidden="true"
       onPlay={() => {
         hasPlaybackStartedRef.current = true;
@@ -340,10 +379,7 @@ export const AudioKeepAlive = ({
       onPause={() => {
         if ('mediaSession' in navigator) {
           try {
-            navigator.mediaSession.playbackState =
-              isActiveRef.current
-                ? 'none'
-                : 'none';
+            navigator.mediaSession.playbackState = 'none';
           } catch {
             // 忽略不完整的 Media Session 实现
           }
@@ -351,22 +387,36 @@ export const AudioKeepAlive = ({
       }}
       onEnded={() => {
         /*
-         * 正常情况下 loop 会处理。
-         * 这里作为部分移动浏览器的兜底。
+         * 正常情况下 loop 会自动循环。
+         * 这里为部分移动浏览器提供兜底。
          */
-        if (isActiveRef.current) {
-          audioRef.current.currentTime = 0;
-          void tryPlayExistingAudio();
+        if (!isActiveRef.current) {
+          return;
         }
+
+        const audio = audioRef.current;
+
+        if (!audio) {
+          return;
+        }
+
+        audio.currentTime = 0;
+        void tryPlayExistingAudio();
       }}
       onError={() => {
         if (audioSrc) {
           console.warn(
-            '[AudioKeepAlive] 用户音频无法播放，保活音频将尝试继续运行。',
+            '[AudioKeepAlive] 用户音频无法播放。',
+          );
+        } else {
+          console.warn(
+            '[AudioKeepAlive] 默认静音保活音频无法播放。',
           );
         }
       }}
-      style={{ display: 'none' }}
+      style={{
+        display: 'none',
+      }}
     />
   );
 };
