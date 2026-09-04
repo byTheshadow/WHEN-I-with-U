@@ -165,13 +165,13 @@ const normalizeVoiceIntent = ({
     // 用户界面与数据库内容展示的转写，不显示语气标签。
     transcript,
 
-    // 允许主 AI 为本次声音选择与可见文字不同的语言。
+    // 语言控制与声音表现控制独立。
     language,
 
-    // 只有开启设置时，才允许主 AI 覆盖角色配置中的情绪。
+    // 关闭开关时使用角色配置中的固定情绪。
     emotion,
 
-    // 只有开启设置时，才读取主 AI 输出的语速。
+    // 关闭开关时使用角色配置中的固定语速。
     speed: clampNumber({
       value: aiMayControlVoiceSettings
         ? rawIntent?.speed
@@ -181,7 +181,7 @@ const normalizeVoiceIntent = ({
       max: 2,
     }),
 
-    // 只有开启设置时，才读取主 AI 输出的音调。
+    // 关闭开关时使用角色配置中的固定音调。
     pitch: clampNumber({
       value: aiMayControlVoiceSettings
         ? rawIntent?.pitch
@@ -209,6 +209,109 @@ const tryParseVoiceIntent = ({
   }
 };
 
+/**
+ * 从文本中提取一个完整的 JSON 对象。
+ *
+ * 不使用简单的正则表达式，避免 text 内容中出现标点、
+ * 日文引号或转义字符时，JSON 被提前截断。
+ */
+const findJsonObject = (content = '') => {
+  const text = String(content);
+  let startIndex = -1;
+  let depth = 0;
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (character === '\\') {
+        isEscaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (character === '{') {
+      if (depth === 0) {
+        startIndex = index;
+      }
+
+      depth += 1;
+      continue;
+    }
+
+    if (character === '}') {
+      if (depth === 0) {
+        continue;
+      }
+
+      depth -= 1;
+
+      if (depth === 0 && startIndex >= 0) {
+        return {
+          rawValue: text.slice(startIndex, index + 1),
+          startIndex,
+          endIndex: index + 1,
+        };
+      }
+    }
+  }
+
+  return null;
+};
+
+const extractVoiceIntentFromContent = ({
+  content,
+  profile,
+}) => {
+  const originalContent = String(content || '');
+  const markerIndex = originalContent.indexOf(REAL_VOICE_MARKER);
+
+  // 优先从真实声音标记后面寻找 JSON。
+  const searchContent = markerIndex >= 0
+    ? originalContent.slice(
+      markerIndex + REAL_VOICE_MARKER.length,
+    )
+    : originalContent;
+
+  const jsonObject = findJsonObject(searchContent);
+
+  if (!jsonObject) {
+    return null;
+  }
+
+  const intent = tryParseVoiceIntent({
+    rawValue: jsonObject.rawValue,
+    profile,
+  });
+
+  if (!intent) {
+    return null;
+  }
+
+  const offset = markerIndex >= 0
+    ? markerIndex + REAL_VOICE_MARKER.length
+    : 0;
+
+  return {
+    intent,
+    startIndex: offset + jsonObject.startIndex,
+    endIndex: offset + jsonObject.endIndex,
+    markerIndex,
+  };
+};
+
 const getRealVoiceBlockPattern = () => (
   new RegExp(
     `${REAL_VOICE_MARKER.replace(/[[\]]/g, '\\$&')}\\s*([\\s\\S]*?)\\s*${REAL_VOICE_END_MARKER.replace(/[[\]/]/g, '\\$&')}`,
@@ -218,10 +321,34 @@ const getRealVoiceBlockPattern = () => (
 
 const removeLegacyVoiceMarker = (content = '') => (
   String(content)
-    .replace(REAL_VOICE_MARKER, '')
+    .replaceAll(REAL_VOICE_MARKER, '')
+    .replaceAll(REAL_VOICE_END_MARKER, '')
     .replace(/^\s+/, '')
     .trim()
 );
+
+const removeExtractedVoiceJson = ({
+  content,
+  extracted,
+}) => {
+  if (!extracted) {
+    return String(content || '');
+  }
+
+  let result = String(content || '');
+
+  result = (
+    result.slice(0, extracted.startIndex)
+    + result.slice(extracted.endIndex)
+  );
+
+  result = result
+    .replaceAll(REAL_VOICE_MARKER, '')
+    .replaceAll(REAL_VOICE_END_MARKER, '')
+    .trim();
+
+  return result;
+};
 
 export const buildRealVoiceDecisionInstruction = (character) => {
   const profile = normalizeVoiceProfile(character?.voiceProfile);
@@ -242,23 +369,14 @@ export const buildRealVoiceDecisionInstruction = (character) => {
 /**
  * 解析主文字 AI 返回的隐藏声音区块。
  *
- * 处理前：
- * 正常文字
+ * 除了标准的：
+ *
  * [[REAL_VOICE]]
- * {"text":"(sighs) 我在这里。","emotion":"calm","speed":0.92,"pitch":-1}
+ * {"text":"...", "language":"Japanese"}
  * [[/REAL_VOICE]]
  *
- * 处理后：
- * {
- *   content: '正常文字',
- *   realVoiceIntent: {
- *     text: '(sighs) 我在这里。',
- *     transcript: '我在这里。',
- *     emotion: 'calm',
- *     speed: 0.92,
- *     pitch: -1,
- *   },
- * }
+ * 也兼容 AI 漏掉结束标记、只输出开始标记，
+ * 或直接输出 JSON 的情况。
  */
 export const applyRealVoiceIntent = (
   messages = [],
@@ -277,7 +395,7 @@ export const applyRealVoiceIntent = (
 
       let extractedIntent = null;
 
-      const visibleContent = originalContent
+      const contentWithoutCompleteBlock = originalContent
         .replace(
           blockPattern,
           (fullMatch, rawJson) => {
@@ -288,28 +406,73 @@ export const applyRealVoiceIntent = (
               });
             }
 
-            // 无论 JSON 是否格式正确，都不让内部块显示给用户。
+            // 完整隐藏区块永远不显示给用户。
             return '';
           },
-        )
-        .trim();
+        );
 
       if (extractedIntent) {
         return {
           ...message,
-          content: visibleContent,
+          content: contentWithoutCompleteBlock.trim(),
           realVoiceRequested: true,
           realVoiceIntent: extractedIntent,
         };
       }
 
       /**
-       * 兼容旧版 [[REAL_VOICE]] 文本协议：
-       * 若旧模型缓存或旧 prompt 仍输出旧标记，
-       * 仍可以按“整段文字”生成一次声音。
+       * 兼容不完整标记：
+       *
+       * AI 有时会输出：
+       *
+       * [[REAL_VOICE]]
+       * {
+       *   "text": "...",
+       *   "language": "Japanese"
+       * }
+       *
+       * 但忘记输出 [[/REAL_VOICE]]。
+       */
+      const extracted = extractVoiceIntentFromContent({
+        content: originalContent,
+        profile,
+      });
+
+      if (extracted) {
+        const visibleContent = removeExtractedVoiceJson({
+          content: originalContent,
+          extracted,
+        });
+
+        return {
+          ...message,
+          content: visibleContent,
+          realVoiceRequested: true,
+          realVoiceIntent: extracted.intent,
+        };
+      }
+
+      /**
+       * 兼容旧版纯文本协议。
+       *
+       * 如果标记后面已经出现 JSON，但 JSON 不完整，
+       * 不再把 JSON 当成语音文本朗读。
        */
       if (originalContent.includes(REAL_VOICE_MARKER)) {
         const legacyText = removeLegacyVoiceMarker(originalContent);
+        const looksLikeBrokenJson = (
+          legacyText.includes('{')
+          || legacyText.includes('"text"')
+          || legacyText.includes('"language"')
+        );
+
+        if (looksLikeBrokenJson) {
+          return {
+            ...message,
+            content: '',
+            realVoiceRequested: false,
+          };
+        }
 
         const legacyIntent = normalizeVoiceIntent({
           rawIntent: {
@@ -328,7 +491,7 @@ export const applyRealVoiceIntent = (
 
       return {
         ...message,
-        content: visibleContent,
+        content: contentWithoutCompleteBlock.trim(),
         realVoiceRequested: false,
       };
     })
@@ -377,10 +540,10 @@ export const createRealVoiceMessagesForReply = async ({
   const initialMetadata = {
     generationStatus: 'pending',
 
-    // 用户界面中显示的转写，不含 (sighs) 等内部语气标签。
+    // 用户界面中显示的转写，不含语气标签和 JSON。
     transcript: voiceIntent.transcript,
 
-    // 实际交给 MiniMax 的文本，保留模型支持的语气标签。
+    // 实际交给 MiniMax 的文本，不包含 JSON 格式。
     ttsText: voiceIntent.text,
 
     provider: 'minimax',
@@ -390,7 +553,7 @@ export const createRealVoiceMessagesForReply = async ({
     // 本次真实声音实际采用的语言。
     language: voiceIntent.language,
 
-    // 本次由主文字 AI 决定，并已完成安全校验。
+    // 本次真实声音实际采用的参数。
     emotion: voiceIntent.emotion,
     speed: voiceIntent.speed,
     pitch: voiceIntent.pitch,
@@ -404,7 +567,7 @@ export const createRealVoiceMessagesForReply = async ({
     sender: 'character',
     type: 'realVoice',
 
-    // 消息卡片显示的内容，不展示语气标签。
+    // 消息显示内容只使用 transcript，不显示 JSON。
     content: voiceIntent.transcript,
 
     metadata: initialMetadata,
