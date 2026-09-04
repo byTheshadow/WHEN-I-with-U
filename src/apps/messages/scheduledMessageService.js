@@ -555,16 +555,30 @@ ${
 
     if (!content) {
       console.warn(
-        '[ScheduledMessage] API 返回成功但文本内容为空：',
-        {
-          responseData: data,
-          choice,
-          message,
-          content: message?.content,
-          reasoningContent: message?.reasoning_content,
-          refusal: message?.refusal,
-          finishReason: choice?.finish_reason
-        }
+        '[ScheduledMessage] API 返回成功但文本内容为空： ' +
+        JSON.stringify(
+          {
+            topLevelKeys: Object.keys(data || {}),
+            topLevelError: data?.error || null,
+            finishReason: choice?.finish_reason ?? null,
+            messageKeys: Object.keys(message || {}),
+            content: message?.content ?? null,
+            reasoningContent:
+              message?.reasoning_content ?? null,
+            refusal: message?.refusal ?? null,
+            contentFilterResults:
+              message?.content_filter_results ??
+              choice?.content_filter_results ??
+              null
+          },
+          null,
+          2
+        )
+      );
+
+      console.warn(
+        '[ScheduledMessage] 原始响应完整内容：',
+        JSON.stringify(data, null, 2)
       );
 
       return {
