@@ -109,11 +109,15 @@ const normalizeVoiceIntent = ({
   profile,
 }) => {
   const config = profile.minimax;
+  const aiMayControlVoiceSettings = (
+    profile.aiMayControlVoiceSettings === true
+  );
+
   const rawText = String(rawIntent?.text || '')
     .trim()
     .slice(0, 900);
 
-      const language = MINIMAX_LANGUAGES.has(rawIntent?.language)
+  const language = MINIMAX_LANGUAGES.has(rawIntent?.language)
     ? rawIntent.language
     : (
       MINIMAX_LANGUAGES.has(config.language)
@@ -121,12 +125,12 @@ const normalizeVoiceIntent = ({
         : 'auto'
     );
 
-
   if (!rawText) {
     return null;
   }
 
-  let emotion = MINIMAX_EMOTIONS.includes(rawIntent?.emotion)
+  let emotion = aiMayControlVoiceSettings
+    && MINIMAX_EMOTIONS.includes(rawIntent?.emotion)
     ? rawIntent.emotion
     : getSafeProfileEmotion(profile);
 
@@ -154,29 +158,34 @@ const normalizeVoiceIntent = ({
     return null;
   }
 
- return {
-  // 实际发送给 MiniMax 的文本，可能包含合法语气标签。
-  text: ttsText,
+  return {
+    // 实际发送给 MiniMax 的文本，可能包含合法语气标签。
+    text: ttsText,
 
-  // 用户界面与数据库内容展示的转写，不显示语气标签。
-  transcript,
+    // 用户界面与数据库内容展示的转写，不显示语气标签。
+    transcript,
 
-  // 允许主 AI 为本次声音选择与可见文字不同的语言。
-  language,
+    // 允许主 AI 为本次声音选择与可见文字不同的语言。
+    language,
 
-  emotion,
+    // 只有开启设置时，才允许主 AI 覆盖角色配置中的情绪。
+    emotion,
 
-   
-
+    // 只有开启设置时，才读取主 AI 输出的语速。
     speed: clampNumber({
-      value: rawIntent?.speed,
+      value: aiMayControlVoiceSettings
+        ? rawIntent?.speed
+        : config.speed,
       fallback: config.speed,
       min: 0.5,
       max: 2,
     }),
 
+    // 只有开启设置时，才读取主 AI 输出的音调。
     pitch: clampNumber({
-      value: rawIntent?.pitch,
+      value: aiMayControlVoiceSettings
+        ? rawIntent?.pitch
+        : config.pitch,
       fallback: config.pitch,
       min: -12,
       max: 12,
@@ -377,9 +386,9 @@ export const createRealVoiceMessagesForReply = async ({
     provider: 'minimax',
     modelId: profile.minimax.modelId,
     voiceId: profile.minimax.voiceId,
-  // 本次真实声音实际采用的语言。
-language: voiceIntent.language,
 
+    // 本次真实声音实际采用的语言。
+    language: voiceIntent.language,
 
     // 本次由主文字 AI 决定，并已完成安全校验。
     emotion: voiceIntent.emotion,

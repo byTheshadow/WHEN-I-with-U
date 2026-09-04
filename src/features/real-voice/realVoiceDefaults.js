@@ -73,11 +73,16 @@ export const createDefaultVoiceProfile = () => ({
   // 角色是否允许使用真实声音。
   aiMaySendVoice: true,
 
+  // 是否允许主 AI 控制本次语音的情绪、语速和音调。
+  // 默认关闭，优先保持角色配置中的稳定音色。
+  aiMayControlVoiceSettings: false,
+
   // 首版保留，不自动播放，避免在用户未操作时突然出声。
   autoPlay: false,
 
   provider: 'minimax',
-    voiceExpression: {
+
+  voiceExpression: {
     // off | guided | intimate | reserved | custom
     mode: 'guided',
 
@@ -85,19 +90,6 @@ export const createDefaultVoiceProfile = () => ({
     customInstruction: '',
 
     // 当前版本固定一轮最多一条。
-    maxVoiceNotesPerReply: 1,
-  },
-
-
-  // 控制文字 AI 在什么情况下额外留下声音。
-  voiceExpression: {
-    // off | guided | intimate | reserved | custom
-    mode: 'guided',
-
-    // 仅改变角色何时及怎样留声，不能覆盖系统限制。
-    customInstruction: '',
-
-    // 第一版固定为 1；代码层同样保留硬限制。
     maxVoiceNotesPerReply: 1,
   },
 
@@ -128,7 +120,6 @@ export const createDefaultVoiceProfile = () => ({
     pitch: 0,
     emotion: 'calm',
 
-
     // mp3 | wav
     audioFormat: 'mp3',
   },
@@ -153,7 +144,6 @@ export const normalizeVoiceProfile = (profile) => {
     },
   };
 };
-
 
 export const hasUsableMiniMaxVoiceProfile = (profile) => {
   const normalized = normalizeVoiceProfile(profile);

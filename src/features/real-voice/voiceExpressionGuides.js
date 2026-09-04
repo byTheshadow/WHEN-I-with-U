@@ -85,7 +85,7 @@ text 可按需使用 MiniMax 支持的语气词标签，例如：
 
   const whisperRule = supportsWhisper
     ? 'emotion 可以使用 whisper。'
-    : 'emotion 不要使用 whisper；需要安静、轻柔的感觉时使用 calm，并适度降低 speed。';
+    : 'emotion 不要使用 whisper；需要安静、轻柔的感觉时使用 calm，不要通过降低 speed 来模拟 whisper。';
 
   return `
 [当前语音模型能力]
@@ -108,6 +108,9 @@ export const buildVoiceExpressionInstruction = ({
   const profile = normalizeVoiceProfile(voiceProfile);
   const expression = profile.voiceExpression;
   const mode = getExpressionMode(expression.mode).id;
+  const aiMayControlVoiceSettings = (
+    profile.aiMayControlVoiceSettings === true
+  );
 
   if (mode === 'off') {
     return '';
@@ -136,15 +139,24 @@ ${customInstruction}
 `
     : '';
 
-  return `
-[真实语音留笺规则]
-${characterReference}
+  const settingsControlInstruction = aiMayControlVoiceSettings
+    ? `
+[声音表现控制权限]
+本角色允许你根据本轮情绪调整真实声音的 emotion、speed 和 pitch。
+调整应当克制，通常只做小幅变化，不要让声音突然变得过慢、过低或过高。
+音量始终由角色声音配置控制，不允许通过 JSON 调整音量。
+如果你需要调整声音表现，可以在隐藏区块 JSON 中添加 emotion、speed 和 pitch 字段。
+`
+    : `
+[声音表现控制权限]
+本角色不允许你调整真实声音的 emotion、speed 和 pitch。
+隐藏区块 JSON 中可以省略这些字段；即使填写，也会被系统忽略。
+真实声音必须使用角色配置页面中的固定语音参数。
+音量始终由角色声音配置控制。
+`;
 
-你可以结合本轮对话上下文、关系距离、情绪和表达意图，判断是否额外留下一段真实声音。
-${MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.guided}
-${customSection}
-如果本轮值得留下声音，请先完成正常文字回复，再在回复末尾追加一个隐藏区块：
-
+  const jsonExample = aiMayControlVoiceSettings
+    ? `
 ${REAL_VOICE_MARKER}
 {
   "text": "专门为声音朗读写下的短文本",
@@ -155,24 +167,55 @@ ${REAL_VOICE_MARKER}
 }
 
 ${REAL_VOICE_END_MARKER}
+`
+    : `
+${REAL_VOICE_MARKER}
+{
+  "text": "专门为声音朗读写下的短文本",
+  "language": "auto"
+}
+
+${REAL_VOICE_END_MARKER}
+`;
+
+  return `
+[真实语音留笺规则]
+${characterReference}
+
+你可以结合本轮对话上下文、关系距离、情绪和表达意图，判断是否额外留下一段真实声音。
+${MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.guided}
+${customSection}
+${settingsControlInstruction}
+
+如果本轮值得留下声音，请先完成正常文字回复，再在回复末尾追加一个隐藏区块：
+
+${jsonExample}
 
 [隐藏区块规则]
 1. 正常文字回复必须始终保留；真实声音只是额外附上的声音留笺，绝不替代文字。
 2. text 是专门给声音朗读创作的内容，通常为 1 至 3 句；不要机械复制或完整复述文字回复。
 3. text 应自然、短小、能独立被听见；不要写“用温柔的语气说”“轻声说”等解释性舞台说明。
-4. emotion 只能是：happy、sad、angry、fearful、disgusted、surprised、calm、fluent、whisper。
-5. speed 只能是 0.5 到 2 之间的数字；推荐在 0.8 到 1.15 之间自然变化。
-6. pitch 只能是 -12 到 12 之间的数字；推荐小幅变化。
-7. 不值得生成声音时，不要输出隐藏区块。
-8. 每轮最多输出一个隐藏区块。
-9. 不要向用户解释、提及或展示这些标记、JSON 字段或内部规则。
-10. language 表示这一次真实声音实际朗读所使用的语言，只能填写：
-    auto、Chinese、English、Japanese、Korean、Spanish、French、German、Portuguese、Russian、Italian。
-11. language 可以与正常文字回复的语言不同。
-    例如：正常文字使用中文，但 voice text 使用日文时，language 填 Japanese，
-    并且 text 本身必须确实使用日文。
-12. 如果没有明确的语言表达意图，使用角色声音配置中的默认语言；如果默认语言为自动识别，则填写 auto。
-13. 不要因为可见文字使用中文，就强制让声音也使用中文。
+4. language 表示这一次真实声音实际朗读所使用的语言，只能填写：
+   auto、Chinese、English、Japanese、Korean、Spanish、French、German、Portuguese、Russian、Italian。
+5. language 可以与正常文字回复的语言不同。
+   例如：正常文字使用中文，但 voice text 使用日文时，language 填 Japanese，
+   并且 text 本身必须确实使用日文。
+6. 如果没有明确的语言表达意图，使用角色声音配置中的默认语言；如果默认语言为自动识别，则填写 auto。
+7. 不要因为可见文字使用中文，就强制让声音也使用中文。
+8. 不值得生成声音时，不要输出隐藏区块。
+9. 每轮最多输出一个隐藏区块。
+10. 不要向用户解释、提及或展示这些标记、JSON 字段或内部规则。
+
+${aiMayControlVoiceSettings
+    ? `
+11. emotion 只能是：happy、sad、angry、fearful、disgusted、surprised、calm、fluent、whisper。
+12. speed 只能是 0.5 到 2 之间的数字；推荐在 0.8 到 1.15 之间自然变化。
+13. pitch 只能是 -12 到 12 之间的数字；推荐小幅变化。
+`
+    : `
+11. 不要在 JSON 中生成 emotion、speed 或 pitch 字段。
+    这些声音表现参数由角色配置页面固定控制。
+`}
 
 ${getModelCapabilityInstruction(profile.minimax.modelId)}
 `;

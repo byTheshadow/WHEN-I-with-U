@@ -24,7 +24,6 @@ import {
 import VoicePreviewBox from './VoicePreviewBox';
 import VoiceExpressionGuidePanel from './VoiceExpressionGuidePanel';
 
-
 const updateMiniMax = (profile, patch) => ({
   ...profile,
   minimax: {
@@ -165,13 +164,35 @@ export default function VoiceProfilePanel({
             />
           </label>
 
-          {profile.aiMaySendVoice && (
-  <VoiceExpressionGuidePanel
-    value={profile}
-    onChange={onChange}
-  />
-)}
+          <label className="flex cursor-pointer items-center justify-between gap-4">
+            <div>
+              <span className="block text-xs font-semibold">
+                允许 AI 调整声音表现
+              </span>
 
+              <span className="mt-0.5 block text-[10px] leading-relaxed opacity-55">
+                开启后，AI 可以根据情绪临时调整语速、音调和情绪。关闭时始终使用下方固定配置。
+              </span>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={profile.aiMayControlVoiceSettings}
+              onChange={(event) => {
+                updateProfile({
+                  aiMayControlVoiceSettings: event.target.checked,
+                });
+              }}
+              className="h-4 w-4 accent-current"
+            />
+          </label>
+
+          {profile.aiMaySendVoice && (
+            <VoiceExpressionGuidePanel
+              value={profile}
+              onChange={onChange}
+            />
+          )}
 
           <div>
             <label className="mb-1 block opacity-60">
@@ -327,14 +348,13 @@ export default function VoiceProfilePanel({
               </option>
 
               {models.map((model) => (
-  <option key={model.id} value={model.id}>
-    {model.label}
-    {model.source === 'remote'
-      ? ' · 接口返回'
-      : ' · TTS 推荐'}
-  </option>
-))}
-
+                <option key={model.id} value={model.id}>
+                  {model.label}
+                  {model.source === 'remote'
+                    ? ' · 接口返回'
+                    : ' · TTS 推荐'}
+                </option>
+              ))}
             </select>
 
             {modelError && (

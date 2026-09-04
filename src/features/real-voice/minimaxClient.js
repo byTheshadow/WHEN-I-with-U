@@ -227,9 +227,28 @@ const buildSpeechPayload = ({
   voiceIntent,
 }) => {
   const config = profile.minimax;
+  const aiMayControlVoiceSettings = (
+    profile.aiMayControlVoiceSettings === true
+  );
 
-  const speed = Number(voiceIntent?.speed);
-  const pitch = Number(voiceIntent?.pitch);
+  const speed = aiMayControlVoiceSettings
+    ? Number(voiceIntent?.speed)
+    : Number(config.speed);
+
+  const pitch = aiMayControlVoiceSettings
+    ? Number(voiceIntent?.pitch)
+    : Number(config.pitch);
+
+  const emotion = aiMayControlVoiceSettings
+    ? (
+      voiceIntent?.emotion
+        || config.emotion
+        || 'calm'
+    )
+    : (
+      config.emotion
+        || 'calm'
+    );
 
   const payload = {
     model: config.modelId.trim(),
@@ -239,22 +258,21 @@ const buildSpeechPayload = ({
     voice_setting: {
       voice_id: config.voiceId.trim(),
 
-      // 自动语音使用主 AI 已校验的参数；
-      // 试听没有 voiceIntent，继续使用角色档案参数。
+      // 关闭 AI 控制时，始终使用角色配置中的语速。
       speed: Number.isFinite(speed)
         ? speed
-        : Number(config.speed) || 1,
+        : 1,
 
-      // 音量始终由角色设置控制，不交给文字 AI 任意改变。
+      // 音量始终由用户配置。
       vol: Number(config.volume) || 1,
 
+      // 关闭 AI 控制时，始终使用角色配置中的音调。
       pitch: Number.isFinite(pitch)
         ? pitch
-        : Number(config.pitch) || 0,
+        : 0,
 
-      emotion: voiceIntent?.emotion
-        || config.emotion
-        || 'calm',
+      // 关闭 AI 控制时，忽略 voiceIntent 中的情绪。
+      emotion,
     },
 
     audio_setting: {
@@ -267,28 +285,28 @@ const buildSpeechPayload = ({
     subtitle_enable: false,
   };
 
- const language = voiceIntent?.language
-  || config.language
-  || 'auto';
+  const language = voiceIntent?.language
+    || config.language
+    || 'auto';
 
-if (language !== 'auto') {
-  payload.language_boost = language;
-}
+  if (language !== 'auto') {
+    payload.language_boost = language;
+  }
 
   return payload;
 };
-
-
 
 export const synthesizeMiniMaxSpeech = async ({
   text,
   voiceProfile,
   voiceIntent,
 }) => {
-
   const profile = validateProfileForRequest(voiceProfile);
   const config = profile.minimax;
   const baseUrl = getActiveBaseUrl(profile);
+  const aiMayControlVoiceSettings = (
+    profile.aiMayControlVoiceSettings === true
+  );
 
   if (!text?.trim()) {
     throw new Error('没有可生成声音的文字。');
@@ -311,12 +329,11 @@ export const synthesizeMiniMaxSpeech = async ({
         method: 'POST',
         headers: createTtsHeaders(profile),
         body: JSON.stringify(
-        buildSpeechPayload({
-  text,
-  profile,
-  voiceIntent,
-}),
-
+          buildSpeechPayload({
+            text,
+            profile,
+            voiceIntent,
+          }),
         ),
       },
     );
@@ -377,18 +394,42 @@ export const synthesizeMiniMaxSpeech = async ({
     mimeType,
   );
 
+  const effectiveSpeed = aiMayControlVoiceSettings
+    ? (
+      Number.isFinite(Number(voiceIntent?.speed))
+        ? Number(voiceIntent.speed)
+        : Number(config.speed) || 1
+    )
+    : Number(config.speed) || 1;
+
+  const effectivePitch = aiMayControlVoiceSettings
+    ? (
+      Number.isFinite(Number(voiceIntent?.pitch))
+        ? Number(voiceIntent.pitch)
+        : Number(config.pitch) || 0
+    )
+    : Number(config.pitch) || 0;
+
+  const effectiveEmotion = aiMayControlVoiceSettings
+    ? (
+      voiceIntent?.emotion
+        || config.emotion
+        || 'calm'
+    )
+    : (
+      config.emotion
+        || 'calm'
+    );
+
   return {
-  audioBlob,
-  mimeType: audioBlob.type || mimeType,
-  provider: 'minimax',
-  modelId: config.modelId,
-  voiceId: config.voiceId,
-  language: config.language,
-  emotion: voiceIntent?.emotion || config.emotion || 'calm',
-  speed: voiceIntent?.speed ?? (Number(config.speed) || 1),
-pitch: voiceIntent?.pitch ?? (Number(config.pitch) || 0),
-
+    audioBlob,
+    mimeType: audioBlob.type || mimeType,
+    provider: 'minimax',
+    modelId: config.modelId,
+    voiceId: config.voiceId,
+    language: voiceIntent?.language || config.language,
+    emotion: effectiveEmotion,
+    speed: effectiveSpeed,
+    pitch: effectivePitch,
+  };
 };
-
-};
-
