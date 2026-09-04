@@ -560,13 +560,6 @@
   min-height: calc(100vh - 12rem);
 }
 
-.companionship-running-visual {
-  position: relative;
-  min-height: 38rem;
-  display: grid;
-  place-items: center;
-}
-
 .companionship-running-meta {
   position: absolute;
   top: 0;
@@ -1277,3 +1270,74 @@
   }
 }
 
+/* =========================================================
+   Fix: running page text must stay outside the record
+   ========================================================= */
+
+.companionship-running-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: auto;
+}
+
+.companionship-running-meta {
+  position: relative;
+  top: auto;
+  left: auto;
+  align-self: stretch;
+  width: 100%;
+  z-index: 10;
+}
+
+.companionship-focus-scene {
+  flex: 0 0 auto;
+  margin: clamp(4.5rem, 8vw, 6rem) auto 0;
+}
+
+.companionship-running-slogan {
+  position: relative;
+  z-index: 10;
+  left: auto;
+  bottom: auto;
+  width: auto;
+  max-width: 100%;
+  margin: 2rem auto 0;
+  transform: none;
+  text-align: center;
+}
+
+/* 移动端额外增加唱片与标题、文字之间的安全距离 */
+@media (max-width: 900px) {
+  .companionship-running-visual {
+    min-height: auto;
+  }
+
+  .companionship-focus-scene {
+    margin-top: 5rem;
+  }
+
+  .companionship-running-slogan {
+    margin-top: 1.8rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .companionship-running-visual {
+    min-height: auto;
+  }
+
+  .companionship-focus-scene {
+    width: min(76vw, 18rem);
+    margin-top: 4.5rem;
+  }
+
+  .companionship-running-slogan {
+    position: relative;
+    bottom: auto;
+    margin-top: 1.6rem;
+    font-size: 0.78rem;
+    line-height: 1.9;
+  }
+}
