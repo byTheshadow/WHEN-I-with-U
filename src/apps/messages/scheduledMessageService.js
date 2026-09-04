@@ -24,7 +24,9 @@ let isProcessingDueMessages = false;
 
 const getNowIso = () => new Date().toISOString();
 
-const normalizeText = (value) => String(value || '').trim();
+const normalizeText = (value) => (
+  String(value || '').trim()
+);
 
 const normalizeDelayMinutes = (value) => {
   const minutes = Number.parseInt(value, 10);
@@ -44,37 +46,51 @@ const normalizeDelayMinutes = (value) => {
 };
 
 const getMessageContentForContext = (message) => {
-  if (!message) return '';
+  if (!message) {
+    return '';
+  }
 
   if (message.type === 'sticker') {
     return `[发送了表情包：${
-      message.metadata?.name || message.content || '表情包'
+      message.metadata?.name ||
+      message.content ||
+      '表情包'
     }]`;
   }
 
   if (message.type === 'image') {
-    return `[发送了画面：${message.content || ''}]`;
+    return `[发送了画面：${
+      message.content || ''
+    }]`;
   }
 
   if (message.type === 'voice') {
-    return `[发送了语音：${message.content || ''}]`;
+    return `[发送了语音：${
+      message.content || ''
+    }]`;
   }
 
   if (message.type === 'transfer') {
     return `[发送了心意转账：${
       message.metadata?.amount || ''
-    }，留言：${message.content || ''}]`;
+    }，留言：${
+      message.content || ''
+    }]`;
   }
 
   if (message.type === 'gift') {
     return `[赠送了礼物：${
-      message.metadata?.name || message.content || ''
+      message.metadata?.name ||
+      message.content ||
+      ''
     }]`;
   }
 
   if (message.type === 'food') {
     return `[送来了餐食：${
-      message.metadata?.item || message.content || ''
+      message.metadata?.item ||
+      message.content ||
+      ''
     }]`;
   }
 
@@ -91,22 +107,29 @@ const getMessageContentForContext = (message) => {
  * 从 AI 原始回复中分离预约指令。
  *
  * 返回：
- * - content: 可直接展示给用户的正文
- * - schedule: AI 有效预约时的计划数据，否则为 null
+ * - content：可直接展示给用户的正文
+ * - schedule：AI 有效预约时的计划数据，否则为 null
  */
-export const extractScheduledMessageDirective = (rawText) => {
+export const extractScheduledMessageDirective = (
+  rawText
+) => {
   const originalText = String(rawText || '');
   let matchedSchedule = null;
 
   const content = originalText
     .replace(
       SCHEDULE_PATTERN,
-      (fullMatch, delayValue, rawPayload = '') => {
+      (
+        fullMatch,
+        delayValue,
+        rawPayload = ''
+      ) => {
         if (matchedSchedule) {
           return '';
         }
 
-        const delayMinutes = normalizeDelayMinutes(delayValue);
+        const delayMinutes =
+          normalizeDelayMinutes(delayValue);
 
         if (!delayMinutes) {
           console.warn(
@@ -159,8 +182,7 @@ export const extractScheduledMessageDirective = (rawText) => {
 };
 
 /**
- * 普通 AI 对话回复成功后调用。
- * 每个 chat 只保留一条 pending 预约；新计划会替代旧计划。
+ * 创建预约消息。
  */
 export const createScheduledMessage = async ({
   chatId,
@@ -174,7 +196,8 @@ export const createScheduledMessage = async ({
     return null;
   }
 
-  const normalizedDelay = normalizeDelayMinutes(delayMinutes);
+  const normalizedDelay =
+    normalizeDelayMinutes(delayMinutes);
 
   if (!normalizedDelay) {
     return null;
@@ -198,7 +221,8 @@ export const createScheduledMessage = async ({
   const nowIso = getNowIso();
 
   const scheduledFor = new Date(
-    Date.now() + normalizedDelay * 60 * 1000
+    Date.now() +
+    normalizedDelay * 60 * 1000
   ).toISOString();
 
   let scheduleId = null;
@@ -207,8 +231,10 @@ export const createScheduledMessage = async ({
     'rw',
     db.scheduledMessages,
     async () => {
-      // 不删除历史计划，以便保留原因；
-      // 仅取消尚未执行的旧 follow_up 计划。
+      /*
+       * 新建 follow_up 时，只取消同一聊天中尚未执行的旧 follow_up。
+       * 历史记录仍然保留在归档中。
+       */
       if (
         normalizedScheduleType ===
         SCHEDULE_TYPES.FOLLOW_UP
@@ -225,11 +251,15 @@ export const createScheduledMessage = async ({
           ))
           .modify({
             status: 'cancelled',
-            cancelledReason: 'replaced_by_new_follow_up',
+            cancelledReason:
+              'replaced_by_new_follow_up',
             updatedAt: nowIso
           });
       }
 
+      /*
+       * 必须接住 add() 返回的主键。
+       */
       scheduleId = await db.scheduledMessages.add({
         chatId,
         characterId,
@@ -247,19 +277,21 @@ export const createScheduledMessage = async ({
     }
   );
 
-  console.log('[ScheduledMessage] 已创建对话预约：', {
-    scheduleId,
-    chatId,
-    delayMinutes: normalizedDelay,
-    scheduledFor
-  });
+  console.log(
+    '[ScheduledMessage] 已创建对话预约：',
+    {
+      scheduleId,
+      chatId,
+      delayMinutes: normalizedDelay,
+      scheduledFor
+    }
+  );
 
   return scheduleId;
 };
 
 /**
- * 用户在同一个聊天窗重新发言，原本“稍后询问”的语境通常已经失效。
- * 所以取消该聊天窗所有待执行预约。
+ * 用户重新发言后，取消该聊天中需要因用户回复而收回的预约。
  */
 export const cancelPendingScheduledMessagesForChat = async (
   chatId,
@@ -274,17 +306,22 @@ export const cancelPendingScheduledMessagesForChat = async (
   return db.scheduledMessages
     .where('chatId')
     .equals(chatId)
-    .and((item) => (
-      item.status === 'pending' &&
-      (
+    .and((item) => {
+      const cancelPolicy =
         item.cancelPolicy ||
         (
-          item.scheduleType === SCHEDULE_TYPES.REMINDER
+          item.scheduleType ===
+          SCHEDULE_TYPES.REMINDER
             ? CANCEL_POLICIES.KEEP
             : CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
-        )
-      ) === CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
-    ))
+        );
+
+      return (
+        item.status === 'pending' &&
+        cancelPolicy ===
+          CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
+      );
+    })
     .modify({
       status: 'cancelled',
       cancelledReason: reason,
@@ -292,19 +329,91 @@ export const cancelPendingScheduledMessagesForChat = async (
     });
 };
 
+/**
+ * 从不同兼容 API 的响应结构中提取文本。
+ *
+ * 主要兼容：
+ * 1. choices[0].message.content 为字符串
+ * 2. choices[0].message.content 为数组
+ * 3. choices[0].message.content 为对象
+ * 4. choices[0].text
+ * 5. output_text
+ */
+const extractTextFromApiResponse = (data) => {
+  const choice = data?.choices?.[0];
+  const message = choice?.message;
+
+  const rawContent =
+    message?.content ??
+    choice?.text ??
+    data?.output_text ??
+    data?.output?.[0]?.content?.[0]?.text ??
+    '';
+
+  if (typeof rawContent === 'string') {
+    return normalizeText(rawContent);
+  }
+
+  if (Array.isArray(rawContent)) {
+    return normalizeText(
+      rawContent
+        .map((part) => {
+          if (typeof part === 'string') {
+            return part;
+          }
+
+          if (!part || typeof part !== 'object') {
+            return '';
+          }
+
+          return (
+            part.text ||
+            part.content ||
+            ''
+          );
+        })
+        .join('')
+    );
+  }
+
+  if (
+    rawContent &&
+    typeof rawContent === 'object'
+  ) {
+    return normalizeText(
+      rawContent.text ||
+      rawContent.content ||
+      ''
+    );
+  }
+
+  return '';
+};
+
+/**
+ * 请求预约消息正文。
+ *
+ * 请求格式与 aiService.js 中的普通 Chat Completions
+ * 请求保持一致。
+ */
 const fetchScheduledMessageCompletion = async ({
   chat,
   character,
   scheduledMessage,
   historyMessages
 }) => {
-  const apiSettings = await db.settings.get('apiConfig');
+  const apiSettings = await db.settings.get(
+    'apiConfig'
+  );
+
   const apiConfig = apiSettings?.value || {};
 
   if (!apiConfig.baseUrl || !apiConfig.apiKey) {
     return {
       error: true,
-      code: 'CONFIG_MISSING'
+      code: 'CONFIG_MISSING',
+      message:
+        '请先配置有效的 API Base URL 与 API Key。'
     };
   }
 
@@ -312,9 +421,11 @@ const fetchScheduledMessageCompletion = async ({
     .filter((message) => (
       message &&
       message.type !== 'error' &&
-      ['user', 'character'].includes(message.sender)
+      ['user', 'character'].includes(
+        message.sender
+      )
     ))
-    .slice(-12)
+    .slice(-15)
     .map((message) => ({
       role: message.sender === 'user'
         ? 'user'
@@ -324,19 +435,24 @@ const fetchScheduledMessageCompletion = async ({
     .filter((message) => message.content);
 
   const userName = normalizeText(
-    chat.userName || character.userName || '你'
+    chat.userName ||
+    character.userName ||
+    '你'
   );
 
   const now = new Date();
 
-  const nowText = now.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  const nowText = now.toLocaleString(
+    'zh-CN',
+    {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit'
+    }
+  );
 
   const systemPrompt = `你正在扮演用户专属的数字伴侣：${character.name}。
 
@@ -350,24 +466,28 @@ const fetchScheduledMessageCompletion = async ({
 ${nowText}
 
 【稍后联系的原始意图】
-${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
+${
+  scheduledMessage.intent ||
+  '自然地延续之前尚未说完的关心。'
+}
 
 【任务】
 你此前决定在此时主动联系用户。请结合当前时间、角色设定和近期对话，自然写一条短消息。
 
 严格要求：
 1. 以角色第一人称表达，不自称 AI。
-2. 不提及系统、定时器、预约、指令、API、模型或任何技术实现。
-3. 不要说“系统提醒我”“我被安排在这个时间联系你”。
+2. 不提及系统、定时器、预约、指令、API、模型或技术实现。
+3. 不要说“系统提醒我”或“我被安排在这个时间联系你”。
 4. 不使用 Emoji，不使用 Markdown，不加标题，不加发件人前缀。
 5. 只输出一条完整、自然的中文消息，控制在 100 字以内。
-6. 不要输出 [SCHEDULE_MESSAGE] 或任何方括号指令。
-7. 不要描述已经发生的现实肢体接触；保持在线上陪伴语境。
-8. 若近期对话已经明显不适合原本意图，请自然地表达一句不过度打扰的关心即可。`;
+6. 不要输出 [SCHEDULE_MESSAGE] 或其他方括号指令。
+7. 不要描述已经发生的现实肢体接触，保持在线上陪伴语境。
+8. 若近期对话已经明显不适合原本意图，请自然表达一句不过度打扰的关心即可。`;
 
   try {
-    const baseUrl = String(apiConfig.baseUrl)
-      .replace(/\/$/, '');
+    const baseUrl = String(
+      apiConfig.baseUrl
+    ).replace(/\/$/, '');
 
     const response = await fetch(
       `${baseUrl}/chat/completions`,
@@ -375,10 +495,12 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiConfig.apiKey}`
+          Authorization:
+            `Bearer ${apiConfig.apiKey}`
         },
         body: JSON.stringify({
-          model: apiConfig.model || 'gpt-3.5-turbo',
+          model:
+            apiConfig.model || 'gpt-3.5-turbo',
           messages: [
             {
               role: 'system',
@@ -393,70 +515,71 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
     );
 
     if (!response.ok) {
+      let errorDetail =
+        response.statusText ||
+        '请求未成功';
+
+      try {
+        const errorData =
+          await response.json();
+
+        errorDetail =
+          errorData?.error?.message ||
+          errorData?.message ||
+          errorDetail;
+      } catch {
+        // 某些服务会返回 HTML 或纯文本错误页。
+      }
+
       return {
         error: true,
-        code: `HTTP_${response.status}`
+        code: `HTTP_${response.status}`,
+        message: errorDetail
       };
     }
 
-   const data = await response.json();
-const choice = data?.choices?.[0];
+    const data = await response.json();
+    const choice = data?.choices?.[0];
+    const message = choice?.message;
+    const content =
+      extractTextFromApiResponse(data);
 
-const rawContent =
-  choice?.message?.content ??
-  choice?.text ??
-  data?.output_text ??
-  data?.output?.[0]?.content?.[0]?.text ??
-  '';
-
-const content = Array.isArray(rawContent)
-  ? rawContent
-      .map((part) => {
-        if (typeof part === 'string') {
-          return part;
+    if (choice?.finish_reason === 'length') {
+      console.warn(
+        '[ScheduledMessage] 到期消息因输出长度限制提前结束。',
+        {
+          content
         }
-
-        return part?.text || part?.content || '';
-      })
-      .join('')
-  : typeof rawContent === 'object'
-    ? rawContent?.text ||
-      rawContent?.content ||
-      ''
-    : rawContent;
-
-const normalizedContent = normalizeText(content);
-
-if (choice?.finish_reason === 'length') {
-  console.warn(
-    '[ScheduledMessage] 到期消息因输出长度限制提前结束。',
-    {
-      content: normalizedContent
+      );
     }
-  );
-}
 
-if (!normalizedContent) {
-  console.warn(
-    '[ScheduledMessage] API 返回成功但未找到文本内容：',
-    {
-      topLevelKeys: Object.keys(data || {}),
-      choice,
-      outputText: data?.output_text
+    if (!content) {
+      console.warn(
+        '[ScheduledMessage] API 返回成功但未找到文本内容：',
+        {
+          topLevelKeys: Object.keys(data || {}),
+          choiceKeys: Object.keys(choice || {}),
+          messageKeys: Object.keys(message || {}),
+          contentType: typeof message?.content,
+          contentIsArray:
+            Array.isArray(message?.content),
+          finishReason:
+            choice?.finish_reason
+        }
+      );
+
+      return {
+        error: true,
+        code: 'EMPTY_RESPONSE',
+        message:
+          'AI 返回内容为空，请检查当前模型或 API 服务状态。'
+      };
     }
-  );
 
-  return {
-    error: true,
-    code: 'EMPTY_RESPONSE'
-  };
-}
-
-return {
-  error: false,
-  content: normalizedContent
-};
-
+    return {
+      error: false,
+      content
+    };
   } catch (error) {
     console.error(
       '[ScheduledMessage] 到期消息请求失败：',
@@ -465,7 +588,8 @@ return {
 
     return {
       error: true,
-      code: 'NETWORK_ERROR'
+      code: 'NETWORK_ERROR',
+      message: error?.message || '网络请求失败'
     };
   }
 };
@@ -473,10 +597,12 @@ return {
 /**
  * 抢占一条到期预约。
  *
- * 返回实际被抢占的最新记录，而不是简单返回 boolean，
- * 确保后续失败处理读取到本次递增后的 attemptCount。
+ * 返回递增 attemptCount 后的最新记录，
+ * 不返回简单 boolean。
  */
-const claimDueScheduledMessage = async (scheduleId) => {
+const claimDueScheduledMessage = async (
+  scheduleId
+) => {
   const nowIso = getNowIso();
   let claimedMessage = null;
 
@@ -484,9 +610,8 @@ const claimDueScheduledMessage = async (scheduleId) => {
     'rw',
     db.scheduledMessages,
     async () => {
-      const current = await db.scheduledMessages.get(
-        scheduleId
-      );
+      const current =
+        await db.scheduledMessages.get(scheduleId);
 
       if (!current || current.status !== 'pending') {
         return;
@@ -527,10 +652,22 @@ const claimDueScheduledMessage = async (scheduleId) => {
   return claimedMessage;
 };
 
+/**
+ * 根据实际执行次数决定回到 pending 还是进入 failed。
+ *
+ * attemptCount 在 claim 时递增，因此：
+ * - 第 1 次失败：pending
+ * - 第 2 次失败：pending
+ * - 第 3 次失败：failed
+ */
 const handleScheduledMessageFailure = async (
   scheduledMessage,
   reason
 ) => {
+  if (!scheduledMessage?.id) {
+    return;
+  }
+
   const attemptCount = Number(
     scheduledMessage.attemptCount || 0
   );
@@ -558,6 +695,10 @@ const handleScheduledMessageFailure = async (
 const executeScheduledMessage = async (
   scheduledMessage
 ) => {
+  /*
+   * 这里必须使用 claim 返回的最新对象，
+   * 因为它包含本次递增后的 attemptCount。
+   */
   const claimedScheduledMessage =
     await claimDueScheduledMessage(
       scheduledMessage.id
@@ -599,7 +740,8 @@ const executeScheduledMessage = async (
     ).getTime();
 
     const cancelPolicy =
-      claimedScheduledMessage.cancelPolicy || (
+      claimedScheduledMessage.cancelPolicy ||
+      (
         claimedScheduledMessage.scheduleType ===
         SCHEDULE_TYPES.REMINDER
           ? CANCEL_POLICIES.KEEP
@@ -636,7 +778,8 @@ const executeScheduledMessage = async (
       await fetchScheduledMessageCompletion({
         chat,
         character,
-        scheduledMessage: claimedScheduledMessage,
+        scheduledMessage:
+          claimedScheduledMessage,
         historyMessages: recentMessages
       });
 
@@ -649,7 +792,9 @@ const executeScheduledMessage = async (
       return;
     }
 
-    const content = normalizeText(result.content);
+    const content = normalizeText(
+      result.content
+    );
 
     if (!content) {
       await handleScheduledMessageFailure(
@@ -665,7 +810,8 @@ const executeScheduledMessage = async (
     const metadata = {
       isAutoGenerated: true,
       source: 'scheduled-message',
-      scheduledMessageId: claimedScheduledMessage.id
+      scheduledMessageId:
+        claimedScheduledMessage.id
     };
 
     let messageId = null;
@@ -726,6 +872,10 @@ const executeScheduledMessage = async (
       );
     }
 
+    /*
+     * 页面当前由 Service Worker 控制且用户已经授权通知时，
+     * 显示本地系统通知。
+     */
     if (
       typeof window !== 'undefined' &&
       'Notification' in window &&
@@ -740,7 +890,8 @@ const executeScheduledMessage = async (
           character.name || '消息提醒',
           {
             body: content.slice(0, 80),
-            tag: `scheduled-${claimedScheduledMessage.id}`,
+            tag:
+              `scheduled-${claimedScheduledMessage.id}`,
             icon: '/icon-192.png'
           }
         );
@@ -755,7 +906,8 @@ const executeScheduledMessage = async (
     console.log(
       '[ScheduledMessage] 已发送到期预约消息：',
       {
-        scheduleId: claimedScheduledMessage.id,
+        scheduleId:
+          claimedScheduledMessage.id,
         messageId,
         chatId: chat.id
       }
@@ -773,20 +925,29 @@ const executeScheduledMessage = async (
   }
 };
 
+/**
+ * 恢复长期卡在 processing 的预约。
+ */
 const recoverStaleProcessingScheduledMessages =
   async () => {
     const nowIso = getNowIso();
 
     const staleThreshold = new Date(
-      Date.now() - STALE_PROCESSING_TIMEOUT_MS
+      Date.now() -
+      STALE_PROCESSING_TIMEOUT_MS
     ).toISOString();
 
     const staleItems = await db.scheduledMessages
       .where('status')
       .equals('processing')
-      .and((item) => (
-        item.updatedAt <= staleThreshold
-      ))
+      .and((item) => {
+        const updatedAt =
+          item.updatedAt ||
+          item.createdAt ||
+          '';
+
+        return updatedAt <= staleThreshold;
+      })
       .toArray();
 
     for (const item of staleItems) {
@@ -809,6 +970,16 @@ const recoverStaleProcessingScheduledMessages =
             }
       );
     }
+
+    if (staleItems.length > 0) {
+      console.warn(
+        '[ScheduledMessage] 已恢复卡住的预约记录：',
+        staleItems.map((item) => ({
+          id: item.id,
+          attemptCount: item.attemptCount
+        }))
+      );
+    }
   };
 
 export const checkAndSendDueScheduledMessages =
@@ -820,6 +991,9 @@ export const checkAndSendDueScheduledMessages =
     isProcessingDueMessages = true;
 
     try {
+      /*
+       * 先恢复卡死记录，再查询 pending。
+       */
       await recoverStaleProcessingScheduledMessages();
 
       const nowIso = getNowIso();
@@ -832,7 +1006,9 @@ export const checkAndSendDueScheduledMessages =
         ))
         .sortBy('scheduledFor');
 
-      // 一次只处理最多两条，避免应用重新打开时出现大量突发消息。
+      /*
+       * 一轮最多处理两条，避免重新打开应用时突发发送大量消息。
+       */
       for (
         const scheduledMessage of
         dueMessages.slice(0, 2)
@@ -852,7 +1028,10 @@ export const checkAndSendDueScheduledMessages =
   };
 
 const handleWakeUp = () => {
-  if (document.visibilityState === 'visible') {
+  if (
+    typeof document !== 'undefined' &&
+    document.visibilityState === 'visible'
+  ) {
     void checkAndSendDueScheduledMessages();
   }
 };
@@ -873,8 +1052,15 @@ export const startScheduledMessageScheduler = () => {
     handleWakeUp
   );
 
-  window.addEventListener('focus', handleWakeUp);
-  window.addEventListener('pageshow', handleWakeUp);
+  window.addEventListener(
+    'focus',
+    handleWakeUp
+  );
+
+  window.addEventListener(
+    'pageshow',
+    handleWakeUp
+  );
 
   console.log(
     '[ScheduledMessage] 对话预约调度器已启动。'
@@ -894,8 +1080,15 @@ export const stopScheduledMessageScheduler = () => {
     handleWakeUp
   );
 
-  window.removeEventListener('focus', handleWakeUp);
-  window.removeEventListener('pageshow', handleWakeUp);
+  window.removeEventListener(
+    'focus',
+    handleWakeUp
+  );
+
+  window.removeEventListener(
+    'pageshow',
+    handleWakeUp
+  );
 
   console.log(
     '[ScheduledMessage] 对话预约调度器已停止。'
