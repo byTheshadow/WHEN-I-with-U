@@ -803,7 +803,8 @@ export const CompanionshipPage = ({
         </section>
       </div>
     )}
-  </main>
-);
+      </main>
+  );
+};
 
 export default CompanionshipPage;
