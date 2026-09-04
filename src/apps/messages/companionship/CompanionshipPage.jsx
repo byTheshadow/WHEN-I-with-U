@@ -26,9 +26,10 @@ import db from '../../../db';
 
 import {
   createCompanionshipSession,
-  getLatestCompanionship,
+  getRunningCompanionship,
   stopCompanionship,
 } from './companionshipService';
+
 
 
 import {
@@ -320,6 +321,15 @@ export const CompanionshipPage = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [showAuthorization, setShowAuthorization] = useState(false);
   const [clock, setClock] = useState(Date.now());
+  
+  const resetCompanionshipForm = () => {
+  setGoal('');
+  setDurationMinutes(30);
+  setIntervalMinutes(5);
+  setNotificationEnabled(true);
+};
+
+
 useEffect(() => {
   if (!session?.id || session.status !== 'running') {
     return undefined;
@@ -415,33 +425,42 @@ const appendEvent = async (
 };
 
 
-  useEffect(() => {
-    if (!selectedChatId) {
-      setSession(null);
-      return undefined;
-    }
+ useEffect(() => {
+  if (!selectedChatId) {
+    setSession(null);
+    setEvents([]);
+    return undefined;
+  }
 
-    let cancelled = false;
+  // 切换聊天框时，先清除上一个聊天框的页面状态
+  setSession(null);
+  setEvents([]);
 
-    getLatestCompanionship(selectedChatId)
-  .then((latest) => {
-    if (!cancelled) {
-      setSession(latest);
-    }
-  })
+  let cancelled = false;
 
-      .catch((error) => {
-        console.error('[Companionship] load session failed:', error);
+  getRunningCompanionship(selectedChatId)
+    .then((running) => {
+      if (cancelled) return;
 
-        if (!cancelled) {
-          setSession(null);
-        }
-      });
+      setSession(running || null);
+    })
+    .catch((error) => {
+      console.error(
+        '[Companionship] load running session failed:',
+        error,
+      );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedChatId]);
+      if (!cancelled) {
+        setSession(null);
+        setEvents([]);
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedChatId]);
+
 
   useEffect(() => {
     if (!session?.id) {
@@ -472,16 +491,20 @@ const appendEvent = async (
     };
   }, [session?.id]);
 
-  useEffect(() => {
-    if (!session) return;
+ useEffect(() => {
+  if (!session) {
+    resetCompanionshipForm();
+    return;
+  }
 
-    setGoal(session.goal || '');
-    setDurationMinutes(session.durationMinutes || 30);
-    setIntervalMinutes(session.intervalMinutes || 5);
-    setNotificationEnabled(
-      session.notificationEnabled !== false,
-    );
-  }, [session?.id]);
+  setGoal(session.goal || '');
+  setDurationMinutes(session.durationMinutes || 30);
+  setIntervalMinutes(session.intervalMinutes || 5);
+  setNotificationEnabled(
+    session.notificationEnabled !== false,
+  );
+}, [session?.id]);
+
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -619,12 +642,15 @@ const appendEvent = async (
     setShowAuthorization(true);
   };
 
-  const handleConfirmStart = async () => {
-    setIsLoading(true);
-    setErrorMessage('');
 
-    try {
-      const chatId = selectedChat?.id;
+const handleConfirmStart = async () => {
+  setIsLoading(true);
+  setErrorMessage('');
+  setEvents([]);
+
+  try {
+    const chatId = selectedChat?.id;
+
 
       if (
         chatId === undefined
@@ -680,10 +706,12 @@ const appendEvent = async (
 };
 
 
-  const handleExitFinishedSession = () => {
+const handleExitFinishedSession = () => {
   setSession(null);
   setEvents([]);
   setErrorMessage('');
+  setShowAuthorization(false);
+  resetCompanionshipForm();
 };
 
 
@@ -786,8 +814,17 @@ const isFinished = (
               <select
                 value={selectedChatId}
                 onChange={(event) => {
-                  setSelectedChatId(event.target.value);
-                }}
+  const nextChatId = event.target.value;
+
+  setSelectedChatId(nextChatId);
+  setSession(null);
+  setEvents([]);
+  setErrorMessage('');
+  setShowAuthorization(false);
+
+  resetCompanionshipForm();
+}}
+
               >
                 <option value="">请选择聊天框</option>
 
