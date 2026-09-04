@@ -147,63 +147,93 @@ export const createCompanionshipSession = async ({
     notificationEnabled,
   });
 
-  const existing = await getRunningCompanionship(actualChatId);
-
-  if (existing) {
-    throw new Error('这个聊天框已经有一段正在进行的陪伴。');
-  }
+  /*
+   * 先在事务外清理过期但仍然标记为 running 的旧会话。
+   * 不能在下面的事务中调用 getRunningCompanionship，
+   * 因为它发现过期会话后会调用 stopCompanionship，产生额外写操作。
+   */
+  await completeExpiredCompanionships();
 
   const startedAt = new Date();
+
   const endsAt = new Date(
     startedAt.getTime() + settings.durationMinutes * 60 * 1000,
   );
+
   const nextTriggerAt = new Date(
     startedAt.getTime() + settings.intervalMinutes * 60 * 1000,
   );
 
   const createdAt = nowIso();
-  const previousKeepAlive = chat.keepAlive === true;
 
-  const session = {
-    chatId: actualChatId,
-    characterId: actualCharacterId,
+  /*
+   * 将“检查运行中的会话”和“创建新会话、更新聊天状态”
+   * 放进同一个 Dexie 写事务，避免并发创建时同时通过检查。
+   */
+  const session = await db.transaction(
+    'rw',
+    db.companionshipSessions,
+    db.chats,
+    async () => {
+      const sessionsForChat = await db.companionshipSessions
+        .where('chatId')
+        .equals(actualChatId)
+        .toArray();
 
-    goal: settings.goal,
-    durationMinutes: settings.durationMinutes,
-    intervalMinutes: settings.intervalMinutes,
-    notificationEnabled: settings.notificationEnabled,
+      const existing = sessionsForChat.find(
+        (sessionItem) => sessionItem.status === 'running',
+      );
 
-    responseMode: 'auto',
-    mcpAuthorizationGranted: true,
-    mcpAuthorizationGrantedAt: createdAt,
+      if (existing) {
+        throw new Error('这个聊天框已经有一段正在进行的陪伴。');
+      }
 
-    previousKeepAlive,
-    keepAliveEnabledByCompanionship: true,
+      const previousKeepAlive = chat.keepAlive === true;
 
-    status: 'running',
-    startedAt: startedAt.toISOString(),
-    endsAt: endsAt.toISOString(),
-    nextTriggerAt: nextTriggerAt.toISOString(),
+      const newSession = {
+        chatId: actualChatId,
+        characterId: actualCharacterId,
 
-    lastTriggeredAt: null,
-    lastDecision: null,
-    lastError: null,
+        goal: settings.goal,
+        durationMinutes: settings.durationMinutes,
+        intervalMinutes: settings.intervalMinutes,
+        notificationEnabled: settings.notificationEnabled,
 
-    createdAt,
-    updatedAt: createdAt,
-  };
+        responseMode: 'auto',
+        mcpAuthorizationGranted: true,
+        mcpAuthorizationGrantedAt: createdAt,
 
-  const id = await db.companionshipSessions.add(session);
+        previousKeepAlive,
+        keepAliveEnabledByCompanionship: true,
 
-  await db.chats.update(actualChatId, {
-    keepAlive: true,
-    updatedAt: createdAt,
-  });
+        status: 'running',
+        startedAt: startedAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        nextTriggerAt: nextTriggerAt.toISOString(),
 
-  return {
-    ...session,
-    id,
-  };
+        lastTriggeredAt: null,
+        lastDecision: null,
+        lastError: null,
+
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      const id = await db.companionshipSessions.add(newSession);
+
+      await db.chats.update(actualChatId, {
+        keepAlive: true,
+        updatedAt: createdAt,
+      });
+
+      return {
+        ...newSession,
+        id,
+      };
+    },
+  );
+
+  return session;
 };
 
 export const updateCompanionshipSession = async (id, changes = {}) => {
@@ -241,10 +271,23 @@ export const stopCompanionship = async (
     && session.chatId !== undefined
     && session.chatId !== null
   ) {
-    await db.chats.update(session.chatId, {
-      keepAlive: session.previousKeepAlive === true,
-      updatedAt: nowIso(),
-    });
+    /*
+     * 只有当前 keepAlive 仍然是陪伴开启时设置的 true，
+     * 才说明用户在陪伴期间没有修改过该设置，此时才恢复原值。
+     *
+     * 如果用户已经手动关闭 keepAlive，当前值会是 false，
+     * 此时跳过恢复，避免覆盖用户的手动操作。
+     */
+    const currentChat = await db.chats.get(session.chatId);
+
+    const stillCompanionshipManaged = currentChat?.keepAlive === true;
+
+    if (stillCompanionshipManaged) {
+      await db.chats.update(session.chatId, {
+        keepAlive: session.previousKeepAlive === true,
+        updatedAt: nowIso(),
+      });
+    }
   }
 
   return true;
@@ -318,6 +361,7 @@ export const completeExpiredCompanionships = async () => {
     .toArray();
 
   const now = Date.now();
+
   const expired = runningSessions.filter((session) => (
     session.endsAt
     && new Date(session.endsAt).getTime() <= now
