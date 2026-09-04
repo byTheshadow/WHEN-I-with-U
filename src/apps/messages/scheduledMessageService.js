@@ -399,30 +399,64 @@ ${scheduledMessage.intent || '自然地延续之前尚未说完的关心。'}
       };
     }
 
-    const data = await response.json();
-    const choice = data?.choices?.[0];
-    const content = normalizeText(
-      choice?.message?.content
-    );
+   const data = await response.json();
+const choice = data?.choices?.[0];
 
-    if (choice?.finish_reason === 'length') {
-      console.warn(
-        '[ScheduledMessage] 到期消息因输出长度限制提前结束。',
-        { content }
-      );
+const rawContent =
+  choice?.message?.content ??
+  choice?.text ??
+  data?.output_text ??
+  data?.output?.[0]?.content?.[0]?.text ??
+  '';
+
+const content = Array.isArray(rawContent)
+  ? rawContent
+      .map((part) => {
+        if (typeof part === 'string') {
+          return part;
+        }
+
+        return part?.text || part?.content || '';
+      })
+      .join('')
+  : typeof rawContent === 'object'
+    ? rawContent?.text ||
+      rawContent?.content ||
+      ''
+    : rawContent;
+
+const normalizedContent = normalizeText(content);
+
+if (choice?.finish_reason === 'length') {
+  console.warn(
+    '[ScheduledMessage] 到期消息因输出长度限制提前结束。',
+    {
+      content: normalizedContent
     }
+  );
+}
 
-    if (!content) {
-      return {
-        error: true,
-        code: 'EMPTY_RESPONSE'
-      };
+if (!normalizedContent) {
+  console.warn(
+    '[ScheduledMessage] API 返回成功但未找到文本内容：',
+    {
+      topLevelKeys: Object.keys(data || {}),
+      choice,
+      outputText: data?.output_text
     }
+  );
 
-    return {
-      error: false,
-      content
-    };
+  return {
+    error: true,
+    code: 'EMPTY_RESPONSE'
+  };
+}
+
+return {
+  error: false,
+  content: normalizedContent
+};
+
   } catch (error) {
     console.error(
       '[ScheduledMessage] 到期消息请求失败：',
