@@ -183,25 +183,41 @@ export const AlmanacApp = ({ onBackHub }) => {
 
     if (section === 'settings') {
       setShowSettings(true);
+
+      window.setTimeout(() => {
+        document
+          .querySelector('[data-almanac-section="settings"]')
+          ?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+      }, 30);
+
       return;
     }
 
-    const target = document.querySelector(
-      `[data-almanac-section="${section}"]`
-    );
-
-    target?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
+    document
+      .querySelector(`[data-almanac-section="${section}"]`)
+      ?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
   };
 
   return (
     <main className="almanac-app">
       <div className="almanac-grain" aria-hidden="true" />
-      <div className="almanac-frame">
-        <div className="almanac-corner almanac-corner-top" />
-        <div className="almanac-corner almanac-corner-bottom" />
+
+      <div className="almanac-content">
+        <div
+          className="almanac-corner almanac-corner-top"
+          aria-hidden="true"
+        />
+
+        <div
+          className="almanac-corner almanac-corner-bottom"
+          aria-hidden="true"
+        />
 
         <header className="almanac-utility-bar">
           <button
@@ -322,6 +338,7 @@ export const AlmanacApp = ({ onBackHub }) => {
                   <p className="almanac-eyebrow">
                     A QUIET RECORD
                   </p>
+
                   <h2>这里留下过</h2>
                 </div>
 
