@@ -3586,16 +3586,6 @@ db.version(34).stores({
   newspapers: '++id, date, characterId, createdAt',
   marginNotes: '++id, date, characterId, language, createdAt',
 
-  companionshipSessions: `
-    ++id,
-    chatId,
-    characterId,
-    status,
-    nextTriggerAt,
-    endsAt,
-    updatedAt
-  `,
-
   companionshipTurns: `
     ++id,
     sessionId,
@@ -3614,33 +3604,6 @@ db.version(34).stores({
     endsAt,
     updatedAt
   `,
-  companionshipSessions: `
-    ++id,
-    chatId,
-    characterId,
-    status,
-    nextTriggerAt,
-    endsAt,
-    updatedAt
-  `,
-  companionshipEvents: `
-    ++id,
-    sessionId,
-    chatId,
-    type,
-    createdAt,
-    timestamp
-  `,
-   companionshipSessions: `
-    ++id,
-    chatId,
-    characterId,
-    status,
-    nextTriggerAt,
-    endsAt,
-    updatedAt
-  `,
-
   companionshipEvents: `
     ++id,
     sessionId,
