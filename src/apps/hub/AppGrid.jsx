@@ -14,6 +14,7 @@ import {
   Ticket,
   MailOpen,
   Clock,
+  CalendarClock,
   Newspaper,
   Feather,
   ArrowUpRight

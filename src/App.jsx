@@ -31,6 +31,9 @@ import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
 import MemoryApp from './apps/memory/MemoryApp';
 import NewspaperApp from './apps/newspaper/NewspaperApp';
 import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
+import AlmanacApp from './apps/almanac/AlmanacApp';
+
+
 
 import {
   consumeMcpOAuthCallback,
@@ -65,6 +68,13 @@ import {
   startScheduledMessageScheduler,
   stopScheduledMessageScheduler
 } from './apps/messages/scheduledMessageService';
+
+import {
+  checkAlmanacGreetings,
+  startAlmanacGreetingScheduler,
+  stopAlmanacGreetingScheduler,
+} from './apps/almanac/services/almanacGreetingService';
+
 
 import {
   startParallelOrbitScheduler,
@@ -106,6 +116,7 @@ const REGISTERED_APPS = [
   'ephemera',
   'askbox',
   'rhythm',
+  'almanac',
   'memory',
   'newspaper',
   'margin-notes'
@@ -191,6 +202,54 @@ export const App = () => {
 
     void finishOAuthCallback();
   }, []);
+
+  
+useEffect(() => {
+  const handleAlmanacWake = () => {
+    void checkAlmanacGreetings();
+  };
+
+  // 启动后立即检查一次，并开始低频检查
+  startAlmanacGreetingScheduler();
+
+  // 页面重新获得焦点时检查
+  window.addEventListener(
+    'focus',
+    handleAlmanacWake
+  );
+
+  // 浏览器页面从缓存恢复时检查
+  window.addEventListener(
+    'pageshow',
+    handleAlmanacWake
+  );
+
+  // 页面从后台切回前台时检查
+  document.addEventListener(
+    'visibilitychange',
+    handleAlmanacWake
+  );
+
+  return () => {
+    stopAlmanacGreetingScheduler();
+
+    window.removeEventListener(
+      'focus',
+      handleAlmanacWake
+    );
+
+    window.removeEventListener(
+      'pageshow',
+      handleAlmanacWake
+    );
+
+    document.removeEventListener(
+      'visibilitychange',
+      handleAlmanacWake
+    );
+  };
+}, []);
+
 
   // 缓存当前角色 ID，用于传递给 RhythmApp 子应用
   const [
@@ -754,6 +813,15 @@ export const App = () => {
             />
           </ErrorBoundary>
         )}
+
+        {currentApp === 'almanac' && (Clock,
+  <ErrorBoundary>
+    <AlmanacApp
+      onBackHub={() => openApp('hub')}
+    />
+  </ErrorBoundary>
+)}
+
 
         {currentApp === 'memory' && (
           <MemoryApp

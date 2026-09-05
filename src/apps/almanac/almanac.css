@@ -1,0 +1,371 @@
+.almanac-app {
+  min-height: 100dvh;
+  color: var(--text-main);
+  padding: 1.25rem 0 5rem;
+}
+
+.almanac-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.almanac-header h1 {
+  margin: 0.15rem 0 0;
+  font-family: Georgia, serif;
+  font-size: 1.65rem;
+  letter-spacing: 0.05em;
+}
+
+.almanac-header span {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+.almanac-header-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.almanac-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.almanac-icon-button:hover {
+  background: var(--control-soft-hover);
+}
+
+.almanac-eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.almanac-intro {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-left: 2px solid var(--accent-color);
+  background:
+    linear-gradient(
+      115deg,
+      color-mix(in srgb, var(--accent-color) 8%, transparent),
+      transparent
+    );
+  color: var(--text-sub);
+  font-family: Georgia, serif;
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+
+.almanac-intro p {
+  margin: 0;
+}
+
+.almanac-chat-selector {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.almanac-chat-selector select,
+.almanac-time-input {
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.9rem;
+  outline: none;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-size: 0.78rem;
+}
+
+.almanac-panel,
+.almanac-identity {
+  position: relative;
+  margin-top: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 1.15rem;
+  background: var(--card-bg-gradient);
+  box-shadow: var(--card-shadow);
+}
+
+.almanac-identity {
+  overflow: hidden;
+}
+
+.almanac-identity::after {
+  position: absolute;
+  right: -2rem;
+  bottom: -3rem;
+  width: 9rem;
+  height: 9rem;
+  border-radius: 50%;
+  background: var(--bg-blob-2);
+  content: '';
+  opacity: 0.55;
+  filter: blur(1px);
+}
+
+.almanac-identity h2 {
+  position: relative;
+  z-index: 1;
+  margin: 0.35rem 0;
+  font-family: Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.almanac-identity p:last-child {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 0.72rem;
+}
+
+.almanac-section-title {
+  margin: 0.25rem 0 0;
+  font-family: Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.almanac-muted {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.almanac-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.almanac-stat-grid > div {
+  min-width: 0;
+  padding: 0.75rem 0.45rem;
+  border: 1px solid var(--divider);
+  border-radius: 0.8rem;
+  text-align: center;
+}
+
+.almanac-stat-grid strong,
+.almanac-stat-grid span {
+  display: block;
+}
+
+.almanac-stat-grid strong {
+  font-family: Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.almanac-stat-grid span {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
+.almanac-heatmap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(0.72rem, 1fr));
+  gap: 0.32rem;
+  max-height: 12rem;
+  overflow: hidden;
+  padding: 0.35rem 0;
+}
+
+.almanac-heat-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 0.58rem;
+  border: 0;
+  border-radius: 0.22rem;
+  background: var(--control-soft-bg);
+  cursor: pointer;
+}
+
+.almanac-heat-cell.level-0 {
+  background: var(--control-soft-bg);
+  opacity: 0.55;
+}
+
+.almanac-heat-cell.level-1 {
+  background: color-mix(in srgb, var(--accent-color) 22%, var(--card-bg));
+}
+
+.almanac-heat-cell.level-2 {
+  background: color-mix(in srgb, var(--accent-color) 42%, var(--card-bg));
+}
+
+.almanac-heat-cell.level-3 {
+  background: color-mix(in srgb, var(--accent-color) 66%, var(--card-bg));
+}
+
+.almanac-heat-cell.level-4 {
+  background: var(--accent-color);
+}
+
+.almanac-heat-legend {
+  display: flex;
+  gap: 0.3rem;
+  width: 7rem;
+}
+
+.almanac-heat-legend .almanac-heat-cell {
+  flex: 1;
+}
+
+.almanac-note,
+.almanac-observation-note {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 0.8rem;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.almanac-note strong {
+  color: var(--text-main);
+}
+
+.almanac-observation-note {
+  margin-top: 0.8rem;
+  background: transparent;
+  border: 1px dashed var(--divider);
+}
+
+.almanac-observation-note p,
+.almanac-observation-note small {
+  margin: 0;
+}
+
+.almanac-observation-note small {
+  color: var(--text-muted);
+}
+
+.almanac-milestone-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.almanac-milestone-list article {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.almanac-milestone-list strong {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 0.82rem;
+}
+
+.almanac-milestone-list p {
+  margin: 0.2rem 0 0;
+  color: var(--text-sub);
+  font-size: 0.7rem;
+}
+
+.almanac-milestone-line {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.25rem;
+  border: 1px solid var(--accent-color);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.25rem color-mix(
+    in srgb,
+    var(--accent-color) 12%,
+    transparent
+  );
+}
+
+.almanac-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-main);
+  font-size: 0.75rem;
+}
+
+.almanac-toggle-row span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.almanac-toggle-row small {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.almanac-toggle-row input {
+  flex: 0 0 auto;
+  accent-color: var(--accent-color);
+}
+
+.almanac-divider {
+  height: 1px;
+  background: var(--divider);
+}
+
+.almanac-primary-button {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.almanac-empty {
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 340px) {
+  .almanac-stat-grid {
+    gap: 0.3rem;
+  }
+
+  .almanac-stat-grid strong {
+    font-size: 1.1rem;
+  }
+
+  .almanac-heatmap {
+    gap: 0.22rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almanac-icon-button,
+  .almanac-primary-button {
+    transition: none;
+  }
+}

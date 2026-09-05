@@ -35,6 +35,12 @@ import {
   playMessageSound,
 } from '../../services/aiService';
 
+import {
+  recordAlmanacEvent,
+  ALMANAC_EVENT_TYPES,
+} from '../almanac/services/almanacService';
+
+
 import ChatHeaderBar from './components/ChatHeaderBar';
 import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
@@ -188,10 +194,23 @@ export const ChatRoom = ({
       timestamp: Date.now(),
     };
 
-    await db.messages.add(newMsg);
-    await db.chats.update(chat.id, {
-      updatedAt: Date.now(),
-    });
+   await db.messages.add(newMsg);
+
+void recordAlmanacEvent({
+  chatId: chat.id,
+  characterId: chat.characterId,
+  eventType: ALMANAC_EVENT_TYPES.USER_MESSAGE,
+  timestamp: newMsg.timestamp,
+  metadata: {
+    source: 'chat-room',
+    messageType: 'sticker',
+  },
+});
+
+await db.chats.update(chat.id, {
+  updatedAt: Date.now(),
+});
+
 
     await loadChatData();
     triggerAiResponse(chat.id);
@@ -295,14 +314,22 @@ export const ChatRoom = ({
     };
   }, [onRoomStateChange]);
 
-  useEffect(() => {
-    setIsAiTyping(false);
-    setCheckInDelivery(null);
-    setMcpTrace(null);
+ useEffect(() => {
+  setIsAiTyping(false);
+  setCheckInDelivery(null);
+  setMcpTrace(null);
 
-    void loadChatData();
+  void loadChatData();
 
-    const unsubscribe = subscribeAiEvents((event) => {
+  void recordAlmanacEvent({
+    chatId,
+    eventType: ALMANAC_EVENT_TYPES.CHAT_OPEN,
+    metadata: {
+      source: 'chat-room',
+    },
+  });
+
+  const unsubscribe = subscribeAiEvents((event) => {
       if (String(event.chatId) !== String(chatId)) return;
 
       if (event.type === 'AI_TYPING_START') {
@@ -415,6 +442,18 @@ export const ChatRoom = ({
 
     const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
+
+    void recordAlmanacEvent({
+  chatId,
+  characterId: character?.id,
+  eventType: ALMANAC_EVENT_TYPES.USER_MESSAGE,
+  timestamp: newMsg.timestamp,
+  metadata: {
+    source: 'chat-room',
+    messageType: selectedType,
+  },
+});
+
 
     try {
       await cancelPendingScheduledMessagesForChat(
