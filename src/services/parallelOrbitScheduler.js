@@ -1,5 +1,8 @@
 import db from '../db';
-import { checkAndTriggerParallelOrbit } from './parallelOrbitService';
+import {
+  checkAndTriggerParallelOrbit,
+  cleanupExpiredParallelOrbits
+} from './parallelOrbitService';
 
 // 每小时检查一次。
 // 注意：这是“检查频率”，实际生成仍受 parallelOrbitService 中的
@@ -10,6 +13,28 @@ let parallelOrbitSchedulerTimer = null;
 let isParallelOrbitChecking = false;
 
 /**
+ * 清理过期的平行轨迹。
+ *
+ * 清理失败时不阻止后续正常的轨迹检查与生成。
+ */
+const cleanupExpiredOrbitsSafely = async () => {
+  try {
+    const cleanupResult = await cleanupExpiredParallelOrbits();
+
+    if (cleanupResult.deletedCount > 0) {
+      console.log(
+        `[parallelOrbitScheduler] 已清理 ${cleanupResult.deletedCount} 条过期平行轨迹。`
+      );
+    }
+  } catch (err) {
+    console.error(
+      '[parallelOrbitScheduler] 清理过期平行轨迹失败：',
+      err
+    );
+  }
+};
+
+/**
  * 检查所有实际存在的聊天窗。
  *
  * 每个聊天窗的生成条件由 parallelOrbitService.js 决定：
@@ -17,16 +42,23 @@ let isParallelOrbitChecking = false;
  * 2. 上一条平行轨迹不足 2 小时：不生成；
  * 3. 用户离开超过 10 小时：有限补写最多 3 条；
  * 4. 普通独处状态：生成当前时刻的一条轨迹。
+ *
+ * 每次调度检查开始前，会先清理十个自然日以前的旧轨迹。
  */
 export const runParallelOrbitScheduler = async () => {
   if (isParallelOrbitChecking) {
-    console.log('[parallelOrbitScheduler] 上一次检查尚未结束，跳过本次。');
+    console.log(
+      '[parallelOrbitScheduler] 上一次检查尚未结束，跳过本次。'
+    );
     return;
   }
 
   isParallelOrbitChecking = true;
 
   try {
+    // 清理失败不能阻止后续聊天窗检查。
+    await cleanupExpiredOrbitsSafely();
+
     const chats = await db.chats.toArray();
 
     // 过滤异常或不完整的聊天数据。
@@ -35,7 +67,9 @@ export const runParallelOrbitScheduler = async () => {
     );
 
     if (validChats.length === 0) {
-      console.log('[parallelOrbitScheduler] 当前没有可检查的聊天窗。');
+      console.log(
+        '[parallelOrbitScheduler] 当前没有可检查的聊天窗。'
+      );
       return;
     }
 
@@ -65,7 +99,10 @@ export const runParallelOrbitScheduler = async () => {
       }
     }
   } catch (err) {
-    console.error('[parallelOrbitScheduler] 调度检查失败：', err);
+    console.error(
+      '[parallelOrbitScheduler] 调度检查失败：',
+      err
+    );
   } finally {
     isParallelOrbitChecking = false;
   }
@@ -96,7 +133,9 @@ export const startParallelOrbitScheduler = () => {
  * 停止调度器，避免 App 卸载后残留定时器。
  */
 export const stopParallelOrbitScheduler = () => {
-  if (!parallelOrbitSchedulerTimer) return;
+  if (!parallelOrbitSchedulerTimer) {
+    return;
+  }
 
   window.clearInterval(parallelOrbitSchedulerTimer);
   parallelOrbitSchedulerTimer = null;
