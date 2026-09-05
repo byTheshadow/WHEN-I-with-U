@@ -1,5 +1,12 @@
 import db from '../../../db';
 
+const hasAlmanacStores = () => (
+  Boolean(
+    db.almanacConfigs &&
+    db.almanacRecords
+  )
+);
+
 export const ALMANAC_EVENT_TYPES = {
   CHAT_OPEN: 'chat_open',
   USER_MESSAGE: 'user_message',
@@ -28,6 +35,7 @@ const safeDate = (value) => {
 
 export const getSafeTimestamp = (value) => {
   const date = safeDate(value);
+
   return date ? date.getTime() : null;
 };
 
@@ -72,7 +80,9 @@ export const getLocalHour = (value = Date.now(), timeZone) => {
       timeZone,
       hour: '2-digit',
       hour12: false,
-    }).formatToParts(date).find((part) => part.type === 'hour')?.value;
+    })
+      .formatToParts(date)
+      .find((part) => part.type === 'hour')?.value;
 
     const parsedHour = Number.parseInt(hour, 10);
 
@@ -111,7 +121,9 @@ export const getDefaultAlmanacConfig = (chatId) => ({
 });
 
 export const getAlmanacConfig = async (chatId) => {
-  if (!chatId) return null;
+  if (!chatId || !hasAlmanacStores()) {
+    return getDefaultAlmanacConfig(chatId);
+  }
 
   try {
     const saved = await db.almanacConfigs.get(chatId);
@@ -122,12 +134,18 @@ export const getAlmanacConfig = async (chatId) => {
     };
   } catch (error) {
     console.warn('[Almanac] 读取配置失败：', error);
+
     return getDefaultAlmanacConfig(chatId);
   }
 };
 
 export const saveAlmanacConfig = async (chatId, patch) => {
-  if (!chatId) return null;
+  if (!chatId || !hasAlmanacStores()) {
+    return {
+      ...getDefaultAlmanacConfig(chatId),
+      ...patch,
+    };
+  }
 
   const current = await getAlmanacConfig(chatId);
 
@@ -150,7 +168,13 @@ export const recordAlmanacEvent = async ({
   timestamp = Date.now(),
   metadata = {},
 }) => {
-  if (!chatId || !eventType) return null;
+  if (
+    !chatId ||
+    !eventType ||
+    !hasAlmanacStores()
+  ) {
+    return null;
+  }
 
   const safeTimestamp = getSafeTimestamp(timestamp);
 
@@ -175,12 +199,15 @@ export const recordAlmanacEvent = async ({
     return await db.almanacRecords.add(record);
   } catch (error) {
     console.warn('[Almanac] 记录事件失败：', error);
+
     return null;
   }
 };
 
 export const getAlmanacRecords = async (chatId) => {
-  if (!chatId) return [];
+  if (!chatId || !hasAlmanacStores()) {
+    return [];
+  }
 
   try {
     return await db.almanacRecords
@@ -189,6 +216,7 @@ export const getAlmanacRecords = async (chatId) => {
       .sortBy('timestamp');
   } catch (error) {
     console.warn('[Almanac] 读取观察记录失败：', error);
+
     return [];
   }
 };
@@ -235,7 +263,9 @@ export const getHeatmapData = (records = []) => {
   const result = new Map();
 
   records.forEach((record) => {
-    if (!record?.dateKey) return;
+    if (!record?.dateKey) {
+      return;
+    }
 
     const current = result.get(record.dateKey) || {
       dateKey: record.dateKey,

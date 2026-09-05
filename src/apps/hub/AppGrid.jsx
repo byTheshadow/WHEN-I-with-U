@@ -67,6 +67,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             Things kept close, and places to return to.
           </p>
         </div>
+
         <span className="font-mono text-[9px] uppercase tracking-widest opacity-30">
           Personal Index
         </span>
@@ -117,6 +118,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
                 className="h-4 w-4 opacity-60"
                 style={{ color: 'var(--text-main)' }}
               />
+
               <span className="[writing-mode:vertical-rl] font-serif text-[10px] tracking-[0.22em] opacity-45">
                 THE MARGIN NOTES
               </span>
@@ -126,12 +128,14 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <div className="flex flex-1 flex-col justify-between px-4 py-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[9px] font-mono uppercase tracking-[0.18em] opacity-40">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.18em] opacity-40">
                     A shared reading room
                   </p>
+
                   <h4 className="mt-1 font-serif text-[17px] font-semibold tracking-wide">
                     页边注
                   </h4>
+
                   <p className="mt-0.5 font-serif text-[11px] italic opacity-55">
                     The Margin Notes
                   </p>
@@ -393,6 +397,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-bold">Ask Box</h4>
+
                 {askCount > 0 && (
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                 )}
@@ -412,10 +417,13 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
         {/* 底部轻工具栏 */}
         <div className="col-span-2 pt-1">
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="text-[10px] font-mono uppercase tracking-[0.16em] opacity-35">
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] opacity-35">
               Small arrangements
             </span>
-            <span className="text-[9px] opacity-30">for everyday life</span>
+
+            <span className="text-[9px] opacity-30">
+              for everyday life
+            </span>
           </div>
 
           <div className="flex flex-wrap gap-2.5">
@@ -437,7 +445,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               <h4 className="truncate text-xs font-bold">Planner</h4>
             </GlassCard>
 
-            {/* Rhythm：保留原有入口，并恢复 Clock 图标 */}
+            {/* Rhythm：保留原有入口，并使用 Clock 图标 */}
             <GlassCard
               delay={delay + 150}
               onClick={() => onOpenApp('rhythm')}
@@ -447,7 +455,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               <h4 className="truncate text-xs font-bold">Rhythm</h4>
             </GlassCard>
 
-            {/* Almanac */}
+            {/* Almanac：复用已确认存在的 BookOpen 图标 */}
             <GlassCard
               delay={delay + 160}
               onClick={() => onOpenApp('almanac')}
@@ -459,7 +467,9 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               />
 
               <div className="min-w-0">
-                <h4 className="truncate text-xs font-bold">Almanac</h4>
+                <h4 className="truncate text-xs font-bold">
+                  Almanac
+                </h4>
 
                 <p className="truncate text-[9px] uppercase tracking-wider opacity-45">
                   岁时纪
@@ -477,8 +487,3 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
 };
 
 export default AppGrid;
-
-
-
-
-

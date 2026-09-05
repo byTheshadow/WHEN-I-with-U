@@ -3649,10 +3649,6 @@ db.version(34).stores({
     createdAt,
     timestamp
   `,
-   almanacConfigs: '&chatId, updatedAt',
-
-  almanacRecords:
-    '++id, chatId, characterId, eventType, timestamp, dateKey, localHour, [chatId+dateKey], [chatId+eventType], [chatId+eventType+dateKey]',
 });
 
 
