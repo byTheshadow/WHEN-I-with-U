@@ -75,6 +75,7 @@ export const AlmanacApp = ({ onBackHub }) => {
         : [];
 
       setChats(safeChats);
+
       setCharacters(
         Array.isArray(characterList) ? characterList : []
       );
@@ -104,6 +105,7 @@ export const AlmanacApp = ({ onBackHub }) => {
       ]);
 
       setConfig(nextConfig);
+
       setRecords(
         Array.isArray(nextRecords) ? nextRecords : []
       );
@@ -168,14 +170,37 @@ export const AlmanacApp = ({ onBackHub }) => {
     [records]
   );
 
-  const handleSaveConfig = async (nextConfig) => {
+  /**
+   * 保存 Almanac 设置。
+   *
+   * 默认行为：
+   * - 保存成功
+   * - 更新当前配置
+   * - 关闭整个设置区域
+   *
+   * 当 options.close === false 时：
+   * - 保存成功
+   * - 更新当前配置
+   * - 不关闭整个设置区域
+   *
+   * 用于时区确认弹窗，避免确认时区后整个设置页面消失。
+   */
+  const handleSaveConfig = async (
+    nextConfig,
+    options = {}
+  ) => {
     const saved = await saveAlmanacConfig(
       selectedChatId,
       nextConfig
     );
 
     setConfig(saved);
-    setShowSettings(false);
+
+    if (options.close !== false) {
+      setShowSettings(false);
+    }
+
+    return saved;
   };
 
   const handleNavigation = (section) => {
@@ -251,6 +276,7 @@ export const AlmanacApp = ({ onBackHub }) => {
                     : ''
                 }
               />
+
               <span>刷新</span>
             </button>
 
@@ -438,4 +464,3 @@ export const AlmanacApp = ({ onBackHub }) => {
 };
 
 export default AlmanacApp;
-
