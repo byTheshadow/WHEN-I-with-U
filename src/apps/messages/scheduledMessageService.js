@@ -1,3 +1,4 @@
+import Dexie from 'dexie';
 import db from '../../db';
 
 const SCHEDULE_PATTERN =
@@ -19,8 +20,24 @@ const SCHEDULER_INTERVAL_MS = 60 * 1000;
 const MAX_ATTEMPT_COUNT = 3;
 const STALE_PROCESSING_TIMEOUT_MS = 3 * 60 * 1000;
 
+// 唤醒事件（visibilitychange / focus / pageshow）经常在应用
+// 切回前台时几乎同时触发，防抖避免同一次唤醒被处理好几遍。
+const WAKE_DEBOUNCE_MS = 300;
+
+// 喂给 AI 生成预约消息时使用的历史消息条数上限。
+// 走索引查询，条数大小对性能几乎没有影响，可以按需要调整，
+// 不用担心引起之前"全表扫描"那种开销。
+const CONTEXT_MESSAGE_LIMIT = 100;
+
+// 喂给 AI 的上下文最终截取的条数（保持原有行为不变）。
+const CONTEXT_MESSAGE_TAIL = 15;
+
+// 已完成状态的预约消息保留多久后可以被清理，避免这张表无限增长。
+const SCHEDULED_MESSAGE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
 let schedulerTimer = null;
 let isProcessingDueMessages = false;
+let wakeDebounceTimer = null;
 
 const getNowIso = () => new Date().toISOString();
 
@@ -101,6 +118,51 @@ const getMessageContentForContext = (message) => {
   }
 
   return normalizeText(message.content);
+};
+
+/**
+ * 读取某个聊天最近的 N 条消息，按时间正序返回。
+ *
+ * 依赖 messages 表上的 [chatId+timestamp] 复合索引，直接从索引
+ * 尾部取最近 limit 条，避免把整个聊天历史全部读入内存再排序——
+ * 聊天记录多、消息带图片/语音等大字段时，这个差别非常关键。
+ */
+const getRecentMessagesForChat = async (chatId, limit) => {
+  const recentMessagesDesc = await db.messages
+    .where('[chatId+timestamp]')
+    .between(
+      [chatId, Dexie.minKey],
+      [chatId, Dexie.maxKey]
+    )
+    .reverse()
+    .limit(limit)
+    .toArray();
+
+  // 上面是按时间倒序取出来的（最新的在前），恢复成时间正序，
+  // 保持和原来 sortBy('timestamp') 一致的顺序语义。
+  return recentMessagesDesc.reverse();
+};
+
+/**
+ * 判断某个时间点之后，这个聊天里是否有用户发送过消息。
+ *
+ * 同样走 [chatId+timestamp] 复合索引，只精确查询
+ * "afterIso 之后到现在"这个时间范围，不受消息条数或者
+ * 中间聊了多频繁影响，比"取最近 N 条再判断"更准确也更省。
+ */
+const hasUserMessageAfter = async (chatId, afterIso) => {
+  const messagesAfter = await db.messages
+    .where('[chatId+timestamp]')
+    .between(
+      [chatId, afterIso],
+      [chatId, Dexie.maxKey],
+      false // afterIso 本身不含在内，严格大于
+    )
+    .toArray();
+
+  return messagesAfter.some(
+    (message) => message.sender === 'user'
+  );
 };
 
 /**
@@ -425,7 +487,7 @@ const fetchScheduledMessageCompletion = async ({
         message.sender
       )
     ))
-    .slice(-15)
+    .slice(-CONTEXT_MESSAGE_TAIL)
     .map((message) => ({
       role: message.sender === 'user'
         ? 'user'
@@ -722,6 +784,22 @@ const executeScheduledMessage = async (
   }
 
   try {
+    /*
+     * 性能说明：
+     *
+     * 这里不再用 db.messages.where('chatId').equals(...).sortBy(...)
+     * 把整个聊天历史全量读出来——聊天记录多、消息带图片/语音等大
+     * 字段时，这个查询本身加上 JS 层排序开销很大，而且这个函数会
+     * 被 60 秒定时器和多个唤醒事件反复触发。
+     *
+     * 改为：
+     * 1. 只取最近 CONTEXT_MESSAGE_LIMIT 条消息，用于后续截取给 AI
+     *    的上下文（走 [chatId+timestamp] 索引，条数大小对性能影响
+     *    很小）。
+     * 2. "用户是否已回复"改成单独按时间范围查询，精确判断预约创建
+     *    之后是否有用户消息，不受条数限制影响，也不需要额外查一次
+     *    全表。
+     */
     const [
       chat,
       character,
@@ -733,10 +811,10 @@ const executeScheduledMessage = async (
       db.characters.get(
         claimedScheduledMessage.characterId
       ),
-      db.messages
-        .where('chatId')
-        .equals(claimedScheduledMessage.chatId)
-        .sortBy('timestamp')
+      getRecentMessagesForChat(
+        claimedScheduledMessage.chatId,
+        CONTEXT_MESSAGE_LIMIT
+      )
     ]);
 
     if (!chat || !character) {
@@ -747,10 +825,6 @@ const executeScheduledMessage = async (
 
       return;
     }
-
-    const createdAtTime = new Date(
-      claimedScheduledMessage.createdAt
-    ).getTime();
 
     const cancelPolicy =
       claimedScheduledMessage.cancelPolicy ||
@@ -766,11 +840,10 @@ const executeScheduledMessage = async (
       CANCEL_POLICIES.CANCEL_IF_USER_REPLIES
     ) {
       const userReturnedAfterScheduling =
-        recentMessages.some((message) => (
-          message.sender === 'user' &&
-          new Date(message.timestamp).getTime() >
-            createdAtTime
-        ));
+        await hasUserMessageAfter(
+          claimedScheduledMessage.chatId,
+          claimedScheduledMessage.createdAt
+        );
 
       if (userReturnedAfterScheduling) {
         await db.scheduledMessages.update(
@@ -995,6 +1068,41 @@ const recoverStaleProcessingScheduledMessages =
     }
   };
 
+/**
+ * 清理很久之前已经结束（sent / cancelled / failed）的预约记录，
+ * 避免这张表随着使用时间增长无限膨胀，拖慢后续查询。
+ *
+ * 只在调度器启动时跑一次即可，不需要每分钟都清理。
+ */
+const cleanupOldScheduledMessages = async () => {
+  try {
+    const cutoffIso = new Date(
+      Date.now() - SCHEDULED_MESSAGE_RETENTION_MS
+    ).toISOString();
+
+    const deletedCount = await db.scheduledMessages
+      .where('status')
+      .anyOf(['sent', 'cancelled', 'failed'])
+      .and((item) => (
+        (item.updatedAt || item.createdAt || '') <
+        cutoffIso
+      ))
+      .delete();
+
+    if (deletedCount > 0) {
+      console.log(
+        '[ScheduledMessage] 已清理过期预约记录：',
+        deletedCount
+      );
+    }
+  } catch (error) {
+    console.error(
+      '[ScheduledMessage] 清理过期预约记录失败：',
+      error
+    );
+  }
+};
+
 export const checkAndSendDueScheduledMessages =
   async () => {
     if (isProcessingDueMessages) {
@@ -1011,12 +1119,17 @@ export const checkAndSendDueScheduledMessages =
 
       const nowIso = getNowIso();
 
+      /*
+       * 走 [status+scheduledFor] 复合索引做 range 查询，
+       * 而不是先按 status 取全部 pending 再在 JS 层用
+       * .and() 逐条比较 scheduledFor。
+       */
       const dueMessages = await db.scheduledMessages
-        .where('status')
-        .equals('pending')
-        .and((item) => (
-          item.scheduledFor <= nowIso
-        ))
+        .where('[status+scheduledFor]')
+        .between(
+          ['pending', Dexie.minKey],
+          ['pending', nowIso]
+        )
         .sortBy('scheduledFor');
 
       /*
@@ -1042,17 +1155,30 @@ export const checkAndSendDueScheduledMessages =
 
 const handleWakeUp = () => {
   if (
-    typeof document !== 'undefined' &&
-    document.visibilityState === 'visible'
+    typeof document === 'undefined' ||
+    document.visibilityState !== 'visible'
   ) {
-    void checkAndSendDueScheduledMessages();
+    return;
   }
+
+  /*
+   * visibilitychange / focus / pageshow 经常在应用切回前台的
+   * 同一时刻几乎同时触发，防抖避免这一次唤醒被重复处理。
+   */
+  clearTimeout(wakeDebounceTimer);
+
+  wakeDebounceTimer = setTimeout(() => {
+    void checkAndSendDueScheduledMessages();
+  }, WAKE_DEBOUNCE_MS);
 };
 
 export const startScheduledMessageScheduler = () => {
   if (schedulerTimer) {
     return;
   }
+
+  // 启动时顺手清理一次过期的预约记录，不需要每分钟都做。
+  void cleanupOldScheduledMessages();
 
   void checkAndSendDueScheduledMessages();
 
@@ -1087,6 +1213,9 @@ export const stopScheduledMessageScheduler = () => {
 
   window.clearInterval(schedulerTimer);
   schedulerTimer = null;
+
+  clearTimeout(wakeDebounceTimer);
+  wakeDebounceTimer = null;
 
   document.removeEventListener(
     'visibilitychange',
