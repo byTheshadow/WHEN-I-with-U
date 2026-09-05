@@ -33,16 +33,13 @@ import NewspaperApp from './apps/newspaper/NewspaperApp';
 import MarginNotesApp from './apps/margin-notes/MarginNotesApp';
 import AlmanacApp from './apps/almanac/AlmanacApp';
 
-
-
 import {
   consumeMcpOAuthCallback,
 } from './services/mcp/mcpOAuthService';
 
-// 导入 Rhythm 模块
 import RhythmApp from './apps/rhythm/RhythmApp';
 import {
-  triggerRhythmActiveReminder
+  triggerRhythmActiveReminder,
 } from './services/rhythmReminderService';
 
 import db from './db';
@@ -50,7 +47,7 @@ import db from './db';
 import {
   requestNotificationPermission,
   startAutoMessageScheduler,
-  stopAutoMessageScheduler
+  stopAutoMessageScheduler,
 } from './services/aiService';
 
 import {
@@ -61,12 +58,12 @@ import {
 
 import {
   startTravelPostcardScheduler,
-  stopTravelPostcardScheduler
+  stopTravelPostcardScheduler,
 } from './apps/travels/travelPostcardScheduler';
 
 import {
   startScheduledMessageScheduler,
-  stopScheduledMessageScheduler
+  stopScheduledMessageScheduler,
 } from './apps/messages/scheduledMessageService';
 
 import {
@@ -75,10 +72,9 @@ import {
   stopAlmanacGreetingScheduler,
 } from './apps/almanac/services/almanacGreetingService';
 
-
 import {
   startParallelOrbitScheduler,
-  stopParallelOrbitScheduler
+  stopParallelOrbitScheduler,
 } from './services/parallelOrbitScheduler';
 
 import './apps/daily-offering/daily-offering.css';
@@ -88,14 +84,14 @@ const THEME_COLORS = {
   'mono-mist': '#fcfbf7',
   'cream-latte': '#f8f5ee',
   'obsidian-dark': '#121212',
-  'cyber-velvet': '#171321'
+  'cyber-velvet': '#171321',
 };
 
 const CHAT_APPS = [
   'messages',
   'imaginarium',
   'ensemble',
-  'habitat'
+  'habitat',
 ];
 
 const REGISTERED_APPS = [
@@ -119,12 +115,12 @@ const REGISTERED_APPS = [
   'almanac',
   'memory',
   'newspaper',
-  'margin-notes'
+  'margin-notes',
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
   playlist: [],
-  activeTrackId: ''
+  activeTrackId: '',
 };
 
 export const App = () => {
@@ -132,12 +128,11 @@ export const App = () => {
   const [activeTheme, setActiveTheme] = useState('mono-mist');
   const [showTitle, setShowTitle] = useState(true);
   const [currentApp, setCurrentApp] = useState('hub');
-  const [isInsideChatRoom, setIsInsideChatRoom] =
-    useState(false);
+  const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
   const [
     activeKeepAliveChats,
-    setActiveKeepAliveChats
+    setActiveKeepAliveChats,
   ] = useState([]);
 
   const [audioConfig, setAudioConfig] = useState(
@@ -146,7 +141,7 @@ export const App = () => {
 
   const [
     pendingScheduledCount,
-    setPendingScheduledCount
+    setPendingScheduledCount,
   ] = useState(0);
 
   useEffect(() => {
@@ -182,7 +177,7 @@ export const App = () => {
           'error',
           'error_description',
           'error_uri',
-          'iss'
+          'iss',
         ].forEach((key) => {
           currentUrl.searchParams.delete(key);
         });
@@ -203,58 +198,56 @@ export const App = () => {
     void finishOAuthCallback();
   }, []);
 
-  
-useEffect(() => {
-  const handleAlmanacWake = () => {
-    void checkAlmanacGreetings();
-  };
+  useEffect(() => {
+    const handleAlmanacWake = () => {
+      void checkAlmanacGreetings();
+    };
 
-  // 启动后立即检查一次，并开始低频检查
-  startAlmanacGreetingScheduler();
+    // 启动后立即检查一次，并开始低频检查
+    startAlmanacGreetingScheduler();
 
-  // 页面重新获得焦点时检查
-  window.addEventListener(
-    'focus',
-    handleAlmanacWake
-  );
-
-  // 浏览器页面从缓存恢复时检查
-  window.addEventListener(
-    'pageshow',
-    handleAlmanacWake
-  );
-
-  // 页面从后台切回前台时检查
-  document.addEventListener(
-    'visibilitychange',
-    handleAlmanacWake
-  );
-
-  return () => {
-    stopAlmanacGreetingScheduler();
-
-    window.removeEventListener(
+    // 页面重新获得焦点时检查
+    window.addEventListener(
       'focus',
       handleAlmanacWake
     );
 
-    window.removeEventListener(
+    // 浏览器页面从缓存恢复时检查
+    window.addEventListener(
       'pageshow',
       handleAlmanacWake
     );
 
-    document.removeEventListener(
+    // 页面从后台切回前台时检查
+    document.addEventListener(
       'visibilitychange',
       handleAlmanacWake
     );
-  };
-}, []);
 
+    return () => {
+      stopAlmanacGreetingScheduler();
+
+      window.removeEventListener(
+        'focus',
+        handleAlmanacWake
+      );
+
+      window.removeEventListener(
+        'pageshow',
+        handleAlmanacWake
+      );
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleAlmanacWake
+      );
+    };
+  }, []);
 
   // 缓存当前角色 ID，用于传递给 RhythmApp 子应用
   const [
     activeCharacterId,
-    setActiveCharacterId
+    setActiveCharacterId,
   ] = useState(null);
 
   useEffect(() => {
@@ -396,7 +389,7 @@ useEffect(() => {
       const [
         activeChats,
         savedAudioConfig,
-        pendingCount
+        pendingCount,
       ] = await Promise.all([
         db.chats
           .filter((chat) => chat.keepAlive === true)
@@ -407,7 +400,7 @@ useEffect(() => {
         db.scheduledMessages
           .where('status')
           .equals('pending')
-          .count()
+          .count(),
       ]);
 
       return {
@@ -415,13 +408,13 @@ useEffect(() => {
         audioConfig:
           savedAudioConfig?.value ||
           DEFAULT_AUDIO_CONFIG,
-        pendingCount
+        pendingCount,
       };
     }).subscribe({
       next: ({
         activeChats,
         audioConfig: nextAudioConfig,
-        pendingCount
+        pendingCount,
       }) => {
         const normalizedAudioConfig = {
           playlist: Array.isArray(
@@ -430,7 +423,7 @@ useEffect(() => {
             ? nextAudioConfig.playlist
             : [],
           activeTrackId:
-            nextAudioConfig?.activeTrackId || ''
+            nextAudioConfig?.activeTrackId || '',
         };
 
         setActiveKeepAliveChats(activeChats);
@@ -447,7 +440,7 @@ useEffect(() => {
         setActiveKeepAliveChats([]);
         setAudioConfig(DEFAULT_AUDIO_CONFIG);
         setPendingScheduledCount(0);
-      }
+      },
     });
 
     return () => {
@@ -496,7 +489,7 @@ useEffect(() => {
     requestAnimationFrame(() => {
       window.scrollTo({
         top: 0,
-        behavior: 'auto'
+        behavior: 'auto',
       });
     });
   }, []);
@@ -555,27 +548,27 @@ useEffect(() => {
       <div
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-colors duration-700"
         style={{
-          backgroundColor: 'var(--bg-main)'
+          backgroundColor: 'var(--bg-main)',
         }}
       >
         <div
           className="absolute -left-32 -top-32 h-[25rem] w-[25rem] rounded-full blur-[115px] transition-colors duration-700"
           style={{
-            backgroundColor: 'var(--bg-blob-1)'
+            backgroundColor: 'var(--bg-blob-1)',
           }}
         />
 
         <div
           className="absolute -right-40 top-[28%] h-[28rem] w-[28rem] rounded-full blur-[130px] transition-colors duration-700"
           style={{
-            backgroundColor: 'var(--bg-blob-2)'
+            backgroundColor: 'var(--bg-blob-2)',
           }}
         />
 
         <div
           className="absolute -bottom-48 left-[10%] h-[25rem] w-[25rem] rounded-full blur-[135px] transition-colors duration-700"
           style={{
-            backgroundColor: 'var(--bg-blob-3)'
+            backgroundColor: 'var(--bg-blob-3)',
           }}
         />
       </div>
@@ -591,7 +584,7 @@ useEffect(() => {
           paddingBottom:
             isInsideChatRoom || isMarginNotesApp
               ? '0'
-              : 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+              : 'calc(5rem + env(safe-area-inset-bottom, 0px))',
         }}
       >
         {shouldDisplayHubHeader && (
@@ -607,7 +600,7 @@ useEffect(() => {
                 <h1
                   className="font-serif text-5xl font-semibold leading-none tracking-tighter"
                   style={{
-                    color: 'var(--text-main)'
+                    color: 'var(--text-main)',
                   }}
                 >
                   WHEN I
@@ -621,7 +614,7 @@ useEffect(() => {
                   className="mt-3 h-px w-10"
                   style={{
                     backgroundColor: 'var(--text-main)',
-                    opacity: 0.2
+                    opacity: 0.2,
                   }}
                 />
               </div>
@@ -636,7 +629,7 @@ useEffect(() => {
               style={{
                 color: 'var(--accent-foreground)',
                 backgroundColor: 'var(--accent-color)',
-                borderColor: 'var(--card-border)'
+                borderColor: 'var(--card-border)',
               }}
             >
               <SettingsIcon
@@ -814,14 +807,13 @@ useEffect(() => {
           </ErrorBoundary>
         )}
 
-        {currentApp === 'almanac' && (Clock,
-  <ErrorBoundary>
-    <AlmanacApp
-      onBackHub={() => openApp('hub')}
-    />
-  </ErrorBoundary>
-)}
-
+        {currentApp === 'almanac' && (
+          <ErrorBoundary>
+            <AlmanacApp
+              onBackHub={() => openApp('hub')}
+            />
+          </ErrorBoundary>
+        )}
 
         {currentApp === 'memory' && (
           <MemoryApp
@@ -835,7 +827,7 @@ useEffect(() => {
               <h2
                 className="text-xl font-semibold uppercase tracking-[0.16em]"
                 style={{
-                  color: 'var(--text-main)'
+                  color: 'var(--text-main)',
                 }}
               >
                 {currentApp}
@@ -844,7 +836,7 @@ useEffect(() => {
               <p
                 className="mt-3 text-xs"
                 style={{
-                  color: 'var(--text-sub)'
+                  color: 'var(--text-sub)',
                 }}
               >
                 此模块将在后续阶段为您呈现。
@@ -856,7 +848,7 @@ useEffect(() => {
                 className="mt-6 rounded-full px-5 py-2 text-xs font-semibold transition-transform active:scale-95"
                 style={{
                   color: 'var(--accent-foreground)',
-                  backgroundColor: 'var(--accent-color)'
+                  backgroundColor: 'var(--accent-color)',
                 }}
               >
                 返回主页
