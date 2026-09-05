@@ -14,7 +14,6 @@ import {
   Ticket,
   MailOpen,
   Clock,
-  CalendarClock,
   Newspaper,
   Feather,
   ArrowUpRight
@@ -163,7 +162,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
           className="group flex aspect-[0.96] cursor-pointer flex-col justify-between p-4 text-left"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/5 dark:bg-white/5">
-            <Camera className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+            <Camera
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
           </div>
 
           <div>
@@ -183,7 +185,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Waves className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+            <Waves
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
           </div>
 
           <div>
@@ -205,7 +210,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
               style={{ backgroundColor: 'var(--control-soft-bg)' }}
             >
-              <Leaf className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+              <Leaf
+                className="h-5 w-5 opacity-90"
+                style={{ color: 'var(--text-main)' }}
+              />
             </div>
 
             <div>
@@ -256,7 +264,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Users className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+            <Users
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
           </div>
 
           <div>
@@ -277,7 +288,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <BookOpen className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+            <BookOpen
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
           </div>
 
           <div className="mt-10">
@@ -297,7 +311,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Archive className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+            <Archive
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
           </div>
 
           <div className="mt-10">
@@ -318,7 +335,10 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
             style={{ backgroundColor: 'var(--control-soft-bg)' }}
           >
-            <Ticket className="h-5 w-5 opacity-90" style={{ color: 'var(--text-main)' }} />
+            <Ticket
+              className="h-5 w-5 opacity-90"
+              style={{ color: 'var(--text-main)' }}
+            />
           </div>
 
           <div>
@@ -377,6 +397,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                 )}
               </div>
+
               <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
                 {askCount > 0
                   ? `${askCount} letters waiting`
@@ -416,6 +437,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               <h4 className="truncate text-xs font-bold">Planner</h4>
             </GlassCard>
 
+            {/* Rhythm：保留原有入口，并恢复 Clock 图标 */}
             <GlassCard
               delay={delay + 150}
               onClick={() => onOpenApp('rhythm')}
@@ -425,20 +447,19 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               <h4 className="truncate text-xs font-bold">Rhythm</h4>
             </GlassCard>
 
+            {/* Almanac */}
             <GlassCard
               delay={delay + 160}
               onClick={() => onOpenApp('almanac')}
               className="group flex min-w-[calc(50%-0.35rem)] flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
             >
-              <CalendarClock
+              <BookOpen
                 className="h-3.5 w-3.5 shrink-0 opacity-75"
                 style={{ color: 'var(--text-main)' }}
               />
 
               <div className="min-w-0">
-                <h4 className="truncate text-xs font-bold">
-                  Almanac
-                </h4>
+                <h4 className="truncate text-xs font-bold">Almanac</h4>
 
                 <p className="truncate text-[9px] uppercase tracking-wider opacity-45">
                   岁时纪
