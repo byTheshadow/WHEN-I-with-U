@@ -3957,6 +3957,14 @@ db.version(36).stores({
   `
 });
 
+db.version(37).stores({
+  messages:
+    '++id, chatId, characterId, sender, type, metadata, quotedMessageId, isRead, timestamp, versions, currentVersionIndex, [chatId+timestamp]',
+ 
+  scheduledMessages:
+    '++id, chatId, characterId, status, scheduledFor, createdAt, [status+scheduledFor]'
+});
+
 export default db;
 
 
