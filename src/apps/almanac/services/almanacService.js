@@ -96,7 +96,7 @@ export const getLocalHour = (value = Date.now(), timeZone) => {
   return date.getHours();
 };
 
-export const getUserTimeZone = () => {
+export const getDeviceTimeZone = () => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   } catch {
@@ -104,8 +104,45 @@ export const getUserTimeZone = () => {
   }
 };
 
+export const isValidTimeZone = (timeZone) => {
+  if (!timeZone || typeof timeZone !== 'string') {
+    return false;
+  }
+
+  try {
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+    }).format();
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const getUserTimeZone = (config = null) => {
+  const configuredTimeZone = config?.timezone;
+
+  if (isValidTimeZone(configuredTimeZone)) {
+    return configuredTimeZone;
+  }
+
+  return getDeviceTimeZone();
+};
+
+export const isUsingDeviceTimeZone = (config = null) => {
+  return !isValidTimeZone(config?.timezone);
+};
+
 export const getDefaultAlmanacConfig = (chatId) => ({
   chatId,
+
+  timezone: null,
+  timezoneSource: 'device',
+  deviceTimeZone: null,
+  timezoneNoticeDismissed: false,
+  timezoneNoticeLastShownAt: null,
+
   rhythmInferenceEnabled: false,
 
   morningGreetingEnabled: false,
@@ -119,6 +156,7 @@ export const getDefaultAlmanacConfig = (chatId) => ({
 
   updatedAt: new Date().toISOString(),
 });
+
 
 export const getAlmanacConfig = async (chatId) => {
   if (!chatId || !hasAlmanacStores()) {
@@ -167,7 +205,13 @@ export const recordAlmanacEvent = async ({
   eventType,
   timestamp = Date.now(),
   metadata = {},
+  timeZone = null,
+  count = 1,
+  firstTimestamp = null,
+  lastTimestamp = null,
+  localHourBuckets = null,
 }) => {
+
   if (
     !chatId ||
     !eventType ||
@@ -182,18 +226,47 @@ export const recordAlmanacEvent = async ({
     return null;
   }
 
-  const timeZone = getUserTimeZone();
+  const resolvedTimeZone = isValidTimeZone(timeZone)
+  ? timeZone
+  : getDeviceTimeZone();
 
-  const record = {
-    chatId,
-    characterId: characterId || null,
-    eventType,
-    timestamp: new Date(safeTimestamp).toISOString(),
-    dateKey: getDateKey(safeTimestamp, timeZone),
-    localHour: getLocalHour(safeTimestamp, timeZone),
-    timezone: timeZone,
-    metadata: metadata || {},
-  };
+
+ const record = {
+  chatId,
+  characterId: characterId || null,
+  eventType,
+
+  // 只保存时间，不保存消息正文
+  timestamp: new Date(safeTimestamp).toISOString(),
+
+  dateKey: getDateKey(
+    safeTimestamp,
+    resolvedTimeZone,
+  ),
+
+  localHour: getLocalHour(
+    safeTimestamp,
+    resolvedTimeZone,
+  ),
+
+  timezone: resolvedTimeZone,
+  count: Number.isFinite(count) && count > 0 ? count : 1,
+
+  firstTimestamp: firstTimestamp
+    ? new Date(firstTimestamp).toISOString()
+    : new Date(safeTimestamp).toISOString(),
+
+  lastTimestamp: lastTimestamp
+    ? new Date(lastTimestamp).toISOString()
+    : new Date(safeTimestamp).toISOString(),
+
+  ...(localHourBuckets
+    ? { localHourBuckets }
+    : {}),
+
+  metadata: metadata || {},
+};
+
 
   try {
     return await db.almanacRecords.add(record);

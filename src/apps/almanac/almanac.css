@@ -989,3 +989,159 @@
     transition-duration: 1ms !important;
   }
 }
+/* Almanac 时区设置卡片 */
+.almanac-timezone-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 72%,
+    transparent
+  );
+  border-radius: 1rem;
+  background: color-mix(
+    in srgb,
+    var(--almanac-paper-soft) 78%,
+    transparent
+  );
+}
+
+.almanac-timezone-card strong,
+.almanac-timezone-card small {
+  display: block;
+}
+
+.almanac-timezone-card small {
+  margin-top: 0.35rem;
+  color: var(--almanac-ink-soft);
+  line-height: 1.55;
+}
+
+.almanac-timezone-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.almanac-timezone-hint {
+  color: var(--almanac-accent);
+}
+
+.almanac-timezone-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem;
+  border-radius: 0.8rem;
+  background: color-mix(
+    in srgb,
+    var(--almanac-accent) 12%,
+    var(--almanac-paper-soft)
+  );
+}
+
+.almanac-timezone-preview span {
+  color: var(--almanac-ink-soft);
+  font-size: 0.8rem;
+}
+
+.almanac-timezone-preview strong {
+  word-break: break-word;
+}
+
+/* Almanac 弹窗 */
+.almanac-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(35, 24, 34, 0.42);
+}
+
+.almanac-modal {
+  width: min(100%, 30rem);
+  max-height: min(90vh, 42rem);
+  overflow-y: auto;
+  padding: 1.35rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 78%,
+    transparent
+  );
+  border-radius: 1.25rem;
+  background: var(--almanac-paper);
+  color: var(--almanac-ink);
+  box-shadow: 0 1.25rem 4rem rgba(35, 24, 34, 0.2);
+}
+
+.almanac-modal-description {
+  margin: 0.85rem 0;
+  color: var(--almanac-ink-soft);
+  line-height: 1.7;
+}
+
+.almanac-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+/* 时区搜索和选择 */
+.almanac-timezone-search,
+.almanac-timezone-select {
+  width: 100%;
+  min-height: 2.7rem;
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 80%,
+    transparent
+  );
+  border-radius: 0.7rem;
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
+.almanac-timezone-search:focus,
+.almanac-timezone-select:focus {
+  outline: 2px solid color-mix(
+    in srgb,
+    var(--almanac-accent) 48%,
+    transparent
+  );
+  outline-offset: 2px;
+}
+
+.almanac-text-button {
+  border: 0;
+  background: transparent;
+  color: var(--almanac-accent);
+  cursor: pointer;
+}
+
+.almanac-modal button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .almanac-timezone-current {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .almanac-modal {
+    max-height: 88vh;
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+}

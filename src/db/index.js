@@ -3934,6 +3934,29 @@ db.version(35).stores({
     [chatId+eventType+dateKey]
   `
 });
+
+db.version(36).stores({
+  almanacConfigs:
+    '&chatId, updatedAt, timezone',
+
+  almanacRecords: `
+    ++id,
+    chatId,
+    characterId,
+    eventType,
+    timestamp,
+    dateKey,
+    localHour,
+    timezone,
+    count,
+    firstTimestamp,
+    lastTimestamp,
+    [chatId+dateKey],
+    [chatId+eventType],
+    [chatId+eventType+dateKey]
+  `
+});
+
 export default db;
 
 
