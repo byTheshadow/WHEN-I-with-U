@@ -397,11 +397,11 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <span className="text-[9px] opacity-30">for everyday life</span>
           </div>
 
-          <div className="flex gap-2.5">
+          <div className="flex flex-wrap gap-2.5">
             <GlassCard
               delay={delay + 130}
               onClick={() => onOpenApp('travel')}
-              className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+              className="flex min-w-[calc(50%-0.35rem)] flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
             >
               <Compass className="h-3.5 w-3.5 shrink-0 opacity-75" />
               <h4 className="truncate text-xs font-bold">Travel</h4>
@@ -410,7 +410,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <GlassCard
               delay={delay + 140}
               onClick={() => onOpenApp('planner')}
-              className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+              className="flex min-w-[calc(50%-0.35rem)] flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
             >
               <Calendar className="h-3.5 w-3.5 shrink-0 opacity-75" />
               <h4 className="truncate text-xs font-bold">Planner</h4>
@@ -419,10 +419,31 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
             <GlassCard
               delay={delay + 150}
               onClick={() => onOpenApp('rhythm')}
-              className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+              className="flex min-w-[calc(50%-0.35rem)] flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
             >
               <Clock className="h-3.5 w-3.5 shrink-0 opacity-75" />
               <h4 className="truncate text-xs font-bold">Rhythm</h4>
+            </GlassCard>
+
+            <GlassCard
+              delay={delay + 160}
+              onClick={() => onOpenApp('almanac')}
+              className="group flex min-w-[calc(50%-0.35rem)] flex-1 cursor-pointer items-center justify-center gap-1.5 p-3 text-left"
+            >
+              <CalendarClock
+                className="h-3.5 w-3.5 shrink-0 opacity-75"
+                style={{ color: 'var(--text-main)' }}
+              />
+
+              <div className="min-w-0">
+                <h4 className="truncate text-xs font-bold">
+                  Almanac
+                </h4>
+
+                <p className="truncate text-[9px] uppercase tracking-wider opacity-45">
+                  岁时纪
+                </p>
+              </div>
             </GlassCard>
           </div>
         </div>
@@ -435,6 +456,7 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
 };
 
 export default AppGrid;
+
 
 
 
