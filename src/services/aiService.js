@@ -31,6 +31,11 @@ import {
   buildCompanionshipPrompt,
 } from '../apps/messages/companionship/companionshipPrompt';
 
+import {
+  getAlmanacPromptContext,
+} from '../apps/almanac/services/almanacPromptBuilder';
+
+
 
 
 
@@ -707,6 +712,19 @@ const getSafeCharacterEmotionContext = async ({
   } catch (error) {
     console.warn(
       '[Memory] Character emotion context skipped safely:',
+      error
+    );
+
+    return '';
+  }
+};
+
+const getSafeAlmanacPromptContext = async (chatId) => {
+  try {
+    return await getAlmanacPromptContext(chatId);
+  } catch (error) {
+    console.warn(
+      '[Almanac] Prompt context skipped safely:',
       error
     );
 
@@ -1805,9 +1823,13 @@ const characterEmotionContext = await getSafeCharacterEmotionContext({
   characterId: character.id
 });
 
+const almanacPromptContext =
+  await getSafeAlmanacPromptContext(chatId);
+
 const finalSystemPrompt = `${
   systemPrompt
-}${userReturnContext}${memoryContext}${characterEmotionContext}`;
+}${userReturnContext}${memoryContext}${characterEmotionContext}${almanacPromptContext}`;
+
 
 
 const mcpTraceSession = createMcpChatTraceSession({
