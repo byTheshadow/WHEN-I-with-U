@@ -12,10 +12,20 @@
   --almanac-control-hover: var(--control-soft-hover);
 
   position: relative;
-  width: 100%;
+  z-index: 1;
+
+  /*
+   * 突破 App 外层可能存在的 max-width、padding 和 margin，
+   * 让 Almanac 真正铺满整个视口。
+   */
+  width: 100vw;
+  min-width: 100vw;
   min-height: 100dvh;
-  margin: 0;
-  overflow: hidden;
+  margin-left: calc(50% - 50vw);
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
   background:
     linear-gradient(
       135deg,
@@ -26,6 +36,7 @@
       ),
       var(--almanac-paper)
     );
+
   color: var(--almanac-ink);
   isolation: isolate;
 }
@@ -63,15 +74,16 @@
  * 页面内容直接占满外层 App。
  * 这里没有 border、border-radius、box-shadow。
  */
-.almanac-content {
+ .almanac-content {
   position: relative;
   width: 100%;
   min-height: 100dvh;
   padding:
     calc(1.6rem + env(safe-area-inset-top, 0px))
-    clamp(1rem, 4vw, 1.4rem)
+    max(1rem, calc((100vw - 720px) / 2))
     calc(7.2rem + env(safe-area-inset-bottom, 0px));
 }
+
 
 .almanac-corner {
   position: absolute;
