@@ -137,6 +137,35 @@ export const isUsingDeviceTimeZone = (config = null) => {
 export const getDefaultAlmanacConfig = (chatId) => ({
   chatId,
 
+  /*
+   * 初始化是否已经完成。
+   * false 表示第一次进入 Almanac 时需要显示初始化界面。
+   */
+  initializationCompleted: false,
+
+  /*
+   * milestones_only：
+   *   从今天开始记录，但保留纪念日，不分析过去相处记录。
+   *
+   * fresh_start：
+   *   从今天开始记录，不保留过去纪念日。
+   *
+   * all_history：
+   *   使用现有全部记录进行分析。
+   */
+  dataMode: null,
+
+  /*
+   * 统计和观察的起点。
+   * 只有 timestamp >= observationStartedAt 的记录会参与分析。
+   */
+  observationStartedAt: null,
+
+  /*
+   * 最近一次点击“从今天重新开始”的时间。
+   */
+  observationResetAt: null,
+
   timezone: null,
   timezoneSource: 'device',
   deviceTimeZone: null,
@@ -156,6 +185,7 @@ export const getDefaultAlmanacConfig = (chatId) => ({
 
   updatedAt: new Date().toISOString(),
 });
+
 
 
 export const getAlmanacConfig = async (chatId) => {
@@ -277,6 +307,36 @@ export const recordAlmanacEvent = async ({
   }
 };
 
+export const filterAlmanacRecordsByConfig = (
+  records = [],
+  config = null
+) => {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  /*
+   * 使用全部数据时，不进行起点过滤。
+   */
+  if (config?.dataMode === 'all_history') {
+    return records;
+  }
+
+  const startedAt = getSafeTimestamp(
+    config?.observationStartedAt
+  );
+
+  if (!startedAt) {
+    return records;
+  }
+
+  return records.filter((record) => {
+    const timestamp = getSafeTimestamp(record.timestamp);
+
+    return timestamp && timestamp >= startedAt;
+  });
+};
+
 export const getAlmanacRecords = async (chatId) => {
   if (!chatId || !hasAlmanacStores()) {
     return [];
@@ -294,6 +354,54 @@ export const getAlmanacRecords = async (chatId) => {
   }
 };
 
+export const getFilteredAlmanacRecords = async (chatId) => {
+  const [config, records] = await Promise.all([
+    getAlmanacConfig(chatId),
+    getAlmanacRecords(chatId),
+  ]);
+
+  return filterAlmanacRecordsByConfig(records, config);
+};
+
+export const restartAlmanacFromToday = async (chatId) => {
+  if (!chatId) {
+    return getDefaultAlmanacConfig(chatId);
+  }
+
+  const now = new Date().toISOString();
+
+  return saveAlmanacConfig(chatId, {
+    initializationCompleted: true,
+    dataMode: 'fresh_start',
+    observationStartedAt: now,
+    observationResetAt: now,
+  });
+};
+
+export const clearAlmanacRecords = async (chatId) => {
+  if (!chatId || !hasAlmanacStores()) {
+    return 0;
+  }
+
+  const records = await db.almanacRecords
+    .where('chatId')
+    .equals(chatId)
+    .toArray();
+
+  if (records.length === 0) {
+    return 0;
+  }
+
+  await db.almanacRecords.bulkDelete(
+    records
+      .map((record) => record.id)
+      .filter(Boolean)
+  );
+
+  return records.length;
+};
+
+
 export const getAlmanacStats = (records = []) => {
   const validRecords = records
     .map((record) => ({
@@ -308,12 +416,36 @@ export const getAlmanacStats = (records = []) => {
       .filter(Boolean)
   );
 
-  const userMessages = validRecords.filter(
-    (record) => record.eventType === ALMANAC_EVENT_TYPES.USER_MESSAGE
+  const userMessages = validRecords.filter((record) => (
+    record.eventType === ALMANAC_EVENT_TYPES.USER_MESSAGE
+    || record.eventType === 'user_message_daily'
+  ));
+
+  const chatOpens = validRecords.filter((record) => (
+    record.eventType === ALMANAC_EVENT_TYPES.CHAT_OPEN
+    || record.eventType === 'chat_open_daily'
+  ));
+
+  const userMessageCount = userMessages.reduce(
+    (total, record) => (
+      total + (
+        Number.isFinite(Number(record.count))
+          ? Number(record.count)
+          : 1
+      )
+    ),
+    0
   );
 
-  const chatOpens = validRecords.filter(
-    (record) => record.eventType === ALMANAC_EVENT_TYPES.CHAT_OPEN
+  const chatOpenCount = chatOpens.reduce(
+    (total, record) => (
+      total + (
+        Number.isFinite(Number(record.count))
+          ? Number(record.count)
+          : 1
+      )
+    ),
+    0
   );
 
   const firstTimestamp = validRecords.length
@@ -323,14 +455,15 @@ export const getAlmanacStats = (records = []) => {
   return {
     totalRecords: validRecords.length,
     activeDays: activeDates.size,
-    userMessageCount: userMessages.length,
-    chatOpenCount: chatOpens.length,
+    userMessageCount,
+    chatOpenCount,
     firstTimestamp,
     latestTimestamp: validRecords.length
       ? Math.max(...validRecords.map((record) => record.timestamp))
       : null,
   };
 };
+
 
 export const getHeatmapData = (records = []) => {
   const result = new Map();
@@ -347,7 +480,12 @@ export const getHeatmapData = (records = []) => {
       eventTypes: new Set(),
     };
 
-    current.count += 1;
+       current.count += (
+      Number.isFinite(Number(record.count))
+        ? Number(record.count)
+        : 1
+    );
+
 
     if (Number.isInteger(record.localHour)) {
       current.hours.add(record.localHour);

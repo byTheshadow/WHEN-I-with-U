@@ -20,7 +20,10 @@ export const getRhythmObservation = async ({
   }
 
   const userRecords = records.filter(
-    (record) => record.eventType === 'user_message'
+    (record) => (
+      record.eventType === 'user_message'
+      || record.eventType === 'user_message_daily'
+    )
   );
 
   const days = new Set(

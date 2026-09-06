@@ -83,7 +83,10 @@ const getInitialTimeZone = (config) => {
 export const AlmanacSettingsPanel = ({
   config,
   onSave,
+  onRestart,
+  onClearRecords,
 }) => {
+
   const [draft, setDraft] = useState(config);
   const [showTimezoneNotice, setShowTimezoneNotice] = useState(false);
   const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
@@ -387,13 +390,68 @@ export const AlmanacSettingsPanel = ({
           />
         </label>
 
-        <button
+                <button
           type="button"
           className="almanac-primary-button"
           onClick={() => saveConfig()}
         >
           保存当前聊天设置
         </button>
+
+        <div className="almanac-divider" />
+
+        <section className="almanac-data-management">
+          <div>
+            <p className="almanac-eyebrow">
+              Observation range
+            </p>
+
+            <h3>重新开始</h3>
+
+            <small>
+              从今天重新设置观察起点。过去的统计不会继续参与分析，但数据库中的旧记录不会被删除。
+            </small>
+          </div>
+
+          <button
+            type="button"
+            className="almanac-secondary-button"
+            onClick={async () => {
+              const confirmed = window.confirm(
+                '确定从今天重新开始 Almanac 吗？旧记录会保留，但不再参与统计。'
+              );
+
+              if (confirmed) {
+                await onRestart();
+              }
+            }}
+          >
+            从今天重新开始
+          </button>
+        </section>
+
+        <section className="almanac-danger-zone">
+          <div>
+            <p className="almanac-eyebrow">
+              Destructive action
+            </p>
+
+            <h3>清空 Almanac 数据</h3>
+
+            <small>
+              这会删除当前聊天的相处统计、热力图和观察记录。聊天消息、长期记忆、角色资料和纪念日不会受到影响。
+            </small>
+          </div>
+
+          <button
+            type="button"
+            className="almanac-danger-button"
+            onClick={() => void onClearRecords()}
+          >
+            清空相处记录
+          </button>
+        </section>
+
       </section>
 
       {showTimezoneNotice && (

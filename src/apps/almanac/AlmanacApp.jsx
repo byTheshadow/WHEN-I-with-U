@@ -18,6 +18,7 @@ import AlmanacHeatmap from './components/AlmanacHeatmap';
 import AlmanacObservation from './components/AlmanacObservation';
 import AlmanacMilestones from './components/AlmanacMilestones';
 import AlmanacSettingsPanel from './components/AlmanacSettingsPanel';
+import AlmanacInitialization from './components/AlmanacInitialization';
 
 import {
   getAlmanacConfig,
@@ -25,7 +26,14 @@ import {
   getAlmanacStats,
   getHeatmapData,
   saveAlmanacConfig,
+  filterAlmanacRecordsByConfig,
+  clearAlmanacRecords,
 } from './services/almanacService';
+
+import {
+  createAlmanacMilestone,
+  getAlmanacMilestones,
+} from './services/almanacMilestoneService';
 
 import { getRhythmObservation } from './services/almanacRhythmService';
 
@@ -37,9 +45,14 @@ export const AlmanacApp = ({ onBackHub }) => {
   const [selectedChatId, setSelectedChatId] = useState('');
   const [config, setConfig] = useState(null);
   const [records, setRecords] = useState([]);
+  const [milestones, setMilestones] = useState([]);
+  const [showInitialization, setShowInitialization] =
+    useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isStatsLoading, setIsStatsLoading] =
+    useState(false);
   const [activeSection, setActiveSection] = useState('record');
   const [rhythmObservation, setRhythmObservation] =
     useState(null);
@@ -92,6 +105,8 @@ export const AlmanacApp = ({ onBackHub }) => {
     if (!selectedChatId) {
       setConfig(null);
       setRecords([]);
+      setMilestones([]);
+      setShowInitialization(false);
       setIsLoading(false);
       return;
     }
@@ -99,20 +114,48 @@ export const AlmanacApp = ({ onBackHub }) => {
     setIsLoading(true);
 
     try {
-      const [nextConfig, nextRecords] = await Promise.all([
-        getAlmanacConfig(selectedChatId),
-        getAlmanacRecords(selectedChatId),
-      ]);
+      /*
+       * 首屏先只读取配置和纪念日。
+       * 统计记录放到配置确认之后再读取。
+       */
+      const [nextConfig, nextMilestones] =
+        await Promise.all([
+          getAlmanacConfig(selectedChatId),
+          getAlmanacMilestones(selectedChatId),
+        ]);
 
       setConfig(nextConfig);
 
+      setMilestones(
+        Array.isArray(nextMilestones)
+          ? nextMilestones
+          : []
+      );
+
+      if (!nextConfig.initializationCompleted) {
+        setRecords([]);
+        setShowInitialization(true);
+        return;
+      }
+
+      setShowInitialization(false);
+      setIsStatsLoading(true);
+
+      const allRecords = await getAlmanacRecords(
+        selectedChatId
+      );
+
       setRecords(
-        Array.isArray(nextRecords) ? nextRecords : []
+        filterAlmanacRecordsByConfig(
+          allRecords,
+          nextConfig
+        )
       );
     } catch (error) {
       console.error('[Almanac] 读取相遇记录失败：', error);
       setRecords([]);
     } finally {
+      setIsStatsLoading(false);
       setIsLoading(false);
     }
   }, [selectedChatId]);
@@ -169,6 +212,65 @@ export const AlmanacApp = ({ onBackHub }) => {
     () => getHeatmapData(records),
     [records]
   );
+
+  const handleInitializationComplete = async ({
+    dataMode,
+    firstMeetingDate,
+  }) => {
+    const now = new Date().toISOString();
+
+    const patch = {
+      initializationCompleted: true,
+      dataMode,
+      observationStartedAt:
+        dataMode === 'all_history'
+          ? null
+          : now,
+      observationResetAt:
+        dataMode === 'all_history'
+          ? null
+          : now,
+    };
+
+    const saved = await saveAlmanacConfig(
+      selectedChatId,
+      patch
+    );
+
+    if (
+      dataMode === 'milestones_only'
+      && firstMeetingDate
+    ) {
+      await createAlmanacMilestone({
+        chatId: selectedChatId,
+        type: 'first_meeting',
+        title: '第一次相遇',
+        date: firstMeetingDate,
+        isRecurring: false,
+        showCountdown: true,
+        allowNaturalReminder: false,
+      });
+    }
+
+    setConfig(saved);
+    setShowInitialization(false);
+
+    await loadAlmanac();
+  };
+
+  const handleClearAlmanacRecords = async () => {
+    const confirmed = window.confirm(
+      '确定要清空当前聊天的 Almanac 相处记录吗？\n\n聊天消息、长期记忆、角色资料和纪念日不会受到影响。'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await clearAlmanacRecords(selectedChatId);
+
+    setRecords([]);
+  };
 
   /**
    * 保存 Almanac 设置。
@@ -346,6 +448,10 @@ export const AlmanacApp = ({ onBackHub }) => {
             <span className="almanac-loading-dot" />
             正在显影相遇痕迹
           </section>
+        ) : showInitialization ? (
+          <AlmanacInitialization
+            onComplete={handleInitializationComplete}
+          />
         ) : (
           <>
             <section className="almanac-intro">
@@ -402,6 +508,26 @@ export const AlmanacApp = ({ onBackHub }) => {
                 <AlmanacSettingsPanel
                   config={config}
                   onSave={handleSaveConfig}
+                  onRestart={async () => {
+                    const saved =
+                      await saveAlmanacConfig(
+                        selectedChatId,
+                        {
+                          initializationCompleted: true,
+                          dataMode: 'fresh_start',
+                          observationStartedAt:
+                            new Date().toISOString(),
+                          observationResetAt:
+                            new Date().toISOString(),
+                        }
+                      );
+
+                    setConfig(saved);
+                    await loadAlmanac();
+                  }}
+                  onClearRecords={
+                    handleClearAlmanacRecords
+                  }
                 />
               </section>
             )}
@@ -464,3 +590,4 @@ export const AlmanacApp = ({ onBackHub }) => {
 };
 
 export default AlmanacApp;
+

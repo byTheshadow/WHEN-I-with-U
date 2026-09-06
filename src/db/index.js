@@ -3965,6 +3965,24 @@ db.version(37).stores({
     '++id, chatId, characterId, status, scheduledFor, createdAt, [status+scheduledFor]'
 });
 
+db.version(38).stores({
+  almanacMilestones: `
+    ++id,
+    chatId,
+    type,
+    date,
+    isRecurring,
+    showCountdown,
+    allowNaturalReminder,
+    createdAt,
+    updatedAt,
+    [chatId+date],
+    [chatId+type]
+  `
+});
+
+
+
 export default db;
 
 
