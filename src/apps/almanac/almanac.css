@@ -2118,120 +2118,505 @@
 }
 
 /* ==========================================================================
-   ALMANAC SETTINGS & DANGER ZONE MODERN REDESIGN
-   彻底修复红线溢出、重构设置面板与全局按钮交互
+   ALMANAC FINAL VISUAL OVERRIDE
+   日期档案 / Editorial Archive
+   请放在整个 CSS 文件最末尾
    ========================================================================== */
 
-/* 1. 根治红色/黑色绝对定位线条溢出 */
-.almanac-danger-zone::before,
-.almanac-danger-zone::after,
-.almanac-data-management::before,
-.almanac-data-management::after,
-.almanac-divider::before {
-  display: none !important;
+.almanac-app {
+  --almanac-font-sans:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans SC",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    sans-serif;
+
+  --almanac-font-serif:
+    "Noto Serif SC",
+    "Source Han Serif SC",
+    "Songti SC",
+    "STSong",
+    "SimSun",
+    Georgia,
+    serif;
+
+  --almanac-font-mono:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  --almanac-border-soft: color-mix(
+    in srgb,
+    var(--almanac-ink) 14%,
+    transparent
+  );
+
+  --almanac-border-faint: color-mix(
+    in srgb,
+    var(--almanac-ink) 8%,
+    transparent
+  );
+
+  --almanac-surface-soft: color-mix(
+    in srgb,
+    var(--almanac-paper) 92%,
+    var(--almanac-ink) 8%
+  );
+
+  font-family: var(--almanac-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
 }
 
-/* 2. 设置面板整体布局美化 */
-.almanac-settings-section {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 1.25rem !important;
-  max-width: 680px !important;
-  margin: 0 auto 3rem !important;
-  padding: 0 1rem !important;
+/* --------------------------------------------------------------------------
+   1. 全局字体统一
+   -------------------------------------------------------------------------- */
+
+.almanac-app,
+.almanac-app button,
+.almanac-app input,
+.almanac-app select,
+.almanac-app textarea {
+  font-family: var(--almanac-font-sans) !important;
 }
 
-.almanac-settings-section .almanac-panel {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 1.25rem !important;
+.almanac-app p,
+.almanac-app small,
+.almanac-app span,
+.almanac-app label,
+.almanac-app li {
+  font-family: var(--almanac-font-sans) !important;
+}
+
+/* 只让真正的主标题使用衬线字体 */
+.almanac-app h1,
+.almanac-app h2,
+.almanac-app h3,
+.almanac-app h4,
+.almanac-app .almanac-section-title,
+.almanac-app .almanac-form-title,
+.almanac-app .almanac-manager-title,
+.almanac-app .almanac-system-milestones-title,
+.almanac-app .almanac-countdown-head h3,
+.almanac-app .almanac-milestone-list strong,
+.almanac-app .almanac-record-heading h2 {
+  font-family: var(--almanac-font-serif) !important;
+}
+
+/* 小标题、英文标记统一使用干净的无衬线，不再使用 Courier New */
+.almanac-app .almanac-eyebrow,
+.almanac-app .almanac-masthead-kicker,
+.almanac-app .almanac-milestone-kicker,
+.almanac-app .almanac-subsection-kicker,
+.almanac-app .almanac-record-index,
+.almanac-app .almanac-room-code,
+.almanac-app .almanac-footer-note,
+.almanac-app .almanac-utility-bar,
+.almanac-app .almanac-empty {
+  font-family: var(--almanac-font-sans) !important;
+  letter-spacing: 0.12em !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. 页面整体：去除多余的卡片堆叠
+   -------------------------------------------------------------------------- */
+
+.almanac-content {
+  max-width: 760px;
+  margin-inline: auto;
+  padding-right: clamp(1.25rem, 5vw, 3rem);
+  padding-left: clamp(1.25rem, 5vw, 3rem);
+}
+
+.almanac-panel,
+.almanac-settings-section .almanac-panel,
+.almanac-trace-section .almanac-panel,
+.almanac-milestone-section .almanac-panel {
+  border: 0 !important;
+  border-radius: 0 !important;
   background: transparent !important;
-  border: none !important;
   box-shadow: none !important;
-  padding: 0 !important;
 }
 
-/* 面板头部标题 */
-.almanac-settings-section .almanac-panel > div:first-child {
-  padding-bottom: 0.5rem !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--almanac-line) 60%, transparent) !important;
-}
-
-.almanac-settings-section .almanac-section-title {
-  font-size: 1.4rem !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.02em !important;
-  color: var(--almanac-ink) !important;
-}
-
-/* 设置项卡片分组统一视觉 */
+/* 不要让每个功能区域都像独立白色卡片 */
 .almanac-timezone-card,
 .almanac-data-management,
 .almanac-danger-zone {
-  position: relative !important;
-  border-radius: 12px !important;
-  padding: 1.2rem 1.35rem !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
-/* 时区与普通管理卡片 */
-.almanac-timezone-card,
-.almanac-data-management {
-  background: color-mix(in srgb, var(--almanac-paper-soft) 85%, var(--almanac-paper)) !important;
-  border: 1px solid color-mix(in srgb, var(--almanac-line) 80%, transparent) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+/* --------------------------------------------------------------------------
+   3. 标题层级
+   -------------------------------------------------------------------------- */
+
+.almanac-masthead {
+  padding-top: clamp(4rem, 12vw, 7rem);
+  padding-bottom: clamp(3rem, 8vw, 5rem);
+  text-align: left;
 }
 
-/* 设置项内的开关与列表 */
+.almanac-masthead-kicker,
+.almanac-milestone-kicker,
+.almanac-eyebrow,
+.almanac-subsection-kicker {
+  display: block;
+  margin: 0 0 0.65rem !important;
+
+  color: var(--almanac-muted) !important;
+  font-size: 0.65rem !important;
+  font-weight: 650 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase;
+}
+
+.almanac-masthead h1 {
+  max-width: 12em;
+  margin: 0 !important;
+
+  font-family: var(--almanac-font-serif) !important;
+  font-size: clamp(3rem, 13vw, 5.8rem) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.075em !important;
+  line-height: 0.98 !important;
+}
+
+.almanac-masthead-subtitle {
+  max-width: 25rem;
+  margin: 1.35rem 0 0 !important;
+
+  color: var(--almanac-ink-soft) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.88rem !important;
+  letter-spacing: 0 !important;
+  line-height: 1.7 !important;
+}
+
+.almanac-masthead-rule {
+  width: 3rem;
+  height: 2px;
+  margin: 2rem 0 0;
+  background: var(--almanac-ink);
+  opacity: 0.55;
+}
+
+/* 区块标题：大标题和说明文字明确分开 */
+.almanac-milestone-manager .almanac-section-title,
+.almanac-milestones-overview .almanac-section-title,
+.almanac-section-head h2,
+.almanac-section-head h3,
+.almanac-settings-section .almanac-section-title {
+  margin: 0 !important;
+
+  color: var(--almanac-ink) !important;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: clamp(1.7rem, 5vw, 2.45rem) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.045em !important;
+  line-height: 1.2 !important;
+}
+
+.almanac-milestone-description,
+.almanac-manager-description,
+.almanac-manager-heading p,
+.almanac-system-milestones-head p,
+.almanac-countdown-head p {
+  max-width:  thirtyrem;
+  margin: 0.8rem 0 0 !important;
+
+  color: var(--almanac-ink-soft) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.88rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.8 !important;
+}
+
+/* SYSTEM MARKS 等分组标记只做轻分隔，不做厚卡片 */
+.almanac-subsection-kicker,
+.almanac-system-milestones-head h3,
+.almanac-milestones h4 {
+  margin-top: 2.8rem !important;
+  margin-bottom: 1rem !important;
+  padding-bottom: 0.7rem !important;
+
+  border-bottom: 1px solid var(--almanac-border-soft) !important;
+
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em !important;
+  line-height: 1.3 !important;
+  text-transform: uppercase !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. 添加日期按钮：不再是满宽普通表单按钮
+   -------------------------------------------------------------------------- */
+
+.almanac-manager-add,
+.almanac-add-toggle-button,
+.almanac-milestone-entry-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 1.6rem 0 0 !important;
+  padding: 0.25rem 0 0.55rem !important;
+
+  border: 0 !important;
+  border-bottom: 1px solid var(--almanac-ink) !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+  color: var(--almanac-ink) !important;
+
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.4 !important;
+
+  box-shadow: none !important;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    padding 180ms ease,
+    transform 180ms ease !important;
+}
+
+.almanac-manager-add::after,
+.almanac-add-toggle-button::after,
+.almanac-milestone-entry-button::after {
+  display: inline-block;
+  margin-left: 0.8rem;
+  content: "↗";
+  font-size: 1rem;
+  transition: transform 180ms ease;
+}
+
+.almanac-manager-add:hover,
+.almanac-add-toggle-button:hover,
+.almanac-milestone-entry-button:hover {
+  padding-left: 0.35rem !important;
+  border-color: var(--almanac-accent) !important;
+  background: transparent !important;
+  color: var(--almanac-accent) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.almanac-manager-add:hover::after,
+.almanac-add-toggle-button:hover::after,
+.almanac-milestone-entry-button:hover::after {
+  transform: translate(0.18rem, -0.18rem);
+}
+
+/* 覆盖原本“所有管理器按钮满宽”的规则 */
+.almanac-milestone-manager button,
+.almanac-countdown-actions button {
+  width: auto !important;
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. 表单：从“框框表单”改成无边框编辑线
+   -------------------------------------------------------------------------- */
+
+.almanac-milestone-form,
+.almanac-form {
+  display: grid;
+  gap: 1.45rem;
+
+  margin-top: 1.8rem !important;
+  padding: 1.8rem 0 0 !important;
+
+  border-top: 1px solid var(--almanac-border-soft) !important;
+  background: transparent !important;
+}
+
+/* 表单标题 */
+.almanac-form-kicker {
+  margin: 0 !important;
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+}
+
+.almanac-form-title {
+  margin: 0.35rem 0 0.5rem !important;
+  color: var(--almanac-ink) !important;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: clamp(1.75rem, 6vw, 2.4rem) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.045em !important;
+  line-height: 1.2 !important;
+}
+
+/* label 成为真正的字段组，而不是一堆孤立文字 */
+.almanac-field,
+.almanac-countdown-form > label:not(.almanac-toggle-row),
+.almanac-initialization-date {
+  display: grid !important;
+  gap: 0.45rem !important;
+  margin: 0 !important;
+}
+
+.almanac-field > span,
+.almanac-countdown-form > label:not(.almanac-toggle-row) > span,
+.almanac-initialization-date > span {
+  margin: 0 !important;
+
+  color: var(--almanac-ink) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.4 !important;
+}
+
+/* 统一所有输入框：没有四边框、没有圆角、没有厚底色 */
+.almanac-milestone-form input[type="text"],
+.almanac-milestone-form input[type="date"],
+.almanac-field input[type="text"],
+.almanac-field input[type="date"],
+.almanac-countdown-form input[type="text"],
+.almanac-countdown-form input[type="date"],
+.almanac-initialization-date input,
+.almanac-time-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 3rem !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0.65rem 0 !important;
+
+  border: 0 !important;
+  border-bottom: 1px solid var(--almanac-border-soft) !important;
+  border-radius: 0 !important;
+  outline: none !important;
+
+  background: transparent !important;
+  color: var(--almanac-ink) !important;
+
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 1rem !important;
+  font-weight: 450 !important;
+  line-height: 1.5 !important;
+
+  box-shadow: none !important;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease !important;
+}
+
+.almanac-milestone-form input::placeholder,
+.almanac-field input::placeholder,
+.almanac-countdown-form input::placeholder {
+  color: var(--almanac-muted) !important;
+  opacity: 0.65;
+}
+
+.almanac-milestone-form input:focus,
+.almanac-field input:focus,
+.almanac-countdown-form input:focus,
+.almanac-initialization-date input:focus,
+.almanac-time-input:focus {
+  border-bottom: 2px solid var(--almanac-accent) !important;
+  outline: none !important;
+  background: color-mix(
+    in srgb,
+    var(--almanac-accent) 4%,
+    transparent
+  ) !important;
+  box-shadow: none !important;
+}
+
+/* 日期选择器图标不要把输入框撑出廉价白框 */
+.almanac-app input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   6. 复选框设置：清理掉卡片边框，让它成为轻量设置列表
+   -------------------------------------------------------------------------- */
+
 .almanac-toggle-row {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 0.85rem 0.2rem !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--almanac-line) 40%, transparent) !important;
-}
+  min-height: 3.4rem;
+  padding: 0.85rem 0 !important;
 
-.almanac-toggle-row:last-child {
-  border-bottom: none !important;
+  border-bottom: 1px solid var(--almanac-border-faint) !important;
+  background: transparent !important;
 }
 
 .almanac-toggle-row span {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.2rem !important;
+  gap: 0.25rem !important;
+}
+
+.almanac-toggle-row span > :first-child {
+  color: var(--almanac-ink) !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
 }
 
 .almanac-toggle-row small {
   color: var(--almanac-muted) !important;
-  font-size: 0.76rem !important;
-  line-height: 1.4 !important;
+  font-size: 0.75rem !important;
+  line-height: 1.55 !important;
 }
 
-/* 开关控件 (Switch 美化) */
 .almanac-toggle-row input[type="checkbox"] {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  width: 42px !important;
-  height: 24px !important;
+  flex: 0 0 auto;
+  width: 2.7rem !important;
+  height: 1.5rem !important;
+  margin: 0 !important;
+
+  border: 0 !important;
   border-radius: 999px !important;
-  background: color-mix(in srgb, var(--almanac-ink) 18%, transparent) !important;
-  position: relative !important;
-  cursor: pointer !important;
-  outline: none !important;
-  transition: background-color 0.2s ease !important;
+  background: color-mix(
+    in srgb,
+    var(--almanac-ink) 18%,
+    transparent
+  ) !important;
+
+  appearance: none !important;
+  cursor: pointer;
+  transition: background-color 180ms ease !important;
 }
 
 .almanac-toggle-row input[type="checkbox"]::after {
+  position: absolute;
+  top: 0.2rem !important;
+  left: 0.2rem !important;
+
+  width: 1.1rem !important;
+  height: 1.1rem !important;
+
+  border-radius: 50%;
+  background: var(--almanac-paper) !important;
+  box-shadow: 0 1px 4px color-mix(
+    in srgb,
+    var(--almanac-ink) 20%,
+    transparent
+  ) !important;
   content: "" !important;
-  position: absolute !important;
-  top: 2px !important;
-  left: 2px !important;
-  width: 20px !important;
-  height: 20px !important;
-  border-radius: 50% !important;
-  background: #ffffff !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: transform 180ms ease !important;
 }
 
 .almanac-toggle-row input[type="checkbox"]:checked {
@@ -2239,575 +2624,411 @@
 }
 
 .almanac-toggle-row input[type="checkbox"]:checked::after {
-  transform: translateX(18px) !important;
+  transform: translateX(1.2rem) !important;
 }
 
-/* 时间输入框美化 */
-.almanac-time-input {
-  width: auto !important;
-  min-width: 140px !important;
-  padding: 0.45rem 0.75rem !important;
-  border: 1px solid var(--almanac-line) !important;
-  border-radius: 8px !important;
-  background: var(--almanac-paper) !important;
-  color: var(--almanac-ink) !important;
-  font-size: 0.85rem !important;
-  font-family: inherit !important;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+/* --------------------------------------------------------------------------
+   7. 提交按钮：只有主操作才使用实色
+   -------------------------------------------------------------------------- */
+
+.almanac-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+  margin-top: 0.5rem;
 }
 
-.almanac-time-input:focus {
-  border-color: var(--almanac-accent) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--almanac-accent) 15%, transparent) !important;
-}
-
-/* 3. 危险区域：重塑为柔和警示卡片（彻底解决突兀与丑） */
-.almanac-danger-zone {
-  background: color-mix(in srgb, #ef4444 4%, var(--almanac-paper)) !important;
-  border: 1px solid color-mix(in srgb, #ef4444 24%, var(--almanac-line)) !important;
-  box-shadow: none !important;
-}
-
-.almanac-danger-zone > div {
-  padding-right: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.45rem !important;
-}
-
-.almanac-danger-zone .almanac-eyebrow {
-  color: #dc2626 !important;
-  font-size: 0.7rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-}
-
-.almanac-danger-zone h3 {
-  font-size: 1.05rem !important;
-  font-weight: 600 !important;
-  color: #b91c1c !important;
-  margin: 0 !important;
-}
-
-.almanac-danger-zone small {
-  color: color-mix(in srgb, var(--almanac-ink) 70%, transparent) !important;
-  font-size: 0.8rem !important;
-  line-height: 1.5 !important;
-}
-
-/* 4. 全局所有按钮统一美化（圆角、微动效、去除廉价伪元素） */
-.almanac-primary-button,
-.almanac-secondary-button,
-.almanac-danger-button,
-.almanac-text-button,
-.almanac-data-management .almanac-text-button,
-.almanac-data-management .almanac-secondary-button {
-  font-family: inherit !important;
-  border-radius: 8px !important;
-  font-size: 0.82rem !important;
-  font-weight: 500 !important;
-  letter-spacing: 0 !important;
-  padding: 0.55rem 1rem !important;
-  min-height: 2.35rem !important;
-  box-sizing: border-box !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.45rem !important;
-  cursor: pointer !important;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  text-decoration: none !important;
-}
-
-/* 移除突兀的伪元素箭头与叉号 */
-.almanac-primary-button::after,
-.almanac-danger-button::after,
-.almanac-data-management .almanac-text-button::after,
-.almanac-data-management .almanac-secondary-button::before {
-  display: none !important;
-}
-
-/* 主操作按钮（保存） */
-.almanac-primary-button,
-.almanac-settings-section .almanac-primary-button {
-  background: var(--almanac-accent) !important;
-  color: var(--almanac-accent-text, #ffffff) !important;
-  border: 1px solid transparent !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
-  margin-top: 0.5rem !important;
-  align-self: flex-start !important;
-}
-
-.almanac-primary-button:hover,
-.almanac-settings-section .almanac-primary-button:hover {
-  filter: brightness(1.08) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12) !important;
-}
-
-.almanac-primary-button:active {
-  transform: translateY(0) !important;
-}
-
-/* 次要操作按钮（重新开始等） */
-.almanac-secondary-button,
-.almanac-data-management .almanac-secondary-button {
-  background: var(--almanac-paper) !important;
-  color: var(--almanac-ink) !important;
-  border: 1px solid var(--almanac-line) !important;
-  width: auto !important;
-  margin-top: 0.5rem !important;
-}
-
-.almanac-secondary-button:hover,
-.almanac-data-management .almanac-secondary-button:hover {
-  background: color-mix(in srgb, var(--almanac-control) 65%, transparent) !important;
-  border-color: color-mix(in srgb, var(--almanac-ink) 25%, var(--almanac-line)) !important;
-  transform: translateY(-1px) !important;
-}
-
-/* 文本/链接型按钮（如纪念日入口） */
-.almanac-data-management .almanac-text-button {
-  width: 100% !important;
-  justify-content: space-between !important;
-  padding: 0.65rem 0.85rem !important;
-  margin-top: 0.5rem !important;
-  background: var(--almanac-paper) !important;
-  border: 1px solid var(--almanac-line) !important;
-  color: var(--almanac-ink) !important;
-}
-
-.almanac-data-management .almanac-text-button:hover {
-  border-color: var(--almanac-accent) !important;
-  color: var(--almanac-accent) !important;
-  padding-left: 0.95rem !important;
-  background: color-mix(in srgb, var(--almanac-accent) 6%, var(--almanac-paper)) !important;
-}
-
-/* 危险操作按钮（清空记录等） */
-.almanac-danger-button {
-  background: #ffffff !important;
-  color: #dc2626 !important;
-  border: 1px solid color-mix(in srgb, #dc2626 35%, var(--almanac-line)) !important;
-  margin-top: 0.6rem !important;
-  width: fit-content !important;
-  min-width: 140px !important;
-}
-
-.almanac-danger-button:hover {
-  background: #dc2626 !important;
-  color: #ffffff !important;
-  border-color: #dc2626 !important;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.22) !important;
-  transform: translateY(-1px) !important;
-}
-
-.almanac-danger-button:active {
-  transform: translateY(0) !important;
-}
-
-/* 禁用状态 */
-.almanac-primary-button:disabled,
-.almanac-secondary-button:disabled,
-.almanac-danger-button:disabled {
-  opacity: 0.5 !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-}
-
-/* 移动端响应优化 */
-@media (max-width: 560px) {
-  .almanac-primary-button,
-  .almanac-secondary-button,
-  .almanac-danger-button,
-  .almanac-data-management .almanac-secondary-button {
-    width: 100% !important;
-  }
-}
-
-/* ==========================================================================
-   ALMANAC MILESTONE & DATES TYPOGRAPHY & BUTTON REDESIGN
-   彻底解决字体割裂、主次不分、按钮未美化与层级缺失
-   ========================================================================== */
-
-/* 1. 全局字体统一：彻底干掉生硬拼贴的衬线宋体与突兀等宽体，保证一段话内字体纯净一致 */
-.almanac-milestones,
-.almanac-milestone-panel,
-.almanac-milestone-manager,
-.almanac-system-milestones,
-.almanac-countdown-section {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
-}
-
-/* 2. 标题与说明文字主次层级全面重构 */
-
-/* 英文/小分类眉题 (KICKER) */
-.almanac-manager-kicker,
-.almanac-system-milestones-kicker,
-.almanac-form-kicker,
-.almanac-eyebrow {
-  display: block !important;
-  font-family: inherit !important;
-  font-size: 0.72rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.1em !important;
-  text-transform: uppercase !important;
-  color: var(--almanac-muted) !important;
-  opacity: 0.8 !important;
-  margin-bottom: 0.35rem !important;
-}
-
-/* 核心大标题 (TITLE) —— 明显拉大字号与字重，主次分明 */
-.almanac-manager-title,
-.almanac-system-milestones-title,
-.almanac-countdown-head h3,
-.almanac-form-title {
-  display: block !important;
-  font-family: inherit !important;
-  font-size: 1.45rem !important;      /* 强化大标题感 */
-  font-weight: 700 !important;       /* 强化视觉锚点 */
-  line-height: 1.3 !important;
-  letter-spacing: -0.02em !important;
-  color: var(--almanac-ink) !important;
-  margin: 0 0 0.45rem 0 !important;
-}
-
-/* 说明文字/正文 (DESCRIPTION) —— 适度缩小、柔和字色，与大标题拉开明显差距 */
-.almanac-manager-description,
-.almanac-manager-heading p,
-.almanac-system-milestones-head p,
-.almanac-countdown-head p {
-  display: block !important;
-  font-family: inherit !important;
-  font-size: 0.88rem !important;     /* 降为正文字号 */
-  font-weight: 400 !important;
-  line-height: 1.55 !important;
-  color: color-mix(in srgb, var(--almanac-ink) 72%, transparent) !important; /* 柔和二级灰度 */
-  margin: 0 0 1.15rem 0 !important;
-}
-
-/* 分组小标 (如 SYSTEM MARKS) */
-.almanac-system-milestones-head h3,
-.almanac-milestones h4 {
-  font-family: inherit !important;
-  font-size: 0.8rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-  color: var(--almanac-ink) !important;
-  margin-top: 1.8rem !important;
-  margin-bottom: 0.8rem !important;
-  padding-bottom: 0.4rem !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--almanac-line) 50%, transparent) !important;
-}
-
-/* 3. “添加日期”与操作按钮现代重塑 */
-.almanac-manager-add,
-.almanac-add-toggle-button,
-.almanac-countdown-actions button,
-.almanac-milestone-manager button {
-  width: 100% !important;
-  min-height: 2.75rem !important;
-  padding: 0.65rem 1.2rem !important;
-  margin-bottom: 1.5rem !important;
-  font-family: inherit !important;
-  font-size: 0.88rem !important;
-  font-weight: 500 !important;
-  color: var(--almanac-ink) !important;
-  background: var(--almanac-paper) !important;
-  border: 1px dashed color-mix(in srgb, var(--almanac-line) 90%, var(--almanac-ink)) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.45rem !important;
-  cursor: pointer !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* 悬停与点击反馈 */
-.almanac-manager-add:hover,
-.almanac-add-toggle-button:hover {
-  background: color-mix(in srgb, var(--almanac-accent) 6%, var(--almanac-paper)) !important;
-  border-color: var(--almanac-accent) !important;
-  border-style: solid !important;
-  color: var(--almanac-accent) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--almanac-accent) 15%, transparent) !important;
-}
-
-.almanac-manager-add:active,
-.almanac-add-toggle-button:active {
-  transform: translateY(0) !important;
-}
-
-/* 4. 空状态提示居中与质感优化（解决底下一行字贴在屏幕角落的问题） */
-.almanac-milestone-empty,
-.almanac-system-milestones-empty,
-.almanac-empty-tip {
-  margin: 2.5rem 0 !important;
-  padding: 1.8rem 1rem !important;
-  text-align: center !important;
-  font-family: inherit !important;
-  font-size: 0.82rem !important;
-  line-height: 1.6 !important;
-  color: var(--almanac-muted) !important;
-  background: color-mix(in srgb, var(--almanac-paper-soft) 40%, transparent) !important;
-  border-radius: 10px !important;
-  border: 1px dashed color-mix(in srgb, var(--almanac-line) 60%, transparent) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.35rem !important;
-}
-
-/* 去除生硬的前缀破折号 */
-.almanac-milestone-empty::before,
-.almanac-system-milestones-empty::before {
-  display: none !important;
-}
-
-/* ==========================================================================
-   精确局部修复：空状态字体与折行、表单视觉、危险区与按钮统一
-   ========================================================================== */
-
-/* 1. 彻底干掉危险区溢出的红色横线/竖线伪元素 */
-.almanac-danger-zone::before,
-.almanac-danger-zone::after {
-  content: none !important;
-  display: none !important;
-}
-
-/* 2. 修复截图一：“还没有留下日期”粘连与字体混用 */
-/* 强制空状态容器统一字体，消灭同一句里中英文、黑宋体混杂 */
-.almanac-system-empty,
-.almanac-milestone-empty,
-.almanac-empty {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  gap: 0.35rem !important;
-  padding: 2.5rem 1rem !important;
-  color: var(--almanac-muted) !important;
-  font-size: 0.82rem !important;
-  line-height: 1.6 !important;
-}
-
-/* 破折号居中且淡雅 */
-.almanac-empty-mark,
-.almanac-system-empty .almanac-empty-mark,
-.almanac-milestone-empty .almanac-empty-mark {
-  display: block !important;
-  margin: 0 auto 0.2rem auto !important;
-  color: var(--almanac-muted) !important;
-  opacity: 0.6 !important;
-  font-family: inherit !important;
-}
-
-/* 强制让“还没有留下日期”独占一行作为小标题，后面的说明文字自动换行到第二行 */
-.almanac-system-empty strong,
-.almanac-milestone-empty strong {
-  display: block !important;
-  font-family: inherit !important;
-  font-size: 0.88rem !important;
-  font-weight: 600 !important;
-  color: var(--almanac-ink) !important;
-  margin-bottom: 0.2rem !important;
-}
-
-/* 3. 修复截图二：“留下一个日期”恶心的表单输入框样式 */
-.almanac-milestone-form,
-.almanac-form {
-  padding: 1.25rem 0 !important;
-}
-
-/* 表单标题层级 */
-.almanac-form-kicker {
-  font-family: inherit !important;
-  font-size: 0.72rem !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
-  color: var(--almanac-muted) !important;
-  margin-bottom: 0.25rem !important;
-}
-
-.almanac-form-title {
-  font-family: inherit !important;
-  font-size: 1.35rem !important;
-  font-weight: 700 !important;
-  color: var(--almanac-ink) !important;
-  margin: 0 0 1.2rem 0 !important;
-}
-
-/* 标签文字微调 */
-.almanac-field > span {
-  font-size: 0.8rem !important;
-  font-weight: 500 !important;
-  color: var(--almanac-ink) !important;
-  margin-bottom: 0.35rem !important;
-}
-
-/* 告别生硬死灰！输入框改为清爽柔和的浅底与精致边框 */
-.almanac-milestone-form input[type="text"],
-.almanac-milestone-form input[type="date"],
-.almanac-field input[type="text"],
-.almanac-field input[type="date"] {
-  width: 100% !important;
-  height: 2.5rem !important;
-  padding: 0 0.85rem !important;
-  border-radius: 6px !important;
-  border: 1px solid color-mix(in srgb, var(--almanac-line) 80%, transparent) !important;
-  background: color-mix(in srgb, var(--almanac-paper-soft) 50%, var(--almanac-paper)) !important;
-  color: var(--almanac-ink) !important;
-  font-family: inherit !important;
-  font-size: 0.88rem !important;
-  transition: all 0.2s ease !important;
-}
-
-.almanac-milestone-form input[type="text"]:focus,
-.almanac-milestone-form input[type="date"]:focus,
-.almanac-field input[type="text"]:focus,
-.almanac-field input[type="date"]:focus {
-  border-color: var(--almanac-ink) !important;
-  background: var(--almanac-paper) !important;
-  outline: none !important;
-}
-
-/* 4. 修复底部提交按钮：去除灰白虚线弱智感，改为与“添加日期”同源的质感按钮 */
 .almanac-form-submit,
-.almanac-milestone-form .almanac-form-submit {
-  width: 100% !important;
-  height: 2.6rem !important;
-  margin-top: 1.25rem !important;
-  font-family: inherit !important;
-  font-size: 0.88rem !important;
-  font-weight: 500 !important;
-  border-radius: 6px !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
+.almanac-primary-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
 
-/* 禁用态（未输入内容时）清晰柔和 */
-.almanac-form-submit:disabled,
-.almanac-milestone-form .almanac-form-submit:disabled {
-  background: color-mix(in srgb, var(--almanac-paper-soft) 80%, transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--almanac-line) 60%, transparent) !important;
-  color: color-mix(in srgb, var(--almanac-muted) 70%, transparent) !important;
-  cursor: not-allowed !important;
-}
+  width: auto !important;
+  min-width: 8rem !important;
+  min-height: 2.8rem !important;
+  margin: 0 !important;
+  padding: 0.7rem 1.2rem !important;
 
-/* 可用态时拥有清晰明确的按钮质感 */
-.almanac-form-submit:not(:disabled),
-.almanac-milestone-form .almanac-form-submit:not(:disabled) {
+  border: 1px solid var(--almanac-ink) !important;
+  border-radius: 0 !important;
+
   background: var(--almanac-ink) !important;
   color: var(--almanac-paper) !important;
-  border: 1px solid var(--almanac-ink) !important;
+
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.02em !important;
+
+  box-shadow: none !important;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease !important;
 }
 
 .almanac-form-submit:not(:disabled):hover,
-.almanac-milestone-form .almanac-form-submit:not(:disabled):hover {
-  opacity: 0.9 !important;
+.almanac-primary-button:hover {
+  border-color: var(--almanac-accent) !important;
+  background: var(--almanac-accent) !important;
+  color: var(--almanac-accent-text) !important;
+  filter: none !important;
   transform: translateY(-1px) !important;
+  box-shadow: none !important;
 }
 
-/* ==========================================================================
-   精确命中类名：彻底修正 MILESTONES 区域字体与主次排版
-   ========================================================================== */
-
-/* 1. 顶部小眉题 (DEVELOPED MARKS / PERSONAL DATES) */
-.almanac-milestone-kicker {
-  display: block !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 0.68rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
-  color: var(--almanac-muted, #888888) !important;
-  margin-bottom: 0.4rem !important;
-  line-height: 1.2 !important;
+.almanac-form-submit:disabled {
+  border-color: var(--almanac-border-soft) !important;
+  background: transparent !important;
+  color: var(--almanac-muted) !important;
 }
 
-/* 2. 核心大标题 (显影出来的时刻 / 纪念日与倒数日) —— 确保宋体典雅大气质感 */
-.almanac-milestone-manager .almanac-section-title,
-.almanac-milestones-overview .almanac-section-title,
-.almanac-section-head h2,
-.almanac-section-head h3 {
-  font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif !important;
-  font-size: 1.55rem !important;
-  font-weight: 500 !important;
-  letter-spacing: -0.01em !important;
-  line-height: 1.3 !important;
-  color: var(--almanac-ink, #1f1f1f) !important;
-  margin: 0 0 0.45rem 0 !important;
-}
-
-/* 3. 说明文字 (记录重要的日期，也可以留下一个正在靠近的日子。) */
-/* DevTools 里抓出的真实类名：p.almanac-milestone-description */
-.almanac-milestone-description,
-p.almanac-milestone-description {
-  display: block !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif !important;
-  font-size: 0.84rem !important;    /* 彻底消除傻大的 16px，回归雅致正文 */
-  font-weight: 400 !important;
-  line-height: 1.55 !important;
-  color: var(--almanac-ink-soft, #555555) !important; /* 降低饱和，不抢标题风头 */
-  margin: 0 0 1.2rem 0 !important;
-}
-
-/* 4. 添加日期按钮 (添加日期 ↗) 美化与对齐 */
-.almanac-milestone-manager button.almanac-primary-button,
-.almanac-milestones-overview button,
+/* 次级按钮改成文字操作，不再做白色小卡片 */
+.almanac-secondary-button,
+.almanac-data-management .almanac-secondary-button,
 .almanac-text-button {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 0.82rem !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.02em !important;
-  border-radius: 8px !important;
-  transition: all 0.2s ease !important;
-}
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: flex-start;
 
-/* 5. 分组小标 (SYSTEM MARKS) */
-/* DevTools 里抓出的真实类名：p.almanac-subsection-kicker */
-.almanac-subsection-kicker,
-p.almanac-subsection-kicker {
-  display: block !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  font-size: 0.68rem !important;
+  width: auto !important;
+  min-height: 2.5rem !important;
+  margin: 0 !important;
+  padding: 0.45rem 0 !important;
+
+  border: 0 !important;
+  border-bottom: 1px solid var(--almanac-border-soft) !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+  color: var(--almanac-ink) !important;
+
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.8rem !important;
   font-weight: 600 !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
-  color: var(--almanac-muted, #777777) !important;
-  margin: 1.6rem 0 0.8rem 0 !important;
-  line-height: 1 !important;
+  letter-spacing: 0 !important;
+
+  box-shadow: none !important;
 }
 
-/* 6. 空状态容器美化（消灭死黑、排版居中优雅） */
+.almanac-secondary-button:hover,
+.almanac-data-management .almanac-secondary-button:hover,
+.almanac-text-button:hover {
+  border-color: var(--almanac-accent) !important;
+  background: transparent !important;
+  color: var(--almanac-accent) !important;
+  transform: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   8. 空状态：不要虚线框，保持呼吸感
+   -------------------------------------------------------------------------- */
+
 .almanac-milestones-empty,
 .almanac-system-empty,
-.almanac-milestone-empty {
+.almanac-milestone-empty,
+.almanac-empty-tip {
+  display: block !important;
+
   margin: 2.5rem 0 !important;
-  padding: 1.5rem !important;
-  text-align: center !important;
-  color: var(--almanac-muted, #888888) !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  padding: 2.4rem 0 !important;
+
+  border: 0 !important;
+  border-top: 1px solid var(--almanac-border-faint) !important;
+  border-bottom: 1px solid var(--almanac-border-faint) !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+  color: var(--almanac-muted) !important;
+
+  font-family: var(--almanac-font-sans) !important;
   font-size: 0.8rem !important;
-  line-height: 1.6 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
+  line-height: 1.7 !important;
+  text-align: center !important;
+  box-shadow: none !important;
+}
+
+.almanac-milestones-empty strong,
+.almanac-system-empty strong,
+.almanac-milestone-empty strong {
+  display: block !important;
+  margin-bottom: 0.35rem !important;
+
+  color: var(--almanac-ink) !important;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: 1.15rem !important;
+  font-weight: 400 !important;
 }
 
 .almanac-empty-mark {
-  color: var(--almanac-muted, #aaaaaa) !important;
-  margin-bottom: 0.2rem !important;
+  margin-bottom: 0.7rem !important;
+  color: var(--almanac-accent) !important;
+  font-size: 1.25rem !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. 纪念日列表：靠排版区分，不靠卡片边框区分
+   -------------------------------------------------------------------------- */
+
+.almanac-managed-milestones,
+.almanac-personal-milestone-list {
+  display: grid;
+  gap: 0 !important;
+  margin-top: 1.8rem !important;
+  padding-top: 0 !important;
+  border-top: 1px solid var(--almanac-border-soft) !important;
+}
+
+.almanac-managed-milestone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  padding: 1.1rem 0 !important;
+  border-top: 0 !important;
+  border-bottom: 1px solid var(--almanac-border-faint) !important;
+}
+
+.almanac-managed-milestone strong,
+.almanac-personal-milestone strong {
+  color: var(--almanac-ink) !important;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: 1rem !important;
+  font-weight: 400 !important;
+}
+
+.almanac-managed-milestone small,
+.almanac-personal-milestone p,
+.almanac-personal-milestone small {
+  color: var(--almanac-muted) !important;
+  font-size: 0.76rem !important;
+  line-height: 1.6 !important;
+}
+
+/* --------------------------------------------------------------------------
+   10. 时区区域：去掉卡片外框
+   -------------------------------------------------------------------------- */
+
+.almanac-timezone-card {
+  display: grid !important;
+  gap: 0.9rem !important;
+
+  margin-top: 1.5rem;
+  padding: 1.25rem 0 !important;
+
+  border-top: 1px solid var(--almanac-border-soft) !important;
+  border-bottom: 1px solid var(--almanac-border-faint) !important;
+  background: transparent !important;
+}
+
+.almanac-timezone-preview {
+  padding: 0.9rem 0 !important;
+  border-radius: 0 !important;
+  border-left: 2px solid var(--almanac-accent) !important;
+  background: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   11. 危险区域：不做红色卡片，只保留克制的警示色
+   -------------------------------------------------------------------------- */
+
+.almanac-danger-zone {
+  margin-top: 3rem !important;
+  padding: 1.25rem 0 !important;
+
+  border-top: 1px solid color-mix(
+    in srgb,
+    var(--almanac-danger) 45%,
+    transparent
+  ) !important;
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--almanac-danger) 20%,
+    transparent
+  ) !important;
+  background: transparent !important;
+}
+
+.almanac-danger-zone::before,
+.almanac-danger-zone::after {
+  display: none !important;
+  content: none !important;
+}
+
+.almanac-danger-zone > div {
+  display: grid !important;
+  gap: 0.45rem !important;
+  padding-right: 0 !important;
+}
+
+.almanac-danger-zone .almanac-eyebrow,
+.almanac-danger-zone h3 {
+  color: var(--almanac-danger) !important;
+}
+
+.almanac-danger-zone h3 {
+  font-family: var(--almanac-font-serif) !important;
+  font-size: 1.25rem !important;
+  font-weight: 400 !important;
+}
+
+.almanac-danger-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: auto !important;
+  min-height: 2.5rem !important;
+  margin-top: 0.8rem !important;
+  padding: 0.45rem 0 !important;
+
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--almanac-danger) 50%,
+    transparent
+  ) !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+  color: var(--almanac-danger) !important;
+
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.8rem !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+
+.almanac-danger-button:hover {
+  border-color: var(--almanac-danger) !important;
+  background: transparent !important;
+  color: var(--almanac-danger) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   12. 弹窗：保留功能性，不做厚重表单卡片
+   -------------------------------------------------------------------------- */
+
+.almanac-modal-backdrop {
+  padding: 1rem !important;
+  background: color-mix(
+    in srgb,
+    var(--almanac-ink) 38%,
+    transparent
+  ) !important;
+  backdrop-filter: blur(8px);
+}
+
+.almanac-modal {
+  width: min(100%, 34rem) !important;
+  max-height: min(90vh, 46rem) !important;
+
+  padding: clamp(1.5rem, 5vw, 2.4rem) !important;
+
+  border: 0 !important;
+  border-top: 3px solid var(--almanac-ink) !important;
+  border-radius: 0 !important;
+
+  background: var(--almanac-paper) !important;
+  box-shadow: 0 1.5rem 4rem color-mix(
+    in srgb,
+    var(--almanac-ink) 22%,
+    transparent
+  ) !important;
+}
+
+.almanac-modal-description {
+  color: var(--almanac-ink-soft) !important;
+  font-size: 0.86rem !important;
+  line-height: 1.8 !important;
+}
+
+.almanac-timezone-search,
+.almanac-timezone-select {
+  min-height: 2.8rem !important;
+  margin-top: 0.8rem !important;
+  padding: 0.55rem 0 !important;
+
+  border: 0 !important;
+  border-bottom: 1px solid var(--almanac-border-soft) !important;
+  border-radius: 0 !important;
+
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.almanac-timezone-search:focus,
+.almanac-timezone-select:focus {
+  border-bottom: 2px solid var(--almanac-accent) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   13. 底部导航：不动结构，只减轻廉价边框感
+   -------------------------------------------------------------------------- */
+
+.almanac-bottom-nav {
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 0.8rem 2rem color-mix(
+    in srgb,
+    var(--almanac-ink) 22%,
+    transparent
+  ) !important;
+}
+
+/* --------------------------------------------------------------------------
+   14. 移动端
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 560px) {
+  .almanac-masthead {
+    text-align: left;
+  }
+
+  .almanac-manager-heading,
+  .almanac-managed-milestone {
+    display: grid !important;
+    gap: 0.75rem !important;
+  }
+
+  .almanac-managed-milestone-actions {
+    justify-content: flex-start !important;
+  }
+
+  .almanac-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .almanac-form-submit,
+  .almanac-form-actions .almanac-secondary-button {
+    width: 100% !important;
+  }
+
+  .almanac-danger-button,
+  .almanac-data-management .almanac-secondary-button {
+    width: auto !important;
+  }
+
+  .almanac-modal {
+    align-self: flex-end;
+    max-height: 90vh !important;
+    padding: 1.4rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .almanac-app *,
+  .almanac-app *::before,
+  .almanac-app *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
