@@ -2057,3 +2057,226 @@
     transition-duration: 1ms !important;
   }
 }
+/* =====================================================================
+   ALMANAC · 视觉修正覆盖层
+   解决：字号过大、标题层级混乱、按钮文字看不清
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. 全局文字基准
+   --------------------------------------------------------------------- */
+
+.almanac-app {
+  font-size: 15px;
+  line-height: 1.55;
+
+  /* 更稳定的按钮颜色，避免主题变量导致前景色和背景色相同 */
+  --almanac-button-bg: #25231f;
+  --almanac-button-text: #fffdf8;
+  --almanac-button-hover: #426b5b;
+  --almanac-button-border: #25231f;
+
+  --almanac-heading-main: #282621;
+  --almanac-heading-soft: #68645c;
+  --almanac-body-text: #68645c;
+}
+
+
+/* ---------------------------------------------------------------------
+   2. 页面主标题：缩小并建立层级
+   --------------------------------------------------------------------- */
+
+.almanac-masthead {
+  padding: clamp(2.4rem, 8vw, 4.5rem) 0 clamp(1.8rem, 5vw, 2.8rem);
+}
+
+.almanac-masthead-kicker,
+.almanac-eyebrow {
+  margin-bottom: 0.7rem;
+  color: var(--almanac-muted);
+  font-family: var(--almanac-font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+/* 原来最大 4.4rem，缩小到更克制的编辑感标题 */
+.almanac-masthead h1 {
+  max-width: 15em;
+  margin: 0;
+
+  color: var(--almanac-heading-main);
+  font-family: var(--almanac-font-serif);
+  font-size: clamp(2rem, 7vw, 3.25rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+}
+
+/* 说明文字不能比标题抢眼 */
+.almanac-masthead-subtitle {
+  max-width: 28rem;
+  margin: 0.85rem 0 0;
+
+  color: var(--almanac-body-text);
+  font-family: var(--almanac-font-sans);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.75;
+}
+
+.almanac-masthead-rule {
+  width: 2.2rem;
+  height: 2px;
+  margin-top: 1.25rem;
+  background: var(--almanac-accent);
+}
+
+
+/* ---------------------------------------------------------------------
+   3. 各区块标题：不要再使用过大的 clamp
+   --------------------------------------------------------------------- */
+
+.almanac-settings-section .almanac-section-title,
+.almanac-milestone-manager .almanac-section-title,
+.almanac-section-head h2,
+.almanac-section-head h3 {
+  max-width: 26rem;
+  margin-top: 0.3rem;
+
+  color: var(--almanac-heading-main);
+  font-family: var(--almanac-font-serif);
+  font-size: clamp(1.18rem, 3.5vw, 1.5rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.almanac-record-heading h2,
+.almanac-section-title {
+  font-size: clamp(1.18rem, 3.5vw, 1.5rem);
+  line-height: 1.3;
+}
+
+.almanac-settings-section small,
+.almanac-manager-description,
+.almanac-section-head p {
+  max-width: 34rem;
+  color: var(--almanac-body-text);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+
+/* ---------------------------------------------------------------------
+   4. 主按钮：缩小字号，并强制保证对比度
+   --------------------------------------------------------------------- */
+
+.almanac-primary-button {
+  min-width: 0;
+  min-height: 2.65rem;
+  margin-top: 1rem;
+  padding: 0.65rem 1rem;
+
+  border: 1px solid var(--almanac-button-border);
+  border-radius: 0.7rem;
+  background: var(--almanac-button-bg);
+  color: var(--almanac-button-text);
+
+  font-family: var(--almanac-font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  line-height: 1.2;
+  box-shadow: none;
+}
+
+.almanac-primary-button:hover {
+  border-color: var(--almanac-button-hover);
+  background: var(--almanac-button-hover);
+  color: #ffffff;
+  box-shadow: 0 0.45rem 1rem rgb(37 35 31 / 12%);
+}
+
+.almanac-primary-button:focus-visible {
+  outline: 2px solid var(--almanac-accent);
+  outline-offset: 3px;
+}
+
+
+/* ---------------------------------------------------------------------
+   5. 次级按钮：不要用接近白色的底配接近白色的字
+   --------------------------------------------------------------------- */
+
+.almanac-secondary-button,
+.almanac-data-management .almanac-secondary-button {
+  min-height: 2.45rem;
+  padding: 0.55rem 0.9rem;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 18%,
+    transparent
+  );
+  border-radius: 0.65rem;
+  background: #f1eee7;
+  color: #38352f;
+
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.almanac-secondary-button:hover,
+.almanac-data-management .almanac-secondary-button:hover {
+  border-color: #426b5b;
+  background: #e4eee8;
+  color: #294c3e;
+}
+
+
+/* ---------------------------------------------------------------------
+   6. 普通按钮统一降噪
+   --------------------------------------------------------------------- */
+
+.almanac-app button {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.almanac-app button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+
+/* ---------------------------------------------------------------------
+   7. 移动端进一步收敛
+   --------------------------------------------------------------------- */
+
+@media (max-width: 600px) {
+  .almanac-masthead {
+    padding-top: 2.2rem;
+  }
+
+  .almanac-masthead h1 {
+    max-width: 12em;
+    font-size: clamp(1.9rem, 9vw, 2.55rem);
+    line-height: 1.16;
+  }
+
+  .almanac-masthead-subtitle {
+    max-width: 23rem;
+    font-size: 0.82rem;
+    line-height: 1.7;
+  }
+
+  .almanac-primary-button {
+    min-height: 2.55rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.76rem;
+  }
+}
