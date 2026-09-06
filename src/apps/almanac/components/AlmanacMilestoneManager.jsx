@@ -151,21 +151,28 @@ export const AlmanacMilestoneManager = ({
       )}
 
       {milestones.length === 0 && !showForm ? (
-        <div className="almanac-empty almanac-milestone-empty">
-          <span className="almanac-empty-mark">
-            —
-          </span>
+       <div
+  className="almanac-empty almanac-milestone-empty"
+  role="status"
+>
+  <span
+    className="almanac-empty-mark"
+    aria-hidden="true"
+  >
+    —
+  </span>
 
-          <div>
-            <strong>
-              还没有留下日期
-            </strong>
+  <div className="almanac-empty-copy">
+    <strong className="almanac-empty-title">
+      还没有留下日期
+    </strong>
 
-            <small>
-              添加一个重要的日子，它会在这里安静地等待。
-            </small>
-          </div>
-        </div>
+    <small className="almanac-empty-description">
+      添加一个重要的日子，它会在这里安静地等待。
+    </small>
+  </div>
+</div>
+
       ) : (
         <div className="almanac-managed-milestones">
           {milestones.map((milestone, index) => {

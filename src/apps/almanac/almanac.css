@@ -785,16 +785,6 @@
 
 /* 设置区域 */
 
-.almanac-settings-section {
-  position: relative;
-
-  margin-top: 2.4rem;
-  padding-top: 1.25rem;
-
-  border-top: 1px solid var(--almanac-line);
-  scroll-margin-top: 1rem;
-}
-
 .almanac-settings-section .almanac-panel {
   margin: 0;
   padding: 0;
@@ -3104,4 +3094,169 @@
   .almanac-form-cancel {
     width: 100% !important;
   }
+}
+/* =========================================================
+   Empty state final fix
+   修复文字黏连、字体不统一和行高异常
+   ========================================================= */
+
+.almanac-system-empty,
+.almanac-milestone-empty,
+.almanac-empty {
+  box-sizing: border-box;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
+
+/* 强制内部文字纵向排列，避免 strong 和 small 黏在一起 */
+.almanac-system-empty > div,
+.almanac-milestone-empty > div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+/* 主文字 */
+.almanac-system-empty strong,
+.almanac-milestone-empty strong {
+  display: block !important;
+  margin: 0;
+  color: var(--almanac-ink);
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.45 !important;
+  white-space: normal;
+}
+
+/* 辅助说明 */
+.almanac-system-empty small,
+.almanac-milestone-empty small {
+  display: block !important;
+  margin: 0;
+  color: var(--almanac-muted);
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif !important;
+  font-size: 0.7rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.65 !important;
+  white-space: normal;
+}
+
+/* 左侧的 — 不要抢文字视觉重量 */
+.almanac-system-empty .almanac-empty-mark,
+.almanac-milestone-empty .almanac-empty-mark {
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+  color: var(--almanac-muted);
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace !important;
+  font-size: 0.78rem !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+}
+
+/* 系统空状态整体 */
+.almanac-system-empty,
+.almanac-milestone-empty {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-height: 0;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem 0;
+  border: 0 !important;
+}
+
+/* 不要让通用 .almanac-empty 把内容强行居中或放大 */
+.almanac-system-empty.almanac-empty,
+.almanac-milestone-empty.almanac-empty {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* 移动端 */
+@media (max-width: 560px) {
+  .almanac-system-empty strong,
+  .almanac-milestone-empty strong {
+    font-size: 0.78rem !important;
+  }
+
+  .almanac-system-empty small,
+  .almanac-milestone-empty small {
+    font-size: 0.68rem !important;
+  }
+}
+/* =========================================================
+   Remove accidental red vertical rule
+   删除错误泄漏到整个设置页的红色竖线
+   ========================================================= */
+
+.almanac-settings-section,
+.almanac-settings-section > .almanac-panel,
+.almanac-settings-section .almanac-panel {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  box-shadow: none;
+}
+
+/*
+ * 设置页面不使用左侧装饰线。
+ * 之前的红线不应该出现在 PRIVATE SETTINGS、
+ * 观察与问候、所在地或普通设置项旁边。
+ */
+.almanac-settings-section::before,
+.almanac-settings-section::after,
+.almanac-settings-section > .almanac-panel::before,
+.almanac-settings-section > .almanac-panel::after {
+  display: none !important;
+  content: none !important;
+}
+
+/*
+ * 普通设置区只保留自然的页面流布局。
+ */
+.almanac-settings-section {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/*
+ * 危险操作区域也不再使用红色竖线，
+ * 只用红色文字和一条很淡的顶部边界提示风险。
+ */
+.almanac-settings-section .almanac-danger-zone {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-top: 1px solid color-mix(
+    in srgb,
+    #b94a48 30%,
+    var(--almanac-line)
+  ) !important;
 }

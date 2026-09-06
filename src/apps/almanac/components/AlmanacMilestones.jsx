@@ -167,21 +167,28 @@ export const AlmanacMilestones = ({
           </div>
 
           {systemMilestones.length === 0 ? (
-            <div className="almanac-empty almanac-system-empty">
-              <span className="almanac-empty-mark">
-                —
-              </span>
+           <div
+  className="almanac-empty almanac-system-empty"
+  role="status"
+>
+  <span
+    className="almanac-empty-mark"
+    aria-hidden="true"
+  >
+    —
+  </span>
 
-              <div>
-                <strong>
-                  还没有足够的相处记录
-                </strong>
+  <div className="almanac-empty-copy">
+    <strong className="almanac-empty-title">
+      还没有足够的相处记录
+    </strong>
 
-                <small>
-                  更多相遇发生之后，这里会慢慢显影出新的时刻。
-                </small>
-              </div>
-            </div>
+    <small className="almanac-empty-description">
+      更多相遇发生之后，这里会慢慢显影出新的时刻。
+    </small>
+  </div>
+</div>
+
           ) : (
             <div className="almanac-milestone-list">
               {systemMilestones.map((milestone, index) => (
