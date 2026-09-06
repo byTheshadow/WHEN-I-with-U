@@ -2425,6 +2425,7 @@
     width: 100% !important;
   }
 }
+
 /* ==========================================================================
    ALMANAC MILESTONE & DATES TYPOGRAPHY & BUTTON REDESIGN
    彻底解决字体割裂、主次不分、按钮未美化与层级缺失
@@ -2567,4 +2568,153 @@
 .almanac-milestone-empty::before,
 .almanac-system-milestones-empty::before {
   display: none !important;
+}
+
+/* ==========================================================================
+   精确局部修复：空状态字体与折行、表单视觉、危险区与按钮统一
+   ========================================================================== */
+
+/* 1. 彻底干掉危险区溢出的红色横线/竖线伪元素 */
+.almanac-danger-zone::before,
+.almanac-danger-zone::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* 2. 修复截图一：“还没有留下日期”粘连与字体混用 */
+/* 强制空状态容器统一字体，消灭同一句里中英文、黑宋体混杂 */
+.almanac-system-empty,
+.almanac-milestone-empty,
+.almanac-empty {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 0.35rem !important;
+  padding: 2.5rem 1rem !important;
+  color: var(--almanac-muted) !important;
+  font-size: 0.82rem !important;
+  line-height: 1.6 !important;
+}
+
+/* 破折号居中且淡雅 */
+.almanac-empty-mark,
+.almanac-system-empty .almanac-empty-mark,
+.almanac-milestone-empty .almanac-empty-mark {
+  display: block !important;
+  margin: 0 auto 0.2rem auto !important;
+  color: var(--almanac-muted) !important;
+  opacity: 0.6 !important;
+  font-family: inherit !important;
+}
+
+/* 强制让“还没有留下日期”独占一行作为小标题，后面的说明文字自动换行到第二行 */
+.almanac-system-empty strong,
+.almanac-milestone-empty strong {
+  display: block !important;
+  font-family: inherit !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  color: var(--almanac-ink) !important;
+  margin-bottom: 0.2rem !important;
+}
+
+/* 3. 修复截图二：“留下一个日期”恶心的表单输入框样式 */
+.almanac-milestone-form,
+.almanac-form {
+  padding: 1.25rem 0 !important;
+}
+
+/* 表单标题层级 */
+.almanac-form-kicker {
+  font-family: inherit !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--almanac-muted) !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.almanac-form-title {
+  font-family: inherit !important;
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: var(--almanac-ink) !important;
+  margin: 0 0 1.2rem 0 !important;
+}
+
+/* 标签文字微调 */
+.almanac-field > span {
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  color: var(--almanac-ink) !important;
+  margin-bottom: 0.35rem !important;
+}
+
+/* 告别生硬死灰！输入框改为清爽柔和的浅底与精致边框 */
+.almanac-milestone-form input[type="text"],
+.almanac-milestone-form input[type="date"],
+.almanac-field input[type="text"],
+.almanac-field input[type="date"] {
+  width: 100% !important;
+  height: 2.5rem !important;
+  padding: 0 0.85rem !important;
+  border-radius: 6px !important;
+  border: 1px solid color-mix(in srgb, var(--almanac-line) 80%, transparent) !important;
+  background: color-mix(in srgb, var(--almanac-paper-soft) 50%, var(--almanac-paper)) !important;
+  color: var(--almanac-ink) !important;
+  font-family: inherit !important;
+  font-size: 0.88rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.almanac-milestone-form input[type="text"]:focus,
+.almanac-milestone-form input[type="date"]:focus,
+.almanac-field input[type="text"]:focus,
+.almanac-field input[type="date"]:focus {
+  border-color: var(--almanac-ink) !important;
+  background: var(--almanac-paper) !important;
+  outline: none !important;
+}
+
+/* 4. 修复底部提交按钮：去除灰白虚线弱智感，改为与“添加日期”同源的质感按钮 */
+.almanac-form-submit,
+.almanac-milestone-form .almanac-form-submit {
+  width: 100% !important;
+  height: 2.6rem !important;
+  margin-top: 1.25rem !important;
+  font-family: inherit !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 禁用态（未输入内容时）清晰柔和 */
+.almanac-form-submit:disabled,
+.almanac-milestone-form .almanac-form-submit:disabled {
+  background: color-mix(in srgb, var(--almanac-paper-soft) 80%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--almanac-line) 60%, transparent) !important;
+  color: color-mix(in srgb, var(--almanac-muted) 70%, transparent) !important;
+  cursor: not-allowed !important;
+}
+
+/* 可用态时拥有清晰明确的按钮质感 */
+.almanac-form-submit:not(:disabled),
+.almanac-milestone-form .almanac-form-submit:not(:disabled) {
+  background: var(--almanac-ink) !important;
+  color: var(--almanac-paper) !important;
+  border: 1px solid var(--almanac-ink) !important;
+}
+
+.almanac-form-submit:not(:disabled):hover,
+.almanac-milestone-form .almanac-form-submit:not(:disabled):hover {
+  opacity: 0.9 !important;
+  transform: translateY(-1px) !important;
 }
