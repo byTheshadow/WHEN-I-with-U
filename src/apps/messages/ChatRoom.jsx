@@ -108,6 +108,9 @@ export const ChatRoom = ({
   const inputRef = useRef(null);
   const previousScrollHeightRef = useRef(null);
   const hasScrolledToLatestRef = useRef(false);
+  // 1. 新增一个 ref，紧挨着其他 ref 声明
+const forceScrollMessageIdRef = useRef(null);
+const isLoadingMoreRef = useRef(false);
 
   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
   const [isPrioritizedLoaded, setIsPrioritizedLoaded] = useState(false);
@@ -309,6 +312,7 @@ await db.chats.update(chat.id, {
   setVisibleMessageCount(INITIAL_VISIBLE_MESSAGE_COUNT);
   previousScrollHeightRef.current = null;
   hasScrolledToLatestRef.current = false;
+   isLoadingMoreRef.current = false;
 
   void loadChatData();
 
@@ -390,34 +394,35 @@ await db.chats.update(chat.id, {
     };
   }, [chatId, loadChatData]);
 
-  useEffect(() => {
-    const scrollArea = scrollAreaRef.current;
+ useLayoutEffect(() => {
+  const scrollArea = scrollAreaRef.current;
+  if (!scrollArea) return;
 
-    if (!scrollArea) return undefined;
+  const lastMessage = messages[messages.length - 1];
+  const isForcedBySend = Boolean(
+    lastMessage && lastMessage.id === forceScrollMessageIdRef.current,
+  );
 
-    const distanceFromBottom =
-      scrollArea.scrollHeight
-      - scrollArea.scrollTop
-      - scrollArea.clientHeight;
+  if (isForcedBySend) {
+    forceScrollMessageIdRef.current = null;
+  }
 
-    const isNearBottom = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
-    const shouldFollow = !hasScrolledToLatestRef.current || isNearBottom;
+  const distanceFromBottom =
+    scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight;
+  const isNearBottom = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
+  const shouldFollow = isForcedBySend
+    || !hasScrolledToLatestRef.current
+    || isNearBottom;
 
-    if (!shouldFollow) return undefined;
+  if (!shouldFollow) return;
 
-    const frameId = window.requestAnimationFrame(() => {
-      scrollArea.scrollTo({
-        top: scrollArea.scrollHeight,
-        behavior: hasScrolledToLatestRef.current ? 'smooth' : 'auto',
-      });
+  scrollArea.scrollTo({
+    top: scrollArea.scrollHeight,
+    behavior: hasScrolledToLatestRef.current ? 'smooth' : 'auto',
+  });
 
-      hasScrolledToLatestRef.current = true;
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-    };
-  }, [messages, isAiTyping, mcpTrace]);
+  hasScrolledToLatestRef.current = true;
+}, [messages, isAiTyping, mcpTrace]);
 
   const messagesById = useMemo(() => {
     const map = new Map();
@@ -437,36 +442,39 @@ await db.chats.update(chat.id, {
     return messages.slice(messages.length - visibleMessageCount);
   }, [messages, visibleMessageCount]);
 
-  const handleMessagesScroll = useCallback((event) => {
-    const scrollArea = event.currentTarget;
+const handleMessagesScroll = useCallback((event) => {
+  const scrollArea = event.currentTarget;
 
-    if (
-      scrollArea.scrollTop > LOAD_MORE_SCROLL_THRESHOLD_PX
-      || visibleMessageCount >= messages.length
-    ) {
-      return;
-    }
+  if (
+    isLoadingMoreRef.current
+    || scrollArea.scrollTop > LOAD_MORE_SCROLL_THRESHOLD_PX
+    || visibleMessageCount >= messages.length
+  ) {
+    return;
+  }
 
-    previousScrollHeightRef.current = scrollArea.scrollHeight;
+  isLoadingMoreRef.current = true;
+  previousScrollHeightRef.current = scrollArea.scrollHeight;
 
-    setVisibleMessageCount((previous) => (
-      Math.min(previous + LOAD_MORE_MESSAGE_BATCH, messages.length)
-    ));
-  }, [messages.length, visibleMessageCount]);
+  setVisibleMessageCount((previous) => (
+    Math.min(previous + LOAD_MORE_MESSAGE_BATCH, messages.length)
+  ));
+}, [messages.length, visibleMessageCount]);
 
-  useLayoutEffect(() => {
-    const scrollArea = scrollAreaRef.current;
+useLayoutEffect(() => {
+  const scrollArea = scrollAreaRef.current;
 
-    if (!scrollArea || previousScrollHeightRef.current === null) {
-      return;
-    }
+  if (!scrollArea || previousScrollHeightRef.current === null) {
+    return;
+  }
 
-    const newScrollHeight = scrollArea.scrollHeight;
+  const newScrollHeight = scrollArea.scrollHeight;
 
-    scrollArea.scrollTop += newScrollHeight - previousScrollHeightRef.current;
+  scrollArea.scrollTop += newScrollHeight - previousScrollHeightRef.current;
 
-    previousScrollHeightRef.current = null;
-  }, [visibleMessageCount]);
+  previousScrollHeightRef.current = null;
+  isLoadingMoreRef.current = false;
+}, [visibleMessageCount]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
@@ -529,12 +537,7 @@ await db.chats.update(chat.id, {
     setSelectedType('text');
     setExtraInputMeta({});
 
-    window.requestAnimationFrame(() => {
-      scrollAreaRef.current?.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-    });
+ forceScrollMessageIdRef.current = newMsg.id;
 
     await db.chats.update(chatId, {
       updatedAt: new Date().toISOString(),

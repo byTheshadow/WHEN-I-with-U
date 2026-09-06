@@ -2425,3 +2425,146 @@
     width: 100% !important;
   }
 }
+/* ==========================================================================
+   ALMANAC MILESTONE & DATES TYPOGRAPHY & BUTTON REDESIGN
+   彻底解决字体割裂、主次不分、按钮未美化与层级缺失
+   ========================================================================== */
+
+/* 1. 全局字体统一：彻底干掉生硬拼贴的衬线宋体与突兀等宽体，保证一段话内字体纯净一致 */
+.almanac-milestones,
+.almanac-milestone-panel,
+.almanac-milestone-manager,
+.almanac-system-milestones,
+.almanac-countdown-section {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+}
+
+/* 2. 标题与说明文字主次层级全面重构 */
+
+/* 英文/小分类眉题 (KICKER) */
+.almanac-manager-kicker,
+.almanac-system-milestones-kicker,
+.almanac-form-kicker,
+.almanac-eyebrow {
+  display: block !important;
+  font-family: inherit !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: var(--almanac-muted) !important;
+  opacity: 0.8 !important;
+  margin-bottom: 0.35rem !important;
+}
+
+/* 核心大标题 (TITLE) —— 明显拉大字号与字重，主次分明 */
+.almanac-manager-title,
+.almanac-system-milestones-title,
+.almanac-countdown-head h3,
+.almanac-form-title {
+  display: block !important;
+  font-family: inherit !important;
+  font-size: 1.45rem !important;      /* 强化大标题感 */
+  font-weight: 700 !important;       /* 强化视觉锚点 */
+  line-height: 1.3 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--almanac-ink) !important;
+  margin: 0 0 0.45rem 0 !important;
+}
+
+/* 说明文字/正文 (DESCRIPTION) —— 适度缩小、柔和字色，与大标题拉开明显差距 */
+.almanac-manager-description,
+.almanac-manager-heading p,
+.almanac-system-milestones-head p,
+.almanac-countdown-head p {
+  display: block !important;
+  font-family: inherit !important;
+  font-size: 0.88rem !important;     /* 降为正文字号 */
+  font-weight: 400 !important;
+  line-height: 1.55 !important;
+  color: color-mix(in srgb, var(--almanac-ink) 72%, transparent) !important; /* 柔和二级灰度 */
+  margin: 0 0 1.15rem 0 !important;
+}
+
+/* 分组小标 (如 SYSTEM MARKS) */
+.almanac-system-milestones-head h3,
+.almanac-milestones h4 {
+  font-family: inherit !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--almanac-ink) !important;
+  margin-top: 1.8rem !important;
+  margin-bottom: 0.8rem !important;
+  padding-bottom: 0.4rem !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--almanac-line) 50%, transparent) !important;
+}
+
+/* 3. “添加日期”与操作按钮现代重塑 */
+.almanac-manager-add,
+.almanac-add-toggle-button,
+.almanac-countdown-actions button,
+.almanac-milestone-manager button {
+  width: 100% !important;
+  min-height: 2.75rem !important;
+  padding: 0.65rem 1.2rem !important;
+  margin-bottom: 1.5rem !important;
+  font-family: inherit !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  color: var(--almanac-ink) !important;
+  background: var(--almanac-paper) !important;
+  border: 1px dashed color-mix(in srgb, var(--almanac-line) 90%, var(--almanac-ink)) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 悬停与点击反馈 */
+.almanac-manager-add:hover,
+.almanac-add-toggle-button:hover {
+  background: color-mix(in srgb, var(--almanac-accent) 6%, var(--almanac-paper)) !important;
+  border-color: var(--almanac-accent) !important;
+  border-style: solid !important;
+  color: var(--almanac-accent) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--almanac-accent) 15%, transparent) !important;
+}
+
+.almanac-manager-add:active,
+.almanac-add-toggle-button:active {
+  transform: translateY(0) !important;
+}
+
+/* 4. 空状态提示居中与质感优化（解决底下一行字贴在屏幕角落的问题） */
+.almanac-milestone-empty,
+.almanac-system-milestones-empty,
+.almanac-empty-tip {
+  margin: 2.5rem 0 !important;
+  padding: 1.8rem 1rem !important;
+  text-align: center !important;
+  font-family: inherit !important;
+  font-size: 0.82rem !important;
+  line-height: 1.6 !important;
+  color: var(--almanac-muted) !important;
+  background: color-mix(in srgb, var(--almanac-paper-soft) 40%, transparent) !important;
+  border-radius: 10px !important;
+  border: 1px dashed color-mix(in srgb, var(--almanac-line) 60%, transparent) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+}
+
+/* 去除生硬的前缀破折号 */
+.almanac-milestone-empty::before,
+.almanac-system-milestones-empty::before {
+  display: none !important;
+}
