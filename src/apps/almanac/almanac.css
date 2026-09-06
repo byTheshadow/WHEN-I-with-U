@@ -2061,10 +2061,7 @@
     width: 100%;
   }
 
-  .almanac-danger-zone {
-    margin-top: 1.5rem;
-  }
-
+ 
   .almanac-manager-heading,
   .almanac-managed-milestone {
     display: grid;
@@ -2585,19 +2582,6 @@
 /* ---------------------------------------------------------
    危险操作区
    --------------------------------------------------------- */
-
-.almanac-danger-zone {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1.35rem;
-  padding: 1rem 0 0;
-  border: 0;
-  border-top: 1px solid color-mix(
-    in srgb,
-    #b94a48 38%,
-    var(--almanac-line)
-  );
-}
 
 .almanac-danger-zone .almanac-eyebrow {
   color: #b94a48;
@@ -3225,18 +3209,6 @@
   box-shadow: none;
 }
 
-/*
- * 设置页面不使用左侧装饰线。
- * 之前的红线不应该出现在 PRIVATE SETTINGS、
- * 观察与问候、所在地或普通设置项旁边。
- */
-.almanac-settings-section::before,
-.almanac-settings-section::after,
-.almanac-settings-section > .almanac-panel::before,
-.almanac-settings-section > .almanac-panel::after {
-  display: none !important;
-  content: none !important;
-}
 
 /*
  * 普通设置区只保留自然的页面流布局。
