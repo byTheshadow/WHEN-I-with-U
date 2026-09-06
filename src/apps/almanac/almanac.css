@@ -653,9 +653,98 @@
    纪念日时间线（只读）
    -------------------------------------------------------------------- */
 
-.almanac-milestone-section {
+.almanac-milestone-section,
+.almanac-milestones-overview {
   margin-top: 2.6rem;
   scroll-margin-top: 1rem;
+}
+
+/* 头部：标题说明在左，"添加日期"按钮在右 */
+.almanac-milestone-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.almanac-milestone-heading-copy {
+  min-width: 0;
+  max-width: 26rem;
+}
+
+.almanac-milestone-description {
+  display: block;
+  margin: 0.6rem 0 0;
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.78rem !important;
+  font-weight: 400 !important;
+  line-height: 1.65 !important;
+}
+
+.almanac-add-date-button {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+/* “添加日期”按钮里的箭头是组件写死的文字节点（↗），
+   这里把原字符收起来，换成矢量图标，避免不同系统渲染出粗细不一的符号 */
+.almanac-button-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-left: 0.15rem;
+
+  font-size: 0;
+  line-height: 0;
+
+  position: relative;
+  transition: transform 180ms ease;
+}
+
+.almanac-button-arrow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: currentColor;
+  mask: var(--icon-arrow-up-right) no-repeat center / contain;
+  -webkit-mask: var(--icon-arrow-up-right) no-repeat center / contain;
+}
+
+.almanac-secondary-button:hover .almanac-button-arrow {
+  transform: translate(0.1rem, -0.1rem);
+}
+
+/* 小节标题：文字 + 一条延伸的细线，只在这两处真正的分组场景使用 */
+.almanac-subsection-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.almanac-subsection-kicker {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.66rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em;
+}
+
+.almanac-subsection-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--almanac-border-faint);
+}
+
+.almanac-system-milestones {
+  margin-top: 0.5rem;
 }
 
 .almanac-milestone-list {
@@ -663,7 +752,7 @@
   display: grid;
   gap: 1.3rem;
   margin-top: 1.3rem;
-  padding-left: 1.25rem;
+  padding-left: 2rem;
 }
 
 .almanac-milestone-list::before {
@@ -676,14 +765,15 @@
   content: '';
 }
 
-.almanac-milestone-list article {
+.almanac-milestone-list article,
+.almanac-system-milestone {
   position: relative;
 }
 
 .almanac-milestone-line {
   position: absolute;
   top: 0.28rem;
-  left: -1.19rem;
+  left: -1.76rem;
   width: 0.5rem;
   height: 0.5rem;
   margin: 0;
@@ -692,16 +782,87 @@
   background: var(--almanac-paper);
 }
 
+/* 顺序编号——这里是真正的序列（相处第 1/7/30/100 天），
+   所以用编号是恰当的，做成小徽章而不是裸文字 */
+.almanac-system-milestone-index {
+  position: absolute;
+  top: -0.05rem;
+  left: -0.85rem;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+}
+
+.almanac-system-milestone-content {
+  display: grid;
+  gap: 0.3rem;
+}
+
 .almanac-milestone-list strong {
   display: block;
-  font-size: 1rem;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: 0.96rem !important;
+  font-weight: 500 !important;
 }
 
 .almanac-milestone-list p {
-  margin: 0.3rem 0 0;
-  color: var(--almanac-muted);
-  font-size: 0.74rem;
-  line-height: 1.6;
+  margin: 0;
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.74rem !important;
+  font-weight: 400 !important;
+  line-height: 1.55 !important;
+}
+
+/* 空状态：横向排布的“—”标记 + 文案，而不是隐藏掉 */
+.almanac-empty.almanac-system-empty {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.9rem;
+  min-height: 0;
+  margin-top: 1.2rem;
+  padding: 1.5rem;
+
+  border: 1px dashed var(--almanac-border-soft);
+  border-radius: var(--almanac-radius-lg);
+  background: var(--almanac-paper-soft);
+  text-align: left;
+}
+
+.almanac-empty-mark {
+  display: block !important;
+  flex: 0 0 auto;
+  color: var(--almanac-accent) !important;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: 1.1rem !important;
+  line-height: 1.4 !important;
+}
+
+.almanac-empty-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.almanac-empty-title {
+  color: var(--almanac-ink) !important;
+  font-family: var(--almanac-font-serif) !important;
+  font-size: 0.94rem !important;
+  font-weight: 500 !important;
+}
+
+.almanac-empty-description {
+  color: var(--almanac-muted) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.76rem !important;
+  font-weight: 400 !important;
+  line-height: 1.6 !important;
 }
 
 /* --------------------------------------------------------------------
@@ -1304,10 +1465,6 @@
   font-size: 1.1rem;
 }
 
-.almanac-empty-mark {
-  display: none;
-}
-
 /* --------------------------------------------------------------------
    时区卡片
    -------------------------------------------------------------------- */
@@ -1813,41 +1970,99 @@
   gap: 0.85rem;
 
   padding: 0.9rem 1rem;
+  margin-bottom: 0.6rem;
 
   border: 1px solid var(--almanac-border-faint);
   border-radius: var(--almanac-radius-md);
   background: var(--almanac-paper-soft);
+  transition: border-color 180ms ease, background-color 180ms ease;
 }
 
-.almanac-personal-milestone::before {
-  flex: 0 0 0.4rem;
-  width: 0.4rem;
-  height: 0.4rem;
-  margin-top: 0.4rem;
+.almanac-personal-milestone:hover {
+  border-color: var(--almanac-border-soft);
+  background: var(--almanac-control-hover);
+}
+
+/* 真正渲染出来的圆点是一个 span，不是伪元素——
+   两者叠加会出现两个点，这里只画这一个真实的点 */
+.almanac-personal-milestone-dot {
+  flex: 0 0 0.45rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.45rem;
   border-radius: 50%;
   background: var(--almanac-accent);
-  content: '';
 }
 
-.almanac-personal-milestone > div {
+.almanac-personal-milestone-content {
   display: grid;
-  gap: 0.28rem;
+  gap: 0.3rem;
+  min-width: 0;
 }
 
-.almanac-personal-milestone strong {
+.almanac-personal-milestone-content strong {
   font-family: var(--almanac-font-serif) !important;
   font-size: 0.92rem !important;
   font-weight: 500 !important;
 }
 
-.almanac-personal-milestone p,
-.almanac-personal-milestone small {
+.almanac-personal-milestone-content p {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin: 0;
   color: var(--almanac-ink-soft) !important;
   font-family: var(--almanac-font-sans) !important;
-  font-size: 0.72rem !important;
+  font-size: 0.76rem !important;
   font-weight: 400 !important;
   line-height: 1.5 !important;
+}
+
+/* “每年重复”标签：小徽章，而不是纯文字堆在日期后面 */
+.almanac-milestone-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.14rem 0.5rem;
+
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--almanac-accent) 14%, var(--almanac-paper-soft));
+
+  color: var(--almanac-accent) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.64rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+}
+
+/* 倒数天数：区分“未来 / 今天 / 已过去”三种状态 */
+.almanac-personal-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+
+  color: var(--almanac-accent) !important;
+  font-family: var(--almanac-font-sans) !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+}
+
+.almanac-personal-countdown::before {
+  content: '';
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.almanac-personal-countdown.is-today {
+  color: var(--almanac-danger-dark) !important;
+}
+
+.almanac-personal-countdown.is-past {
+  color: var(--almanac-muted) !important;
+  font-weight: 500 !important;
 }
 
 /* --------------------------------------------------------------------
