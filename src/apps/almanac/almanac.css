@@ -1257,3 +1257,163 @@
     transparent
   );
 }
+.almanac-milestone-manager {
+  margin-top: 1.5rem;
+}
+
+.almanac-manager-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.almanac-manager-heading > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.almanac-milestone-entry-button {
+  display: inline-block;
+  margin-top: 0.65rem;
+  padding: 0;
+}
+
+.almanac-countdown-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--almanac-line);
+}
+
+.almanac-countdown-form > label:not(.almanac-toggle-row) {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.almanac-countdown-form > label:not(.almanac-toggle-row) > span {
+  color: var(--almanac-ink);
+  font-size: 0.88rem;
+}
+
+.almanac-countdown-form input[type='text'],
+.almanac-countdown-form input[type='date'] {
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--almanac-line);
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
+.almanac-countdown-form input:focus {
+  outline: 1px solid var(--almanac-accent);
+  outline-offset: 2px;
+}
+
+.almanac-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.almanac-managed-milestones {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.almanac-managed-milestone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--almanac-line);
+}
+
+.almanac-managed-milestone > div:first-child {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.almanac-managed-milestone strong {
+  color: var(--almanac-ink);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.almanac-managed-milestone small {
+  color: var(--almanac-ink-soft);
+  line-height: 1.5;
+}
+
+.almanac-countdown-label {
+  color: var(--almanac-accent-text) !important;
+}
+
+.almanac-managed-milestone-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.65rem;
+}
+
+.almanac-danger-text {
+  color: #b94a48 !important;
+}
+
+.almanac-personal-milestone-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--almanac-line);
+}
+
+.almanac-personal-milestone {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.5rem 0;
+}
+
+.almanac-personal-milestone::before {
+  content: '';
+  flex: 0 0 0.35rem;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-top: 0.45rem;
+  border-radius: 50%;
+  background: var(--almanac-accent);
+}
+
+.almanac-personal-milestone > div {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.almanac-personal-milestone strong {
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.almanac-personal-milestone p,
+.almanac-personal-milestone small {
+  margin: 0;
+  color: var(--almanac-ink-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .almanac-manager-heading,
+  .almanac-managed-milestone {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .almanac-managed-milestone-actions {
+    justify-content: flex-start;
+  }
+}

@@ -32,8 +32,11 @@ import {
 
 import {
   createAlmanacMilestone,
+  deleteAlmanacMilestone,
   getAlmanacMilestones,
+  updateAlmanacMilestone,
 } from './services/almanacMilestoneService';
+
 
 import { getRhythmObservation } from './services/almanacRhythmService';
 
@@ -272,6 +275,47 @@ export const AlmanacApp = ({ onBackHub }) => {
     setRecords([]);
   };
 
+  const handleCreateMilestone = async (milestone) => {
+    const id = await createAlmanacMilestone({
+      chatId: selectedChatId,
+      type: milestone.isRecurring
+        ? 'anniversary'
+        : 'countdown',
+      ...milestone,
+    });
+
+    if (!id) {
+      return;
+    }
+
+    const nextMilestones = await getAlmanacMilestones(
+      selectedChatId
+    );
+
+    setMilestones(nextMilestones);
+  };
+
+  const handleUpdateMilestone = async (
+    id,
+    patch
+  ) => {
+    await updateAlmanacMilestone(id, patch);
+
+    const nextMilestones = await getAlmanacMilestones(
+      selectedChatId
+    );
+
+    setMilestones(nextMilestones);
+  };
+
+  const handleDeleteMilestone = async (id) => {
+    await deleteAlmanacMilestone(id);
+
+    setMilestones((current) => (
+      current.filter((milestone) => milestone.id !== id)
+    ));
+  };
+
   /**
    * 保存 Almanac 设置。
    *
@@ -493,32 +537,40 @@ export const AlmanacApp = ({ onBackHub }) => {
               <AlmanacHeatmap data={heatmapData} />
             </section>
 
-            <section
+                       <section
               className="almanac-milestone-section almanac-reveal"
               data-almanac-section="milestone"
             >
-              <AlmanacMilestones stats={stats} />
+              <AlmanacMilestones
+                stats={stats}
+                milestones={milestones}
+                onCreate={handleCreateMilestone}
+                onUpdate={handleUpdateMilestone}
+                onDelete={handleDeleteMilestone}
+              />
             </section>
+
 
             {showSettings && (
               <section
                 className="almanac-settings-section almanac-reveal"
                 data-almanac-section="settings"
               >
-                <AlmanacSettingsPanel
+                                <AlmanacSettingsPanel
                   config={config}
                   onSave={handleSaveConfig}
                   onRestart={async () => {
+                    const now =
+                      new Date().toISOString();
+
                     const saved =
                       await saveAlmanacConfig(
                         selectedChatId,
                         {
                           initializationCompleted: true,
                           dataMode: 'fresh_start',
-                          observationStartedAt:
-                            new Date().toISOString(),
-                          observationResetAt:
-                            new Date().toISOString(),
+                          observationStartedAt: now,
+                          observationResetAt: now,
                         }
                       );
 
@@ -528,7 +580,23 @@ export const AlmanacApp = ({ onBackHub }) => {
                   onClearRecords={
                     handleClearAlmanacRecords
                   }
+                  onOpenMilestones={() => {
+                    setShowSettings(false);
+                    setActiveSection('milestone');
+
+                    window.setTimeout(() => {
+                      document
+                        .querySelector(
+                          '[data-almanac-section="milestone"]'
+                        )
+                        ?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start',
+                        });
+                    }, 30);
+                  }}
                 />
+
               </section>
             )}
 

@@ -85,7 +85,9 @@ export const AlmanacSettingsPanel = ({
   onSave,
   onRestart,
   onClearRecords,
+  onOpenMilestones,
 }) => {
+
 
   const [draft, setDraft] = useState(config);
   const [showTimezoneNotice, setShowTimezoneNotice] = useState(false);
@@ -245,10 +247,24 @@ export const AlmanacSettingsPanel = ({
   return (
     <>
       <section className="almanac-panel space-y-4">
-        <div>
-          <p className="almanac-eyebrow">Private settings</p>
-          <h2 className="almanac-section-title">观察与问候</h2>
+               <div>
+          <p className="almanac-eyebrow">
+            Private settings
+          </p>
+
+          <h2 className="almanac-section-title">
+            观察与问候
+          </h2>
+
+          <button
+            type="button"
+            className="almanac-text-button almanac-milestone-entry-button"
+            onClick={onOpenMilestones}
+          >
+            管理纪念日与倒数日 →
+          </button>
         </div>
+
 
         <div className="almanac-timezone-card">
           <div>

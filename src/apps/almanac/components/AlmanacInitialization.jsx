@@ -40,10 +40,7 @@ export const AlmanacInitialization = ({
       return;
     }
 
-    if (
-      selectedOption?.needsDate
-      && !firstMeetingDate
-    ) {
+        if (!dataMode) {
       return;
     }
 
@@ -140,14 +137,8 @@ export const AlmanacInitialization = ({
           <button
             type="button"
             className="almanac-primary-button"
-            disabled={
-              !dataMode
-              || isSaving
-              || (
-                selectedOption?.needsDate
-                && !firstMeetingDate
-              )
-            }
+                        disabled={!dataMode || isSaving}
+
             onClick={() => void submit()}
           >
             {isSaving ? '正在保存…' : '开始记录'}
