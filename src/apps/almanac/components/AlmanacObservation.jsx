@@ -1,49 +1,98 @@
 import React from 'react';
 
+const formatStatValue = (value) => {
+  if (value === null || value === undefined) {
+    return '0';
+  }
+
+  return String(value);
+};
+
 export const AlmanacObservation = ({
-  stats,
+  stats = {},
   rhythmObservation,
 }) => {
+  const statItems = [
+    {
+      key: 'active-days',
+      value: stats.activeDays,
+      label: '个有记录的日子',
+    },
+    {
+      key: 'user-messages',
+      value: stats.userMessageCount,
+      label: '条消息痕迹',
+    },
+    {
+      key: 'chat-opens',
+      value: stats.chatOpenCount,
+      label: '次回来',
+    },
+  ];
+
   return (
-    <section className="almanac-panel space-y-4">
-      <div>
-        <p className="almanac-eyebrow">A quiet record</p>
-        <h2 className="almanac-section-title">这里留下过</h2>
+    <section className="almanac-panel almanac-observation-panel">
+      <div className="almanac-observation-heading">
+        <p className="almanac-eyebrow">
+          A QUIET RECORD
+        </p>
+
+        <h2 className="almanac-section-title">
+          这里留下过
+        </h2>
       </div>
 
-      <div className="almanac-stat-grid">
-        <div>
-          <strong>{stats.activeDays}</strong>
-          <span>个相遇日</span>
-        </div>
+      <div
+        className="almanac-stat-grid"
+        aria-label="Almanac 记录统计"
+      >
+        {statItems.map((item) => (
+          <div
+            key={item.key}
+            className="almanac-stat-card"
+          >
+            <strong className="almanac-stat-value">
+              {formatStatValue(item.value)}
+            </strong>
 
-        <div>
-          <strong>{stats.userMessageCount}</strong>
-          <span>条消息痕迹</span>
-        </div>
-
-        <div>
-          <strong>{stats.chatOpenCount}</strong>
-          <span>次回来</span>
-        </div>
+            <span className="almanac-stat-label">
+              {item.label}
+            </span>
+          </div>
+        ))}
       </div>
 
       {rhythmObservation?.enabled && (
         <div className="almanac-observation-note">
-          <p className="almanac-eyebrow">Rhythm observation</p>
+          <p className="almanac-eyebrow">
+            RHYTHM OBSERVATION
+          </p>
 
           {rhythmObservation.ready ? (
             <>
-              <p>{rhythmObservation.message}</p>
-              <small>
-                基于 {rhythmObservation.sampleDays} 天记录，
-                置信度约为 {Math.round(
-                  rhythmObservation.confidence * 100
-                )}%。
+              <p className="almanac-observation-message">
+                {rhythmObservation.message}
+              </p>
+
+              <small className="almanac-observation-meta">
+                基于{' '}
+                <strong>
+                  {rhythmObservation.sampleDays}
+                </strong>{' '}
+                天记录，置信度约为{' '}
+                <strong>
+                  {Math.round(
+                    rhythmObservation.confidence * 100,
+                  )}
+                  %
+                </strong>
+                。
               </small>
             </>
           ) : (
-            <p>{rhythmObservation.message}</p>
+            <p className="almanac-observation-message">
+              {rhythmObservation.message}
+            </p>
           )}
         </div>
       )}
