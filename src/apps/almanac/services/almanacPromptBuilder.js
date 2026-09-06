@@ -1,4 +1,5 @@
 import {
+  filterAlmanacRecordsByConfig,
   getAlmanacConfig,
   getAlmanacRecords,
   getDeviceTimeZone,
@@ -7,6 +8,11 @@ import {
 } from './almanacService';
 
 import { getRhythmObservation } from './almanacRhythmService';
+
+import {
+  getAlmanacNaturalReminderData,
+} from './almanacMilestonePromptService';
+
 
 const DAILY_USER_MESSAGE_EVENT = 'user_message_daily';
 const LEGACY_USER_MESSAGE_EVENT = 'user_message';
@@ -179,6 +185,55 @@ const formatUserLocalDateTime = (date, timeZone) => {
   }
 };
 
+const formatNaturalReminderDistance = (
+  daysRemaining
+) => {
+  if (daysRemaining === 0) {
+    return '就是今天';
+  }
+
+  if (daysRemaining === 1) {
+    return '明天';
+  }
+
+  return `还有 ${daysRemaining} 天`;
+};
+
+const appendNaturalReminderContext = async ({
+  lines,
+  chatId,
+  config,
+  now,
+}) => {
+  const milestones =
+    await getAlmanacNaturalReminderData({
+      chatId,
+      now,
+      leadDays: config?.milestoneReminderLeadDays,
+    });
+
+  const reminder = milestones[0];
+
+  if (!reminder) {
+    return;
+  }
+
+  lines.push(
+    '【Almanac：可自然参考的日期】',
+    `用户主动留下的日期主题：${reminder.title}`,
+    `距离该日期：${formatNaturalReminderDistance(
+      reminder.daysRemaining
+    )}`,
+    '这个日期可以作为当前对话中的轻量背景参考。',
+'当当前话题自然涉及相关内容时，可以顺带、轻柔地提及。',
+'当当前对话暂未涉及这个日期时，优先围绕用户当前话题展开。',
+'可以在合适的语境中提及纪念日，并保持提醒自然、适度且不连续。',
+'可以用自然对话的方式呈现相关信息，不提及 Almanac、数据库、记录或统计来源。',
+'可以将这个日期作为辅助背景参考，但不据此推断用户的确定身份信息。',
+  );
+};
+
+
 const limitPromptLength = (text) => {
   if (text.length <= MAX_PROMPT_LENGTH) {
     return text;
@@ -187,6 +242,7 @@ const limitPromptLength = (text) => {
   return `${text.slice(0, MAX_PROMPT_LENGTH)}\n`;
 };
 
+
 export const getAlmanacPromptContext = async (chatId) => {
   if (!chatId) {
     return '';
@@ -194,7 +250,19 @@ export const getAlmanacPromptContext = async (chatId) => {
 
   try {
     const config = await getAlmanacConfig(chatId);
-    const records = await getAlmanacRecords(chatId);
+    const allRecords = await getAlmanacRecords(chatId);
+
+    /*
+     * 统计、作息观察和理解 Prompt 都必须遵循
+     * Almanac 当前配置中的 observationStartedAt。
+     *
+     * all_history 模式会保留全部历史记录；
+     * fresh_start 和 milestones_only 只使用观察起点之后的记录。
+     */
+    const records = filterAlmanacRecordsByConfig(
+      allRecords,
+      config
+    );
 
     const timeZone = getUserTimeZone(config);
     const now = new Date();
@@ -225,6 +293,56 @@ export const getAlmanacPromptContext = async (chatId) => {
         );
       }
     }
+
+    const understanding = buildUnderstanding(records);
+
+    if (understanding) {
+      lines.push(
+        '【对 user 的新理解】',
+        understanding.message,
+        `【可以这样陪伴 user】${understanding.guidance}`,
+        `这份理解的参考置信度约为 ${Math.round(
+          understanding.confidence * 100,
+        )}%，适合自然参考，也可以随着新的相处逐渐调整。`,
+      );
+    }
+
+    /*
+     * 自然提醒只把用户主动允许、且即将到来的
+     * 一个日期加入上下文。
+     *
+     * 这不是主动消息，不会触发通知或新对话。
+     */
+    await appendNaturalReminderContext({
+      lines,
+      chatId,
+      config,
+      now,
+    });
+
+    lines.push(
+      '可以根据这些相处观察调整语气、回应速度、陪伴节奏和话题展开方式。',
+      '可以尊重 user 自己选择的生活节奏，让 user 按舒服的方式相处。',
+      '可以在 user 主动表达需要时提供帮助，在 user 没有表达困扰时保留轻松和自由。',
+      '可以把 Almanac 当作“如何更好地陪伴 user”的轻量参考。',
+      '请自然地使用这些理解，不需要向 user 解释观察来源。',
+      '请不要把相处节奏直接说成健康结论、睡眠结论或人格结论。',
+    );
+
+    return limitPromptLength(
+      `\n\n${lines.join('\n')}\n`,
+    );
+  } catch (error) {
+    console.warn(
+      '[Almanac] Prompt context skipped safely:',
+      error,
+    );
+
+    return '';
+  }
+};
+
+    
 
     const understanding = buildUnderstanding(records);
 

@@ -304,7 +304,7 @@ export const AlmanacSettingsPanel = ({
           )}
         </div>
 
-        <label className="almanac-toggle-row">
+             <label className="almanac-toggle-row">
           <span>
             <strong>允许观察相遇节律</strong>
             <small>
@@ -322,6 +322,34 @@ export const AlmanacSettingsPanel = ({
             }
           />
         </label>
+
+        <label className="almanac-inline-field">
+          <span>
+            <strong>纪念日自然提醒提前范围</strong>
+            <small>
+              只影响允许自然提醒的日期，不会产生定时通知。
+            </small>
+          </span>
+
+          <select
+            value={draft.milestoneReminderLeadDays ?? 7}
+            onChange={(event) => {
+              update({
+                milestoneReminderLeadDays: Number(
+                  event.target.value
+                ),
+              });
+            }}
+          >
+            <option value={0}>当天</option>
+            <option value={1}>提前 1 天</option>
+            <option value={3}>提前 3 天</option>
+            <option value={7}>提前 7 天</option>
+            <option value={14}>提前 14 天</option>
+            <option value={30}>提前 30 天</option>
+          </select>
+        </label>
+
 
         <div className="almanac-divider" />
 
@@ -406,13 +434,77 @@ export const AlmanacSettingsPanel = ({
           />
         </label>
 
-                <button
+                      <button
           type="button"
           className="almanac-primary-button"
           onClick={() => saveConfig()}
         >
           保存当前聊天设置
         </button>
+
+        <div className="almanac-divider" />
+
+        <section className="almanac-data-management">
+          <div>
+            <p className="almanac-eyebrow">
+              Observation range
+            </p>
+
+            <h3>当前数据方式</h3>
+
+            <small>
+              {draft.dataMode === 'all_history'
+                ? '使用目前所有 Almanac 数据进行分析。'
+                : draft.dataMode === 'milestones_only'
+                  ? '只分析重新开始后的记录，并保留纪念日。'
+                  : '只分析重新开始后的记录。'}
+            </small>
+          </div>
+
+          <button
+            type="button"
+            className="almanac-text-button"
+            onClick={onOpenMilestones}
+          >
+            管理纪念日与倒数日 →
+          </button>
+
+          <button
+            type="button"
+            className="almanac-secondary-button"
+            onClick={() => {
+              void onRestart?.();
+            }}
+          >
+            从今天重新开始
+          </button>
+        </section>
+
+        <section className="almanac-danger-zone">
+          <div>
+            <p className="almanac-eyebrow">
+              Destructive action
+            </p>
+
+            <h3>清空 Almanac 数据</h3>
+
+            <small>
+              只删除当前聊天的 Almanac 相处记录。
+              聊天消息、长期记忆、角色资料和纪念日不会受到影响。
+            </small>
+          </div>
+
+          <button
+            type="button"
+            className="almanac-danger-button"
+            onClick={() => {
+              void onClearRecords?.();
+            }}
+          >
+            清空相处记录
+          </button>
+        </section>
+
 
         <div className="almanac-divider" />
 

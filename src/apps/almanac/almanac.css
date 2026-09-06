@@ -1417,3 +1417,45 @@
     justify-content: flex-start;
   }
 }
+.almanac-inline-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.almanac-inline-field > span {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.almanac-inline-field strong {
+  color: var(--almanac-ink);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.almanac-inline-field small {
+  color: var(--almanac-ink-soft);
+  line-height: 1.5;
+}
+
+.almanac-inline-field select {
+  min-width: 7.5rem;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--almanac-line);
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
+@media (max-width: 560px) {
+  .almanac-inline-field {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .almanac-inline-field select {
+    width: 100%;
+  }
+}

@@ -174,7 +174,14 @@ export const getDefaultAlmanacConfig = (chatId) => ({
 
   rhythmInferenceEnabled: false,
 
+  /*
+   * 纪念日允许自然提醒时，最多提前多少天进入 AI 上下文。
+   * 这不是主动消息调度时间。
+   */
+  milestoneReminderLeadDays: 7,
+
   morningGreetingEnabled: false,
+
   morningGreetingTime: '08:30',
 
   nightGreetingEnabled: false,

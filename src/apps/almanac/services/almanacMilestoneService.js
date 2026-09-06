@@ -136,7 +136,6 @@ const getNextOccurrence = (milestone, now = new Date()) => {
     originalDate.getDate()
   );
 };
-
 export const getMilestoneViewData = (
   milestones = [],
   now = new Date()
@@ -153,6 +152,7 @@ export const getMilestoneViewData = (
     if (!target) {
       return {
         ...milestone,
+        targetDate: null,
         daysRemaining: null,
         isPast: false,
       };
@@ -171,3 +171,4 @@ export const getMilestoneViewData = (
     };
   });
 };
+
