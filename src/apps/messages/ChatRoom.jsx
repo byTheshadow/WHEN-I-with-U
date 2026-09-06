@@ -1,6 +1,7 @@
 import React, {
   useState,
   useEffect,
+  useLayoutEffect,
   useRef,
   useMemo,
   useCallback,
@@ -13,16 +14,8 @@ import {
   Image,
   Volume2,
   DollarSign,
-  Trash2,
-  Quote,
-  CheckCheck,
-  Check,
   Settings,
-  User,
   RotateCw,
-  ChevronLeft,
-  ChevronRight,
-  AlertTriangle,
   BookOpen,
   ReceiptText,
 } from 'lucide-react';
@@ -42,14 +35,11 @@ import {
 
 
 import ChatHeaderBar from './components/ChatHeaderBar';
-import TypingIndicator from './components/TypingIndicator';
 import BubbleCustomizer from './components/BubbleCustomizer';
 import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
 import McpToolApprovalModal from './mcp/McpToolApprovalModal';
-import ChatInteractionMessage from './interactions/ChatInteractionMessage';
-import RealVoiceCard from '../../features/real-voice/components/RealVoiceCard';
-
+import MessageList from './components/MessageList';
 
 import { createInteractionMessage } from './interactions/interactionService';
 import { INTERACTION_TYPES } from './interactions/interactionRules';
@@ -68,18 +58,6 @@ import {
   subscribeMcpChatTraceEvents,
 } from '../../services/mcp/mcpChatTraceService';
 
-import TextCard from './components/cards/TextCard';
-import ImageCard from './components/cards/ImageCard';
-import VoiceCard from './components/cards/VoiceCard';
-import TransferCard from './components/cards/TransferCard';
-import ArticleCard from './components/cards/ArticleCard';
-import GiftCard from './components/cards/GiftCard';
-import FoodDeliveryCard from './components/cards/FoodDeliveryCard';
-import KinshipCard from './components/cards/KinshipCard';
-import StickerCard from './components/cards/StickerCard';
-import McpUsageTraceCard from './components/cards/McpUsageTraceCard';
-
-import McpToolUsageIndicator from './components/McpToolUsageIndicator';
 import InteractiveMenuPopover from './components/InteractiveMenuPopover';
 import StickerPickerModal from './components/StickerPickerModal';
 
@@ -88,6 +66,11 @@ import {
 } from './scheduledMessageService';
 
 import ParallelOrbit from './components/ParallelOrbit';
+
+const INITIAL_VISIBLE_MESSAGE_COUNT = 200;
+const LOAD_MORE_MESSAGE_BATCH = 200;
+const LOAD_MORE_SCROLL_THRESHOLD_PX = 150;
+const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 80;
 
 export const ChatRoom = ({
   chatId,
@@ -110,6 +93,9 @@ export const ChatRoom = ({
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(
+    INITIAL_VISIBLE_MESSAGE_COUNT,
+  );
 
   /*
    * 当前尚未持久化到 messages.metadata 的实时 MCP 调用轨迹。
@@ -120,6 +106,8 @@ export const ChatRoom = ({
   const mcpApprovalResolverRef = useRef(null);
   const scrollAreaRef = useRef(null);
   const inputRef = useRef(null);
+  const previousScrollHeightRef = useRef(null);
+  const hasScrolledToLatestRef = useRef(false);
 
   const [showParallelOrbit, setShowParallelOrbit] = useState(false);
   const [isPrioritizedLoaded, setIsPrioritizedLoaded] = useState(false);
@@ -151,7 +139,7 @@ export const ChatRoom = ({
     return <style>{`.chat-room-container ${cssToApply}`}</style>;
   }, [customCssStr, defaultCss]);
 
-  const loadChatData = async () => {
+  const loadChatData = useCallback(async () => {
     try {
       const [chatRecord, msgList] = await Promise.all([
         db.chats.get(chatId),
@@ -175,7 +163,7 @@ export const ChatRoom = ({
         error,
       );
     }
-  };
+  }, [chatId]);
 
   const handleSendSticker = async (sticker) => {
     if (!sticker || !sticker.name || !chat?.id) return;
@@ -318,6 +306,9 @@ await db.chats.update(chat.id, {
   setIsAiTyping(false);
   setCheckInDelivery(null);
   setMcpTrace(null);
+  setVisibleMessageCount(INITIAL_VISIBLE_MESSAGE_COUNT);
+  previousScrollHeightRef.current = null;
+  hasScrolledToLatestRef.current = false;
 
   void loadChatData();
 
@@ -373,7 +364,7 @@ await db.chats.update(chat.id, {
         handleVisibilityChange,
       );
     };
-  }, [chatId]);
+  }, [chatId, loadChatData]);
 
   useEffect(() => {
     const handleLocalMessageNotification = (event) => {
@@ -397,24 +388,85 @@ await db.chats.update(chat.id, {
         handleLocalMessageNotification,
       );
     };
-  }, [chatId]);
+  }, [chatId, loadChatData]);
 
   useEffect(() => {
     const scrollArea = scrollAreaRef.current;
 
     if (!scrollArea) return undefined;
 
+    const distanceFromBottom =
+      scrollArea.scrollHeight
+      - scrollArea.scrollTop
+      - scrollArea.clientHeight;
+
+    const isNearBottom = distanceFromBottom <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
+    const shouldFollow = !hasScrolledToLatestRef.current || isNearBottom;
+
+    if (!shouldFollow) return undefined;
+
     const frameId = window.requestAnimationFrame(() => {
       scrollArea.scrollTo({
         top: scrollArea.scrollHeight,
-        behavior: 'smooth',
+        behavior: hasScrolledToLatestRef.current ? 'smooth' : 'auto',
       });
+
+      hasScrolledToLatestRef.current = true;
     });
 
     return () => {
       window.cancelAnimationFrame(frameId);
     };
   }, [messages, isAiTyping, mcpTrace]);
+
+  const messagesById = useMemo(() => {
+    const map = new Map();
+
+    messages.forEach((message) => {
+      map.set(message.id, message);
+    });
+
+    return map;
+  }, [messages]);
+
+  const hasMoreOlderMessages = visibleMessageCount < messages.length;
+
+  const visibleMessages = useMemo(() => {
+    if (visibleMessageCount >= messages.length) return messages;
+
+    return messages.slice(messages.length - visibleMessageCount);
+  }, [messages, visibleMessageCount]);
+
+  const handleMessagesScroll = useCallback((event) => {
+    const scrollArea = event.currentTarget;
+
+    if (
+      scrollArea.scrollTop > LOAD_MORE_SCROLL_THRESHOLD_PX
+      || visibleMessageCount >= messages.length
+    ) {
+      return;
+    }
+
+    previousScrollHeightRef.current = scrollArea.scrollHeight;
+
+    setVisibleMessageCount((previous) => (
+      Math.min(previous + LOAD_MORE_MESSAGE_BATCH, messages.length)
+    ));
+  }, [messages.length, visibleMessageCount]);
+
+  useLayoutEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+
+    if (!scrollArea || previousScrollHeightRef.current === null) {
+      return;
+    }
+
+    const newScrollHeight = scrollArea.scrollHeight;
+
+    scrollArea.scrollTop += newScrollHeight - previousScrollHeightRef.current;
+
+    previousScrollHeightRef.current = null;
+  }, [visibleMessageCount]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() && selectedType === 'text') return;
@@ -477,6 +529,13 @@ await db.chats.update(chat.id, {
     setSelectedType('text');
     setExtraInputMeta({});
 
+    window.requestAnimationFrame(() => {
+      scrollAreaRef.current?.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    });
+
     await db.chats.update(chatId, {
       updatedAt: new Date().toISOString(),
     });
@@ -496,14 +555,14 @@ await db.chats.update(chat.id, {
     triggerAiResponse(chatId);
   };
 
-  const handleRerollMessage = (messageId) => {
+  const handleRerollMessage = useCallback((messageId) => {
     if (isAiTyping) return;
 
     setMcpTrace(null);
     rerollAiResponse(chatId, messageId);
-  };
+  }, [isAiTyping, chatId]);
 
-  const handleSwitchVersion = async (msg, direction) => {
+  const handleSwitchVersion = useCallback(async (msg, direction) => {
     if (!msg.versions || msg.versions.length <= 1) return;
 
     const currentIndex = msg.currentVersionIndex
@@ -525,20 +584,21 @@ await db.chats.update(chat.id, {
     });
 
     await loadChatData();
-  };
+  }, [loadChatData]);
 
-  const handleDeleteMessage = async (messageId) => {
+  const handleDeleteMessage = useCallback(async (messageId) => {
     await db.messages.delete(messageId);
 
     setMessages((previous) => (
       previous.filter((message) => message.id !== messageId)
     ));
-  };
+  }, []);
 
   const handleClearHistory = async () => {
     await db.messages.where('chatId').equals(chatId).delete();
     setMessages([]);
     setMcpTrace(null);
+    setVisibleMessageCount(INITIAL_VISIBLE_MESSAGE_COUNT);
   };
 
   const handleSaveCustomCss = async (cssCode) => {
@@ -744,344 +804,28 @@ await db.chats.update(chat.id, {
 
       <section
         ref={scrollAreaRef}
+        onScroll={handleMessagesScroll}
         className="min-h-0 flex-1 overflow-y-auto px-4 py-3 no-scrollbar"
       >
-        <div className="space-y-4 pb-2">
-          {messages.length === 0 && (
-            <div className="space-y-2 py-16 text-center opacity-40">
-              <p className="font-serif text-xs italic">
-                此刻停在这里，等待你们的对话...
-              </p>
-            </div>
-          )}
-
-          {messages.map((msg) => {
-            const isUser = msg.sender === 'user';
-            const versions = msg.versions || [];
-            const versionIndex = msg.currentVersionIndex
-              ?? (versions.length > 1 ? versions.length - 1 : 0);
-
-            const isErrorMsg = (
-              msg.type === 'error'
-              || msg.metadata?.errorCode
-            );
-
-            const messageMcpTrace = isUser
-              ? null
-              : msg.metadata?.mcpTrace;
-
-            const quoted = msg.quotedMessageId
-              ? messages.find((message) => (
-                message.id === msg.quotedMessageId
-              ))
-              : null;
-
-            return (
-              <div
-                key={msg.id}
-                className={`group flex flex-col ${
-                  isUser ? 'items-end' : 'items-start'
-                }`}
-              >
-                {quoted && (
-                  <div
-                    className="mb-1 max-w-[75%] rounded-xl border-l-2 px-3 py-1 text-[10px] opacity-60"
-                    style={{
-                      background: 'var(--control-soft-bg)',
-                      borderColor: 'var(--divider)',
-                    }}
-                  >
-                    <span className="block font-bold">
-                      {quoted.sender === 'user'
-                        ? activeUserName
-                        : (character?.name || '伴侣')}
-                    </span>
-                    <p className="truncate">{quoted.content}</p>
-                  </div>
-                )}
-
-                <div
-                  className={`flex max-w-[85%] items-end gap-2 ${
-                    isUser ? 'flex-row-reverse' : 'flex-row'
-                  }`}
-                >
-                  {!isUser ? (
-                    character?.avatar ? (
-                      <img
-                        src={character.avatar}
-                        alt={character.name}
-                        className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
-                        style={{
-                          borderColor: 'var(--card-border)',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                        style={{
-                          background: 'var(--control-soft-bg)',
-                        }}
-                      >
-                        {character?.name?.[0]}
-                      </div>
-                    )
-                  ) : activeUserAvatar ? (
-                    <img
-                      src={activeUserAvatar}
-                      alt={activeUserName}
-                      className="h-7 w-7 shrink-0 rounded-full border object-cover shadow-sm"
-                      style={{
-                        borderColor: 'var(--card-border)',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{
-                        background: 'var(--control-soft-bg)',
-                      }}
-                    >
-                      <User className="h-3.5 w-3.5 opacity-60" />
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-1">
-                    {isErrorMsg ? (
-                      <div
-                        className="space-y-2 rounded-2xl border p-3 shadow-sm chat-font"
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          borderColor: 'rgba(239, 68, 68, 0.3)',
-                          color: 'var(--text-main)',
-                        }}
-                      >
-                        <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-red-500">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          <span>
-                            API 报错: {msg.metadata?.errorCode || 'ERROR'}
-                          </span>
-                        </div>
-
-                        <p className="text-[11px] opacity-90">
-                          {msg.content}
-                        </p>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRerollMessage(msg.id)}
-                          className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm transition-colors hover:bg-red-600"
-                        >
-                          <RotateCw className="h-3 w-3" />
-                          <span>重新尝试 (Re-roll)</span>
-                        </button>
-                      </div>
-                    ) : msg.type === 'interaction' ? (
-                      <ChatInteractionMessage
-                        message={msg}
-                        character={character}
-                        onResolved={loadChatData}
-                      />
-                    ) : (
-                      <div
-                        className={`relative p-3 shadow-sm transition-all chat-font ${
-                          isUser ? 'user-bubble' : 'ai-bubble'
-                        }`}
-                      >
-                        {msg.type === 'text' && (
-                          <TextCard content={msg.content} />
-                        )}
-
-                        {msg.type === 'image' && (
-                          <ImageCard
-                            content={msg.content}
-                            metadata={msg.metadata}
-                          />
-                        )}
-
-                        {msg.type === 'voice' && (
-                          <VoiceCard
-                            content={msg.content}
-                            metadata={msg.metadata}
-                          />
-                        )}
-
-                        {msg.type === 'realVoice' && (
-  <RealVoiceCard
-    content={msg.content}
-    metadata={msg.metadata}
-  />
-)}
-
-
-                        {msg.type === 'transfer' && (
-                          <TransferCard
-                            content={msg.content}
-                            metadata={msg.metadata}
-                            sender={msg.sender}
-                          />
-                        )}
-
-                        {msg.type === 'article' && (
-                          <ArticleCard
-                            content={msg.content}
-                            metadata={msg.metadata}
-                          />
-                        )}
-
-                        {msg.type === 'gift' && (
-                          <GiftCard
-                            metadata={msg.metadata}
-                            isUser={isUser}
-                          />
-                        )}
-
-                        {msg.type === 'food' && (
-                          <FoodDeliveryCard
-                            metadata={msg.metadata}
-                            isUser={isUser}
-                          />
-                        )}
-
-                        {msg.type === 'kinship' && (
-                          <KinshipCard
-                            metadata={msg.metadata}
-                            isUser={isUser}
-                          />
-                        )}
-
-                        {msg.type === 'sticker' && (
-                          <StickerCard
-                            metadata={msg.metadata}
-                            isUser={isUser}
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    {!isUser && messageMcpTrace && (
-                      <McpUsageTraceCard
-                        trace={messageMcpTrace}
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    {!isUser && (
-                      <button
-                        type="button"
-                        onClick={() => handleRerollMessage(msg.id)}
-                        disabled={isAiTyping}
-                        className="p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
-                        title="重 roll 此回复"
-                      >
-                        <RotateCw className="h-3 w-3" />
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setQuotedMsg(msg)}
-                      className="p-1 opacity-50 hover:opacity-100"
-                      title="引用"
-                    >
-                      <Quote className="h-3 w-3" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteMessage(msg.id)}
-                      className="p-1 opacity-50 hover:opacity-100"
-                      title="抹去"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  className={`mt-1 flex items-center gap-2 px-9 font-mono text-[9px] opacity-60 ${
-                    isUser ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {versions.length > 1 && (
-                    <div
-                      className="flex items-center gap-0.5 rounded-full border px-1.5 py-0.5"
-                      style={{
-                        background: 'var(--control-soft-bg)',
-                        borderColor: 'var(--card-border)',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleSwitchVersion(msg, 'prev')}
-                        disabled={versionIndex === 0}
-                        className="p-0.5 hover:opacity-100 disabled:opacity-20"
-                        title="上一版本"
-                      >
-                        <ChevronLeft className="h-3 w-3" />
-                      </button>
-
-                      <span className="px-1 text-[9px] font-bold">
-                        {versionIndex + 1} / {versions.length}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => handleSwitchVersion(msg, 'next')}
-                        disabled={versionIndex === versions.length - 1}
-                        className="p-0.5 hover:opacity-100 disabled:opacity-20"
-                        title="下一版本"
-                      >
-                        <ChevronRight className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-
-                  <span>
-                    {new Date(msg.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-
-                  {isUser ? (
-                    <CheckCheck
-                      className="h-3 w-3"
-                      style={{
-                        color: 'var(--text-muted)',
-                      }}
-                    />
-                  ) : (
-                    <Check
-                      className="h-3 w-3"
-                      style={{
-                        color: 'var(--text-muted)',
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {isAiTyping && (
-            <>
-              {mcpTrace && (
-                <McpToolUsageIndicator
-                  trace={mcpTrace}
-                />
-              )}
-
-              <TypingIndicator
-                customText={
-                  chat.typingText
-                  || `${character?.name || '伴侣'} 正在思考...`
-                }
-                styleType={chat.typingStyle || 'default'}
-              />
-            </>
-          )}
-        </div>
+        <MessageList
+          visibleMessages={visibleMessages}
+          messagesById={messagesById}
+          character={character}
+          activeUserAvatar={activeUserAvatar}
+          activeUserName={activeUserName}
+          isAiTyping={isAiTyping}
+          mcpTrace={mcpTrace}
+          typingText={
+            chat.typingText || `${character?.name || '伴侣'} 正在思考...`
+          }
+          typingStyle={chat.typingStyle || 'default'}
+          hasMoreOlderMessages={hasMoreOlderMessages}
+          onReroll={handleRerollMessage}
+          onDelete={handleDeleteMessage}
+          onQuote={setQuotedMsg}
+          onSwitchVersion={handleSwitchVersion}
+          onResolvedInteraction={loadChatData}
+        />
       </section>
 
       <footer
