@@ -13,7 +13,6 @@ import {
   getAlmanacNaturalReminderData,
 } from './almanacMilestonePromptService';
 
-
 const DAILY_USER_MESSAGE_EVENT = 'user_message_daily';
 const LEGACY_USER_MESSAGE_EVENT = 'user_message';
 
@@ -31,12 +30,12 @@ const safeNumber = (value, fallback = 0) => {
 const getUserMessageRecords = (records = []) => {
   return records
     .filter((record) => (
-      record?.eventType === DAILY_USER_MESSAGE_EVENT
-      || record?.eventType === LEGACY_USER_MESSAGE_EVENT
+      record?.eventType === DAILY_USER_MESSAGE_EVENT ||
+      record?.eventType === LEGACY_USER_MESSAGE_EVENT
     ))
     .sort((a, b) => (
-      new Date(a.timestamp || 0).getTime()
-      - new Date(b.timestamp || 0).getTime()
+      new Date(a.timestamp || 0).getTime() -
+      new Date(b.timestamp || 0).getTime()
     ));
 };
 
@@ -64,16 +63,16 @@ const getHourBuckets = (records) => {
           const normalizedHour = Number(hour);
 
           if (
-            Number.isInteger(normalizedHour)
-            && normalizedHour >= 0
-            && normalizedHour <= 23
+            Number.isInteger(normalizedHour) &&
+            normalizedHour >= 0 &&
+            normalizedHour <= 23
           ) {
             buckets[normalizedHour] = (
-              safeNumber(buckets[normalizedHour], 0)
-              + safeNumber(count, 0)
+              safeNumber(buckets[normalizedHour], 0) +
+              safeNumber(count, 0)
             );
           }
-        },
+        }
       );
 
       return;
@@ -81,8 +80,8 @@ const getHourBuckets = (records) => {
 
     if (Number.isInteger(record?.localHour)) {
       buckets[record.localHour] = (
-        safeNumber(buckets[record.localHour], 0)
-        + getRecordCount(record)
+        safeNumber(buckets[record.localHour], 0) +
+        getRecordCount(record)
       );
     }
   });
@@ -119,17 +118,17 @@ const buildUnderstanding = (records) => {
   const activeDates = new Set(
     userRecords
       .map((record) => record.dateKey)
-      .filter(Boolean),
+      .filter(Boolean)
   );
 
   const totalMessages = userRecords.reduce(
     (total, record) => total + getRecordCount(record),
-    0,
+    0
   );
 
   if (
-    activeDates.size < MINIMUM_OBSERVATION_DAYS
-    || totalMessages <= 0
+    activeDates.size < MINIMUM_OBSERVATION_DAYS ||
+    totalMessages <= 0
   ) {
     return null;
   }
@@ -225,14 +224,13 @@ const appendNaturalReminderContext = async ({
       reminder.daysRemaining
     )}`,
     '这个日期可以作为当前对话中的轻量背景参考。',
-'当当前话题自然涉及相关内容时，可以顺带、轻柔地提及。',
-'当当前对话暂未涉及这个日期时，优先围绕用户当前话题展开。',
-'可以在合适的语境中提及纪念日，并保持提醒自然、适度且不连续。',
-'可以用自然对话的方式呈现相关信息，不提及 Almanac、数据库、记录或统计来源。',
-'可以将这个日期作为辅助背景参考，但不据此推断用户的确定身份信息。',
+    '当当前话题自然涉及相关内容时，可以顺带、轻柔地提及。',
+    '当当前对话暂未涉及这个日期时，优先围绕用户当前话题展开。',
+    '可以在合适的语境中提及纪念日，并保持提醒自然、适度且不连续。',
+    '可以用自然对话的方式呈现相关信息，不提及 Almanac、数据库、记录或统计来源。',
+    '可以将这个日期作为辅助背景参考，但不据此推断用户的确定身份信息。'
   );
 };
-
 
 const limitPromptLength = (text) => {
   if (text.length <= MAX_PROMPT_LENGTH) {
@@ -241,7 +239,6 @@ const limitPromptLength = (text) => {
 
   return `${text.slice(0, MAX_PROMPT_LENGTH)}\n`;
 };
-
 
 export const getAlmanacPromptContext = async (chatId) => {
   if (!chatId) {
@@ -269,13 +266,16 @@ export const getAlmanacPromptContext = async (chatId) => {
 
     const lines = [
       '【Almanac：正在了解 user】',
-      `user 所在地时间：${formatUserLocalDateTime(now, timeZone)}`,
+      `user 所在地时间：${formatUserLocalDateTime(
+        now,
+        timeZone
+      )}`,
     ];
 
     if (isUsingDeviceTimeZone(config)) {
       lines.push(
         `当前参考时区为设备时区：${getDeviceTimeZone()}`,
-        '可以在 Almanac 设置中确认或选择 user 的所在地时间。',
+        '可以在 Almanac 设置中确认或选择 user 的所在地时间。'
       );
     }
 
@@ -289,7 +289,7 @@ export const getAlmanacPromptContext = async (chatId) => {
         lines.push(
           'user 允许观察这个聊天窗口的相处节律。',
           `近期相处观察：${observation.message}`,
-          '可以把这份观察作为温和参考，帮助 char 更自然地理解和尊重 user。',
+          '可以把这份观察作为温和参考，帮助 char 更自然地理解和尊重 user。'
         );
       }
     }
@@ -302,8 +302,8 @@ export const getAlmanacPromptContext = async (chatId) => {
         understanding.message,
         `【可以这样陪伴 user】${understanding.guidance}`,
         `这份理解的参考置信度约为 ${Math.round(
-          understanding.confidence * 100,
-        )}%，适合自然参考，也可以随着新的相处逐渐调整。`,
+          understanding.confidence * 100
+        )}%，适合自然参考，也可以随着新的相处逐渐调整。`
       );
     }
 
@@ -326,53 +326,16 @@ export const getAlmanacPromptContext = async (chatId) => {
       '可以在 user 主动表达需要时提供帮助，在 user 没有表达困扰时保留轻松和自由。',
       '可以把 Almanac 当作“如何更好地陪伴 user”的轻量参考。',
       '请自然地使用这些理解，不需要向 user 解释观察来源。',
-      '请不要把相处节奏直接说成健康结论、睡眠结论或人格结论。',
+      '请不要把相处节奏直接说成健康结论、睡眠结论或人格结论。'
     );
 
     return limitPromptLength(
-      `\n\n${lines.join('\n')}\n`,
+      `\n\n${lines.join('\n')}\n`
     );
   } catch (error) {
     console.warn(
       '[Almanac] Prompt context skipped safely:',
-      error,
-    );
-
-    return '';
-  }
-};
-
-    
-
-    const understanding = buildUnderstanding(records);
-
-    if (understanding) {
-      lines.push(
-        '【对 user 的新理解】',
-        understanding.message,
-        `【可以这样陪伴 user】${understanding.guidance}`,
-        `这份理解的参考置信度约为 ${Math.round(
-          understanding.confidence * 100,
-        )}%，适合自然参考，也可以随着新的相处逐渐调整。`,
-      );
-    }
-
-    lines.push(
-      '可以根据这些相处观察调整语气、回应速度、陪伴节奏和话题展开方式。',
-      '可以尊重 user 自己选择的生活节奏，让 user 按舒服的方式相处。',
-      '可以在 user 主动表达需要时提供帮助，在 user 没有表达困扰时保留轻松和自由。',
-      '可以把 Almanac 当作“如何更好地陪伴 user”的轻量参考。',
-      '请自然地使用这些理解，不需要向 user 解释观察来源。',
-      '请不要把相处节奏直接说成健康结论、睡眠结论或人格结论。',
-    );
-
-    return limitPromptLength(
-      `\n\n${lines.join('\n')}\n`,
-    );
-  } catch (error) {
-    console.warn(
-      '[Almanac] Prompt context skipped safely:',
-      error,
+      error
     );
 
     return '';
