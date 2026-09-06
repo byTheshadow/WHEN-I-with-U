@@ -41,7 +41,6 @@ import {
   getRhythmObservation,
 } from './services/almanacRhythmService';
 
-
 import './almanac.css';
 
 export const AlmanacApp = ({ onBackHub }) => {
@@ -58,15 +57,9 @@ export const AlmanacApp = ({ onBackHub }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isStatsLoading, setIsStatsLoading] =
     useState(false);
-    const [activeSection, setActiveSection] = useState('record');
+  const [activeSection, setActiveSection] = useState('record');
   const [rhythmObservation, setRhythmObservation] =
     useState(null);
-
-  const [milestones, setMilestones] = useState([]);
-
-  const [showInitialization, setShowInitialization] =
-    useState(false);
-
 
   const selectedChat = useMemo(
     () =>
@@ -112,7 +105,7 @@ export const AlmanacApp = ({ onBackHub }) => {
     }
   }, [selectedChatId]);
 
-    const loadAlmanac = useCallback(async () => {
+  const loadAlmanac = useCallback(async () => {
     if (!selectedChatId) {
       setConfig(null);
       setRecords([]);
@@ -229,106 +222,6 @@ export const AlmanacApp = ({ onBackHub }) => {
 
   const handleInitializationComplete = async ({
     dataMode,
-    firstMeetingDate,
-  }) => {
-    const now = new Date().toISOString();
-
-    const patch = {
-      initializationCompleted: true,
-      dataMode,
-      observationStartedAt:
-        dataMode === 'all_history'
-          ? null
-          : now,
-      observationResetAt:
-        dataMode === 'all_history'
-          ? null
-          : now,
-    };
-
-    const saved = await saveAlmanacConfig(
-      selectedChatId,
-      patch
-    );
-
-    if (
-      dataMode === 'milestones_only'
-      && firstMeetingDate
-    ) {
-      await createAlmanacMilestone({
-        chatId: selectedChatId,
-        type: 'first_meeting',
-        title: '第一次相遇',
-        date: firstMeetingDate,
-        isRecurring: false,
-        showCountdown: true,
-        allowNaturalReminder: false,
-      });
-    }
-
-    setConfig(saved);
-    setShowInitialization(false);
-
-    await loadAlmanac();
-  };
-
-  const handleClearAlmanacRecords = async () => {
-    const confirmed = window.confirm(
-      '确定要清空当前聊天的 Almanac 相处记录吗？\n\n聊天消息、长期记忆、角色资料和纪念日不会受到影响。'
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    await clearAlmanacRecords(selectedChatId);
-
-    setRecords([]);
-  };
-
-  const handleCreateMilestone = async (milestone) => {
-    const id = await createAlmanacMilestone({
-      chatId: selectedChatId,
-      type: milestone.isRecurring
-        ? 'anniversary'
-        : 'countdown',
-      ...milestone,
-    });
-
-    if (!id) {
-      return;
-    }
-
-    const nextMilestones = await getAlmanacMilestones(
-      selectedChatId
-    );
-
-    setMilestones(nextMilestones);
-  };
-
-  const handleUpdateMilestone = async (
-    id,
-    patch
-  ) => {
-    await updateAlmanacMilestone(id, patch);
-
-    const nextMilestones = await getAlmanacMilestones(
-      selectedChatId
-    );
-
-    setMilestones(nextMilestones);
-  };
-
-  const handleDeleteMilestone = async (id) => {
-    await deleteAlmanacMilestone(id);
-
-    setMilestones((current) => (
-      current.filter((milestone) => milestone.id !== id)
-    ));
-  };
-
-    const handleInitializationComplete = async ({
-    dataMode,
     firstMeetingDate = null,
   }) => {
     if (!selectedChatId || !dataMode) {
@@ -356,8 +249,8 @@ export const AlmanacApp = ({ onBackHub }) => {
     );
 
     if (
-      dataMode === 'milestones_only'
-      && firstMeetingDate
+      dataMode === 'milestones_only' &&
+      firstMeetingDate
     ) {
       await createAlmanacMilestone({
         chatId: selectedChatId,
@@ -496,7 +389,6 @@ export const AlmanacApp = ({ onBackHub }) => {
       )
     ));
   };
-
 
   /**
    * 保存 Almanac 设置。
@@ -665,7 +557,7 @@ export const AlmanacApp = ({ onBackHub }) => {
           </div>
         </section>
 
-              {!selectedChatId ? (
+        {!selectedChatId ? (
           <section className="almanac-empty almanac-reveal">
             还没有可以观察的聊天窗口。
           </section>
@@ -679,7 +571,6 @@ export const AlmanacApp = ({ onBackHub }) => {
             onComplete={handleInitializationComplete}
           />
         ) : (
-
           <>
             <section className="almanac-intro">
               <p>
@@ -720,7 +611,7 @@ export const AlmanacApp = ({ onBackHub }) => {
               <AlmanacHeatmap data={heatmapData} />
             </section>
 
-                       <section
+            <section
               className="almanac-milestone-section almanac-reveal"
               data-almanac-section="milestone"
             >
@@ -733,13 +624,12 @@ export const AlmanacApp = ({ onBackHub }) => {
               />
             </section>
 
-
             {showSettings && (
               <section
                 className="almanac-settings-section almanac-reveal"
                 data-almanac-section="settings"
               >
-                                <AlmanacSettingsPanel
+                <AlmanacSettingsPanel
                   config={config}
                   onSave={handleSaveConfig}
                   onRestart={async () => {
@@ -779,7 +669,6 @@ export const AlmanacApp = ({ onBackHub }) => {
                     }, 30);
                   }}
                 />
-
               </section>
             )}
 
@@ -841,4 +730,3 @@ export const AlmanacApp = ({ onBackHub }) => {
 };
 
 export default AlmanacApp;
-
