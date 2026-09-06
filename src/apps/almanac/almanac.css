@@ -1015,19 +1015,6 @@
 
 /* 数据管理区域 */
 
-.almanac-data-management {
-  position: relative;
-
-  display: grid;
-  gap: 1rem;
-
-  margin: 0;
-  padding: 0.2rem 0 1.65rem 1.15rem;
-
-  border: 0;
-  border-bottom: 1px solid var(--almanac-line);
-}
-
 .almanac-data-management::before {
   position: absolute;
   top: 0.28rem;
@@ -1053,12 +1040,7 @@
   letter-spacing: 0.12em;
 }
 
-.almanac-data-management > div {
-  display: grid;
-  gap: 0.42rem;
 
-  padding-right: 3rem;
-}
 
 .almanac-data-management h3 {
   margin: 0;
@@ -1243,22 +1225,7 @@
 
 /* 危险操作区域 */
 
-.almanac-danger-zone {
-  position: relative;
 
-  display: grid;
-  gap: 1rem;
-
-  margin-top: 1.75rem;
-  padding: 1.2rem 0 0 1.15rem;
-
-  border: 0;
-  border-top: 1px solid color-mix(
-    in srgb,
-    var(--almanac-danger) 48%,
-    var(--almanac-line)
-  );
-}
 
 .almanac-danger-zone::before {
   position: absolute;
@@ -2163,12 +2130,20 @@
   }
 }
 /* =========================================================
-   Almanac settings visual hierarchy override
-   放在 almanac.css 最底部，用于覆盖旧的设置区样式
+   Almanac clean visual system
+   删除旧的 milestone/settings override 后再使用本段
    ========================================================= */
 
-.almanac-app {
-  --almanac-ui-font:
+.almanac-settings-section,
+.almanac-milestones-overview,
+.almanac-milestone-manager,
+.almanac-settings-section button,
+.almanac-settings-section input,
+.almanac-settings-section select,
+.almanac-milestones-overview button,
+.almanac-milestone-manager button,
+.almanac-milestone-manager input {
+  font-family:
     Inter,
     -apple-system,
     BlinkMacSystemFont,
@@ -2176,128 +2151,183 @@
     "PingFang SC",
     "Microsoft YaHei",
     sans-serif;
-
-  --almanac-display-font:
-    "Noto Serif SC",
-    "Songti SC",
-    "STSong",
-    "SimSun",
-    Georgia,
-    serif;
-
-  --almanac-mono-font:
-    "SFMono-Regular",
-    "Cascadia Code",
-    "Roboto Mono",
-    Consolas,
-    monospace;
-
-  --almanac-control-border: color-mix(
-    in srgb,
-    var(--almanac-ink) 16%,
-    var(--almanac-line)
-  );
-
-  --almanac-control-border-strong: color-mix(
-    in srgb,
-    var(--almanac-ink) 28%,
-    var(--almanac-line)
-  );
-
-  --almanac-panel-shadow:
-    0 0.75rem 2rem rgba(35, 24, 34, 0.055);
 }
 
 /* ---------------------------------------------------------
-   设置区域基础字体
+   基础文字层级
    --------------------------------------------------------- */
 
-.almanac-settings-section,
-.almanac-settings-section button,
-.almanac-settings-section input,
-.almanac-settings-section select,
-.almanac-settings-section textarea {
-  font-family: var(--almanac-ui-font);
-}
-
-.almanac-settings-section {
-  color: var(--almanac-ink);
-}
-
-.almanac-panel {
-  display: grid;
-  gap: 0;
-}
-
-/* 设置区主标题 */
-.almanac-panel > div:first-child {
-  display: grid;
-  gap: 0.42rem;
-  margin-bottom: 1.8rem;
-  padding-bottom: 1.15rem;
-  border-bottom: 1px solid var(--almanac-line);
-}
-
-.almanac-panel > div:first-child .almanac-eyebrow {
-  margin: 0;
+.almanac-settings-section .almanac-eyebrow,
+.almanac-milestones-overview .almanac-eyebrow,
+.almanac-milestone-manager .almanac-eyebrow {
+  margin: 0 0 0.55rem;
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.66rem;
+  font-family:
+    "SFMono-Regular",
+    "Cascadia Code",
+    Consolas,
+    monospace;
+  font-size: 0.61rem;
   font-weight: 500;
-  letter-spacing: 0.2em;
-  line-height: 1.4;
+  letter-spacing: 0.16em;
+  line-height: 1.35;
   text-transform: uppercase;
 }
 
-.almanac-panel > div:first-child .almanac-section-title {
+.almanac-settings-section .almanac-section-title,
+.almanac-milestones-overview .almanac-section-title,
+.almanac-milestone-manager .almanac-section-title {
   margin: 0;
   color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: clamp(1.55rem, 4vw, 2rem);
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    "STSong",
+    Georgia,
+    serif;
+  font-size: 1.55rem;
   font-weight: 400;
   letter-spacing: -0.045em;
-  line-height: 1.25;
+  line-height: 1.28;
+}
+
+.almanac-settings-section small,
+.almanac-settings-section p,
+.almanac-milestones-overview p,
+.almanac-milestone-manager p {
+  font-weight: 400;
 }
 
 /* ---------------------------------------------------------
-   所在地卡片
+   所有普通按钮统一缩小
+   --------------------------------------------------------- */
+
+.almanac-settings-section
+  .almanac-primary-button,
+.almanac-settings-section
+  .almanac-secondary-button,
+.almanac-settings-section
+  .almanac-text-button,
+.almanac-milestones-overview
+  .almanac-primary-button,
+.almanac-milestones-overview
+  .almanac-secondary-button,
+.almanac-milestone-manager
+  .almanac-primary-button,
+.almanac-milestone-manager
+  .almanac-secondary-button,
+.almanac-milestone-manager
+  .almanac-text-button {
+  box-sizing: border-box;
+  min-height: 2.25rem;
+  margin: 0;
+  padding: 0.48rem 0.75rem;
+  border-radius: 0.25rem;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+  font-size: 0.72rem;
+  font-weight: 550;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+/* 保存按钮不再使用巨大黑色块 */
+.almanac-settings-section .almanac-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 7rem;
+  margin-top: 1.15rem;
+  border: 1px solid var(--almanac-ink);
+  background: var(--almanac-ink);
+  color: var(--almanac-paper);
+}
+
+.almanac-settings-section .almanac-primary-button:hover {
+  background: var(--almanac-accent);
+  border-color: var(--almanac-accent);
+}
+
+/* 次要按钮 */
+.almanac-secondary-button {
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 24%,
+    var(--almanac-line)
+  );
+  background: transparent;
+  color: var(--almanac-ink);
+}
+
+.almanac-secondary-button:hover {
+  border-color: var(--almanac-ink);
+  background: color-mix(
+    in srgb,
+    var(--almanac-control) 55%,
+    transparent
+  );
+}
+
+/* ---------------------------------------------------------
+   设置区标题
+   --------------------------------------------------------- */
+
+.almanac-settings-section .almanac-panel {
+  display: block;
+}
+
+.almanac-settings-section .almanac-panel > div:first-child {
+  display: block;
+  margin-bottom: 1.35rem;
+  padding-bottom: 0;
+  border: 0;
+}
+
+/* ---------------------------------------------------------
+   所在地：保留一个边框，不再重复堆线
    --------------------------------------------------------- */
 
 .almanac-timezone-card {
   display: grid;
-  gap: 0.8rem;
-  margin: 0 0 1.35rem;
-  padding: 1.05rem 1.15rem 1.1rem;
-  border: 1px solid var(--almanac-control-border);
-  border-radius: 0.8rem;
+  gap: 0.72rem;
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 14%,
+    var(--almanac-line)
+  );
+  border-radius: 0.55rem;
   background: color-mix(
     in srgb,
-    var(--almanac-paper-soft) 58%,
+    var(--almanac-control) 32%,
     transparent
   );
-  box-shadow: var(--almanac-panel-shadow);
+  box-shadow: none;
 }
 
 .almanac-timezone-card > div:first-child {
   display: grid;
-  gap: 0.42rem;
+  gap: 0.35rem;
 }
 
 .almanac-timezone-card strong {
   color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.94rem;
+  font-size: 0.86rem;
   font-weight: 650;
-  letter-spacing: -0.015em;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .almanac-timezone-card small {
-  max-width: 42rem;
-  color: var(--almanac-ink-soft);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.78rem;
-  font-weight: 400;
+  color: var(--almanac-muted);
+  font-size: 0.7rem;
   line-height: 1.65;
 }
 
@@ -2305,384 +2335,278 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding-top: 0.1rem;
+  gap: 0.8rem;
+  padding-top: 0.15rem;
 }
 
 .almanac-timezone-current > span {
-  min-width: 0;
-  overflow: hidden;
   color: var(--almanac-ink);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.82rem;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.015em;
   line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.almanac-timezone-current
+  .almanac-secondary-button {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.68rem;
 }
 
 .almanac-timezone-hint {
   display: block;
-  padding-top: 0.72rem;
+  padding-top: 0.65rem;
   border-top: 1px solid color-mix(
     in srgb,
-    var(--almanac-line) 72%,
+    var(--almanac-line) 65%,
     transparent
   );
 }
 
 /* ---------------------------------------------------------
-   设置项：标题和说明必须分层
+   设置项
+   不再给每一项加横线
    --------------------------------------------------------- */
 
 .almanac-toggle-row,
 .almanac-inline-field {
-  font-family: var(--almanac-ui-font);
-}
-
-.almanac-toggle-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1.25rem;
-  min-height: 3.65rem;
-  padding: 0.95rem 0;
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    var(--almanac-line) 78%,
-    transparent
-  );
+  gap: 1rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0.78rem 0;
+  border: 0;
 }
 
 .almanac-toggle-row > span,
 .almanac-inline-field > span {
   display: grid;
-  flex: 1 1 auto;
-  gap: 0.34rem;
+  gap: 0.25rem;
   min-width: 0;
 }
 
 .almanac-toggle-row strong,
 .almanac-inline-field strong {
   color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .almanac-toggle-row small,
 .almanac-inline-field small {
-  display: block;
   max-width: 38rem;
   color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.73rem;
+  font-size: 0.69rem;
   font-weight: 400;
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
-/* 自定义 checkbox 尺寸，避免浏览器默认样式突兀 */
 .almanac-toggle-row input[type="checkbox"] {
   flex: 0 0 auto;
-  width: 1.15rem;
-  height: 1.15rem;
-  margin: 0.12rem 0 0;
-  border: 1px solid var(--almanac-control-border-strong);
+  width: 1rem;
+  height: 1rem;
+  margin: 0.08rem 0 0;
   accent-color: var(--almanac-ink);
-  cursor: pointer;
+}
+
+/* 只在大分区之间保留一条线 */
+.almanac-settings-section .almanac-divider {
+  height: 1px;
+  margin: 0.7rem 0;
+  background: var(--almanac-line);
 }
 
 /* ---------------------------------------------------------
-   提前几天：重新设计为明确的控件
+   提前提醒下拉框
    --------------------------------------------------------- */
 
 .almanac-inline-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    var(--almanac-line) 78%,
-    transparent
-  );
 }
 
 .almanac-inline-field select {
-  width: 9.2rem;
-  min-height: 2.7rem;
-  padding: 0.55rem 2.15rem 0.55rem 0.75rem;
-  border: 1px solid var(--almanac-control-border-strong);
-  border-radius: 0.35rem;
-  background-color: var(--almanac-control);
+  flex: 0 0 auto;
+  width: 8rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 22%,
+    var(--almanac-line)
+  );
+  border-radius: 0.25rem;
+  background: var(--almanac-control);
   color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.79rem;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+  font-size: 0.7rem;
   font-weight: 550;
   line-height: 1.2;
-  cursor: pointer;
-}
-
-.almanac-inline-field select:hover {
-  border-color: var(--almanac-ink);
-  background-color: var(--almanac-control-hover);
-}
-
-.almanac-inline-field select:focus,
-.almanac-timezone-select:focus,
-.almanac-timezone-search:focus,
-.almanac-time-input:focus {
-  outline: 2px solid color-mix(
-    in srgb,
-    var(--almanac-accent) 42%,
-    transparent
-  );
-  outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------
-   时间输入框
+   时间输入
    --------------------------------------------------------- */
 
 .almanac-time-input {
   display: block;
+  box-sizing: border-box;
   width: 100%;
-  min-height: 2.85rem;
-  margin: 0.8rem 0 0.45rem;
-  padding: 0.62rem 0.78rem;
-  border: 1px solid var(--almanac-control-border);
-  border-radius: 0.35rem;
+  min-height: 2.35rem;
+  margin: 0.35rem 0 0.55rem;
+  padding: 0.48rem 0.65rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 16%,
+    var(--almanac-line)
+  );
+  border-radius: 0.25rem;
   background: var(--almanac-control);
   color: var(--almanac-ink);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.86rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-.almanac-time-input:disabled {
-  opacity: 0.42;
-  cursor: not-allowed;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.76rem;
 }
 
 /* ---------------------------------------------------------
-   分隔线和档案标记
-   --------------------------------------------------------- */
-
-.almanac-divider {
-  height: 1px;
-  margin: 1.15rem 0;
-  background: var(--almanac-line);
-}
-
-.almanac-panel .almanac-eyebrow {
-  color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
-/* ---------------------------------------------------------
-   保存按钮：降低体积，明确主操作
-   --------------------------------------------------------- */
-
-.almanac-primary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: flex-start;
-  min-height: 2.65rem;
-  margin-top: 1.2rem;
-  padding: 0.62rem 1.05rem;
-  border: 1px solid var(--almanac-ink);
-  border-radius: 0.25rem;
-  background: var(--almanac-ink);
-  color: var(--almanac-paper);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.015em;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    color 160ms ease,
-    border-color 160ms ease,
-    transform 160ms ease;
-}
-
-.almanac-primary-button:hover {
-  border-color: var(--almanac-accent);
-  background: var(--almanac-accent);
-  color: var(--almanac-accent-text);
-}
-
-.almanac-primary-button:active {
-  transform: translateY(1px);
-}
-
-.almanac-primary-button:focus-visible,
-.almanac-secondary-button:focus-visible,
-.almanac-text-button:focus-visible,
-.almanac-danger-button:focus-visible {
-  outline: 2px solid var(--almanac-accent);
-  outline-offset: 3px;
-}
-
-/* ---------------------------------------------------------
-   次级按钮
-   --------------------------------------------------------- */
-
-.almanac-secondary-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.35rem;
-  padding: 0.5rem 0.8rem;
-  border: 1px solid var(--almanac-control-border-strong);
-  border-radius: 0.3rem;
-  background: transparent;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.75rem;
-  font-weight: 550;
-  line-height: 1.2;
-  cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease;
-}
-
-.almanac-secondary-button:hover {
-  border-color: var(--almanac-ink);
-  background: var(--almanac-control-hover);
-}
-
-/* ---------------------------------------------------------
-   纪念日与倒数日入口
-   不再使用和标题一样大的普通文字
+   数据管理区
+   去掉左竖线，避免和横线重叠
    --------------------------------------------------------- */
 
 .almanac-data-management {
   display: grid;
-  gap: 0;
-  margin-top: 0.25rem;
-  padding: 1.1rem 0 1.25rem;
+  gap: 0.75rem;
+  margin: 1.2rem 0 0;
+  padding: 1.05rem 0 0;
+  border: 0;
   border-top: 1px solid var(--almanac-line);
-  border-bottom: 1px solid var(--almanac-line);
 }
 
 .almanac-data-management > div {
   display: grid;
-  gap: 0.38rem;
-  padding-left: 0.85rem;
-  border-left: 2px solid var(--almanac-ink);
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
 }
 
 .almanac-data-management h3,
 .almanac-danger-zone h3 {
   margin: 0;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: 1.28rem;
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    "STSong",
+    Georgia,
+    serif;
+  font-size: 1.12rem;
   font-weight: 400;
-  letter-spacing: -0.035em;
-  line-height: 1.3;
+  letter-spacing: -0.03em;
+  line-height: 1.35;
 }
 
 .almanac-data-management small,
 .almanac-danger-zone small {
   display: block;
-  max-width: 38rem;
   color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.73rem;
+  font-size: 0.7rem;
   font-weight: 400;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
-.almanac-data-management .almanac-text-button {
+/* 纪念日入口：只用一条底线，不再上下双线 */
+.almanac-data-management
+  .almanac-text-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 3rem;
-  margin-top: 1.05rem;
-  padding: 0.7rem 0;
-  border-top: 1px solid var(--almanac-control-border-strong);
-  border-bottom: 1px solid var(--almanac-control-border-strong);
+  min-height: 2.6rem;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 22%,
+    var(--almanac-line)
+  );
   color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  line-height: 1.3;
   text-align: left;
-  cursor: pointer;
 }
 
-.almanac-data-management .almanac-text-button::after {
+.almanac-data-management
+  .almanac-text-button::after {
   content: "↗";
-  margin-left: 1rem;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-mono-font);
-  font-size: 1rem;
+  color: var(--almanac-muted);
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.85rem;
   font-weight: 400;
 }
 
-.almanac-data-management .almanac-text-button:hover {
-  color: var(--almanac-accent);
-}
-
-.almanac-data-management .almanac-secondary-button {
-  justify-self: stretch;
-  width: 100%;
-  margin-top: 0.8rem;
-  min-height: 2.8rem;
+/* 重新开始：不做大卡片 */
+.almanac-data-management
+  .almanac-secondary-button {
   justify-content: flex-start;
-  padding-left: 0.8rem;
-  border-color: var(--almanac-control-border);
-  background: color-mix(
+  width: 100%;
+  min-height: 2.35rem;
+  margin-top: 0;
+  padding: 0.5rem 0.65rem;
+  border-color: color-mix(
     in srgb,
-    var(--almanac-control) 48%,
-    transparent
+    var(--almanac-ink) 15%,
+    var(--almanac-line)
   );
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  font-weight: 550;
+  text-align: left;
 }
 
-.almanac-data-management .almanac-secondary-button::before {
+.almanac-data-management
+  .almanac-secondary-button::before {
   content: "↻";
-  margin-right: 0.6rem;
-  font-family: var(--almanac-mono-font);
-  font-size: 1rem;
+  margin-right: 0.55rem;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.88rem;
 }
 
 /* ---------------------------------------------------------
-   危险操作区域
+   危险操作区
    --------------------------------------------------------- */
 
 .almanac-danger-zone {
   display: grid;
-  gap: 0.9rem;
-  margin-top: 1.4rem;
-  padding: 1.15rem 0 1.25rem 0.85rem;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
+  padding: 1rem 0 0;
+  border: 0;
   border-top: 1px solid color-mix(
     in srgb,
-    #b94a48 45%,
+    #b94a48 38%,
     var(--almanac-line)
   );
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    #b94a48 45%,
-    var(--almanac-line)
-  );
-  border-left: 2px solid #b94a48;
 }
 
 .almanac-danger-zone .almanac-eyebrow {
@@ -2694,415 +2618,45 @@
 }
 
 .almanac-danger-button {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 2.75rem;
-  padding: 0.62rem 0.85rem;
+  min-height: 2.45rem;
+  padding: 0.55rem 0.7rem;
   border: 1px solid color-mix(
     in srgb,
-    #b94a48 65%,
+    #b94a48 48%,
     var(--almanac-line)
   );
-  border-radius: 0.2rem;
+  border-radius: 0.25rem;
   background: transparent;
   color: #b94a48;
-  font-family: var(--almanac-ui-font);
-  font-size: 0.8rem;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+  font-size: 0.74rem;
   font-weight: 600;
   line-height: 1.2;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    color 160ms ease;
 }
 
 .almanac-danger-button::after {
   content: "×";
-  font-family: var(--almanac-mono-font);
-  font-size: 1rem;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.9rem;
   font-weight: 400;
-}
-
-.almanac-danger-button:hover {
-  background: #b94a48;
-  color: #fff;
 }
 
 /* ---------------------------------------------------------
-   时区弹窗和控件
-   --------------------------------------------------------- */
-
-.almanac-modal {
-  font-family: var(--almanac-ui-font);
-}
-
-.almanac-modal .almanac-section-title {
-  margin: 0.45rem 0 0;
-  font-family: var(--almanac-display-font);
-  font-size: 1.45rem;
-  font-weight: 400;
-  letter-spacing: -0.035em;
-  line-height: 1.35;
-}
-
-.almanac-modal-description {
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.78rem;
-  font-weight: 400;
-  line-height: 1.7;
-}
-
-.almanac-timezone-preview {
-  display: grid;
-  gap: 0.45rem;
-  margin: 1rem 0;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--almanac-control-border);
-  border-radius: 0.35rem;
-  background: var(--almanac-control);
-}
-
-.almanac-timezone-preview span {
-  color: var(--almanac-muted);
-  font-size: 0.7rem;
-  line-height: 1.4;
-}
-
-.almanac-timezone-preview strong {
-  color: var(--almanac-ink);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.82rem;
-  font-weight: 550;
-}
-
-.almanac-timezone-search,
-.almanac-timezone-select {
-  box-sizing: border-box;
-  min-height: 2.65rem;
-  border: 1px solid var(--almanac-control-border-strong);
-  border-radius: 0.35rem;
-  background: var(--almanac-control);
-  color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.78rem;
-  font-weight: 450;
-}
-
-.almanac-timezone-search::placeholder {
-  color: var(--almanac-muted);
-  font-size: 0.75rem;
-}
-
-.almanac-modal-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.55rem;
-}
-
-.almanac-modal-actions .almanac-primary-button,
-.almanac-modal-actions .almanac-secondary-button,
-.almanac-modal-actions .almanac-text-button {
-  width: 100%;
-  margin-top: 0;
-}
-
-/* 文字按钮不再继承浏览器默认字号 */
-.almanac-text-button {
-  min-height: 2.35rem;
-  padding: 0.5rem 0;
-  border: 0;
-  background: transparent;
-  color: var(--almanac-ink-soft);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.74rem;
-  font-weight: 550;
-  line-height: 1.3;
-  cursor: pointer;
-}
-
-.almanac-text-button:hover {
-  color: var(--almanac-accent);
-}
-
-/* ---------------------------------------------------------
-   统计区域通用层级
-   这部分用于修复“0 个有记录的日子”突兀的问题
-   --------------------------------------------------------- */
-
-.almanac-observation,
-.almanac-observation-section,
-.almanac-stat-card,
-.almanac-stats,
-.almanac-stat {
-  font-family: var(--almanac-ui-font);
-}
-
-.almanac-observation small,
-.almanac-observation p,
-.almanac-observation-section small,
-.almanac-observation-section p,
-.almanac-stat-card small,
-.almanac-stat-card p,
-.almanac-stats small,
-.almanac-stats p {
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.72rem;
-  font-weight: 400;
-  line-height: 1.6;
-}
-
-.almanac-observation strong,
-.almanac-observation-section strong,
-.almanac-stat-card strong,
-.almanac-stats strong,
-.almanac-stat strong {
-  color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.78rem;
-  font-weight: 550;
-  line-height: 1.4;
-}
-
-.almanac-observation [class*="value"],
-.almanac-observation [class*="count"],
-.almanac-observation-section [class*="value"],
-.almanac-observation-section [class*="count"],
-.almanac-stat-card [class*="value"],
-.almanac-stat-card [class*="count"],
-.almanac-stats [class*="value"],
-.almanac-stats [class*="count"] {
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: clamp(1.45rem, 4vw, 2.2rem);
-  font-weight: 400;
-  letter-spacing: -0.045em;
-  line-height: 1.15;
-}
-
-/* ---------------------------------------------------------
-   移动端
-   --------------------------------------------------------- */
-
-@media (max-width: 560px) {
-  .almanac-timezone-current {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.7rem;
-  }
-
-  .almanac-timezone-current .almanac-secondary-button {
-    width: 100%;
-  }
-
-  .almanac-inline-field {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .almanac-inline-field select {
-    width: 100%;
-  }
-
-  .almanac-primary-button {
-    width: 100%;
-  }
-
-  .almanac-data-management h3,
-  .almanac-danger-zone h3 {
-    font-size: 1.18rem;
-  }
-
-  .almanac-data-management small,
-  .almanac-danger-zone small {
-    font-size: 0.71rem;
-  }
-}
-/* =========================================================
-   AlmanacObservation 统计区域
-   ========================================================= */
-
-.almanac-observation-panel {
-  display: grid;
-  gap: 0;
-}
-
-.almanac-observation-heading {
-  display: grid;
-  gap: 0.45rem;
-  margin-bottom: 1.65rem;
-}
-
-.almanac-observation-heading .almanac-eyebrow {
-  margin: 0;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.19em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
-.almanac-observation-heading .almanac-section-title {
-  margin: 0;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: clamp(1.55rem, 4vw, 2rem);
-  font-weight: 400;
-  letter-spacing: -0.045em;
-  line-height: 1.25;
-}
-
-/* 统计数据网格 */
-.almanac-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--almanac-control-border);
-  border-bottom: 1px solid var(--almanac-control-border);
-}
-
-/* 单个统计项 */
-.almanac-stat-card {
-  display: grid;
-  align-content: start;
-  gap: 0.48rem;
-  min-width: 0;
-  min-height: 6.4rem;
-  padding: 1.1rem 1rem 1.15rem;
-  border-right: 1px solid var(--almanac-control-border);
-}
-
-.almanac-stat-card:first-child {
-  padding-left: 0.1rem;
-}
-
-.almanac-stat-card:last-child {
-  border-right: 0;
-}
-
-/* 数字：使用显示字体，突出主要信息 */
-.almanac-stat-value {
-  display: block;
-  overflow: hidden;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: clamp(1.65rem, 5vw, 2.35rem);
-  font-weight: 400;
-  letter-spacing: -0.055em;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 说明：明显小于数字 */
-.almanac-stat-label {
-  display: block;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.7rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1.5;
-}
-
-/* 记录为 0 时仍保持数字视觉重量 */
-.almanac-stat-value:is(:empty) {
-  min-height: 1em;
-}
-
-/* 节律观察区域 */
-.almanac-observation-note {
-  display: grid;
-  gap: 0.55rem;
-  margin-top: 1.45rem;
-  padding: 1rem 1.05rem 1.05rem;
-  border-left: 2px solid var(--almanac-accent);
-  background: color-mix(
-    in srgb,
-    var(--almanac-control) 52%,
-    transparent
-  );
-}
-
-.almanac-observation-note .almanac-eyebrow {
-  margin: 0;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
-.almanac-observation-message {
-  margin: 0;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: 1.05rem;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1.65;
-}
-
-.almanac-observation-meta {
-  display: block;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.7rem;
-  font-weight: 400;
-  line-height: 1.6;
-}
-
-.almanac-observation-meta strong {
-  color: var(--almanac-ink-soft);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-/* 移动端统计项 */
-@media (max-width: 560px) {
-  .almanac-stat-card {
-    min-height: 5.7rem;
-    padding: 0.9rem 0.65rem 0.95rem;
-  }
-
-  .almanac-stat-card:first-child {
-    padding-left: 0;
-  }
-
-  .almanac-stat-value {
-    font-size: clamp(1.35rem, 7vw, 1.8rem);
-  }
-
-  .almanac-stat-label {
-    font-size: 0.65rem;
-  }
-
-  .almanac-observation-message {
-    font-size: 0.96rem;
-  }
-}
-/* =========================================================
-   Almanac milestones visual system
-   ========================================================= */
-
-.almanac-milestones-overview,
-.almanac-milestone-manager {
-  display: grid;
-  gap: 0;
-  font-family: var(--almanac-ui-font);
-}
-
-/* ---------------------------------------------------------
-   时刻区标题
+   纪念日区域
    --------------------------------------------------------- */
 
 .almanac-milestone-heading,
@@ -3110,341 +2664,147 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 2rem;
-  padding-bottom: 1.25rem;
+  gap: 1.5rem;
+  padding: 0 0 1.15rem;
   border-bottom: 1px solid var(--almanac-line);
 }
 
 .almanac-milestone-heading-copy,
 .almanac-manager-heading-copy {
   display: grid;
-  gap: 0.42rem;
+  gap: 0.35rem;
   min-width: 0;
-}
-
-.almanac-milestone-heading .almanac-eyebrow,
-.almanac-manager-heading .almanac-eyebrow {
-  margin: 0;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.19em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
-.almanac-milestone-heading .almanac-section-title,
-.almanac-manager-heading .almanac-section-title {
-  margin: 0;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: clamp(1.45rem, 4vw, 1.9rem);
-  font-weight: 400;
-  letter-spacing: -0.045em;
-  line-height: 1.3;
 }
 
 .almanac-milestone-description,
 .almanac-manager-description {
-  max-width: 30rem;
-  margin: 0.25rem 0 0;
+  max-width: 32rem;
+  margin: 0.15rem 0 0;
   color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.75rem;
-  font-weight: 400;
-  line-height: 1.7;
+  font-size: 0.72rem;
+  line-height: 1.6;
 }
 
-/* ---------------------------------------------------------
-   添加日期按钮
-   --------------------------------------------------------- */
-
-.almanac-add-date-button {
-  display: inline-flex;
+.almanac-milestone-heading
+  .almanac-add-date-button,
+.almanac-manager-heading
+  .almanac-add-date-button {
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 0.85rem;
-  min-height: 2.45rem;
-  margin-top: 0.2rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--almanac-control-border-strong);
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.74rem;
-  font-weight: 600;
-  line-height: 1.2;
+  margin-top: 0.05rem;
   white-space: nowrap;
 }
 
-.almanac-add-date-button:hover {
-  border-color: var(--almanac-ink);
-  background: var(--almanac-control-hover);
-}
-
 .almanac-button-arrow {
+  margin-left: 0.35rem;
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.95rem;
-  font-weight: 400;
-  line-height: 1;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.82rem;
 }
 
-/* ---------------------------------------------------------
-   系统里程碑
-   --------------------------------------------------------- */
-
-.almanac-system-milestones {
-  margin-top: 1.35rem;
-}
-
+/* 子区域只保留文字，不再加额外横线 */
 .almanac-subsection-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 0.45rem;
+  display: block;
+  margin: 1.15rem 0 0.35rem;
 }
 
 .almanac-subsection-kicker {
-  flex: 0 0 auto;
   margin: 0;
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.61rem;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.59rem;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.15em;
   line-height: 1.4;
-  text-transform: uppercase;
 }
 
 .almanac-subsection-rule {
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--almanac-line);
+  display: none;
 }
 
-.almanac-milestone-list {
-  display: grid;
-}
-
+/* 系统里程碑：只用底部轻线 */
 .almanac-system-milestone {
   display: grid;
-  grid-template-columns: 0.15rem 1.8rem minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0.75rem;
-  min-height: 4.2rem;
-  padding: 0.95rem 0;
+  grid-template-columns: 0.2rem 1.6rem minmax(0, 1fr);
+  gap: 0.7rem;
+  min-height: 0;
+  padding: 0.8rem 0;
   border-bottom: 1px solid color-mix(
     in srgb,
-    var(--almanac-line) 76%,
+    var(--almanac-line) 58%,
     transparent
   );
 }
 
-.almanac-milestone-line {
-  width: 1px;
-  background: var(--almanac-ink);
-  opacity: 0.7;
-}
-
-.almanac-system-milestone-index {
-  padding-top: 0.08rem;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  line-height: 1.4;
-}
-
 .almanac-system-milestone-content {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.22rem;
 }
 
 .almanac-system-milestone-content strong {
   color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: 1rem;
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    Georgia,
+    serif;
+  font-size: 0.92rem;
   font-weight: 400;
-  letter-spacing: -0.02em;
   line-height: 1.4;
 }
 
 .almanac-system-milestone-content p {
   margin: 0;
   color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.72rem;
-  font-weight: 400;
-  line-height: 1.6;
+  font-size: 0.69rem;
+  line-height: 1.55;
 }
 
-.almanac-system-empty,
-.almanac-milestone-empty {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  margin-top: 0.75rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--almanac-line);
+.almanac-milestone-line {
+  width: 1px;
+  background: var(--almanac-ink);
+  opacity: 0.45;
 }
 
-.almanac-empty-mark {
+.almanac-system-milestone-index {
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.almanac-system-empty > div,
-.almanac-milestone-empty > div {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.almanac-system-empty strong,
-.almanac-milestone-empty strong {
-  color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.45;
-}
-
-.almanac-system-empty small,
-.almanac-milestone-empty small {
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.72rem;
-  line-height: 1.6;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.6rem;
 }
 
 /* ---------------------------------------------------------
-   用户纪念日概览
-   --------------------------------------------------------- */
-
-.almanac-personal-milestone-list {
-  display: grid;
-  gap: 0;
-  margin-top: 1.65rem;
-  padding-top: 0;
-  border-top: 0;
-}
-
-.almanac-personal-milestone {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid color-mix(
-    in srgb,
-    var(--almanac-line) 76%,
-    transparent
-  );
-}
-
-.almanac-personal-milestone-dot {
-  flex: 0 0 0.36rem;
-  width: 0.36rem;
-  height: 0.36rem;
-  margin-top: 0.42rem;
-  border-radius: 50%;
-  background: var(--almanac-accent);
-}
-
-.almanac-personal-milestone-content {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.almanac-personal-milestone-content strong {
-  color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: 0.98rem;
-  font-weight: 400;
-  line-height: 1.4;
-}
-
-.almanac-personal-milestone-content p {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.68rem;
-  line-height: 1.5;
-}
-
-.almanac-personal-countdown,
-.almanac-countdown-label {
-  margin: 0;
-  color: var(--almanac-accent-text);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.almanac-personal-countdown.is-today,
-.almanac-countdown-label.is-today {
-  color: var(--almanac-accent);
-}
-
-.almanac-personal-countdown.is-past,
-.almanac-countdown-label.is-past {
-  color: var(--almanac-muted);
-  font-weight: 400;
-}
-
-.almanac-milestone-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.25rem;
-  padding: 0.12rem 0.35rem;
-  border: 1px solid var(--almanac-control-border);
-  border-radius: 0.2rem;
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.62rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.almanac-reminder-status {
-  color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.67rem;
-  line-height: 1.5;
-}
-
-/* ---------------------------------------------------------
-   管理区域
+   管理表单
    --------------------------------------------------------- */
 
 .almanac-milestone-manager {
-  margin-top: 2rem;
-  padding-top: 1.35rem;
+  margin-top: 1.8rem;
+  padding-top: 1.15rem;
   border-top: 1px solid var(--almanac-line);
 }
 
 .almanac-form-region {
-  margin-top: 1rem;
-  border-bottom: 1px solid var(--almanac-line);
+  margin-top: 0.9rem;
+  padding: 0.2rem 0 1rem;
+  border: 0;
+  background: color-mix(
+    in srgb,
+    var(--almanac-control) 22%,
+    transparent
+  );
 }
-
-/* ---------------------------------------------------------
-   添加/编辑表单
-   --------------------------------------------------------- */
 
 .almanac-countdown-form {
   display: grid;
   gap: 0;
-  padding: 0.25rem 0 1.25rem;
+  padding: 0.85rem 0.8rem 0.95rem;
 }
 
 .almanac-form-heading {
@@ -3452,58 +2812,54 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 0 1rem;
-}
-
-.almanac-form-heading > div {
-  display: grid;
-  gap: 0.35rem;
+  padding: 0 0 0.8rem;
+  border: 0;
 }
 
 .almanac-form-kicker,
 .almanac-form-status {
   margin: 0;
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.61rem;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.59rem;
   font-weight: 500;
-  letter-spacing: 0.16em;
-  line-height: 1.4;
+  letter-spacing: 0.15em;
+  line-height: 1.35;
   text-transform: uppercase;
 }
 
 .almanac-form-title {
-  margin: 0;
+  margin: 0.28rem 0 0;
   color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: 1.25rem;
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    Georgia,
+    serif;
+  font-size: 1.05rem;
   font-weight: 400;
-  letter-spacing: -0.035em;
   line-height: 1.35;
-}
-
-.almanac-form-status {
-  padding-top: 0.15rem;
-  color: var(--almanac-accent);
 }
 
 .almanac-form-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(10rem, 0.8fr);
-  gap: 1rem;
-  padding: 0.85rem 0 1.1rem;
-  border-top: 1px solid var(--almanac-line);
+  grid-template-columns: minmax(0, 1.35fr) minmax(9rem, 0.8fr);
+  gap: 0.8rem;
+  padding: 0;
+  border: 0;
 }
 
 .almanac-form-field {
   display: grid;
-  gap: 0.42rem;
+  gap: 0.35rem;
 }
 
 .almanac-form-label {
   color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 650;
   line-height: 1.4;
 }
@@ -3511,90 +2867,85 @@
 .almanac-form-input {
   box-sizing: border-box;
   width: 100%;
-  min-height: 2.7rem;
-  padding: 0.62rem 0.75rem;
-  border: 1px solid var(--almanac-control-border-strong);
-  border-radius: 0.3rem;
-  background: var(--almanac-control);
+  min-height: 2.35rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-ink) 16%,
+    var(--almanac-line)
+  );
+  border-radius: 0.25rem;
+  background: var(--almanac-paper);
   color: var(--almanac-ink);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.78rem;
-  font-weight: 400;
+  font-size: 0.72rem;
   line-height: 1.3;
 }
 
 .almanac-form-input::placeholder {
   color: var(--almanac-muted);
-  font-size: 0.73rem;
+  font-size: 0.7rem;
 }
 
-.almanac-form-input:focus {
-  outline: 2px solid color-mix(
-    in srgb,
-    var(--almanac-accent) 42%,
-    transparent
-  );
-  outline-offset: 2px;
-}
-
-/* 表单开关区域 */
 .almanac-form-options {
   display: grid;
   gap: 0;
-  border-top: 1px solid var(--almanac-line);
+  margin-top: 0.85rem;
+  padding-top: 0.2rem;
+  border: 0;
 }
 
 .almanac-form-toggle {
-  min-height: 3.35rem;
-  padding: 0.78rem 0;
+  padding: 0.58rem 0;
 }
 
 .almanac-form-toggle strong {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .almanac-form-toggle small {
-  font-size: 0.69rem;
+  font-size: 0.66rem;
 }
 
-/* 表单操作 */
 .almanac-form-actions {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding-top: 1rem;
+  gap: 0.65rem;
+  padding-top: 0.75rem;
 }
 
 .almanac-form-submit {
-  width: auto;
-  min-width: 6.2rem;
-  margin-top: 0;
+  width: auto !important;
+  min-width: 5.4rem;
+  min-height: 2.25rem;
+  margin: 0 !important;
+  font-size: 0.7rem !important;
 }
 
 .almanac-form-cancel {
-  min-height: 2.35rem;
-  padding: 0.5rem 0.4rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.35rem;
+  font-size: 0.68rem;
 }
 
 /* ---------------------------------------------------------
-   管理列表
+   已添加日期列表
    --------------------------------------------------------- */
 
 .almanac-managed-milestones {
   display: grid;
   gap: 0;
-  margin-top: 1.1rem;
+  margin-top: 0.7rem;
 }
 
 .almanac-managed-milestone {
   display: grid;
-  grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+  grid-template-columns: 1.45rem minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.8rem;
-  padding: 1rem 0;
+  gap: 0.7rem;
+  padding: 0.85rem 0;
   border-bottom: 1px solid color-mix(
     in srgb,
-    var(--almanac-line) 78%,
+    var(--almanac-line) 55%,
     transparent
   );
 }
@@ -3602,30 +2953,30 @@
 .almanac-managed-milestone-index {
   padding-top: 0.15rem;
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.63rem;
-  letter-spacing: 0.08em;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.59rem;
   line-height: 1.4;
 }
 
 .almanac-managed-milestone-content {
   display: grid;
-  gap: 0.34rem;
+  gap: 0.25rem;
   min-width: 0;
-}
-
-.almanac-managed-milestone-main {
-  display: grid;
-  gap: 0.28rem;
 }
 
 .almanac-managed-milestone-title {
   overflow: hidden;
   color: var(--almanac-ink);
-  font-family: var(--almanac-display-font);
-  font-size: 1.02rem;
+  font-family:
+    "Noto Serif SC",
+    "Songti SC",
+    Georgia,
+    serif;
+  font-size: 0.92rem;
   font-weight: 400;
-  letter-spacing: -0.025em;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3634,43 +2985,53 @@
 .almanac-managed-milestone-date {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   margin: 0;
   color: var(--almanac-muted);
-  font-family: var(--almanac-mono-font);
-  font-size: 0.68rem;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.63rem;
+  line-height: 1.5;
+}
+
+.almanac-countdown-label {
+  margin: 0;
+  color: var(--almanac-accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.almanac-reminder-status {
+  color: var(--almanac-muted);
+  font-size: 0.63rem;
   line-height: 1.5;
 }
 
 .almanac-managed-milestone-actions {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding-top: 0.05rem;
+  gap: 0.2rem;
 }
 
 .almanac-item-action-button {
-  min-height: 1.9rem;
-  padding: 0.35rem 0.48rem;
+  min-height: 1.8rem;
+  padding: 0.35rem 0.35rem;
   border: 0;
-  border-bottom: 1px solid transparent;
   background: transparent;
   color: var(--almanac-muted);
-  font-family: var(--almanac-ui-font);
-  font-size: 0.69rem;
+  font-size: 0.65rem;
   font-weight: 550;
   line-height: 1.2;
-  cursor: pointer;
 }
 
 .almanac-item-action-button:hover {
-  border-bottom-color: var(--almanac-ink);
   color: var(--almanac-ink);
 }
 
 .almanac-item-action-button.almanac-danger-text:hover {
-  border-bottom-color: #b94a48;
   color: #b94a48;
 }
 
@@ -3682,39 +3043,56 @@
   .almanac-milestone-heading,
   .almanac-manager-heading {
     display: grid;
-    gap: 1rem;
+    gap: 0.85rem;
   }
 
-  .almanac-add-date-button {
+  .almanac-milestone-heading
+    .almanac-add-date-button,
+  .almanac-manager-heading
+    .almanac-add-date-button {
     justify-self: start;
   }
 
   .almanac-form-fields {
     grid-template-columns: 1fr;
-    gap: 0.9rem;
+  }
+
+  .almanac-timezone-current {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .almanac-timezone-current
+    .almanac-secondary-button {
+    width: auto;
+  }
+}
+
+@media (max-width: 460px) {
+  .almanac-settings-section
+    .almanac-primary-button {
+    width: 100%;
+  }
+
+  .almanac-inline-field {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .almanac-inline-field select {
+    width: 100%;
   }
 
   .almanac-managed-milestone {
-    grid-template-columns: 1.5rem minmax(0, 1fr);
-    gap: 0.65rem;
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+    gap: 0.6rem;
   }
 
   .almanac-managed-milestone-actions {
     grid-column: 2;
     justify-content: flex-start;
-    padding-top: 0.15rem;
-  }
-}
-
-@media (max-width: 420px) {
-  .almanac-system-milestone {
-    grid-template-columns: 0.15rem 1.35rem minmax(0, 1fr);
-    gap: 0.55rem;
-  }
-
-  .almanac-system-milestone-content strong,
-  .almanac-managed-milestone-title {
-    font-size: 0.95rem;
+    margin-top: 0.15rem;
   }
 
   .almanac-form-actions {
@@ -3724,6 +3102,6 @@
 
   .almanac-form-submit,
   .almanac-form-cancel {
-    width: 100%;
+    width: 100% !important;
   }
 }
