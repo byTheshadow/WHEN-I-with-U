@@ -3033,122 +3033,30 @@
   }
 }
 /* ==========================================================================
-   PROFILE SETTINGS CLEANUP
-   移除无意义线条、圆形开关和卡片装饰
+   FINAL CLEANUP
+   不添加任何图标、圆形、线条或伪元素
    ========================================================================== */
 
-/* 设置区域不再使用卡片边框 */
-.almanac-settings-section,
-.almanac-settings-section .almanac-panel,
-.almanac-timezone-card,
-.almanac-data-management,
-.almanac-danger-zone {
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
+/* 移除上一版和旧版可能残留的所有装饰伪元素 */
+.almanac-settings-section *,
+.almanac-timezone-card *,
+.almanac-data-management *,
+.almanac-danger-zone * {
+  --remove-decoration: none;
 }
 
-/* 去掉时区区域左侧竖线、上下线 */
-.almanac-timezone-card {
-  margin-top: 1.5rem !important;
-  padding: 0 !important;
-}
-
-.almanac-timezone-card::before,
-.almanac-timezone-card::after,
-.almanac-timezone-preview::before,
-.almanac-timezone-preview::after {
-  display: none !important;
-  content: none !important;
-}
-
-.almanac-timezone-preview {
-  margin: 0.8rem 0 0 !important;
-  padding: 0.7rem 0 !important;
-
-  border: 0 !important;
-  border-left: 0 !important;
-  border-radius: 0 !important;
-
-  background: transparent !important;
-}
-
-/* 去掉“相遇节律”等设置项之间的横线 */
-.almanac-toggle-row {
-  min-height: 3.2rem !important;
-  margin: 0 !important;
-  padding: 0.85rem 0 !important;
-
-  border: 0 !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
-  background: transparent !important;
-}
-
-/* 清除之前做的圆形开关 */
-.almanac-toggle-row input[type="checkbox"] {
-  position: relative !important;
-
-  flex: 0 0 auto !important;
-  width: 1.05rem !important;
-  height: 1.05rem !important;
-  margin: 0 !important;
-  padding: 0 !important;
-
-  appearance: none !important;
-  -webkit-appearance: none !important;
-
-  border: 1px solid color-mix(
-    in srgb,
-    var(--almanac-ink) 42%,
-    transparent
-  ) !important;
-  border-radius: 2px !important;
-
-  background: transparent !important;
-  box-shadow: none !important;
-  cursor: pointer !important;
-}
-
-/* 删除原来的圆形滑块 */
-.almanac-toggle-row input[type="checkbox"]::after {
-  display: none !important;
-  content: none !important;
-}
-
-/* 选中后只显示一个小方形勾选标记 */
-.almanac-toggle-row input[type="checkbox"]:checked {
-  border-color: var(--almanac-accent) !important;
-  background: var(--almanac-accent) !important;
-}
-
-.almanac-toggle-row input[type="checkbox"]:checked::before {
-  position: absolute;
-  top: 0.08rem;
-  left: 0.28rem;
-
-  width: 0.28rem;
-  height: 0.55rem;
-
-  border-right: 1.5px solid var(--almanac-accent-text);
-  border-bottom: 1.5px solid var(--almanac-accent-text);
-
-  content: "";
-  transform: rotate(าบ45deg);
-}
-
-/* 去掉设置标题下面那条线 */
-.almanac-settings-section .almanac-panel > div:first-child {
-  border-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-/* 去掉设置页中所有无意义的伪元素标记 */
 .almanac-settings-section::before,
 .almanac-settings-section::after,
 .almanac-settings-section .almanac-panel::before,
 .almanac-settings-section .almanac-panel::after,
+.almanac-timezone-card::before,
+.almanac-timezone-card::after,
+.almanac-timezone-preview::before,
+.almanac-timezone-preview::after,
+.almanac-toggle-row::before,
+.almanac-toggle-row::after,
+.almanac-toggle-row input::before,
+.almanac-toggle-row input::after,
 .almanac-data-management::before,
 .almanac-data-management::after,
 .almanac-danger-zone::before,
@@ -3157,41 +3065,96 @@
   content: none !important;
 }
 
-/* 设置项文字层级重新拉开 */
-.almanac-toggle-row span > :first-child {
-  color: var(--almanac-ink) !important;
-  font-size: 0.9rem !important;
-  font-weight: 600 !important;
+/* 设置区域：不使用卡片、边框、背景和阴影 */
+.almanac-settings-section,
+.almanac-settings-section .almanac-panel,
+.almanac-timezone-card,
+.almanac-timezone-preview,
+.almanac-data-management,
+.almanac-danger-zone {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.almanac-toggle-row small {
-  margin-top: 0.2rem !important;
-
-  color: var(--almanac-muted) !important;
-  font-size: 0.76rem !important;
-  line-height: 1.55 !important;
+/* 不要任何装饰线 */
+.almanac-timezone-card,
+.almanac-timezone-preview,
+.almanac-toggle-row,
+.almanac-settings-section .almanac-panel > div:first-child {
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
 }
 
-/* “修改所在地”变成轻量文字操作，不再像按钮框 */
+/* 恢复浏览器原生复选框，不再自定义成圆形开关 */
+.almanac-toggle-row input[type="checkbox"] {
+  width: 1rem !important;
+  height: 1rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
+
+  border: initial !important;
+  border-radius: initial !important;
+  background: initial !important;
+  box-shadow: none !important;
+  accent-color: var(--almanac-accent) !important;
+}
+
+/* 确保没有自定义勾、emoji 或字符 */
+.almanac-toggle-row input[type="checkbox"]::before,
+.almanac-toggle-row input[type="checkbox"]::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* 去掉按钮伪元素里的箭头、叉号、循环符号 */
+.almanac-primary-button::before,
+.almanac-primary-button::after,
+.almanac-secondary-button::before,
+.almanac-secondary-button::after,
+.almanac-danger-button::before,
+.almanac-danger-button::after,
+.almanac-text-button::before,
+.almanac-text-button::after,
+.almanac-manager-add::before,
+.almanac-manager-add::after,
+.almanac-add-toggle-button::before,
+.almanac-add-toggle-button::after,
+.almanac-milestone-entry-button::before,
+.almanac-milestone-entry-button::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* 修改所在地只保留文字，不做按钮框 */
 .almanac-timezone-card button,
 .almanac-timezone-card .almanac-text-button {
   width: auto !important;
   min-height: 0 !important;
-  margin: 0.2rem 0 0 !important;
-  padding: 0.2rem 0 !important;
+  margin: 0.25rem 0 0 !important;
+  padding: 0 !important;
 
   border: 0 !important;
-  border-bottom: 1px solid var(--almanac-ink) !important;
   border-radius: 0 !important;
-
   background: transparent !important;
   box-shadow: none !important;
-  color: var(--almanac-ink) !important;
 }
 
-.almanac-timezone-card button:hover,
-.almanac-timezone-card .almanac-text-button:hover {
-  border-color: var(--almanac-accent) !important;
-  background: transparent !important;
-  color: var(--almanac-accent) !important;
+/* 设置项只保留内容和间距 */
+.almanac-toggle-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 1rem !important;
+
+  min-height: 3rem !important;
+  margin: 0 !important;
+  padding: 0.8rem 0 !important;
 }
