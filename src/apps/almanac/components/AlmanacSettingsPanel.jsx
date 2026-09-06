@@ -1,4 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 const getDeviceTimeZone = () => {
   try {
@@ -64,7 +68,9 @@ const getSupportedTimeZones = () => {
 };
 
 const formatTimeZoneLabel = (timeZone) => {
-  if (!timeZone) return '未设置';
+  if (!timeZone) {
+    return '未设置';
+  }
 
   return timeZone.replaceAll('_', ' ');
 };
@@ -87,13 +93,15 @@ export const AlmanacSettingsPanel = ({
   onClearRecords,
   onOpenMilestones,
 }) => {
-
-
   const [draft, setDraft] = useState(config);
-  const [showTimezoneNotice, setShowTimezoneNotice] = useState(false);
-  const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
-  const [selectedTimeZone, setSelectedTimeZone] = useState('');
-  const [timezoneSearch, setTimezoneSearch] = useState('');
+  const [showTimezoneNotice, setShowTimezoneNotice] =
+    useState(false);
+  const [showTimezoneSelector, setShowTimezoneSelector] =
+    useState(false);
+  const [selectedTimeZone, setSelectedTimeZone] =
+    useState('');
+  const [timezoneSearch, setTimezoneSearch] =
+    useState('');
 
   const deviceTimeZone = useMemo(
     () => getDeviceTimeZone(),
@@ -106,7 +114,9 @@ export const AlmanacSettingsPanel = ({
   );
 
   useEffect(() => {
-    if (!config) return;
+    if (!config) {
+      return;
+    }
 
     setDraft(config);
 
@@ -147,7 +157,9 @@ export const AlmanacSettingsPanel = ({
   }, [config]);
 
   useEffect(() => {
-    if (!draft) return;
+    if (!draft) {
+      return;
+    }
 
     if (
       !draft.timezone
@@ -164,7 +176,9 @@ export const AlmanacSettingsPanel = ({
     }
   }, [draft]);
 
-  if (!draft) return null;
+  if (!draft) {
+    return null;
+  }
 
   const update = (patch) => {
     setDraft((current) => ({
@@ -182,7 +196,10 @@ export const AlmanacSettingsPanel = ({
     };
 
     setDraft(nextConfig);
-    onSave(nextConfig);
+
+    if (typeof onSave === 'function') {
+      void onSave(nextConfig);
+    }
   };
 
   const confirmDeviceTimeZone = () => {
@@ -204,6 +221,8 @@ export const AlmanacSettingsPanel = ({
       getInitialTimeZone(draft),
     );
 
+    setTimezoneSearch('');
+    setShowTimezoneNotice(false);
     setShowTimezoneSelector(true);
   };
 
@@ -222,18 +241,26 @@ export const AlmanacSettingsPanel = ({
 
     setShowTimezoneSelector(false);
     setShowTimezoneNotice(false);
+    setTimezoneSearch('');
   };
 
   const dismissTimezoneNotice = () => {
+    const currentDeviceTimeZone = getDeviceTimeZone();
+
     saveConfig({
-      timezone: getDeviceTimeZone(),
-      deviceTimeZone: getDeviceTimeZone(),
+      timezone: currentDeviceTimeZone,
+      deviceTimeZone: currentDeviceTimeZone,
       timezoneSource: 'device',
       timezoneNoticeDismissed: true,
       timezoneNoticeLastShownAt: new Date().toISOString(),
     });
 
     setShowTimezoneNotice(false);
+  };
+
+  const closeTimezoneSelector = () => {
+    setShowTimezoneSelector(false);
+    setTimezoneSearch('');
   };
 
   const filteredTimeZones = supportedTimeZones.filter(
@@ -247,7 +274,7 @@ export const AlmanacSettingsPanel = ({
   return (
     <>
       <section className="almanac-panel space-y-4">
-               <div>
+        <div>
           <p className="almanac-eyebrow">
             Private settings
           </p>
@@ -255,16 +282,7 @@ export const AlmanacSettingsPanel = ({
           <h2 className="almanac-section-title">
             观察与问候
           </h2>
-
-          <button
-            type="button"
-            className="almanac-text-button almanac-milestone-entry-button"
-            onClick={onOpenMilestones}
-          >
-            管理纪念日与倒数日 →
-          </button>
         </div>
-
 
         <div className="almanac-timezone-card">
           <div>
@@ -304,9 +322,10 @@ export const AlmanacSettingsPanel = ({
           )}
         </div>
 
-             <label className="almanac-toggle-row">
+        <label className="almanac-toggle-row">
           <span>
             <strong>允许观察相遇节律</strong>
+
             <small>
               关闭后仍保留基础相遇记录，char 仍然可以逐渐熟悉你的相处节奏。
             </small>
@@ -326,6 +345,7 @@ export const AlmanacSettingsPanel = ({
         <label className="almanac-inline-field">
           <span>
             <strong>纪念日自然提醒提前范围</strong>
+
             <small>
               只影响允许自然提醒的日期，不会产生定时通知。
             </small>
@@ -336,7 +356,7 @@ export const AlmanacSettingsPanel = ({
             onChange={(event) => {
               update({
                 milestoneReminderLeadDays: Number(
-                  event.target.value
+                  event.target.value,
                 ),
               });
             }}
@@ -350,12 +370,12 @@ export const AlmanacSettingsPanel = ({
           </select>
         </label>
 
-
         <div className="almanac-divider" />
 
         <label className="almanac-toggle-row">
           <span>
             <strong>早安问候</strong>
+
             <small>
               页面运行或恢复时，在你设定的时间之后尝试送来一声问候。
             </small>
@@ -382,11 +402,13 @@ export const AlmanacSettingsPanel = ({
             })
           }
           disabled={!draft.morningGreetingEnabled}
+          aria-label="早安问候时间"
         />
 
         <label className="almanac-toggle-row">
           <span>
             <strong>晚安问候</strong>
+
             <small>
               页面运行或恢复时，在你设定的时间之后尝试送来一声晚安。
             </small>
@@ -413,11 +435,13 @@ export const AlmanacSettingsPanel = ({
             })
           }
           disabled={!draft.nightGreetingEnabled}
+          aria-label="晚安问候时间"
         />
 
         <label className="almanac-toggle-row">
           <span>
             <strong>今天已经相遇时，保留安静空间</strong>
+
             <small>
               如果你今天已经主动来聊天，char 会把这次相遇留给你，而不是再次打扰你。
             </small>
@@ -434,7 +458,7 @@ export const AlmanacSettingsPanel = ({
           />
         </label>
 
-                      <button
+        <button
           type="button"
           className="almanac-primary-button"
           onClick={() => saveConfig()}
@@ -464,16 +488,22 @@ export const AlmanacSettingsPanel = ({
           <button
             type="button"
             className="almanac-text-button"
-            onClick={onOpenMilestones}
+            onClick={() => {
+              if (typeof onOpenMilestones === 'function') {
+                onOpenMilestones();
+              }
+            }}
           >
-            管理纪念日与倒数日 →
+            管理纪念日与倒数日
           </button>
 
           <button
             type="button"
             className="almanac-secondary-button"
             onClick={() => {
-              void onRestart?.();
+              if (typeof onRestart === 'function') {
+                void onRestart();
+              }
             }}
           >
             从今天重新开始
@@ -498,68 +528,14 @@ export const AlmanacSettingsPanel = ({
             type="button"
             className="almanac-danger-button"
             onClick={() => {
-              void onClearRecords?.();
-            }}
-          >
-            清空相处记录
-          </button>
-        </section>
-
-
-        <div className="almanac-divider" />
-
-        <section className="almanac-data-management">
-          <div>
-            <p className="almanac-eyebrow">
-              Observation range
-            </p>
-
-            <h3>重新开始</h3>
-
-            <small>
-              从今天重新设置观察起点。过去的统计不会继续参与分析，但数据库中的旧记录不会被删除。
-            </small>
-          </div>
-
-          <button
-            type="button"
-            className="almanac-secondary-button"
-            onClick={async () => {
-              const confirmed = window.confirm(
-                '确定从今天重新开始 Almanac 吗？旧记录会保留，但不再参与统计。'
-              );
-
-              if (confirmed) {
-                await onRestart();
+              if (typeof onClearRecords === 'function') {
+                void onClearRecords();
               }
             }}
           >
-            从今天重新开始
-          </button>
-        </section>
-
-        <section className="almanac-danger-zone">
-          <div>
-            <p className="almanac-eyebrow">
-              Destructive action
-            </p>
-
-            <h3>清空 Almanac 数据</h3>
-
-            <small>
-              这会删除当前聊天的相处统计、热力图和观察记录。聊天消息、长期记忆、角色资料和纪念日不会受到影响。
-            </small>
-          </div>
-
-          <button
-            type="button"
-            className="almanac-danger-button"
-            onClick={() => void onClearRecords()}
-          >
             清空相处记录
           </button>
         </section>
-
       </section>
 
       {showTimezoneNotice && (
@@ -573,7 +549,9 @@ export const AlmanacSettingsPanel = ({
             aria-modal="true"
             aria-labelledby="almanac-timezone-title"
           >
-            <p className="almanac-eyebrow">Time zone</p>
+            <p className="almanac-eyebrow">
+              Time zone
+            </p>
 
             <h2
               id="almanac-timezone-title"
@@ -589,6 +567,7 @@ export const AlmanacSettingsPanel = ({
 
             <div className="almanac-timezone-preview">
               <span>目前检测到的设备时区</span>
+
               <strong>{deviceTimeZone}</strong>
             </div>
 
@@ -637,7 +616,9 @@ export const AlmanacSettingsPanel = ({
             aria-modal="true"
             aria-labelledby="almanac-timezone-selector-title"
           >
-            <p className="almanac-eyebrow">Your place</p>
+            <p className="almanac-eyebrow">
+              Your place
+            </p>
 
             <h2
               id="almanac-timezone-selector-title"
@@ -654,6 +635,7 @@ export const AlmanacSettingsPanel = ({
               onChange={(event) =>
                 setTimezoneSearch(event.target.value)
               }
+              aria-label="搜索时区"
             />
 
             <select
@@ -662,6 +644,7 @@ export const AlmanacSettingsPanel = ({
               onChange={(event) =>
                 setSelectedTimeZone(event.target.value)
               }
+              aria-label="选择所在地时区"
             >
               <option value="">
                 请选择所在地时区
@@ -690,10 +673,7 @@ export const AlmanacSettingsPanel = ({
               <button
                 type="button"
                 className="almanac-text-button"
-                onClick={() => {
-                  setShowTimezoneSelector(false);
-                  setTimezoneSearch('');
-                }}
+                onClick={closeTimezoneSelector}
               >
                 返回
               </button>

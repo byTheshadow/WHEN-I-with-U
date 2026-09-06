@@ -102,6 +102,8 @@ export const AlmanacApp = ({ onBackHub }) => {
       }
     } catch (error) {
       console.error('[Almanac] 读取聊天窗口失败：', error);
+      setChats([]);
+      setCharacters([]);
     }
   }, [selectedChatId]);
 
@@ -135,7 +137,7 @@ export const AlmanacApp = ({ onBackHub }) => {
       /*
        * 尚未选择数据模式时，不读取历史记录参与首屏统计。
        */
-      if (!nextConfig.initializationCompleted) {
+      if (!nextConfig?.initializationCompleted) {
         setRecords([]);
         setShowInitialization(true);
         return;
@@ -168,11 +170,17 @@ export const AlmanacApp = ({ onBackHub }) => {
   }, [selectedChatId]);
 
   const refreshAlmanac = async () => {
+    if (isRefreshing) {
+      return;
+    }
+
     setIsRefreshing(true);
 
     try {
       await loadChats();
       await loadAlmanac();
+    } catch (error) {
+      console.error('[Almanac] 刷新失败：', error);
     } finally {
       window.setTimeout(() => {
         setIsRefreshing(false);
@@ -199,11 +207,19 @@ export const AlmanacApp = ({ onBackHub }) => {
     getRhythmObservation({
       chatId: selectedChatId,
       records,
-    }).then((result) => {
-      if (active) {
-        setRhythmObservation(result);
-      }
-    });
+    })
+      .then((result) => {
+        if (active) {
+          setRhythmObservation(result);
+        }
+      })
+      .catch((error) => {
+        console.error('[Almanac] 获取节律观察失败：', error);
+
+        if (active) {
+          setRhythmObservation(null);
+        }
+      });
 
     return () => {
       active = false;
@@ -267,18 +283,27 @@ export const AlmanacApp = ({ onBackHub }) => {
       await getAlmanacMilestones(selectedChatId);
 
     setConfig(savedConfig);
-    setMilestones(nextMilestones);
+    setMilestones(
+      Array.isArray(nextMilestones)
+        ? nextMilestones
+        : []
+    );
     setShowInitialization(false);
 
     const allRecords = await getAlmanacRecords(
       selectedChatId
     );
 
-    setRecords(
+    const filteredRecords =
       filterAlmanacRecordsByConfig(
         allRecords,
         savedConfig
-      )
+      );
+
+    setRecords(
+      Array.isArray(filteredRecords)
+        ? filteredRecords
+        : []
     );
   };
 
@@ -314,12 +339,19 @@ export const AlmanacApp = ({ onBackHub }) => {
       selectedChatId
     );
 
-    setRecords(
+    const filteredRecords =
       filterAlmanacRecordsByConfig(
         allRecords,
         savedConfig
-      )
+      );
+
+    setRecords(
+      Array.isArray(filteredRecords)
+        ? filteredRecords
+        : []
     );
+
+    setShowInitialization(false);
   };
 
   const handleClearAlmanacRecords = async () => {
@@ -338,11 +370,16 @@ export const AlmanacApp = ({ onBackHub }) => {
     await clearAlmanacRecords(selectedChatId);
 
     setRecords([]);
+    setRhythmObservation(null);
   };
 
   const handleCreateMilestone = async (
     milestone
   ) => {
+    if (!selectedChatId || !milestone) {
+      return;
+    }
+
     const createdId = await createAlmanacMilestone({
       chatId: selectedChatId,
       type: milestone.isRecurring
@@ -358,13 +395,21 @@ export const AlmanacApp = ({ onBackHub }) => {
     const nextMilestones =
       await getAlmanacMilestones(selectedChatId);
 
-    setMilestones(nextMilestones);
+    setMilestones(
+      Array.isArray(nextMilestones)
+        ? nextMilestones
+        : []
+    );
   };
 
   const handleUpdateMilestone = async (
     id,
     patch
   ) => {
+    if (!id || !patch) {
+      return;
+    }
+
     const updated = await updateAlmanacMilestone(
       id,
       patch
@@ -377,17 +422,25 @@ export const AlmanacApp = ({ onBackHub }) => {
     const nextMilestones =
       await getAlmanacMilestones(selectedChatId);
 
-    setMilestones(nextMilestones);
+    setMilestones(
+      Array.isArray(nextMilestones)
+        ? nextMilestones
+        : []
+    );
   };
 
   const handleDeleteMilestone = async (id) => {
+    if (!id) {
+      return;
+    }
+
     await deleteAlmanacMilestone(id);
 
-    setMilestones((current) => (
+    setMilestones((current) =>
       current.filter(
         (milestone) => milestone.id !== id
       )
-    ));
+    );
   };
 
   /**
@@ -409,6 +462,10 @@ export const AlmanacApp = ({ onBackHub }) => {
     nextConfig,
     options = {}
   ) => {
+    if (!selectedChatId || !nextConfig) {
+      return null;
+    }
+
     const saved = await saveAlmanacConfig(
       selectedChatId,
       nextConfig
@@ -418,6 +475,7 @@ export const AlmanacApp = ({ onBackHub }) => {
 
     if (options.close !== false) {
       setShowSettings(false);
+      setActiveSection('record');
     }
 
     return saved;
@@ -431,7 +489,9 @@ export const AlmanacApp = ({ onBackHub }) => {
 
       window.setTimeout(() => {
         document
-          .querySelector('[data-almanac-section="settings"]')
+          .querySelector(
+            '[data-almanac-section="settings"]'
+          )
           ?.scrollIntoView({
             behavior: 'smooth',
             block: 'start',
@@ -442,7 +502,9 @@ export const AlmanacApp = ({ onBackHub }) => {
     }
 
     document
-      .querySelector(`[data-almanac-section="${section}"]`)
+      .querySelector(
+        `[data-almanac-section="${section}"]`
+      )
       ?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
@@ -451,7 +513,10 @@ export const AlmanacApp = ({ onBackHub }) => {
 
   return (
     <main className="almanac-app">
-      <div className="almanac-grain" aria-hidden="true" />
+      <div
+        className="almanac-grain"
+        aria-hidden="true"
+      />
 
       <div className="almanac-content">
         <div
@@ -472,7 +537,10 @@ export const AlmanacApp = ({ onBackHub }) => {
             aria-label="返回主页"
             title="返回主页"
           >
-            <ArrowLeft size={15} strokeWidth={1.5} />
+            <ArrowLeft
+              size={15}
+              strokeWidth={1.5}
+            />
           </button>
 
           <span className="almanac-room-code">
@@ -486,6 +554,7 @@ export const AlmanacApp = ({ onBackHub }) => {
               onClick={() => void refreshAlmanac()}
               aria-label="刷新"
               title="刷新"
+              disabled={isRefreshing}
             >
               <RefreshCw
                 size={13}
@@ -510,7 +579,11 @@ export const AlmanacApp = ({ onBackHub }) => {
               aria-label="观察设置"
               title="观察设置"
             >
-              <Settings size={13} strokeWidth={1.5} />
+              <Settings
+                size={13}
+                strokeWidth={1.5}
+              />
+
               <span>设置</span>
             </button>
           </div>
@@ -601,6 +674,7 @@ export const AlmanacApp = ({ onBackHub }) => {
               <AlmanacObservation
                 stats={stats}
                 rhythmObservation={rhythmObservation}
+                isLoading={isStatsLoading}
               />
             </section>
 
@@ -632,24 +706,7 @@ export const AlmanacApp = ({ onBackHub }) => {
                 <AlmanacSettingsPanel
                   config={config}
                   onSave={handleSaveConfig}
-                  onRestart={async () => {
-                    const now =
-                      new Date().toISOString();
-
-                    const saved =
-                      await saveAlmanacConfig(
-                        selectedChatId,
-                        {
-                          initializationCompleted: true,
-                          dataMode: 'fresh_start',
-                          observationStartedAt: now,
-                          observationResetAt: now,
-                        }
-                      );
-
-                    setConfig(saved);
-                    await loadAlmanac();
-                  }}
+                  onRestart={handleRestartAlmanac}
                   onClearRecords={
                     handleClearAlmanacRecords
                   }

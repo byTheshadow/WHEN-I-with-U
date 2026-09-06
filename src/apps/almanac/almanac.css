@@ -10,14 +10,12 @@
   --almanac-accent-text: var(--accent-foreground);
   --almanac-control: var(--control-soft-bg);
   --almanac-control-hover: var(--control-soft-hover);
+  --almanac-danger: #b94a48;
+  --almanac-danger-dark: #9d3f3d;
 
   position: relative;
   z-index: 1;
 
-  /*
-   * 突破 App 外层可能存在的 max-width、padding 和 margin，
-   * 让 Almanac 真正铺满整个视口。
-   */
   width: 100vw;
   min-width: 100vw;
   min-height: 100dvh;
@@ -41,15 +39,43 @@
   isolation: isolate;
 }
 
-/*
- * 纸张纹理只作为背景，不绘制手机外壳。
- */
+/* 页面基础元素 */
+
+.almanac-app *,
+.almanac-app *::before,
+.almanac-app *::after {
+  box-sizing: border-box;
+}
+
+.almanac-app button,
+.almanac-app input,
+.almanac-app select,
+.almanac-app textarea {
+  font: inherit;
+}
+
+.almanac-app button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.almanac-app button:focus-visible,
+.almanac-app input:focus-visible,
+.almanac-app select:focus-visible,
+.almanac-app textarea:focus-visible {
+  outline: 1px solid var(--almanac-accent);
+  outline-offset: 3px;
+}
+
+/* 纸张纹理 */
+
 .almanac-grain {
   position: fixed;
   z-index: -1;
   inset: 0;
+
   pointer-events: none;
   opacity: 0.1;
+
   background-image:
     radial-gradient(
       color-mix(
@@ -63,37 +89,43 @@
       rgba(255, 255, 255, 0.5) 0.4px,
       transparent 0.55px
     );
+
   background-position:
     0 0,
     4px 4px;
+
   background-size: 8px 8px;
   mix-blend-mode: multiply;
 }
 
-/*
- * 页面内容直接占满外层 App。
- * 这里没有 border、border-radius、box-shadow。
- */
- .almanac-content {
+/* 页面内容 */
+
+.almanac-content {
   position: relative;
+
   width: 100%;
   min-height: 100dvh;
+
   padding:
     calc(1.6rem + env(safe-area-inset-top, 0px))
     max(1rem, calc((100vw - 720px) / 2))
     calc(7.2rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* 页面四角标记 */
 
 .almanac-corner {
   position: absolute;
+
   width: 1rem;
   height: 1rem;
+
   border-color: color-mix(
     in srgb,
     var(--almanac-ink) 58%,
     transparent
   );
+
   opacity: 0.65;
   pointer-events: none;
 }
@@ -101,6 +133,7 @@
 .almanac-corner-top {
   top: 1rem;
   left: 1rem;
+
   border-top: 1px solid;
   border-left: 1px solid;
 }
@@ -108,21 +141,27 @@
 .almanac-corner-bottom {
   right: 1rem;
   bottom: 1rem;
+
   border-right: 1px solid;
   border-bottom: 1px solid;
 }
 
-/* 顶部是工具栏，标题不会贴在页面顶部 */
+/* 顶部工具栏 */
+
 .almanac-utility-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
+
   color: var(--almanac-muted);
+
   font-family: 'Courier New', monospace;
   font-size: 0.56rem;
   letter-spacing: 0.13em;
+  line-height: 1.4;
   text-transform: uppercase;
+
   animation: almanac-fade-up 650ms both;
 }
 
@@ -131,10 +170,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
   border: 1px solid var(--almanac-line);
   background: transparent;
   color: var(--almanac-ink-soft);
+
   cursor: pointer;
+
   transition:
     color 220ms ease,
     background-color 220ms ease,
@@ -145,11 +187,13 @@
 .almanac-back-button:hover,
 .almanac-utility-button:hover {
   border-color: var(--almanac-ink);
+
   background: color-mix(
     in srgb,
     var(--almanac-control) 72%,
     transparent
   );
+
   color: var(--almanac-ink);
 }
 
@@ -167,6 +211,7 @@
 .almanac-utility-button {
   gap: 0.3rem;
   padding: 0.46rem 0.55rem;
+
   font-family: 'Courier New', monospace;
   font-size: 0.54rem;
   letter-spacing: 0.06em;
@@ -179,7 +224,11 @@
 
 .almanac-room-code {
   flex: 1;
+
+  overflow: hidden;
+
   text-align: center;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -187,7 +236,8 @@
   animation: almanac-spin 720ms linear infinite;
 }
 
-/* 中间标题区 */
+/* 标题区 */
+
 .almanac-masthead {
   padding: 4rem 0 2.35rem;
   text-align: center;
@@ -196,7 +246,9 @@
 .almanac-masthead-kicker,
 .almanac-eyebrow {
   margin: 0;
+
   color: var(--almanac-muted);
+
   font-family: 'Courier New', monospace;
   font-size: 0.56rem;
   letter-spacing: 0.17em;
@@ -210,21 +262,27 @@
 
 .almanac-masthead h1 {
   margin: 0.8rem 0 0;
+
   color: var(--almanac-ink);
+
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(3rem, 15vw, 4.4rem);
   font-weight: 400;
   letter-spacing: -0.09em;
   line-height: 0.9;
+
   animation: almanac-title-reveal 950ms 160ms both;
 }
 
 .almanac-masthead-subtitle {
   margin: 1rem 0 0;
+
   color: var(--almanac-ink-soft);
+
   font-family: 'Courier New', monospace;
   font-size: 0.55rem;
   letter-spacing: 0.15em;
+
   animation: almanac-fade-up 750ms 300ms both;
 }
 
@@ -232,16 +290,21 @@
   width: 4rem;
   height: 1px;
   margin: 1.35rem auto 0;
+
   background: var(--almanac-ink);
   opacity: 0.42;
+
   animation: almanac-rule-grow 750ms 420ms both;
 }
 
 /* 聊天窗口选择 */
+
 .almanac-room-selector {
   padding: 1rem 0;
+
   border-top: 1px solid var(--almanac-line);
   border-bottom: 1px solid var(--almanac-line);
+
   animation: almanac-fade-up 700ms 380ms both;
 }
 
@@ -250,6 +313,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 0.8rem;
+
   margin-top: 0.65rem;
 }
 
@@ -259,7 +323,9 @@
 
 .almanac-room-info h2 {
   margin: 0;
+
   overflow: hidden;
+
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.25rem;
   font-weight: 400;
@@ -269,6 +335,7 @@
 
 .almanac-room-info p {
   margin: 0.3rem 0 0;
+
   color: var(--almanac-muted);
   font-size: 0.66rem;
 }
@@ -288,15 +355,19 @@
   max-width: 7.5rem;
   margin: 0;
   padding: 0.3rem 0 0.35rem;
+
   border: 0;
   border-bottom: 1px solid var(--almanac-line);
   border-radius: 0;
   outline: none;
+
   background: transparent;
   color: var(--almanac-ink-soft);
+
   font-family: 'Courier New', monospace;
   font-size: 0.56rem;
   text-align: right;
+
   transition: border-color 220ms ease;
 }
 
@@ -305,9 +376,12 @@
 }
 
 /* 介绍文字 */
+
 .almanac-intro {
   padding: 1.35rem 0 1.1rem;
+
   color: var(--almanac-ink-soft);
+
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.88rem;
   line-height: 1.85;
@@ -318,9 +392,36 @@
   margin: 0;
 }
 
-/* 统计 */
+/* 通用面板 */
+
+.almanac-panel {
+  position: relative;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 78%,
+    transparent
+  );
+  border-radius: 0.85rem;
+
+  background: color-mix(
+    in srgb,
+    var(--almanac-paper-soft) 70%,
+    transparent
+  );
+
+  box-shadow: 0 0.8rem 2rem color-mix(
+    in srgb,
+    var(--almanac-ink) 5%,
+    transparent
+  );
+}
+
+/* 统计区域 */
+
 .almanac-record-section {
   padding: 1.15rem 0;
+
   border-top: 1px solid var(--almanac-line);
   border-bottom: 1px solid var(--almanac-line);
 }
@@ -335,27 +436,28 @@
 .almanac-record-heading h2,
 .almanac-section-title {
   margin: 0.35rem 0 0;
+
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.45rem;
   font-weight: 400;
+  line-height: 1.35;
 }
 
 .almanac-record-index {
   color: var(--almanac-muted);
+
   font-family: 'Courier New', monospace;
   font-size: 0.54rem;
   white-space: nowrap;
 }
 
-/*
- * 兼容现有 AlmanacObservation.jsx。
- * 隐藏它原本的重复标题，只保留统计和节律内容。
- */
 .almanac-record-section .almanac-panel {
   margin-top: 1.25rem;
   padding: 0;
+
   border: 0;
   border-radius: 0;
+
   background: transparent;
   box-shadow: none;
 }
@@ -367,6 +469,7 @@
 .almanac-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+
   border-top: 1px solid var(--almanac-line);
   border-bottom: 1px solid var(--almanac-line);
 }
@@ -374,10 +477,13 @@
 .almanac-stat-grid > div {
   min-width: 0;
   padding: 0.9rem 0.3rem 0.8rem;
+
   border: 0;
   border-right: 1px solid var(--almanac-line);
   border-radius: 0;
+
   text-align: center;
+
   transition:
     background-color 220ms ease,
     transform 220ms ease;
@@ -393,11 +499,13 @@
     var(--almanac-control) 55%,
     transparent
   );
+
   transform: translateY(-2px);
 }
 
 .almanac-stat-grid strong {
   display: block;
+
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.7rem;
   font-weight: 400;
@@ -406,23 +514,29 @@
 .almanac-stat-grid span {
   display: block;
   margin-top: 0.25rem;
+
   color: var(--almanac-muted);
+
   font-family: 'Courier New', monospace;
   font-size: 0.53rem;
   letter-spacing: 0.05em;
 }
 
-.almanac-observation-note {
+.almanac-observation-note,
+.almanac-note {
   margin-top: 1.1rem;
   padding: 0.85rem 0.9rem;
+
   border: 0;
   border-left: 2px solid var(--almanac-accent);
   border-radius: 0;
+
   background: color-mix(
     in srgb,
     var(--almanac-control) 55%,
     transparent
   );
+
   color: var(--almanac-ink-soft);
   font-size: 0.7rem;
   line-height: 1.65;
@@ -437,7 +551,25 @@
   color: var(--almanac-muted);
 }
 
+.almanac-note {
+  animation: almanac-note-in 360ms ease both;
+}
+
+.almanac-note strong {
+  display: block;
+
+  color: var(--almanac-ink);
+
+  font-family: 'Courier New', monospace;
+  font-size: 0.64rem;
+}
+
+.almanac-note span {
+  display: block;
+}
+
 /* 显影区域 */
+
 .almanac-trace-section {
   margin-top: 2.25rem;
   scroll-margin-top: 1rem;
@@ -446,8 +578,10 @@
 .almanac-trace-section .almanac-panel {
   margin: 0;
   padding: 0;
+
   border: 0;
   border-radius: 0;
+
   background: transparent;
   box-shadow: none;
 }
@@ -467,27 +601,35 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(0.7rem, 1fr));
   gap: 0.34rem;
+
   max-height: 12rem;
   margin-top: 1.15rem;
   padding: 0.85rem 0;
+
   overflow: hidden;
+
   border-top: 1px solid var(--almanac-line);
   border-bottom: 1px solid var(--almanac-line);
 }
 
 .almanac-heat-cell {
   display: block;
+
   width: 100%;
-  aspect-ratio: 1;
   min-width: 0.55rem;
+  aspect-ratio: 1;
+
   border: 1px solid color-mix(
     in srgb,
     var(--almanac-ink) 20%,
     transparent
   );
   border-radius: 50%;
+
   background: transparent;
+
   cursor: pointer;
+
   transition:
     transform 220ms ease,
     box-shadow 220ms ease,
@@ -496,7 +638,9 @@
 
 .almanac-heat-cell:hover {
   z-index: 1;
+
   transform: scale(1.45);
+
   box-shadow: 0 0 0 3px color-mix(
     in srgb,
     var(--almanac-accent) 18%,
@@ -539,6 +683,7 @@
 .almanac-heat-legend {
   display: flex;
   gap: 0.27rem;
+
   width: 7rem;
 }
 
@@ -552,34 +697,8 @@
   box-shadow: none;
 }
 
-.almanac-note {
-  margin-top: 1rem;
-  padding: 0.85rem 0.9rem;
-  border-left: 2px solid var(--almanac-ink);
-  border-radius: 0;
-  background: color-mix(
-    in srgb,
-    var(--almanac-control) 65%,
-    transparent
-  );
-  color: var(--almanac-ink-soft);
-  font-size: 0.7rem;
-  line-height: 1.6;
-  animation: almanac-note-in 360ms ease both;
-}
+/* 纪念日时间线 */
 
-.almanac-note strong {
-  display: block;
-  color: var(--almanac-ink);
-  font-family: 'Courier New', monospace;
-  font-size: 0.64rem;
-}
-
-.almanac-note span {
-  display: block;
-}
-
-/* 里程碑 */
 .almanac-milestone-section {
   margin-top: 2.4rem;
   scroll-margin-top: 1rem;
@@ -588,8 +707,10 @@
 .almanac-milestone-section .almanac-panel {
   margin: 0;
   padding: 0;
+
   border: 0;
   border-radius: 0;
+
   background: transparent;
   box-shadow: none;
 }
@@ -600,8 +721,10 @@
 
 .almanac-milestone-list {
   position: relative;
+
   display: grid;
   gap: 1.2rem;
+
   margin-top: 1.2rem;
   padding-left: 1.2rem;
 }
@@ -611,7 +734,9 @@
   top: 0.2rem;
   bottom: 0.2rem;
   left: 0.24rem;
+
   width: 1px;
+
   background: var(--almanac-line);
   content: '';
 }
@@ -625,12 +750,16 @@
   position: absolute;
   top: 0.25rem;
   left: -1.21rem;
+
   width: 0.52rem;
   height: 0.52rem;
   margin: 0;
+
   border: 1px solid var(--almanac-ink);
   border-radius: 50%;
+
   background: var(--almanac-paper);
+
   box-shadow: 0 0 0 0.2rem color-mix(
     in srgb,
     var(--almanac-accent) 10%,
@@ -640,6 +769,7 @@
 
 .almanac-milestone-list strong {
   display: block;
+
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1rem;
   font-weight: 400;
@@ -647,15 +777,20 @@
 
 .almanac-milestone-list p {
   margin: 0.25rem 0 0;
+
   color: var(--almanac-muted);
   font-size: 0.68rem;
   line-height: 1.55;
 }
 
-/* 设置 */
+/* 设置区域 */
+
 .almanac-settings-section {
+  position: relative;
+
   margin-top: 2.4rem;
-  padding-top: 1rem;
+  padding-top: 1.25rem;
+
   border-top: 1px solid var(--almanac-line);
   scroll-margin-top: 1rem;
 }
@@ -663,32 +798,72 @@
 .almanac-settings-section .almanac-panel {
   margin: 0;
   padding: 0;
+
   border: 0;
   border-radius: 0;
+
   background: transparent;
   box-shadow: none;
 }
 
 .almanac-settings-section .almanac-panel > div:first-child {
   display: block;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .almanac-settings-section .almanac-section-title {
+  max-width: 24rem;
   margin-top: 0.35rem;
+
+  color: var(--almanac-ink);
+
+  font-family:
+    'Noto Serif SC',
+    'Songti SC',
+    'STSong',
+    Georgia,
+    serif;
+  font-size: clamp(1.35rem, 3.8vw, 1.8rem);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
 }
+
+.almanac-settings-section .almanac-eyebrow {
+  color: var(--almanac-muted);
+
+  font-family: 'Courier New', monospace;
+  font-size: 0.57rem;
+  letter-spacing: 0.18em;
+  line-height: 1.4;
+}
+
+.almanac-settings-section small {
+  display: block;
+
+  max-width: 35rem;
+
+  color: var(--almanac-ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.75;
+}
+
+/* 设置项 */
 
 .almanac-toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+
   padding: 0.7rem 0;
+
   border-bottom: 1px solid color-mix(
     in srgb,
     var(--almanac-line) 65%,
     transparent
   );
+
   color: var(--almanac-ink);
   font-size: 0.72rem;
 }
@@ -706,8 +881,10 @@
 
 .almanac-toggle-row input {
   flex: 0 0 auto;
+
   width: 1rem;
   height: 1rem;
+
   accent-color: var(--almanac-accent);
 }
 
@@ -715,12 +892,15 @@
   width: 100%;
   margin: 0.65rem 0;
   padding: 0.58rem 0;
+
   border: 0;
   border-bottom: 1px solid var(--almanac-line);
   border-radius: 0;
   outline: none;
+
   background: transparent;
   color: var(--almanac-ink);
+
   font-family: 'Courier New', monospace;
   font-size: 0.68rem;
 }
@@ -729,44 +909,502 @@
   border-color: var(--almanac-ink);
 }
 
+/* 设置区分隔线 */
+
 .almanac-divider {
+  position: relative;
+
   height: 1px;
-  margin: 0.7rem 0;
-  background: var(--almanac-line);
+  margin: 2rem 0 1.65rem;
+
+  background: color-mix(
+    in srgb,
+    var(--almanac-line) 68%,
+    transparent
+  );
 }
 
-.almanac-primary-button {
-  width: auto;
-  margin-top: 1rem;
-  padding: 0.72rem 1rem;
-  border: 1px solid var(--almanac-ink);
-  border-radius: 999px;
-  background: var(--almanac-ink);
-  color: var(--almanac-accent-text);
-  cursor: pointer;
+.almanac-divider::before {
+  position: absolute;
+  top: -0.48rem;
+  left: 0;
+
+  padding-right: 0.7rem;
+
+  background: var(--almanac-paper);
+
+  color: var(--almanac-muted);
+
+  content: 'SETTINGS / ARCHIVE';
+
   font-family: 'Courier New', monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+}
+
+/* 主要保存按钮 */
+
+.almanac-primary-button {
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: auto;
+  min-width: 10rem;
+  min-height: 2.9rem;
+
+  margin-top: 1.15rem;
+  padding: 0.78rem 1.25rem 0.78rem 1.1rem;
+
+  border: 1px solid var(--almanac-ink);
+  border-radius: 0;
+
+  background: var(--almanac-ink);
+  color: var(--almanac-paper);
+
+  cursor: pointer;
+
+  font-family: 'Courier New', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.11em;
+  line-height: 1;
+
   transition:
-    transform 200ms ease,
-    background-color 200ms ease,
-    color 200ms ease;
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.almanac-primary-button::after {
+  margin-left: 0.8rem;
+
+  color: var(--almanac-paper);
+  content: '↗';
+
+  font-family: Arial, sans-serif;
+  font-size: 0.9rem;
+
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
 }
 
 .almanac-primary-button:hover {
+  border-color: var(--almanac-accent);
+
   background: var(--almanac-accent);
+  color: var(--almanac-accent-text);
+}
+
+.almanac-primary-button:hover::after {
+  color: var(--almanac-accent-text);
+  transform: translate(0.14rem, -0.14rem);
 }
 
 .almanac-primary-button:active {
-  transform: scale(0.96);
+  transform: translateY(1px);
+}
+
+.almanac-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* 数据管理区域 */
+
+.almanac-data-management {
+  position: relative;
+
+  display: grid;
+  gap: 1rem;
+
+  margin: 0;
+  padding: 0.2rem 0 1.65rem 1.15rem;
+
+  border: 0;
+  border-bottom: 1px solid var(--almanac-line);
+}
+
+.almanac-data-management::before {
+  position: absolute;
+  top: 0.28rem;
+  bottom: 1.65rem;
+  left: 0;
+
+  width: 2px;
+
+  background: var(--almanac-ink);
+  content: '';
+}
+
+.almanac-data-management::after {
+  position: absolute;
+  top: 0.1rem;
+  right: 0;
+
+  color: var(--almanac-muted);
+  content: '01';
+
+  font-family: 'Courier New', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+
+.almanac-data-management > div {
+  display: grid;
+  gap: 0.42rem;
+
+  padding-right: 3rem;
+}
+
+.almanac-data-management h3 {
+  margin: 0;
+
+  color: var(--almanac-ink);
+
+  font-family:
+    'Noto Serif SC',
+    'Songti SC',
+    'STSong',
+    Georgia,
+    serif;
+  font-size: clamp(1.2rem, 4vw, 1.55rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
+.almanac-data-management .almanac-eyebrow {
+  margin: 0;
+}
+
+.almanac-data-management small {
+  max-width: 34rem;
+
+  color: var(--almanac-ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+
+/* 管理纪念日按钮 */
+
+.almanac-data-management .almanac-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+
+  width: min(100%, 25rem);
+  min-height: 2.8rem;
+
+  padding: 0.72rem 0;
+
+  border: 0;
+  border-bottom: 1px solid var(--almanac-ink);
+  border-radius: 0;
+
+  background: transparent;
+  color: var(--almanac-ink);
+
+  cursor: pointer;
+
+  font-family:
+    'Noto Serif SC',
+    'Songti SC',
+    'STSong',
+    Georgia,
+    serif;
+  font-size: 0.98rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-align: left;
+
+  transition:
+    padding-left 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.almanac-data-management .almanac-text-button::after {
+  flex: 0 0 auto;
+
+  margin-left: 1rem;
+
+  color: currentColor;
+  content: '↗';
+
+  font-family: Arial, sans-serif;
+  font-size: 1rem;
+
+  transition: transform 180ms ease;
+}
+
+.almanac-data-management .almanac-text-button:hover {
+  padding-left: 0.45rem;
+
+  border-color: var(--almanac-accent);
+  color: var(--almanac-accent);
+}
+
+.almanac-data-management .almanac-text-button:hover::after {
+  transform: translate(0.18rem, -0.18rem);
+}
+
+/* 从今天重新开始 */
+
+.almanac-data-management .almanac-secondary-button {
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: min(100%, 25rem);
+  min-height: 2.75rem;
+
+  padding: 0.7rem 0.85rem;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 80%,
+    var(--almanac-ink) 20%
+  );
+  border-radius: 0;
+
+  background: transparent;
+  color: var(--almanac-ink);
+
+  cursor: pointer;
+
+  font-family: 'Courier New', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-align: left;
+
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.almanac-data-management .almanac-secondary-button::before {
+  margin-right: 0.65rem;
+
+  color: currentColor;
+  content: '↻';
+
+  font-family: Arial, sans-serif;
+  font-size: 1rem;
+}
+
+.almanac-data-management .almanac-secondary-button:hover {
+  border-color: var(--almanac-ink);
+
+  background: color-mix(
+    in srgb,
+    var(--almanac-ink) 6%,
+    transparent
+  );
+}
+
+.almanac-data-management .almanac-secondary-button:active {
+  transform: translateY(1px);
+}
+
+/* 通用次级按钮 */
+
+.almanac-secondary-button {
+  border-radius: 0;
+
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.08em;
+}
+
+.almanac-text-button {
+  cursor: pointer;
+
+  font-family:
+    'Noto Serif SC',
+    'Songti SC',
+    'STSong',
+    Georgia,
+    serif;
+
+  transition:
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+/* 危险操作区域 */
+
+.almanac-danger-zone {
+  position: relative;
+
+  display: grid;
+  gap: 1rem;
+
+  margin-top: 1.75rem;
+  padding: 1.2rem 0 0 1.15rem;
+
+  border: 0;
+  border-top: 1px solid color-mix(
+    in srgb,
+    var(--almanac-danger) 48%,
+    var(--almanac-line)
+  );
+}
+
+.almanac-danger-zone::before {
+  position: absolute;
+  top: 1.2rem;
+  bottom: 0;
+  left: 0;
+
+  width: 2px;
+
+  background: var(--almanac-danger);
+  content: '';
+}
+
+.almanac-danger-zone::after {
+  position: absolute;
+  top: 1.2rem;
+  right: 0;
+
+  color: color-mix(
+    in srgb,
+    var(--almanac-danger) 70%,
+    var(--almanac-muted)
+  );
+
+  content: '02 / CAUTION';
+
+  font-family: 'Courier New', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.13em;
+}
+
+.almanac-danger-zone > div {
+  display: grid;
+  gap: 0.42rem;
+
+  padding-right: 5rem;
+}
+
+.almanac-danger-zone .almanac-eyebrow {
+  color: var(--almanac-danger);
+}
+
+.almanac-danger-zone h3 {
+  margin: 0;
+
+  color: var(--almanac-danger-dark);
+
+  font-family:
+    'Noto Serif SC',
+    'Songti SC',
+    'STSong',
+    Georgia,
+    serif;
+  font-size: 1.22rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.almanac-danger-zone small {
+  color: var(--almanac-ink-soft);
+  font-size: 0.77rem;
+  line-height: 1.7;
+}
+
+.almanac-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+
+  width: min(100%, 25rem);
+  min-height: 2.85rem;
+
+  padding: 0.7rem 1rem;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-danger) 62%,
+    var(--almanac-line)
+  );
+  border-radius: 0;
+
+  background: transparent;
+  color: var(--almanac-danger);
+
+  cursor: pointer;
+
+  font-family:
+    'Noto Serif SC',
+    'Songti SC',
+    'STSong',
+    Georgia,
+    serif;
+  font-size: 0.94rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-align: left;
+
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.almanac-danger-button::after {
+  margin-left: auto;
+
+  color: currentColor;
+  content: '×';
+
+  font-family: Arial, sans-serif;
+  font-size: 1.1rem;
+}
+
+.almanac-danger-button:hover {
+  border-color: var(--almanac-danger);
+
+  background: var(--almanac-danger);
+  color: #fff;
+}
+
+.almanac-danger-button:active {
+  transform: translateY(1px);
+}
+
+/* 按钮焦点 */
+
+.almanac-text-button:focus-visible,
+.almanac-secondary-button:focus-visible,
+.almanac-danger-button:focus-visible,
+.almanac-primary-button:focus-visible {
+  outline: 1px solid var(--almanac-accent);
+  outline-offset: 4px;
 }
 
 /* 底部说明 */
+
 .almanac-footer-note {
   margin: 2.5rem 0 0;
   padding-top: 1rem;
+
   border-top: 1px solid var(--almanac-line);
+
   color: var(--almanac-muted);
+
   font-family: 'Courier New', monospace;
   font-size: 0.54rem;
   letter-spacing: 0.04em;
@@ -774,12 +1412,16 @@
 }
 
 /* 空状态 */
+
 .almanac-empty {
   display: flex;
   align-items: center;
   justify-content: center;
+
   min-height: 14rem;
+
   color: var(--almanac-muted);
+
   font-family: 'Courier New', monospace;
   font-size: 0.68rem;
   letter-spacing: 0.04em;
@@ -793,56 +1435,521 @@
 .almanac-loading-dot {
   width: 0.42rem;
   height: 0.42rem;
+
   border-radius: 50%;
+
   background: var(--almanac-accent);
+
   animation: almanac-pulse 1.2s ease-in-out infinite;
 }
 
+/* 时区设置卡片 */
+
+.almanac-timezone-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  padding: 1rem;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 72%,
+    transparent
+  );
+  border-radius: 1rem;
+
+  background: color-mix(
+    in srgb,
+    var(--almanac-paper-soft) 78%,
+    transparent
+  );
+}
+
+.almanac-timezone-card strong,
+.almanac-timezone-card small {
+  display: block;
+}
+
+.almanac-timezone-card small {
+  margin-top: 0.35rem;
+
+  color: var(--almanac-ink-soft);
+  line-height: 1.55;
+}
+
+.almanac-timezone-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.almanac-timezone-hint {
+  color: var(--almanac-accent);
+}
+
+.almanac-timezone-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  padding: 0.85rem;
+
+  border-radius: 0.8rem;
+
+  background: color-mix(
+    in srgb,
+    var(--almanac-accent) 12%,
+    var(--almanac-paper-soft)
+  );
+}
+
+.almanac-timezone-preview span {
+  color: var(--almanac-ink-soft);
+  font-size: 0.8rem;
+}
+
+.almanac-timezone-preview strong {
+  word-break: break-word;
+}
+
+/* 弹窗 */
+
+.almanac-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 1rem;
+
+  background: rgba(35, 24, 34, 0.42);
+}
+
+.almanac-modal {
+  width: min(100%, 30rem);
+  max-height: min(90vh, 42rem);
+
+  overflow-y: auto;
+
+  padding: 1.35rem;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 78%,
+    transparent
+  );
+  border-radius: 1.25rem;
+
+  background: var(--almanac-paper);
+  color: var(--almanac-ink);
+
+  box-shadow: 0 1.25rem 4rem rgba(35, 24, 34, 0.2);
+}
+
+.almanac-modal-description {
+  margin: 0.85rem 0;
+
+  color: var(--almanac-ink-soft);
+  line-height: 1.7;
+}
+
+.almanac-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+
+  margin-top: 1.25rem;
+}
+
+/* 时区搜索和选择 */
+
+.almanac-timezone-search,
+.almanac-timezone-select {
+  width: 100%;
+  min-height: 2.7rem;
+
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.75rem;
+
+  border: 1px solid color-mix(
+    in srgb,
+    var(--almanac-line) 80%,
+    transparent
+  );
+  border-radius: 0.7rem;
+
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
+.almanac-timezone-search:focus,
+.almanac-timezone-select:focus {
+  outline: 2px solid color-mix(
+    in srgb,
+    var(--almanac-accent) 48%,
+    transparent
+  );
+  outline-offset: 2px;
+}
+
+.almanac-modal button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* 初始化弹窗 */
+
+.almanac-initialization-modal {
+  width: min(100%, 34rem);
+}
+
+.almanac-initialization-options {
+  display: grid;
+  gap: 0.75rem;
+
+  margin-top: 1.25rem;
+}
+
+.almanac-initialization-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+
+  padding: 0.85rem 0;
+
+  border-bottom: 1px solid var(--almanac-line);
+
+  cursor: pointer;
+}
+
+.almanac-initialization-option input {
+  flex: 0 0 auto;
+
+  margin-top: 0.25rem;
+
+  accent-color: var(--almanac-accent);
+}
+
+.almanac-initialization-option span {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.almanac-initialization-option strong {
+  color: var(--almanac-ink);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.almanac-initialization-option small {
+  color: var(--almanac-ink-soft);
+  line-height: 1.65;
+}
+
+.almanac-initialization-option.selected strong {
+  color: var(--almanac-accent-text);
+}
+
+.almanac-initialization-date {
+  display: grid;
+  gap: 0.5rem;
+
+  margin-top: 1.1rem;
+}
+
+.almanac-initialization-date span {
+  color: var(--almanac-ink);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.almanac-initialization-date input {
+  width: 100%;
+  min-height: 2.65rem;
+
+  padding: 0.55rem 0.7rem;
+
+  border: 1px solid var(--almanac-line);
+
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
+.almanac-initialization-date small {
+  color: var(--almanac-ink-soft);
+  line-height: 1.6;
+}
+
+/* 纪念日管理 */
+
+.almanac-milestone-manager {
+  margin-top: 1.5rem;
+}
+
+.almanac-manager-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.almanac-manager-heading > div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.almanac-milestone-entry-button {
+  display: inline-block;
+
+  margin-top: 0.65rem;
+  padding: 0;
+}
+
+.almanac-countdown-form {
+  display: grid;
+  gap: 1rem;
+
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+
+  border-top: 1px solid var(--almanac-line);
+}
+
+.almanac-countdown-form > label:not(.almanac-toggle-row) {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.almanac-countdown-form > label:not(.almanac-toggle-row) > span {
+  color: var(--almanac-ink);
+  font-size: 0.88rem;
+}
+
+.almanac-countdown-form input[type='text'],
+.almanac-countdown-form input[type='date'] {
+  width: 100%;
+  min-height: 2.55rem;
+
+  padding: 0.55rem 0.7rem;
+
+  border: 1px solid var(--almanac-line);
+
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
+.almanac-countdown-form input:focus {
+  outline: 1px solid var(--almanac-accent);
+  outline-offset: 2px;
+}
+
+.almanac-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.almanac-managed-milestones {
+  display: grid;
+  gap: 0.75rem;
+
+  margin-top: 1.25rem;
+}
+
+.almanac-managed-milestone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  padding: 0.85rem 0;
+
+  border-top: 1px solid var(--almanac-line);
+}
+
+.almanac-managed-milestone > div:first-child {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.almanac-managed-milestone strong {
+  color: var(--almanac-ink);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.almanac-managed-milestone small {
+  color: var(--almanac-ink-soft);
+  line-height: 1.5;
+}
+
+.almanac-countdown-label {
+  color: var(--almanac-accent-text) !important;
+}
+
+.almanac-managed-milestone-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.65rem;
+}
+
+.almanac-danger-text {
+  color: var(--almanac-danger) !important;
+}
+
+.almanac-personal-milestone-list {
+  display: grid;
+  gap: 0.75rem;
+
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+
+  border-top: 1px solid var(--almanac-line);
+}
+
+.almanac-personal-milestone {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+
+  padding: 0.5rem 0;
+}
+
+.almanac-personal-milestone::before {
+  flex: 0 0 0.35rem;
+
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-top: 0.45rem;
+
+  border-radius: 50%;
+
+  background: var(--almanac-accent);
+  content: '';
+}
+
+.almanac-personal-milestone > div {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.almanac-personal-milestone strong {
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.almanac-personal-milestone p,
+.almanac-personal-milestone small {
+  margin: 0;
+
+  color: var(--almanac-ink-soft);
+  line-height: 1.5;
+}
+
+/* 内联字段 */
+
+.almanac-inline-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.almanac-inline-field > span {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.almanac-inline-field strong {
+  color: var(--almanac-ink);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.almanac-inline-field small {
+  color: var(--almanac-ink-soft);
+  line-height: 1.5;
+}
+
+.almanac-inline-field select {
+  min-width: 7.5rem;
+  min-height: 2.4rem;
+
+  padding: 0.45rem 0.6rem;
+
+  border: 1px solid var(--almanac-line);
+
+  background: var(--almanac-control);
+  color: var(--almanac-ink);
+}
+
 /* 底部导航 */
+
 .almanac-bottom-nav {
   position: fixed;
   z-index: 30;
   bottom: max(1rem, env(safe-area-inset-bottom));
   left: 50%;
+
   display: flex;
+
   width: min(calc(100% - 2.5rem), 360px);
-  transform: translateX(-50%);
+
   overflow: hidden;
+
+  transform: translateX(-50%);
+
   border: 1px solid color-mix(
     in srgb,
     var(--almanac-ink) 58%,
     transparent
   );
   border-radius: 999px;
+
   background: color-mix(
     in srgb,
     var(--almanac-ink) 94%,
     #000 6%
   );
+
   box-shadow: 0 12px 30px color-mix(
     in srgb,
     var(--almanac-ink) 20%,
     transparent
   );
+
   animation: almanac-nav-rise 720ms 560ms both;
 }
 
 .almanac-bottom-nav button {
   position: relative;
+
   flex: 1;
   min-width: 0;
+
   padding: 0.76rem 0.35rem;
+
   border: 0;
+
   background: transparent;
   color: color-mix(
     in srgb,
     var(--almanac-accent-text) 58%,
     transparent
   );
+
   cursor: pointer;
+
   font-family: 'Courier New', monospace;
   font-size: 0.56rem;
   letter-spacing: 0.1em;
+
   transition:
     color 220ms ease,
     background-color 220ms ease;
@@ -853,10 +1960,13 @@
   right: 25%;
   bottom: 0.3rem;
   left: 25%;
+
   height: 1px;
-  transform: scaleX(0);
+
   background: var(--almanac-accent-text);
   content: '';
+
+  transform: scaleX(0);
   transition: transform 260ms ease;
 }
 
@@ -866,6 +1976,7 @@
     var(--almanac-accent-text) 13%,
     transparent
   );
+
   color: var(--almanac-accent-text);
 }
 
@@ -873,7 +1984,8 @@
   transform: scaleX(1);
 }
 
-/* 动效 */
+/* 动画 */
+
 @keyframes almanac-fade-up {
   from {
     opacity: 0;
@@ -957,6 +2069,65 @@
   }
 }
 
+/* 平板与移动端 */
+
+@media (max-width: 640px) {
+  .almanac-timezone-current {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .almanac-modal {
+    max-height: 88vh;
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .almanac-data-management::after,
+  .almanac-danger-zone::after {
+    position: static;
+    order: -1;
+
+    margin-bottom: 0.15rem;
+  }
+
+  .almanac-data-management > div,
+  .almanac-danger-zone > div {
+    padding-right: 0;
+  }
+
+  .almanac-data-management .almanac-text-button,
+  .almanac-data-management .almanac-secondary-button,
+  .almanac-danger-button {
+    width: 100%;
+  }
+
+  .almanac-danger-zone {
+    margin-top: 1.5rem;
+  }
+
+  .almanac-manager-heading,
+  .almanac-managed-milestone {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .almanac-managed-milestone-actions {
+    justify-content: flex-start;
+  }
+
+  .almanac-inline-field {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .almanac-inline-field select {
+    width: 100%;
+  }
+}
+
 @media (max-width: 350px) {
   .almanac-content {
     padding-right: 1rem;
@@ -980,6 +2151,8 @@
   }
 }
 
+/* 减少动效 */
+
 @media (prefers-reduced-motion: reduce) {
   .almanac-app *,
   .almanac-app *::before,
@@ -987,475 +2160,5 @@
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
     transition-duration: 1ms !important;
-  }
-}
-/* Almanac 时区设置卡片 */
-.almanac-timezone-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid color-mix(
-    in srgb,
-    var(--almanac-line) 72%,
-    transparent
-  );
-  border-radius: 1rem;
-  background: color-mix(
-    in srgb,
-    var(--almanac-paper-soft) 78%,
-    transparent
-  );
-}
-
-.almanac-timezone-card strong,
-.almanac-timezone-card small {
-  display: block;
-}
-
-.almanac-timezone-card small {
-  margin-top: 0.35rem;
-  color: var(--almanac-ink-soft);
-  line-height: 1.55;
-}
-
-.almanac-timezone-current {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.almanac-timezone-hint {
-  color: var(--almanac-accent);
-}
-
-.almanac-timezone-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.85rem;
-  border-radius: 0.8rem;
-  background: color-mix(
-    in srgb,
-    var(--almanac-accent) 12%,
-    var(--almanac-paper-soft)
-  );
-}
-
-.almanac-timezone-preview span {
-  color: var(--almanac-ink-soft);
-  font-size: 0.8rem;
-}
-
-.almanac-timezone-preview strong {
-  word-break: break-word;
-}
-
-/* Almanac 弹窗 */
-.almanac-modal-backdrop {
-  position: fixed;
-  z-index: 1000;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(35, 24, 34, 0.42);
-}
-
-.almanac-modal {
-  width: min(100%, 30rem);
-  max-height: min(90vh, 42rem);
-  overflow-y: auto;
-  padding: 1.35rem;
-  border: 1px solid color-mix(
-    in srgb,
-    var(--almanac-line) 78%,
-    transparent
-  );
-  border-radius: 1.25rem;
-  background: var(--almanac-paper);
-  color: var(--almanac-ink);
-  box-shadow: 0 1.25rem 4rem rgba(35, 24, 34, 0.2);
-}
-
-.almanac-modal-description {
-  margin: 0.85rem 0;
-  color: var(--almanac-ink-soft);
-  line-height: 1.7;
-}
-
-.almanac-modal-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  margin-top: 1.25rem;
-}
-
-/* 时区搜索和选择 */
-.almanac-timezone-search,
-.almanac-timezone-select {
-  width: 100%;
-  min-height: 2.7rem;
-  margin-top: 0.85rem;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid color-mix(
-    in srgb,
-    var(--almanac-line) 80%,
-    transparent
-  );
-  border-radius: 0.7rem;
-  background: var(--almanac-control);
-  color: var(--almanac-ink);
-}
-
-.almanac-timezone-search:focus,
-.almanac-timezone-select:focus {
-  outline: 2px solid color-mix(
-    in srgb,
-    var(--almanac-accent) 48%,
-    transparent
-  );
-  outline-offset: 2px;
-}
-
-.almanac-text-button {
-  border: 0;
-  background: transparent;
-  color: var(--almanac-accent);
-  cursor: pointer;
-}
-
-.almanac-modal button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-/* 移动端适配 */
-@media (max-width: 640px) {
-  .almanac-timezone-current {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .almanac-modal {
-    max-height: 88vh;
-    padding: 1rem;
-    border-radius: 1rem;
-  }
-}
-
-.almanac-initialization-modal {
-  width: min(100%, 34rem);
-}
-
-.almanac-initialization-options {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-}
-
-.almanac-initialization-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid var(--almanac-line);
-  cursor: pointer;
-}
-
-.almanac-initialization-option input {
-  flex: 0 0 auto;
-  margin-top: 0.25rem;
-  accent-color: var(--almanac-accent);
-}
-
-.almanac-initialization-option span {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.almanac-initialization-option strong {
-  color: var(--almanac-ink);
-  font-size: 0.92rem;
-  font-weight: 500;
-}
-
-.almanac-initialization-option small {
-  color: var(--almanac-ink-soft);
-  line-height: 1.65;
-}
-
-.almanac-initialization-option.selected strong {
-  color: var(--almanac-accent-text);
-}
-
-.almanac-initialization-date {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 1.1rem;
-}
-
-.almanac-initialization-date span,
-.almanac-data-management h3,
-.almanac-danger-zone h3 {
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.almanac-initialization-date input {
-  width: 100%;
-  min-height: 2.65rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--almanac-line);
-  background: var(--almanac-control);
-  color: var(--almanac-ink);
-}
-
-.almanac-initialization-date small,
-.almanac-data-management small,
-.almanac-danger-zone small {
-  color: var(--almanac-ink-soft);
-  line-height: 1.6;
-}
-
-.almanac-data-management,
-.almanac-danger-zone {
-  display: grid;
-  gap: 0.9rem;
-  padding: 0.25rem 0;
-}
-
-.almanac-data-management > div,
-.almanac-danger-zone > div {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.almanac-danger-zone {
-  margin-top: 0.5rem;
-}
-
-.almanac-danger-button {
-  min-height: 2.5rem;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid color-mix(
-    in srgb,
-    #b94a48 60%,
-    var(--almanac-line)
-  );
-  background: transparent;
-  color: #b94a48;
-  cursor: pointer;
-}
-
-.almanac-danger-button:hover {
-  background: color-mix(
-    in srgb,
-    #b94a48 8%,
-    transparent
-  );
-}
-.almanac-milestone-manager {
-  margin-top: 1.5rem;
-}
-
-.almanac-manager-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.almanac-manager-heading > div {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.almanac-milestone-entry-button {
-  display: inline-block;
-  margin-top: 0.65rem;
-  padding: 0;
-}
-
-.almanac-countdown-form {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--almanac-line);
-}
-
-.almanac-countdown-form > label:not(.almanac-toggle-row) {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.almanac-countdown-form > label:not(.almanac-toggle-row) > span {
-  color: var(--almanac-ink);
-  font-size: 0.88rem;
-}
-
-.almanac-countdown-form input[type='text'],
-.almanac-countdown-form input[type='date'] {
-  width: 100%;
-  min-height: 2.55rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--almanac-line);
-  background: var(--almanac-control);
-  color: var(--almanac-ink);
-}
-
-.almanac-countdown-form input:focus {
-  outline: 1px solid var(--almanac-accent);
-  outline-offset: 2px;
-}
-
-.almanac-form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.almanac-managed-milestones {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-}
-
-.almanac-managed-milestone {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 0;
-  border-top: 1px solid var(--almanac-line);
-}
-
-.almanac-managed-milestone > div:first-child {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.almanac-managed-milestone strong {
-  color: var(--almanac-ink);
-  font-size: 0.92rem;
-  font-weight: 500;
-}
-
-.almanac-managed-milestone small {
-  color: var(--almanac-ink-soft);
-  line-height: 1.5;
-}
-
-.almanac-countdown-label {
-  color: var(--almanac-accent-text) !important;
-}
-
-.almanac-managed-milestone-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 0.65rem;
-}
-
-.almanac-danger-text {
-  color: #b94a48 !important;
-}
-
-.almanac-personal-milestone-list {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--almanac-line);
-}
-
-.almanac-personal-milestone {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  padding: 0.5rem 0;
-}
-
-.almanac-personal-milestone::before {
-  content: '';
-  flex: 0 0 0.35rem;
-  width: 0.35rem;
-  height: 0.35rem;
-  margin-top: 0.45rem;
-  border-radius: 50%;
-  background: var(--almanac-accent);
-}
-
-.almanac-personal-milestone > div {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.almanac-personal-milestone strong {
-  font-size: 0.92rem;
-  font-weight: 500;
-}
-
-.almanac-personal-milestone p,
-.almanac-personal-milestone small {
-  margin: 0;
-  color: var(--almanac-ink-soft);
-  line-height: 1.5;
-}
-
-@media (max-width: 560px) {
-  .almanac-manager-heading,
-  .almanac-managed-milestone {
-    display: grid;
-    gap: 0.8rem;
-  }
-
-  .almanac-managed-milestone-actions {
-    justify-content: flex-start;
-  }
-}
-.almanac-inline-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.almanac-inline-field > span {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.almanac-inline-field strong {
-  color: var(--almanac-ink);
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.almanac-inline-field small {
-  color: var(--almanac-ink-soft);
-  line-height: 1.5;
-}
-
-.almanac-inline-field select {
-  min-width: 7.5rem;
-  min-height: 2.4rem;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--almanac-line);
-  background: var(--almanac-control);
-  color: var(--almanac-ink);
-}
-
-@media (max-width: 560px) {
-  .almanac-inline-field {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .almanac-inline-field select {
-    width: 100%;
   }
 }
