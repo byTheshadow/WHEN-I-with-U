@@ -21,7 +21,9 @@
   border-radius: 999px;
   color: var(--text-main);
   background: var(--control-soft-bg);
-  transition: transform 180ms ease, background-color 180ms ease;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease;
 }
 
 .manual-back-button:active {
@@ -112,7 +114,10 @@
   border-bottom: 1px solid var(--divider);
   color: var(--text-sub);
   text-align: left;
-  transition: color 180ms ease, padding 180ms ease, background-color 180ms ease;
+  transition:
+    color 180ms ease,
+    padding 180ms ease,
+    background-color 180ms ease;
 }
 
 .manual-index__item:hover,
@@ -280,6 +285,18 @@
   line-height: 1.8;
   text-align: center;
 }
+
+/* =========================================================
+   空间说明书弹窗
+   ========================================================= */
+
+.house-manual-modal,
+.house-manual-modal *,
+.house-manual-modal *::before,
+.house-manual-modal *::after {
+  box-sizing: border-box;
+}
+
 .house-manual-modal {
   position: fixed;
   inset: 0;
@@ -287,7 +304,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(1rem, env(safe-area-inset-top, 0px)) 1rem max(1rem, env(safe-area-inset-bottom, 0px));
+  padding: 1rem;
   color: var(--text-main);
 }
 
@@ -308,10 +325,13 @@
   max-height: min(900px, calc(100dvh - 2rem));
   flex-direction: column;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--modal-border);
   background: var(--modal-bg);
   box-shadow: var(--modal-shadow);
-  animation: house-manual-rise-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: house-manual-rise-in 260ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .house-manual-modal__header {
@@ -319,21 +339,23 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  margin: 0;
   padding: 1rem 1.15rem;
   border-bottom: 1px solid var(--divider);
 }
 
 .house-manual-modal__identity {
   min-width: 0;
-  text-align: center;
   flex: 1;
+  text-align: center;
 }
 
-.house-manual-modal__identity span,
+.house-manual-modal__identity > span,
 .house-manual-modal__intro > span,
 .house-manual-modal__index-label,
 .house-manual-modal__article-topline,
-.house-manual-modal__article-footer {
+.house-manual-modal__article-footer,
+.house-manual-modal__pagination {
   color: var(--text-muted);
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
@@ -359,7 +381,9 @@
   border-radius: 999px;
   color: var(--text-main);
   background: var(--control-soft-bg);
-  transition: transform 180ms ease, background-color 180ms ease;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease;
 }
 
 .house-manual-modal__close:hover {
@@ -414,6 +438,7 @@
 .house-manual-modal__layout {
   display: grid;
   min-height: 0;
+  flex: 1 1 auto;
   grid-template-columns: 230px minmax(0, 1fr);
   overflow: hidden;
 }
@@ -430,6 +455,7 @@
 }
 
 .house-manual-modal__index-list {
+  margin: 0;
   border-top: 1px solid var(--divider);
 }
 
@@ -442,7 +468,10 @@
   border-bottom: 1px solid var(--divider);
   color: var(--text-sub);
   text-align: left;
-  transition: color 180ms ease, padding 180ms ease, background-color 180ms ease;
+  transition:
+    color 180ms ease,
+    padding 180ms ease,
+    background-color 180ms ease;
 }
 
 .house-manual-modal__index-item:hover,
@@ -459,13 +488,15 @@
   font-size: 9px;
 }
 
-.house-manual-modal__index-item > span:not(.house-manual-modal__index-number) {
+.house-manual-modal__index-item
+  > span:not(.house-manual-modal__index-number) {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.8rem;
 }
 
 .house-manual-modal__article {
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: 1.35rem 1.5rem 1.25rem;
 }
@@ -534,16 +565,17 @@
   margin-top: 1.5rem;
   padding-top: 0.85rem;
   border-top: 1px solid var(--divider);
-  color: var(--text-muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .house-manual-modal__pagination button {
   color: var(--text-sub);
-  transition: color 180ms ease, opacity 180ms ease;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease;
 }
 
 .house-manual-modal__pagination button:hover:not(:disabled) {
@@ -563,6 +595,10 @@
   padding-top: 0.85rem;
   border-top: 1px solid var(--divider);
 }
+
+/* =========================================================
+   动画
+   ========================================================= */
 
 @keyframes house-manual-fade-in {
   from {
@@ -586,15 +622,21 @@
   }
 }
 
+/* =========================================================
+   手机端
+   ========================================================= */
+
 @media (max-width: 640px) {
   .house-manual-modal {
-    align-items: flex-end;
-    padding: 0;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 1rem 0 0;
   }
 
   .house-manual-modal__window {
     width: 100%;
-    max-height: 100dvh;
+    height: calc(100dvh - 1rem);
+    max-height: calc(100dvh - 1rem);
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -602,6 +644,8 @@
 
   .house-manual-modal__layout {
     display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
     flex-direction: column;
   }
 
@@ -647,12 +691,6 @@
     display: none;
   }
 
-  .house-manual-modal__article {
-    flex: 1 1 auto;
-    max-height: 55dvh;
-    padding: 1.15rem 1rem 1.25rem;
-  }
-
   .house-manual-modal__intro {
     padding: 1rem;
   }
@@ -660,12 +698,11 @@
   .house-manual-modal__intro h2 {
     font-size: 2rem;
   }
-}
-.house-manual-modal {
-  padding-top: 1rem !important;
-}
 
-.house-manual-modal__window {
-  margin-top: 0 !important;
-  padding-top: 0 !important;
+  .house-manual-modal__article {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 1.15rem 1rem 1.25rem;
+  }
 }
