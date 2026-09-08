@@ -1,6 +1,79 @@
+/* ==========================================================
+   WHEN I with U — 空间说明书
+   黑白 · 控制室风格
+   所有主题变量都在 .manual-page / .house-manual-modal 这一层
+   重新定义，不会影响站点其它地方使用的同名变量。
+   ========================================================== */
+
 .manual-page {
+  /* -------- 本地主题变量 -------- */
+  --hm-bg: #08080a;
+  --hm-bg-soft: #101013;
+  --hm-ink: #f4f2ec;
+  --hm-ink-dim: #a8a59d;
+  --hm-ink-faint: #6c6963;
+  --hm-line: rgba(244, 242, 236, 0.1);
+  --hm-line-strong: rgba(244, 242, 236, 0.26);
+  --hm-surface: rgba(244, 242, 236, 0.04);
+  --hm-surface-hover: rgba(244, 242, 236, 0.09);
+
+  --text-main: var(--hm-ink);
+  --text-sub: var(--hm-ink-dim);
+  --text-muted: var(--hm-ink-faint);
+  --card-border: var(--hm-line);
+  --card-bg-gradient: linear-gradient(180deg, var(--hm-bg-soft), var(--hm-bg));
+  --card-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.85);
+  --control-soft-bg: var(--hm-surface);
+  --control-soft-hover: var(--hm-surface-hover);
+  --divider: var(--hm-line);
+  --accent-color: var(--hm-ink);
+  --accent-foreground: var(--hm-bg);
+
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: 100dvh;
+  padding: 1.5rem 1.25rem 2.5rem;
   color: var(--text-main);
-  padding-bottom: 2rem;
+  background: var(--hm-bg);
+  overflow-x: hidden;
+}
+
+/* 细网格纹理，缓慢漂移，只做背景氛围，不抢内容 */
+.manual-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(var(--hm-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hm-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.4;
+  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, black 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, black 0%, transparent 78%);
+  animation: hm-grid-drift 44s linear infinite;
+}
+
+@keyframes hm-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 56px 112px, -56px 56px; }
+}
+
+/* 首次进入时的整体入场序列（只播放一次，克制） */
+.manual-header,
+.manual-intro,
+.manual-index,
+.manual-page__footer {
+  animation: hm-rise 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.manual-intro { animation-delay: 60ms; }
+.manual-index { animation-delay: 130ms; }
+.manual-page__footer { animation-delay: 260ms; }
+
+@keyframes hm-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .manual-header {
@@ -23,11 +96,27 @@
   background: var(--control-soft-bg);
   transition:
     transform 180ms ease,
-    background-color 180ms ease;
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.manual-back-button:hover {
+  background: var(--control-soft-hover);
+  border-color: var(--hm-line-strong);
+  transform: translateX(-2px);
 }
 
 .manual-back-button:active {
   transform: scale(0.9);
+}
+
+.manual-back-button:focus-visible,
+.manual-index__item:focus-visible,
+.house-manual-modal__close:focus-visible,
+.house-manual-modal__index-item:focus-visible,
+.house-manual-modal__pagination button:focus-visible {
+  outline: 2px solid var(--hm-ink);
+  outline-offset: 2px;
 }
 
 .manual-header__title {
@@ -84,6 +173,17 @@
   font-weight: 500;
   line-height: 1.08;
   letter-spacing: -0.07em;
+  background: linear-gradient(100deg, var(--hm-ink) 30%, var(--hm-ink-faint) 46%, var(--hm-ink) 62%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hm-shine 7s ease-in-out infinite;
+}
+
+@keyframes hm-shine {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .manual-intro > p:last-child {
@@ -120,11 +220,30 @@
     background-color 180ms ease;
 }
 
-.manual-index__item:hover,
-.manual-index__item--active {
+.manual-index__item .ml-auto {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.manual-index__item:hover .ml-auto {
+  transform: translateX(3px);
+}
+
+.manual-index__item:hover {
   padding-left: 0.7rem;
   color: var(--text-main);
   background: var(--control-soft-bg);
+}
+
+.manual-index__item--active {
+  padding-left: 0.7rem;
+  color: var(--hm-bg);
+  background: var(--hm-ink);
+  border-bottom-color: var(--hm-ink);
+}
+
+.manual-index__item--active .manual-index__number {
+  color: var(--hm-bg);
+  opacity: 0.6;
 }
 
 .manual-index__number {
@@ -156,6 +275,7 @@
 }
 
 .manual-article__icon {
+  position: relative;
   display: grid;
   width: 2.5rem;
   height: 2.5rem;
@@ -165,6 +285,21 @@
   border-radius: 50%;
   color: var(--accent-foreground);
   background: var(--accent-color);
+}
+
+.manual-article__icon::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid var(--hm-line-strong);
+  border-radius: 50%;
+  animation: hm-pulse-ring 3.4s ease-out infinite;
+}
+
+@keyframes hm-pulse-ring {
+  0% { transform: scale(0.86); opacity: 0.65; }
+  70% { transform: scale(1.28); opacity: 0; }
+  100% { opacity: 0; }
 }
 
 .manual-article h2 {
@@ -286,6 +421,64 @@
   text-align: center;
 }
 
+/* 每次切换章节时，文章区域重新入场（key 变化触发重新挂载） */
+.animate-fade-in-up {
+  animation: hm-fade-in-up 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes hm-fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* -------- 桌面端：撑满屏幕的双栏控制室布局 -------- */
+@media (min-width: 900px) {
+  .manual-page {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      'header header'
+      'intro  article'
+      'nav    article'
+      'footer footer';
+    column-gap: 2.75rem;
+    padding: 2rem 3rem 2.5rem;
+  }
+
+  .manual-header { grid-area: header; }
+
+  .manual-intro {
+    grid-area: intro;
+    padding-bottom: 1rem;
+  }
+
+  .manual-index {
+    grid-area: nav;
+    align-self: start;
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100dvh - 11rem);
+    overflow-y: auto;
+    padding-right: 0.5rem;
+  }
+
+  .manual-article {
+    grid-area: article;
+    align-self: stretch;
+    height: 100%;
+    overflow-y: auto;
+    padding: 2.25rem 2.5rem;
+  }
+
+  .manual-article h2 {
+    max-width: 26rem;
+    font-size: clamp(1.8rem, 2.6vw, 2.3rem);
+  }
+
+  .manual-page__footer { grid-area: footer; }
+}
+
 /* =========================================================
    空间说明书弹窗
    ========================================================= */
@@ -298,6 +491,30 @@
 }
 
 .house-manual-modal {
+  --hm-bg: #08080a;
+  --hm-bg-soft: #101013;
+  --hm-ink: #f4f2ec;
+  --hm-ink-dim: #a8a59d;
+  --hm-ink-faint: #6c6963;
+  --hm-line: rgba(244, 242, 236, 0.1);
+  --hm-line-strong: rgba(244, 242, 236, 0.26);
+  --hm-surface: rgba(244, 242, 236, 0.04);
+  --hm-surface-hover: rgba(244, 242, 236, 0.09);
+
+  --text-main: var(--hm-ink);
+  --text-sub: var(--hm-ink-dim);
+  --text-muted: var(--hm-ink-faint);
+  --card-border: var(--hm-line);
+  --control-soft-bg: var(--hm-surface);
+  --control-soft-hover: var(--hm-surface-hover);
+  --divider: var(--hm-line);
+  --accent-color: var(--hm-ink);
+  --accent-foreground: var(--hm-bg);
+  --modal-overlay: rgba(4, 4, 5, 0.72);
+  --modal-border: var(--hm-line-strong);
+  --modal-bg: linear-gradient(180deg, var(--hm-bg-soft), var(--hm-bg));
+  --modal-shadow: 0 60px 120px -40px rgba(0, 0, 0, 0.9);
+
   position: fixed;
   inset: 0;
   z-index: 80;
@@ -422,6 +639,12 @@
   font-weight: 500;
   line-height: 1.08;
   letter-spacing: -0.07em;
+  background: linear-gradient(100deg, var(--hm-ink) 30%, var(--hm-ink-faint) 46%, var(--hm-ink) 62%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hm-shine 7s ease-in-out infinite;
 }
 
 .house-manual-modal__intro p {
@@ -474,11 +697,30 @@
     background-color 180ms ease;
 }
 
-.house-manual-modal__index-item:hover,
-.house-manual-modal__index-item--active {
+.house-manual-modal__index-item .ml-auto {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.house-manual-modal__index-item:hover .ml-auto {
+  transform: translateX(3px);
+}
+
+.house-manual-modal__index-item:hover {
   padding-left: 0.7rem;
   color: var(--text-main);
   background: var(--control-soft-bg);
+}
+
+.house-manual-modal__index-item--active {
+  padding-left: 0.7rem;
+  color: var(--hm-bg);
+  background: var(--hm-ink);
+  border-bottom-color: var(--hm-ink);
+}
+
+.house-manual-modal__index-item--active .house-manual-modal__index-number {
+  color: var(--hm-bg);
+  opacity: 0.6;
 }
 
 .house-manual-modal__index-number {
@@ -510,6 +752,7 @@
 }
 
 .house-manual-modal__article-icon {
+  position: relative;
   display: grid;
   width: 2.5rem;
   height: 2.5rem;
@@ -519,6 +762,15 @@
   border-radius: 50%;
   color: var(--accent-foreground);
   background: var(--accent-color);
+}
+
+.house-manual-modal__article-icon::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid var(--hm-line-strong);
+  border-radius: 50%;
+  animation: hm-pulse-ring 3.4s ease-out infinite;
 }
 
 .house-manual-modal__article h2 {
@@ -619,6 +871,24 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* 尊重“减少动态效果”系统设置 */
+@media (prefers-reduced-motion: reduce) {
+  .manual-page::before,
+  .manual-header,
+  .manual-intro,
+  .manual-index,
+  .manual-page__footer,
+  .manual-intro h2,
+  .house-manual-modal__intro h2,
+  .animate-fade-in-up,
+  .manual-article__icon::after,
+  .house-manual-modal__article-icon::after,
+  .house-manual-modal__overlay,
+  .house-manual-modal__window {
+    animation: none !important;
   }
 }
 
