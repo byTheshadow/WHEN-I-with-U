@@ -661,3 +661,11 @@
     font-size: 2rem;
   }
 }
+.house-manual-modal {
+  padding-top: 1rem !important;
+}
+
+.house-manual-modal__window {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
