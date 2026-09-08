@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Preloader from './components/Preloader';
 import NotificationToast from './components/NotificationToast';
 import KeepAliveIndicator from './components/KeepAliveIndicator';
+import HouseManualModal from './components/manual/HouseManualModal';
 
 import ProfileHeader from './apps/hub/ProfileHeader';
 import PinnedGallery from './apps/hub/PinnedGallery';
@@ -45,7 +46,6 @@ import {
 import db from './db';
 
 import {
-  requestNotificationPermission,
   startAutoMessageScheduler,
   stopAutoMessageScheduler,
 } from './services/aiService';
@@ -130,6 +130,9 @@ export const App = () => {
   const [currentApp, setCurrentApp] = useState('hub');
   const [isInsideChatRoom, setIsInsideChatRoom] = useState(false);
 
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [hasCheckedManual, setHasCheckedManual] = useState(false);
+
   const [
     activeKeepAliveChats,
     setActiveKeepAliveChats,
@@ -143,6 +146,11 @@ export const App = () => {
     pendingScheduledCount,
     setPendingScheduledCount,
   ] = useState(0);
+
+  const [
+    activeCharacterId,
+    setActiveCharacterId,
+  ] = useState(null);
 
   useEffect(() => {
     const finishOAuthCallback = async () => {
@@ -167,10 +175,6 @@ export const App = () => {
           error
         );
       } finally {
-        /*
-         * 无论成功、拒绝或失败，
-         * 均不能把 code/state 留在浏览器历史和地址栏。
-         */
         [
           'code',
           'state',
@@ -203,22 +207,18 @@ export const App = () => {
       void checkAlmanacGreetings();
     };
 
-    // 启动后立即检查一次，并开始低频检查
     startAlmanacGreetingScheduler();
 
-    // 页面重新获得焦点时检查
     window.addEventListener(
       'focus',
       handleAlmanacWake
     );
 
-    // 浏览器页面从缓存恢复时检查
     window.addEventListener(
       'pageshow',
       handleAlmanacWake
     );
 
-    // 页面从后台切回前台时检查
     document.addEventListener(
       'visibilitychange',
       handleAlmanacWake
@@ -243,12 +243,6 @@ export const App = () => {
       );
     };
   }, []);
-
-  // 缓存当前角色 ID，用于传递给 RhythmApp 子应用
-  const [
-    activeCharacterId,
-    setActiveCharacterId,
-  ] = useState(null);
 
   useEffect(() => {
     startAutoMessageScheduler();
@@ -284,10 +278,6 @@ export const App = () => {
           return;
         }
 
-        /*
-         * 手机浏览器可能因为当前没有用户手势而拒绝播放。
-         * Service 会保留开启状态，并等待后续用户手势重试。
-         */
         await startLockscreenCompanion(
           character || null
         );
@@ -305,21 +295,13 @@ export const App = () => {
 
     return () => {
       cancelled = true;
-
-      /*
-       * 这里只停止运行中的临时音频，
-       * 不修改 Dexie 中的开启设置。
-       * 下次 App 挂载时仍会根据持久化设置尝试恢复。
-       */
       stopLockscreenCompanion();
     };
   }, []);
 
-  // 开门与切回应用时触发 AI 作息/待办提醒自检
   useEffect(() => {
     const handleCheckReminder = async () => {
       try {
-        // 获取最新的聊天会话和角色
         const latestChat = await db.chats
           .orderBy('updatedAt')
           .reverse()
@@ -337,10 +319,8 @@ export const App = () => {
           return;
         }
 
-        // 设置当前活跃角色 ID 缓存
         setActiveCharacterId(character.id);
 
-        // 尝试静默触发 AI 提醒
         const result =
           await triggerRhythmActiveReminder(
             latestChat.id,
@@ -361,10 +341,8 @@ export const App = () => {
       }
     };
 
-    // 初始化时自检
     void handleCheckReminder();
 
-    // 切回标签页/回到 PWA 时自检
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         void handleCheckReminder();
@@ -475,6 +453,52 @@ export const App = () => {
     );
   }, [activeTheme]);
 
+  useEffect(() => {
+    if (
+      showPreloader ||
+      currentApp !== 'hub' ||
+      hasCheckedManual
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkManualStatus = async () => {
+      try {
+        const setting = await db.settings.get(
+          'houseManualSeen'
+        );
+
+        if (
+          !cancelled &&
+          setting?.value !== true
+        ) {
+          setIsManualOpen(true);
+        }
+      } catch (error) {
+        console.warn(
+          '[Manual] 读取首次查看状态失败:',
+          error
+        );
+      } finally {
+        if (!cancelled) {
+          setHasCheckedManual(true);
+        }
+      }
+    };
+
+    void checkManualStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    showPreloader,
+    currentApp,
+    hasCheckedManual,
+  ]);
+
   const handlePreloaderFinish = useCallback(() => {
     setShowPreloader(false);
   }, []);
@@ -492,6 +516,26 @@ export const App = () => {
         behavior: 'auto',
       });
     });
+  }, []);
+
+  const handleOpenManual = useCallback(() => {
+    setIsManualOpen(true);
+  }, []);
+
+  const handleCloseManual = useCallback(async () => {
+    setIsManualOpen(false);
+
+    try {
+      await db.settings.put({
+        key: 'houseManualSeen',
+        value: true,
+      });
+    } catch (error) {
+      console.warn(
+        '[Manual] 保存首次查看状态失败:',
+        error
+      );
+    }
   }, []);
 
   const isKeepAliveActive =
@@ -531,6 +575,11 @@ export const App = () => {
       <AppUpdatePrompt
         isAppReady={!showPreloader}
         isInsideChatRoom={isInsideChatRoom}
+      />
+
+      <HouseManualModal
+        isOpen={isManualOpen}
+        onClose={handleCloseManual}
       />
 
       <AudioKeepAlive
@@ -669,7 +718,7 @@ export const App = () => {
           <ErrorBoundary>
             <SettingsPage
               onBack={() => openApp('hub')}
-              onOpenManual={() => openApp('manual')}
+              onOpenManual={handleOpenManual}
               currentTheme={activeTheme}
               onChangeTheme={setActiveTheme}
               showTitle={showTitle}
@@ -862,7 +911,6 @@ export const App = () => {
 };
 
 export default App;
-
 
 
 

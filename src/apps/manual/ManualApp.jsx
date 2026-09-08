@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-const MANUAL_SECTIONS = [
+export const MANUAL_SECTIONS = [
   {
     id: 'welcome',
     label: '序言',
@@ -268,7 +268,7 @@ const MANUAL_SECTIONS = [
   },
 ];
 
-function ManualItem({ title, description }) {
+export function ManualItem({ title, description }) {
   return (
     <div className="manual-item">
       <h3>{title}</h3>
