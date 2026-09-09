@@ -24,10 +24,11 @@
   width: 100%;
   max-width: 320px;
   border-radius: 1.75rem;
-  padding: 1.25rem 1.1rem 1rem;
+  padding: 1.35rem 1.15rem 1.1rem;
   background: var(--card-bg-gradient, var(--bg-main));
   border: 1px solid var(--card-border);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
   transform: scale(0.9) translateY(14px);
   opacity: 0;
   transition: transform 0.32s cubic-bezier(0.32, 1.56, 0.64, 1),
@@ -39,13 +40,35 @@
   opacity: 1;
 }
 
+/* 顶部一层很淡的光晕，给面板增加纵深，而不是纯平色块 */
+.cc-panel::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  width: 140%;
+  height: 70%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at top,
+    color-mix(in srgb, var(--accent-color) 20%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.cc-body {
+  position: relative;
+  z-index: 1;
+}
+
 /* 顶部：月份切换 */
 .cc-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 0.85rem;
+  gap: 1.1rem;
+  margin-bottom: 1rem;
 }
 
 .cc-nav-btn {
@@ -56,7 +79,7 @@
   height: 1.75rem;
   border-radius: 999px;
   color: var(--text-main);
-  opacity: 0.65;
+  opacity: 0.55;
   transition: opacity 0.15s ease, transform 0.15s ease,
     background-color 0.15s ease;
 }
@@ -71,11 +94,21 @@
 }
 
 .cc-month-label {
-  min-width: 6.5rem;
-  text-align: center;
-  font-size: 0.8rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 7.5rem;
+  justify-content: center;
+  font-family: ui-serif, Georgia, 'Songti SC', serif;
+  font-style: italic;
+  font-size: 0.95rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+}
+
+.cc-month-label .cc-month-spark {
+  opacity: 0.55;
+  transform: translateY(-1px);
 }
 
 /* 月份切换时的滑入动画（key 变化触发重新挂载） */
@@ -101,118 +134,151 @@
 .cc-weekday-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 
 .cc-weekday-cell {
   text-align: center;
-  font-size: 0.62rem;
-  opacity: 0.45;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  opacity: 0.4;
 }
 
 /* 日期格子 */
 .cc-day-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  row-gap: 0.3rem;
+  row-gap: 0.4rem;
 }
 
 .cc-day-cell {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.2rem;
   margin: 0 auto;
   width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 999px;
+  height: 2.3rem;
+  border-radius: 0.85rem;
   font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
   color: var(--text-main);
   opacity: 0;
-  transform: translateY(4px) scale(0.9);
-  animation: ccDayIn 0.24s ease forwards;
-  animation-delay: calc(var(--cc-i, 0) * 14ms);
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.15s ease;
+  transform: translateY(4px);
+  animation: ccDayIn 0.22s ease forwards;
+  animation-delay: calc(var(--cc-i, 0) * 12ms);
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
 
 @keyframes ccDayIn {
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .cc-day-cell.cc-has-activity {
   cursor: pointer;
 }
 
+.cc-day-cell.cc-has-activity:hover {
+  background: var(--control-soft-bg);
+}
+
 .cc-day-cell.cc-has-activity:active {
-  transform: scale(0.86);
+  transform: scale(0.9);
 }
 
-/* 活跃度三档，用 accent 色的透明度区分「聊天热度」 */
-.cc-day-cell.cc-heat-1 {
-  background: color-mix(in srgb, var(--accent-color) 28%, transparent);
+.cc-day-cell.cc-is-selected {
+  background: var(--control-soft-bg);
 }
 
-.cc-day-cell.cc-heat-2 {
-  background: color-mix(in srgb, var(--accent-color) 55%, transparent);
+.cc-day-cell.cc-is-today .cc-day-number {
+  position: relative;
 }
 
-.cc-day-cell.cc-heat-3 {
-  background: var(--accent-color);
-  color: var(--accent-foreground);
-}
-
-.cc-day-cell.cc-is-today {
-  box-shadow: 0 0 0 1.5px var(--accent-color);
-}
-
-.cc-day-cell.cc-is-today.cc-has-activity {
-  box-shadow: 0 0 0 1.5px var(--accent-foreground),
-    0 0 0 3px var(--accent-color);
-}
-
-/* 点击活跃日期后弹出的小气泡（不跳转，只提示） */
-.cc-day-tooltip {
+.cc-day-cell.cc-is-today .cc-day-number::after {
+  content: '';
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px) scale(0.9);
-  padding: 0.3rem 0.55rem;
-  border-radius: 0.6rem;
-  font-size: 0.6rem;
-  white-space: nowrap;
-  background: var(--text-main);
-  color: var(--bg-main);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.16s ease;
-  z-index: 2;
+  inset: -0.32rem -0.4rem;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 70%, transparent);
+  border-radius: 999px;
 }
 
-.cc-day-tooltip.cc-tooltip-visible {
+.cc-day-number {
+  line-height: 1;
+}
+
+/* 热度：用点的大小/颜色深浅表示，而不是整块填色 */
+.cc-day-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-color) 45%, transparent);
+}
+
+.cc-day-cell.cc-heat-2 .cc-day-dot {
+  width: 5px;
+  height: 5px;
+  background: color-mix(in srgb, var(--accent-color) 75%, transparent);
+}
+
+.cc-day-cell.cc-heat-3 .cc-day-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 18%, transparent);
+}
+
+/* 底部详情条：点开某一天时滑出 */
+.cc-detail-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.7rem;
+  padding: 0 0.15rem;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.24s ease, opacity 0.2s ease,
+    margin-top 0.24s ease;
+}
+
+.cc-detail-strip.cc-detail-visible {
+  max-height: 2.4rem;
   opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.cc-detail-date {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.cc-detail-count {
+  font-size: 0.62rem;
+  opacity: 0.55;
 }
 
 .cc-footer-hint {
-  margin-top: 0.8rem;
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--card-border);
   text-align: center;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   opacity: 0.45;
 }
 
 .cc-close-btn {
   position: absolute;
-  top: 0.7rem;
-  right: 0.7rem;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 1.6rem;
   height: 1.6rem;
   border-radius: 999px;
-  opacity: 0.55;
+  opacity: 0.5;
   transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
@@ -226,7 +292,7 @@
   .cc-panel,
   .cc-day-cell,
   .cc-nav-btn,
-  .cc-day-tooltip {
+  .cc-detail-strip {
     animation: none !important;
     transition: none !important;
   }
