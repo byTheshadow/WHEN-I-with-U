@@ -8,15 +8,62 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.36);
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   opacity: 0;
   transition: opacity 0.28s ease;
+  overflow: hidden;
 }
 
 .cc-backdrop.cc-visible {
   opacity: 1;
+}
+
+/* 弥散光斑：故意放在 backdrop 里而不是 panel 里，
+   这样模糊范围可以溢出卡片边界，营造周围发光的氛围感 */
+.cc-aura {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(46px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.cc-backdrop.cc-visible .cc-aura {
+  opacity: 0.55;
+}
+
+.cc-aura-a {
+  width: 260px;
+  height: 260px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-160px, -190px);
+  background: var(--accent-color);
+  animation: ccAuraDriftA 9s ease-in-out infinite alternate;
+}
+
+.cc-aura-b {
+  width: 220px;
+  height: 220px;
+  left: 50%;
+  top: 50%;
+  transform: translate(120px, 160px);
+  background: var(--accent-color);
+  filter: blur(46px) hue-rotate(35deg);
+  animation: ccAuraDriftB 11s ease-in-out infinite alternate;
+}
+
+@keyframes ccAuraDriftA {
+  from { transform: translate(-160px, -190px) scale(1); }
+  to { transform: translate(-130px, -160px) scale(1.12); }
+}
+
+@keyframes ccAuraDriftB {
+  from { transform: translate(120px, 160px) scale(1); }
+  to { transform: translate(95px, 130px) scale(1.1); }
 }
 
 .cc-panel {
@@ -28,7 +75,6 @@
   background: var(--card-bg-gradient, var(--bg-main));
   border: 1px solid var(--card-border);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
-  overflow: hidden;
   transform: scale(0.9) translateY(14px);
   opacity: 0;
   transition: transform 0.32s cubic-bezier(0.32, 1.56, 0.64, 1),
@@ -40,35 +86,13 @@
   opacity: 1;
 }
 
-/* 顶部一层很淡的光晕，给面板增加纵深，而不是纯平色块 */
-.cc-panel::before {
-  content: '';
-  position: absolute;
-  top: -40%;
-  left: 50%;
-  width: 140%;
-  height: 70%;
-  transform: translateX(-50%);
-  background: radial-gradient(
-    ellipse at top,
-    color-mix(in srgb, var(--accent-color) 20%, transparent),
-    transparent 70%
-  );
-  pointer-events: none;
-}
-
-.cc-body {
-  position: relative;
-  z-index: 1;
-}
-
 /* 顶部：月份切换 */
 .cc-header {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1.1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
 }
 
 .cc-nav-btn {
@@ -94,24 +118,13 @@
 }
 
 .cc-month-label {
-  display: flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  min-width: 7.5rem;
-  justify-content: center;
-  font-family: ui-serif, Georgia, 'Songti SC', serif;
-  font-style: italic;
-  font-size: 0.95rem;
-  font-weight: 600;
+  min-width: 6.5rem;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
 }
 
-.cc-month-label .cc-month-spark {
-  opacity: 0.55;
-  transform: translateY(-1px);
-}
-
-/* 月份切换时的滑入动画（key 变化触发重新挂载） */
 .cc-month-slide-left {
   animation: ccSlideFromRight 0.26s ease both;
 }
@@ -130,18 +143,30 @@
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* 星期行 */
+/* 星期行，带一条淡出边缘的下划线，呼应参考图里手绘下划线的感觉 */
 .cc-weekday-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
 }
 
 .cc-weekday-cell {
+  position: relative;
   text-align: center;
-  font-size: 0.6rem;
-  letter-spacing: 0.04em;
-  opacity: 0.4;
+  padding-bottom: 0.35rem;
+  font-size: 0.62rem;
+  opacity: 0.5;
+}
+
+.cc-weekday-cell::after {
+  content: '';
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 0;
+  height: 1px;
+  background: var(--text-main);
+  opacity: 0.25;
 }
 
 /* 日期格子 */
@@ -154,117 +179,166 @@
 .cc-day-cell {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
   margin: 0 auto;
-  width: 2.1rem;
-  height: 2.3rem;
-  border-radius: 0.85rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 999px;
   font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
   color: var(--text-main);
   opacity: 0;
-  transform: translateY(4px);
-  animation: ccDayIn 0.22s ease forwards;
-  animation-delay: calc(var(--cc-i, 0) * 12ms);
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  transform: translateY(4px) scale(0.92);
+  animation: ccDayIn 0.24s ease forwards;
+  animation-delay: calc(var(--cc-i, 0) * 13ms);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* 极轻微的不规则圆角，破坏机械感，呼应手绘的"不完美"感 */
+.cc-day-cell:nth-child(3n) { border-radius: 48% 52% 51% 49% / 52% 48% 49% 51%; }
+.cc-day-cell:nth-child(3n+1) { border-radius: 51% 49% 48% 52% / 49% 51% 52% 48%; }
 
 @keyframes ccDayIn {
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.cc-day-cell.cc-has-activity {
-  cursor: pointer;
+.cc-day-cell.cc-has-activity { cursor: pointer; }
+.cc-day-cell.cc-has-activity:active { transform: scale(0.88); }
+
+.cc-day-cell.cc-heat-1 {
+  background: color-mix(in srgb, var(--accent-color) 26%, transparent);
 }
 
-.cc-day-cell.cc-has-activity:hover {
-  background: var(--control-soft-bg);
+.cc-day-cell.cc-heat-2 {
+  background: color-mix(in srgb, var(--accent-color) 55%, transparent);
 }
 
-.cc-day-cell.cc-has-activity:active {
-  transform: scale(0.9);
+.cc-day-cell.cc-heat-3 {
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.cc-day-cell.cc-is-today {
+  box-shadow: 0 0 0 1.5px var(--accent-color);
 }
 
 .cc-day-cell.cc-is-selected {
-  background: var(--control-soft-bg);
+  box-shadow: 0 0 0 2px var(--text-main);
 }
 
-.cc-day-cell.cc-is-today .cc-day-number {
+/* 点开某一天弹出的小纸条：虚线边框 + 微微倾斜 + 装饰性大引号 */
+.cc-note {
   position: relative;
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.85rem 0.6rem;
+  border-radius: 1rem;
+  border: 1.5px dashed color-mix(in srgb, var(--text-main) 35%, transparent);
+  background: color-mix(in srgb, var(--control-soft-bg) 70%, transparent);
+  transform: rotate(-0.6deg) translateY(-6px);
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.22s ease, transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1),
+    max-height 0.26s ease, margin-top 0.26s ease;
 }
 
-.cc-day-cell.cc-is-today .cc-day-number::after {
-  content: '';
+.cc-note.cc-note-visible {
+  opacity: 1;
+  max-height: 6.5rem;
+  transform: rotate(-0.6deg) translateY(0);
+}
+
+.cc-note::before {
+  content: '\201C';
   position: absolute;
-  inset: -0.32rem -0.4rem;
-  border: 1px solid color-mix(in srgb, var(--accent-color) 70%, transparent);
-  border-radius: 999px;
-}
-
-.cc-day-number {
+  top: -0.35rem;
+  left: 0.5rem;
+  font-size: 2.1rem;
   line-height: 1;
+  font-family: Georgia, serif;
+  color: var(--text-main);
+  opacity: 0.14;
+  pointer-events: none;
 }
 
-/* 热度：用点的大小/颜色深浅表示，而不是整块填色 */
-.cc-day-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-color) 45%, transparent);
+.cc-note-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
 }
 
-.cc-day-cell.cc-heat-2 .cc-day-dot {
-  width: 5px;
-  height: 5px;
-  background: color-mix(in srgb, var(--accent-color) 75%, transparent);
+.cc-note-date {
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
-.cc-day-cell.cc-heat-3 .cc-day-dot {
-  width: 5px;
-  height: 5px;
+.cc-note-count {
+  font-size: 0.6rem;
+  opacity: 0.5;
+}
+
+.cc-note-text {
+  font-size: 0.68rem;
+  line-height: 1.5;
+  opacity: 0.75;
+  word-break: break-word;
+}
+
+/* 底部：迷你热力印记（装饰性小组件） */
+.cc-mini-heat {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.cc-mini-heat-title {
+  font-size: 0.62rem;
+  opacity: 0.5;
+  margin-bottom: 0.4rem;
+}
+
+.cc-mini-heat-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.cc-mini-heat-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 3.5px;
+  background: color-mix(in srgb, var(--text-main) 8%, transparent);
+}
+
+.cc-mini-heat-cell.cc-heat-1 {
+  background: color-mix(in srgb, var(--accent-color) 30%, transparent);
+}
+
+.cc-mini-heat-cell.cc-heat-2 {
+  background: color-mix(in srgb, var(--accent-color) 60%, transparent);
+}
+
+.cc-mini-heat-cell.cc-heat-3 {
   background: var(--accent-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 18%, transparent);
 }
 
-/* 底部详情条：点开某一天时滑出 */
-.cc-detail-strip {
+.cc-mini-heat-legend {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 0.7rem;
-  padding: 0 0.15rem;
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: max-height 0.24s ease, opacity 0.2s ease,
-    margin-top 0.24s ease;
-}
-
-.cc-detail-strip.cc-detail-visible {
-  max-height: 2.4rem;
-  opacity: 1;
-}
-
-.cc-detail-date {
-  font-size: 0.72rem;
-  font-weight: 600;
-}
-
-.cc-detail-count {
-  font-size: 0.62rem;
-  opacity: 0.55;
-}
-
-.cc-footer-hint {
-  margin-top: 0.75rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--card-border);
-  text-align: center;
-  font-size: 0.62rem;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  font-size: 0.56rem;
   opacity: 0.45;
+}
+
+.cc-mini-heat-legend-cell {
+  width: 8px;
+  height: 8px;
+  border-radius: 2.5px;
 }
 
 .cc-close-btn {
@@ -288,11 +362,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cc-backdrop,
-  .cc-panel,
-  .cc-day-cell,
-  .cc-nav-btn,
-  .cc-detail-strip {
+  .cc-backdrop, .cc-panel, .cc-day-cell, .cc-nav-btn, .cc-note, .cc-aura {
     animation: none !important;
     transition: none !important;
   }
