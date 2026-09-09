@@ -34,6 +34,10 @@ import {
 import {
   buildCompanionshipPrompt,
 } from '../apps/messages/companionship/companionshipPrompt';
+import {
+  buildCharacterAnalysisPromptBlock,
+} from '../apps/messages/characterAnalysisPrompt';
+
 
 import {
   getAlmanacPromptContext,
@@ -822,6 +826,12 @@ const buildChatSystemPrompt = async (chatId, chat, character) => {
         ))
         .join('\n')}`
     : '';
+      const characterAnalysisPromptBlock =
+    buildCharacterAnalysisPromptBlock({
+      enabled: chat.characterAnalysisEnabled === true,
+      customPrompt: chat.characterAnalysisPrompt,
+    });
+
 
       // 优先使用当前聊天窗独占的用户资料；
   // 仅当该聊天窗没有填写时，才回退到角色级默认资料。
@@ -910,6 +920,7 @@ ${worldBooksText}
 ${summaryText}
 ${todoText}
 ${diaryText}
+${characterAnalysisPromptBlock}
   
 【陪伴表达准则】：
 - 维持细腻的浪漫感与陪伴温度，文风应具有呼吸感和留白空间。

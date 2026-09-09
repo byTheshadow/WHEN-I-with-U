@@ -48,6 +48,15 @@ export const ChatSettingsModal = ({
   // 本聊天窗专属的 AI 总提示词设定
   const [systemPrompt, setSystemPrompt] = useState(chat?.systemPrompt || '');
 
+    // 本窗专属的人格分析 / 角色反应指导
+  const [characterAnalysisEnabled, setCharacterAnalysisEnabled] = useState(
+    chat?.characterAnalysisEnabled === true
+  );
+  const [characterAnalysisPrompt, setCharacterAnalysisPrompt] = useState(
+    chat?.characterAnalysisPrompt || ''
+  );
+
+
   // 背景图淡化控制：B 方案，只控制背景图本身透明度
   const [isBgDimmed, setIsBgDimmed] = useState(chat?.isBgDimmed ?? true);
   const [bgOpacity, setBgOpacity] = useState(chat?.bgOpacity ?? 0.3);
@@ -156,7 +165,26 @@ export const ChatSettingsModal = ({
       ? override.nextSystemPrompt
       : systemPrompt;
 
-    const payload = {
+          const nextCharacterAnalysisEnabled =
+      Object.prototype.hasOwnProperty.call(
+        override,
+        'nextCharacterAnalysisEnabled'
+      )
+        ? override.nextCharacterAnalysisEnabled
+        : characterAnalysisEnabled;
+
+    const nextCharacterAnalysisPrompt =
+      Object.prototype.hasOwnProperty.call(
+        override,
+        'nextCharacterAnalysisPrompt'
+      )
+        ? override.nextCharacterAnalysisPrompt
+        : characterAnalysisPrompt;
+
+
+      
+
+        const payload = {
       userName: (nextUserName || '').trim(),
       userAvatar: (nextUserAvatar || '').trim(),
       userPersona: (nextUserPersona || '').trim(),
@@ -165,8 +193,11 @@ export const ChatSettingsModal = ({
       typingStyle: nextTypingStyle || 'default',
       isBgDimmed: Boolean(nextIsBgDimmed),
       bgOpacity: Number(nextBgOpacity),
-      systemPrompt: (nextSystemPrompt || '').trim()
+      systemPrompt: (nextSystemPrompt || '').trim(),
+      characterAnalysisEnabled: Boolean(nextCharacterAnalysisEnabled),
+      characterAnalysisPrompt: (nextCharacterAnalysisPrompt || '').trim()
     };
+
 
     try {
       setIsavingUserIdentity(true);
@@ -570,6 +601,91 @@ export const ChatSettingsModal = ({
             )}
           </div>
         </div>
+
+                {/* 人格分析 / 角色反应指导 */}
+        <div
+          className="space-y-2.5 p-3.5 rounded-2xl border w-full"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Sliders className="w-3.5 h-3.5" />
+              <span>人格分析 / 角色反应指导</span>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={characterAnalysisEnabled}
+              onClick={() => {
+                const nextEnabled = !characterAnalysisEnabled;
+
+                setCharacterAnalysisEnabled(nextEnabled);
+
+                handleSaveUserIdentity({
+                  nextCharacterAnalysisEnabled: nextEnabled
+                });
+              }}
+              className="relative w-10 h-5 rounded-full transition-colors"
+              style={{
+                background: characterAnalysisEnabled
+                  ? 'var(--accent-color)'
+                  : 'var(--divider)'
+              }}
+            >
+              <span
+                className="absolute top-0.5 w-4 h-4 rounded-full transition-transform"
+                style={{
+                  background: 'var(--bg-main)',
+                  transform: characterAnalysisEnabled
+                    ? 'translateX(20px)'
+                    : 'translateX(2px)'
+                }}
+              />
+            </button>
+          </div>
+
+          <p className="text-[10px] opacity-55 leading-relaxed">
+            开启后，AI 会根据角色设定与当前聊天上下文，先判断角色此刻应有的反应，再生成最终回复。分析过程不会展示给你。关闭时不会加入这套指导。
+          </p>
+
+          <div className="space-y-1.5">
+            <textarea
+              rows={7}
+              value={characterAnalysisPrompt}
+              disabled={!characterAnalysisEnabled}
+              placeholder="留空则使用系统默认的人格分析 / 角色反应指导。填写后将完全替代默认指导。"
+              onChange={(e) => setCharacterAnalysisPrompt(e.target.value)}
+              onBlur={() => handleSaveUserIdentity()}
+              className="w-full p-2.5 rounded-xl border outline-none text-[11px] leading-relaxed overflow-y-auto resize-y max-h-64 min-h-[120px] disabled:opacity-45"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--card-border)',
+                color: 'var(--text-main)'
+              }}
+            />
+
+            {characterAnalysisPrompt && (
+              <button
+                type="button"
+                disabled={!characterAnalysisEnabled}
+                onClick={() => {
+                  setCharacterAnalysisPrompt('');
+                  handleSaveUserIdentity({
+                    nextCharacterAnalysisPrompt: ''
+                  });
+                }}
+                className="text-[10px] text-red-500 hover:underline flex items-center gap-1 mt-1 disabled:opacity-40"
+              >
+                清空并使用系统默认指导
+              </button>
+            )}
+          </div>
+        </div>
+
 
         {/* 阶段性多条目事实总结 */}
         <div
