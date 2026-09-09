@@ -1,0 +1,233 @@
+/* components/chat-calendar.css */
+
+.cc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.cc-backdrop.cc-visible {
+  opacity: 1;
+}
+
+.cc-panel {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  border-radius: 1.75rem;
+  padding: 1.25rem 1.1rem 1rem;
+  background: var(--card-bg-gradient, var(--bg-main));
+  border: 1px solid var(--card-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  transform: scale(0.9) translateY(14px);
+  opacity: 0;
+  transition: transform 0.32s cubic-bezier(0.32, 1.56, 0.64, 1),
+    opacity 0.24s ease;
+}
+
+.cc-backdrop.cc-visible .cc-panel {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* 顶部：月份切换 */
+.cc-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.cc-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  color: var(--text-main);
+  opacity: 0.65;
+  transition: opacity 0.15s ease, transform 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.cc-nav-btn:hover {
+  opacity: 1;
+  background: var(--control-soft-bg);
+}
+
+.cc-nav-btn:active {
+  transform: scale(0.85);
+}
+
+.cc-month-label {
+  min-width: 6.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 月份切换时的滑入动画（key 变化触发重新挂载） */
+.cc-month-slide-left {
+  animation: ccSlideFromRight 0.26s ease both;
+}
+
+.cc-month-slide-right {
+  animation: ccSlideFromLeft 0.26s ease both;
+}
+
+@keyframes ccSlideFromRight {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes ccSlideFromLeft {
+  from { transform: translateX(-16px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* 星期行 */
+.cc-weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.35rem;
+}
+
+.cc-weekday-cell {
+  text-align: center;
+  font-size: 0.62rem;
+  opacity: 0.45;
+}
+
+/* 日期格子 */
+.cc-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 0.3rem;
+}
+
+.cc-day-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-main);
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+  animation: ccDayIn 0.24s ease forwards;
+  animation-delay: calc(var(--cc-i, 0) * 14ms);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease;
+}
+
+@keyframes ccDayIn {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cc-day-cell.cc-has-activity {
+  cursor: pointer;
+}
+
+.cc-day-cell.cc-has-activity:active {
+  transform: scale(0.86);
+}
+
+/* 活跃度三档，用 accent 色的透明度区分「聊天热度」 */
+.cc-day-cell.cc-heat-1 {
+  background: color-mix(in srgb, var(--accent-color) 28%, transparent);
+}
+
+.cc-day-cell.cc-heat-2 {
+  background: color-mix(in srgb, var(--accent-color) 55%, transparent);
+}
+
+.cc-day-cell.cc-heat-3 {
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.cc-day-cell.cc-is-today {
+  box-shadow: 0 0 0 1.5px var(--accent-color);
+}
+
+.cc-day-cell.cc-is-today.cc-has-activity {
+  box-shadow: 0 0 0 1.5px var(--accent-foreground),
+    0 0 0 3px var(--accent-color);
+}
+
+/* 点击活跃日期后弹出的小气泡（不跳转，只提示） */
+.cc-day-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) scale(0.9);
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.6rem;
+  font-size: 0.6rem;
+  white-space: nowrap;
+  background: var(--text-main);
+  color: var(--bg-main);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.16s ease;
+  z-index: 2;
+}
+
+.cc-day-tooltip.cc-tooltip-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.cc-footer-hint {
+  margin-top: 0.8rem;
+  text-align: center;
+  font-size: 0.6rem;
+  opacity: 0.45;
+}
+
+.cc-close-btn {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.cc-close-btn:hover {
+  opacity: 1;
+  background: var(--control-soft-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-backdrop,
+  .cc-panel,
+  .cc-day-cell,
+  .cc-nav-btn,
+  .cc-day-tooltip {
+    animation: none !important;
+    transition: none !important;
+  }
+}

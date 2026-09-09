@@ -35,6 +35,8 @@ import {
 
 
 import ChatHeaderBar from './components/ChatHeaderBar';
+import ChatCalendarModal from './components/ChatCalendarModal';
+import MoreMenuPopover from './components/MoreMenuPopover';
 import BubbleCustomizer from './components/BubbleCustomizer';
 import ChatSettingsModal from './components/ChatSettingsModal';
 import ScheduledMessageArchive from './components/ScheduledMessageArchive';
@@ -89,6 +91,7 @@ export const ChatRoom = ({
   const [showBubbleCustomizer, setShowBubbleCustomizer] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [showScheduledArchive, setShowScheduledArchive] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [extraInputMeta, setExtraInputMeta] = useState({});
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
@@ -766,7 +769,7 @@ useLayoutEffect(() => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowScheduledArchive(true)}
@@ -781,19 +784,10 @@ useLayoutEffect(() => {
               <ReceiptText className="h-4 w-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => setShowChatSettings(true)}
-              className="rounded-full p-2 opacity-85 transition-opacity hover:opacity-100"
-              style={{
-                background: 'var(--control-soft-bg)',
-                color: 'var(--text-main)',
-              }}
-              title="对话空间设置"
-              aria-label="打开对话空间设置"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
+            <MoreMenuPopover
+              onOpenCalendar={() => setShowCalendar(true)}
+              onOpenSettings={() => setShowChatSettings(true)}
+            />
           </div>
         </div>
 
@@ -1207,6 +1201,14 @@ useLayoutEffect(() => {
           onUpdatedUserPersona={loadChatData}
         />
       )}
+
+      {showCalendar && (
+  <ChatCalendarModal
+    isOpen={showCalendar}
+    messages={messages}
+    onClose={() => setShowCalendar(false)}
+  />
+)}
 
       {showScheduledArchive && (
         <ScheduledMessageArchive
