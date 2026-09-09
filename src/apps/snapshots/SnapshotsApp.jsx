@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Plus, SlidersHorizontal, Camera } from 'lucide-react';
 import db from '../../db';
-import {
-  generateSnapshotPostByAi,
-  generateSnapshotCommentByAi
-} from '../../services/aiService';
+import { generateSnapshotPostByAi } from '../../services/aiService';
+import { generateSnapshotCommentByAi } from './snapshotAiService';
+import { triggerGlobalToast } from '../../components/NotificationToast';
 import SnapshotCard from './SnapshotCard';
 import CreateSnapshotModal from './CreateSnapshotModal';
 import SnapshotSettingsModal from './SnapshotSettingsModal';
@@ -13,6 +12,8 @@ export const SnapshotsApp = ({ onBackHub }) => {
   const [snapshots, setSnapshots] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [aiError, setAiError] = useState('');
+
 
   const loadSnapshots = useCallback(async () => {
     try {
@@ -81,81 +82,133 @@ export const SnapshotsApp = ({ onBackHub }) => {
 
   // 智能无门槛召唤评论：根据角色库与关系矩阵匹配评论者，并调用 AI 生成评论。
   const handleAutoSummonComment = async (snapshot) => {
-    try {
-      const characters = await db.characters.toArray();
-      const savedNpcs = await db.snapshotSettings.get('npcs');
-      const npcs = savedNpcs?.value || [];
+  try {
+    setAiError('');
 
-      // 剔除发帖者本人
-      const candidateChars = characters.filter((character) => character.id !== snapshot.characterId);
-      const candidatePool = [
-        ...candidateChars.map((character) => ({ type: 'character', data: character })),
-        ...npcs.map((npc) => ({ type: 'npc', data: npc }))
-      ];
+    const characters = await db.characters.toArray();
+    const savedNpcs = await db.snapshotSettings.get('npcs');
+    const npcs = savedNpcs?.value || [];
 
-      // 没有已配置的角色或 NPC 时，也交由 AI 以通用 NPC 身份生成评论。
-      const picked =
-        candidatePool.length > 0
-          ? candidatePool[Math.floor(Math.random() * candidatePool.length)]
-          : {
-              type: 'npc',
-              data: {
-                id: null,
-                name: '街角光影客',
-                roleTag: '路人'
-              }
-            };
+    const candidateChars = characters.filter(
+      (character) => String(character.id) !== String(snapshot.characterId)
+    );
 
-      const commentText = await generateSnapshotCommentByAi(snapshot, picked);
+    const candidatePool = [
+      ...candidateChars.map((character) => ({
+        type: 'character',
+        data: character
+      })),
+      ...npcs.map((npc) => ({
+        type: 'npc',
+        data: npc
+      }))
+    ];
 
-      await db.snapshotComments.add({
-        snapshotId: snapshot.id,
-        senderType: picked.type,
-        characterId: picked.type === 'character' ? picked.data.id : null,
-        npcId: picked.type === 'npc' ? picked.data.id || null : null,
-        senderName: picked.data.name || '匿名访客',
-        senderAvatar: picked.type === 'character' ? picked.data.avatar || '' : '',
-        content: commentText,
-        timestamp: Date.now()
-      });
+    const picked =
+      candidatePool.length > 0
+        ? candidatePool[Math.floor(Math.random() * candidatePool.length)]
+        : {
+            type: 'npc',
+            data: {
+              id: null,
+              name: '街角光影客',
+              roleTag: '路人'
+            }
+          };
 
-      loadSnapshots();
-    } catch (err) {
-      console.error('Failed to auto summon comment:', err);
-    }
-  };
+    const commentText = await generateSnapshotCommentByAi(
+      snapshot,
+      picked
+    );
+
+    await db.snapshotComments.add({
+      snapshotId: snapshot.id,
+      senderType: picked.type,
+      characterId: picked.type === 'character' ? picked.data.id : null,
+      npcId: picked.type === 'npc' ? picked.data.id || null : null,
+      senderName: picked.data.name || '匿名访客',
+      senderAvatar:
+        picked.type === 'character' ? picked.data.avatar || '' : '',
+      content: commentText,
+      timestamp: Date.now()
+    });
+
+    await loadSnapshots();
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Snapshots 评论生成失败。';
+
+    setAiError(message);
+
+    triggerGlobalToast({
+      title: '评论生成失败',
+      content: message,
+      iconType: 'bell',
+      duration: 6000
+    });
+
+    throw err;
+  }
+};
+
 
   // 追评多轮机制
-  const handleReplyComment = async (snapshot, replyTarget, userReplyText) => {
-    if (!replyTarget.characterId) return;
+ const handleReplyComment = async (
+  snapshot,
+  replyTarget,
+  userReplyText
+) => {
+  if (!replyTarget.characterId) return;
 
-    try {
-      const char = await db.characters.get(replyTarget.characterId);
-      if (!char) return;
+  try {
+    setAiError('');
 
-      const aiReplyText = `回复 @User: ${
-        userReplyText
-          ? '我也这么觉得，这就是我们生活里的细枝末节呀。'
-          : '很高兴你懂我的感受。'
-      }`;
-
-      await db.snapshotComments.add({
-        snapshotId: snapshot.id,
-        replyToCommentId: replyTarget.id,
-        replyToName: replyTarget.name,
-        senderType: 'character',
-        characterId: char.id,
-        senderName: char.name,
-        senderAvatar: char.avatar || '',
-        content: aiReplyText,
-        timestamp: Date.now()
-      });
-
-      loadSnapshots();
-    } catch (err) {
-      console.error('Failed to process AI reply comment:', err);
+    const char = await db.characters.get(replyTarget.characterId);
+    if (!char) {
+      throw new Error('找不到需要回复的角色。');
     }
-  };
+
+    const aiReplyText = await generateSnapshotCommentByAi(
+      snapshot,
+      {
+        type: 'character',
+        data: char
+      },
+      `用户正在回复你的评论。用户回复内容是：${
+        userReplyText || '用户没有填写文字，请自然接续上一条评论。'
+      }`
+    );
+
+    await db.snapshotComments.add({
+      snapshotId: snapshot.id,
+      replyToCommentId: replyTarget.id,
+      replyToName: replyTarget.name,
+      senderType: 'character',
+      characterId: char.id,
+      senderName: char.name,
+      senderAvatar: char.avatar || '',
+      content: aiReplyText,
+      timestamp: Date.now()
+    });
+
+    await loadSnapshots();
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : '追评生成失败。';
+
+    setAiError(message);
+
+    triggerGlobalToast({
+      title: '追评生成失败',
+      content: message,
+      iconType: 'bell',
+      duration: 6000
+    });
+
+    throw err;
+  }
+};
+
 
   // 邀约 AI 主动发布动态：调用真实 AI API 生成动态正文、图片提示词及地点。
   const handleInviteAiPost = async (characterId, topicHint, linkedChatId) => {
@@ -246,6 +299,20 @@ export const SnapshotsApp = ({ onBackHub }) => {
           </button>
         </div>
       </div>
+
+      {aiError && (
+  <div
+    role="alert"
+    className="px-3 py-2 rounded-xl text-xs leading-relaxed"
+    style={{
+      backgroundColor: 'var(--control-soft-bg)',
+      color: 'var(--text-main)'
+    }}
+  >
+    {aiError}
+  </div>
+)}
+
 
       {/* 动态 Feed 流 */}
       {snapshots.length === 0 ? (
