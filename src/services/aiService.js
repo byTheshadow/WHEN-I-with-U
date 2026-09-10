@@ -2995,114 +2995,6 @@ ${chatMemory
 };
 
 
-/**
- * Snapshots AI 智能生成评论 API
- */
-export const generateSnapshotCommentByAi = async (snapshot, commenter) => {
-  try {
-    const apiKeySetting = await db.settings.get('apiKey');
-    const baseUrlSetting = await db.settings.get('baseUrl');
-    const modelSetting = await db.settings.get('model');
-
-    const apiKey = apiKeySetting?.value;
-    const baseUrl = (baseUrlSetting?.value || 'https://api.openai.com/v1').replace(/\/$/, '');
-    const model = modelSetting?.value || 'gpt-4o-mini';
-
-    let commenterInfo = '';
-    let relationInfo = '常规社交好友/路人';
-
-    if (commenter.type === 'character') {
-      const character = await db.characters.get(commenter.data.id);
-
-      if (!character) {
-        throw new Error('Commenter character not found');
-      }
-
-      commenterInfo = [
-        `角色姓名: ${character.name}`,
-        `角色简介: ${character.bio || '无'}`,
-        `性格扩展: ${character.extraNotes || '无'}`
-      ].join('\n');
-
-      if (
-        snapshot.characterId &&
-        snapshot.characterId !== character.id
-      ) {
-        const relation = await db.snapshotRelations
-          .where('characterId')
-          .equals(snapshot.characterId)
-          .and((item) => item.targetCharacterId === character.id)
-          .first();
-
-        if (relation) {
-          relationInfo = `你与动态作者的关系描述为: [${relation.relation}]`;
-        }
-      }
-    } else {
-      commenterInfo = `NPC 姓名: ${commenter.data.name}\n身份标签: ${
-        commenter.data.roleTag || '路人'
-      }`;
-    }
-
-    if (!apiKey) {
-      return '照片里的光影真的很棒！';
-    }
-
-    const systemPrompt = `你正在社交动态圈里为一条拍立得动态撰写评论。
-
-【动态作者】:
-${snapshot.authorName}
-
-【动态画面描摹】:
-${snapshot.imagePrompt || '无'}
-
-【动态正文】:
-${snapshot.content || '无'}
-
-【你的身份/评论者人设】:
-${commenterInfo}
-
-【你与作者的关系约束】:
-${relationInfo}
-
-绝对规则：
-1. 生成一段自然的短评，20至60字以内；
-2. 语气可温情、打趣、吐槽、调侃，但绝对不能越界；
-3. 非情侣关系的各角色之间严禁出现亲密暧昧语言；
-4. 严格禁止出现任何 Emoji 字符；
-5. 直接返回评论文本，不要附带引号或额外说明。`;
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'system', content: systemPrompt }],
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content?.trim() || '';
-
-    return text.replace(
-      /[\uE000-\uF8FF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDDFF]/g,
-      ''
-    );
-  } catch (err) {
-    console.error('Failed to generate snapshot comment by AI:', err);
-    return '记录得很有味道。';
-  }
-};
-
-
 
 export default {
   subscribeAiEvents,
@@ -3113,7 +3005,6 @@ export default {
   generateCompanionReplyForDiary,
   generateCompanionProactiveDiary,
   generateSnapshotPostByAi,
-  generateSnapshotCommentByAi,
   requestNotificationPermission,
   triggerSystemNotification,
   playMessageSound,
