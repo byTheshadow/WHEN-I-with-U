@@ -138,36 +138,6 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
     quota: 0,
   });
 
-  const updateStorageEstimate = async () => {
-  if (!navigator.storage || !navigator.storage.estimate) {
-    setStorageInfo({
-      supported: false,
-      usage: 0,
-      quota: 0,
-    });
-    return;
-  }
-
-  try {
-    const estimate = await navigator.storage.estimate();
-
-    setStorageInfo({
-      supported: true,
-      usage: estimate.usage || 0,
-      quota: estimate.quota || 0,
-    });
-  } catch (error) {
-    console.error('Unable to estimate storage usage:', error);
-
-    setStorageInfo({
-      supported: false,
-      usage: 0,
-      quota: 0,
-    });
-  }
-};
-
-
   const [dataStatus, setDataStatus] = useState({
     type: 'idle',
     message: '',
@@ -197,33 +167,65 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
   }, []);
 
   // 点击绑定/更新按钮
- const handleSyncCloudPush = async () => {
-  setIsSyncingPush(true);
-
-  try {
-    await registerCloudPush({
-      serverUrl: cloudServerUrl,
-      vapidPublicKey: cloudVapidKey,
-    });
-
-    await db.settings.put({
-      key: 'cloudPushConfig',
-      value: {
-        enabled: true,
+  const handleSyncCloudPush = async () => {
+    setIsSyncingPush(true);
+    try {
+      await registerCloudPush({
         serverUrl: cloudServerUrl,
         vapidPublicKey: cloudVapidKey,
-      },
-    });
+      });
 
-    setCloudPushEnabled(true);
-    alert('离线主动唤醒绑定成功！现在你可以杀掉后台并息屏了。');
-  } catch (err) {
-    alert(err.message || '绑定失败，请检查配置与网络');
-  } finally {
-    setIsSyncingPush(false);
-  }
-};
+      // 保存到本地数据库
+      await db.settings.put({
+        key: 'cloudPushConfig',
+        value: {
+          enabled: true,
+          serverUrl: cloudServerUrl,
+          vapidPublicKey: cloudVapidKey,
+        },
+      });
+      setCloudPushEnabled(true);
+      alert('离线主动唤醒绑定成功！现在你可以清掉后台并息屏了。');
+    } catch (err) {
+      alert(err.message || '绑定失败，请检查配置与网络');
+    } finally {
+      setIsSyncingPush(false);
+    }
+  };
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingImport, setPendingImport] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const updateStorageEstimate = async () => {
+    if (!navigator.storage || !navigator.storage.estimate) {
+      setStorageInfo({
+        supported: false,
+        usage: 0,
+        quota: 0,
+      });
+      return;
+    }
+
+    try {
+      const estimate = await navigator.storage.estimate();
+
+      setStorageInfo({
+        supported: true,
+        usage: estimate.usage || 0,
+        quota: estimate.quota || 0,
+      });
+    } catch (error) {
+      console.error('Unable to estimate storage usage:', error);
+
+      setStorageInfo({
+        supported: false,
+        usage: 0,
+        quota: 0,
+      });
+    }
+  };
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -862,7 +864,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 
     try {
       stopLockscreenCompanion();
-      setIsCompanionEnabled(false);
+      setisCompanionEnabled(false);
 
       await db.transaction(
         'rw',
