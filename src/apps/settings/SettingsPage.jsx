@@ -138,6 +138,36 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
     quota: 0,
   });
 
+  const updateStorageEstimate = async () => {
+  if (!navigator.storage || !navigator.storage.estimate) {
+    setStorageInfo({
+      supported: false,
+      usage: 0,
+      quota: 0,
+    });
+    return;
+  }
+
+  try {
+    const estimate = await navigator.storage.estimate();
+
+    setStorageInfo({
+      supported: true,
+      usage: estimate.usage || 0,
+      quota: estimate.quota || 0,
+    });
+  } catch (error) {
+    console.error('Unable to estimate storage usage:', error);
+
+    setStorageInfo({
+      supported: false,
+      usage: 0,
+      quota: 0,
+    });
+  }
+};
+
+
   const [dataStatus, setDataStatus] = useState({
     type: 'idle',
     message: '',
