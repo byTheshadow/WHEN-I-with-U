@@ -349,6 +349,20 @@ export const createScheduledMessage = async ({
     }
   );
 
+  // 如果用户配置了推送服务器，告诉服务器一声：
+  try {
+    const pushServerUrl = localStorage.getItem('push_server_url') || 'https://push.wheni.icu:8443';
+    fetch(`${pushServerUrl}/api/sync-push-config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetTime: new Date(scheduledFor).getTime(), // 传入精确的到期毫秒时间戳
+        intent: intent || '伴侣主动找你',
+        // 这里只需要同步预约时间，不需要重复传大段 context
+      })
+    }).catch(() => {});
+  } catch (e) {}
+
   return scheduleId;
 };
 
