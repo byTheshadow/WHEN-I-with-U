@@ -17,66 +17,84 @@ export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
   const cleanVapidKey = (vapidPublicKey || '').trim();
 
   if (!cleanServerUrl || !cleanVapidKey) {
-    alert('【检查】请完整填写服务器地址与 VAPID 公钥');
-    return;
+    throw new Error('请完整填写服务器地址与 VAPID 公钥');
   }
 
-  // 步骤 1：检查是否是 iOS 桌面独立模式
+  // 1. 跨平台 PWA 环境检测（iOS 要求 standalone，安卓/PC 则只要支持 ServiceWorker 即可）
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-  if (!isStandalone) {
-    alert('【步骤1失败】iOS 必须通过 Safari【添加到主屏幕】后在桌面打开！');
-    return;
+
+  if (isIOS && !isStandalone) {
+    throw new Error('iOS 设备必须通过 Safari【添加到主屏幕】并在桌面上打开本应用！');
   }
 
-  // 步骤 2：检查通知权限
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    throw new Error('当前浏览器不支持 Web Push 推送功能');
+  }
+
+  // 2. 检查并申请通知权限
   let permission = Notification.permission;
   if (permission !== 'granted') {
     permission = await Notification.requestPermission();
   }
   if (permission !== 'granted') {
-    alert('【步骤2失败】系统通知权限被拒绝，请去 iPhone 设置开启本 App 的通知');
-    return;
+    throw new Error('系统通知权限被拒绝，无法开启主动推送');
   }
 
-  // 步骤 3：向苹果 APNs 申请凭据
-  let subscription;
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
+  // 3. 向 APNs (iOS) 或 FCM (安卓) 申请设备凭证
+  const registration = await navigator.serviceWorker.ready;
+  let subscription = await registration.pushManager.getSubscription();
+
+  // 如果已有订阅但公钥变更，先退订重新订
+  if (!subscription) {
+    try {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(cleanVapidKey)
       });
+    } catch (subErr) {
+      throw new Error(`申请系统推送凭证失败: ${subErr.message}`);
     }
-  } catch (pushErr) {
-    alert(`【步骤3失败 - 苹果推送服务报错】:\n${pushErr.name}: ${pushErr.message}`);
-    return;
   }
 
-  // 步骤 4：测试你的宝塔服务器网络连通性
+  // 4. 读取当前本地伴侣数据与 API Key
+  const apiSettings = await db.settings.get('apiConfig');
+  const activeChar = (await db.characters.toArray())[0] || {};
+  const recentMsgs = (await db.messages.orderBy('timestamp').reverse().limit(3).toArray()).reverse();
+  const recentContext = recentMsgs.map(m => m.content).join('；');
+
+  // 5. 真正向宝塔服务器发送数据
+  let response;
   try {
-    // 先发一个简单的测试请求
-    const testRes = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
+    response = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify({
-        subscription: subscription,
-        apiConfig: {},
-        character: { name: '测试伴侣' },
-        recentContext: '测试连通'
+        subscription: subscription.toJSON(), // 使用标准的 toJSON 导出，避免原生对象丢失字段
+        apiConfig: apiSettings?.value || {},
+        character: {
+          name: activeChar.name || 'AI伴侣',
+          persona: activeChar.persona || ''
+        },
+        recentContext: recentContext
       })
     });
-
-    if (!testRes.ok) {
-      alert(`【步骤4失败 - 服务器返回错误码】: ${testRes.status} ${testRes.statusText}`);
-      return;
-    }
-
-    alert('🎉 全部通了！绑定成功！');
-    return true;
-
-  } catch (fetchErr) {
-    alert(`【步骤4失败 - 连不上宝塔域名】:\n${fetchErr.name}: ${fetchErr.message}\n请检查域名证书或网络`);
+  } catch (networkErr) {
+    throw new Error(`连接服务器网络失败: ${networkErr.message}（请检查域名证书或反向代理）`);
   }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`服务器拒绝接收 (状态码 ${response.status}): ${errorText}`);
+  }
+
+  const result = await response.json();
+  if (!result.ok) {
+    throw new Error(`服务器保存失败: ${result.error || '未知错误'}`);
+  }
+
+  return true;
 }
