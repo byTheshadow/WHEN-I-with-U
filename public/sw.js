@@ -178,34 +178,16 @@ self.addEventListener('sync', (event) => {
   );
 });
 
-// 点击系统通知时，尝试聚焦已打开的窗口，否则新开一个 App 入口。
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-
-  event.waitUntil(
-    self.clients
-      .matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      })
-      .then((clientList) => {
-        if (clientList.length > 0) {
-          return clientList[0].focus();
-        }
-
-        return self.clients.openWindow(APP_INDEX_URL);
-      }),
-  );
-});
-// ==========================================================
-// 🌟 监听云端主动唤醒推送 (iOS Web Push / APNs)
-// ==========================================================
+// ==========================================
+// 监听苹果 APNs / Web Push 远程主动唤醒推送
+// ==========================================
 self.addEventListener('push', (event) => {
   let payload = {
+    title: 'WHEN I with U',
+    body: '伴侣给你发了一条新消息...',
+    type: 'message',
     characterName: '',
-    type: 'message', // message | diary | snapshot
-    body: '给你发了一条新消息...',
-    url: '/'
+    url: APP_INDEX_URL,
   };
 
   if (event.data) {
@@ -216,14 +198,12 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // 动态拼装标题：支持区分伴侣名称与动作类型
-  const charName = payload.characterName || 'WHEN I with U';
-  let displayTitle = charName;
-
+  // 根据伴侣名称与类型动态决定通知标题
+  let displayTitle = payload.characterName || payload.title;
   if (payload.type === 'diary') {
-    displayTitle = `${charName} · 写了新日记`;
+    displayTitle = `${payload.characterName || '伴侣'} · 写了新日记`;
   } else if (payload.type === 'snapshot') {
-    displayTitle = `${charName} · 发了新动态`;
+    displayTitle = `${payload.characterName || '伴侣'} · 发布了新动态`;
   }
 
   const options = {
@@ -233,18 +213,19 @@ self.addEventListener('push', (event) => {
     tag: `companion_${payload.type || 'msg'}_${Date.now()}`,
     renotify: true,
     data: {
-      url: payload.url || APP_INDEX_URL
-    }
+      url: payload.url || APP_INDEX_URL,
+    },
   };
 
   event.waitUntil(
-    self.registration.showNotification(displayTitle, options)
+    self.registration.showNotification(displayTitle, options),
   );
 });
 
-// 点击系统通知时：尝试聚焦已打开窗口，否则新开 App 入口
+// 点击系统通知时，尝试聚焦已打开的窗口，否则新开一个 App 入口。
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
   const targetUrl = event.notification.data?.url || APP_INDEX_URL;
 
   event.waitUntil(
@@ -254,12 +235,15 @@ self.addEventListener('notificationclick', (event) => {
         includeUncontrolled: true,
       })
       .then((clientList) => {
-        for (const client of clientList) {
-          if (client.url.includes(APP_INDEX_URL) && 'focus' in client) {
+        for (let client of clientList) {
+          if (client.url.includes(targetUrl) && 'focus' in client) {
             return client.focus();
           }
         }
-        return self.clients.openWindow(targetUrl);
+
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
       }),
   );
 });
