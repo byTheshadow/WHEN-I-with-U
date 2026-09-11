@@ -13,61 +13,70 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
-  if (!serverUrl || !vapidPublicKey) {
-    throw new Error('请完整填写服务器地址与 VAPID 公钥');
+  const cleanServerUrl = (serverUrl || '').trim().replace(/\/$/, '');
+  const cleanVapidKey = (vapidPublicKey || '').trim();
+
+  if (!cleanServerUrl || !cleanVapidKey) {
+    alert('【检查】请完整填写服务器地址与 VAPID 公钥');
+    return;
   }
 
-  // 1. 必须在 iOS PWA (添加到主屏幕) 独立模式下运行
-  // 区分 iOS 和其他系统（安卓/PC）
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  // 步骤 1：检查是否是 iOS 桌面独立模式
+  const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  if (!isStandalone) {
+    alert('【步骤1失败】iOS 必须通过 Safari【添加到主屏幕】后在桌面打开！');
+    return;
+  }
 
-// 只有在 iOS 设备上才强制要求“添加到主屏幕”
-if (isIOS && !isStandalone) {
-  throw new Error('iOS 设备必须通过 Safari【添加到主屏幕】，并从桌面打开才能开启离线推送！');
-}
-
-
-  // 2. 检查并申请权限
-  const permission = await Notification.requestPermission();
+  // 步骤 2：检查通知权限
+  let permission = Notification.permission;
   if (permission !== 'granted') {
-    throw new Error('通知权限已被拒绝，请前往系统设置允许通知');
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== 'granted') {
+    alert('【步骤2失败】系统通知权限被拒绝，请去 iPhone 设置开启本 App 的通知');
+    return;
   }
 
-  // 3. 向苹果 APNs 申请唯一订阅凭据
-  const registration = await navigator.serviceWorker.ready;
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey.trim())
+  // 步骤 3：向苹果 APNs 申请凭据
+  let subscription;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(cleanVapidKey)
+      });
+    }
+  } catch (pushErr) {
+    alert(`【步骤3失败 - 苹果推送服务报错】:\n${pushErr.name}: ${pushErr.message}`);
+    return;
+  }
+
+  // 步骤 4：测试你的宝塔服务器网络连通性
+  try {
+    // 先发一个简单的测试请求
+    const testRes = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: subscription,
+        apiConfig: {},
+        character: { name: '测试伴侣' },
+        recentContext: '测试连通'
+      })
     });
+
+    if (!testRes.ok) {
+      alert(`【步骤4失败 - 服务器返回错误码】: ${testRes.status} ${testRes.statusText}`);
+      return;
+    }
+
+    alert('🎉 全部通了！绑定成功！');
+    return true;
+
+  } catch (fetchErr) {
+    alert(`【步骤4失败 - 连不上宝塔域名】:\n${fetchErr.name}: ${fetchErr.message}\n请检查域名证书或网络`);
   }
-
-  // 4. 从本地 IndexedDB 取出 AI 配置与当前伴侣
-  const apiSettings = await db.settings.get('apiConfig');
-  const activeChar = (await db.characters.toArray())[0] || {};
-  const recentMsgs = (await db.messages.orderBy('timestamp').reverse().limit(3).toArray()).reverse();
-  const recentContext = recentMsgs.map(m => m.content).join('；');
-
-  // 5. 上报给云端服务
-  const res = await fetch(`${serverUrl.trim().replace(/\/$/, '')}/api/sync-push-config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      subscription: subscription,
-      apiConfig: apiSettings?.value || {},
-      character: {
-        name: activeChar.name || 'AI伴侣',
-        persona: activeChar.persona || ''
-      },
-      recentContext: recentContext
-    })
-  });
-
-  if (!res.ok) {
-    throw new Error(`服务器响应失败，状态码: ${res.status}`);
-  }
-
-  return true;
 }
