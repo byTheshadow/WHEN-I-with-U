@@ -197,3 +197,69 @@ self.addEventListener('notificationclick', (event) => {
       }),
   );
 });
+// ==========================================================
+// 🌟 监听云端主动唤醒推送 (iOS Web Push / APNs)
+// ==========================================================
+self.addEventListener('push', (event) => {
+  let payload = {
+    characterName: '',
+    type: 'message', // message | diary | snapshot
+    body: '给你发了一条新消息...',
+    url: '/'
+  };
+
+  if (event.data) {
+    try {
+      payload = { ...payload, ...event.data.json() };
+    } catch (e) {
+      payload.body = event.data.text();
+    }
+  }
+
+  // 动态拼装标题：支持区分伴侣名称与动作类型
+  const charName = payload.characterName || 'WHEN I with U';
+  let displayTitle = charName;
+
+  if (payload.type === 'diary') {
+    displayTitle = `${charName} · 写了新日记`;
+  } else if (payload.type === 'snapshot') {
+    displayTitle = `${charName} · 发了新动态`;
+  }
+
+  const options = {
+    body: payload.body,
+    icon: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
+    badge: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
+    tag: `companion_${payload.type || 'msg'}_${Date.now()}`,
+    renotify: true,
+    data: {
+      url: payload.url || APP_INDEX_URL
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(displayTitle, options)
+  );
+});
+
+// 点击系统通知时：尝试聚焦已打开窗口，否则新开 App 入口
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || APP_INDEX_URL;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(APP_INDEX_URL) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow(targetUrl);
+      }),
+  );
+});
