@@ -184,6 +184,36 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           vapidPublicKey: cloudVapidKey,
         },
       });
+      const handleSyncCloudPush = async () => {
+    setIsSyncingPush(true);
+    try {
+      // 只有这步真正通过，才继续往下走
+      await registerCloudPush({
+        serverUrl: cloudServerUrl,
+        vapidPublicKey: cloudVapidKey,
+      });
+
+      // 真正保存到本地数据库
+      await db.settings.put({
+        id: 'cloudPushConfig',
+        value: {
+          enabled: true,
+          serverUrl: cloudServerUrl,
+          vapidPublicKey: cloudVapidKey,
+        },
+      });
+
+      setCloudPushEnabled(true);
+      alert('离线主动唤醒绑定成功！凭证已真正保存至服务器。');
+    } catch (err) {
+      // 失败时，绝不开启通道，并把真实报错弹出来
+      setCloudPushEnabled(false);
+      alert(`绑定失败:\n${err.message}`);
+    } finally {
+      setIsSyncingPush(false);
+    }
+  };
+
       setCloudPushEnabled(true);
       alert('离线主动唤醒绑定成功！现在你可以清掉后台并息屏了。');
     } catch (err) {
