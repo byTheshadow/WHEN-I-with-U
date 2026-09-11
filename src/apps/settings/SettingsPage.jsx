@@ -31,6 +31,8 @@ import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
 import BondConnection from './mcp/BondConnection';
 import { requestNotificationPermission } from '../../services/aiService';
+import { Send, Cloud, Radio } from 'lucide-react'; // 补上图标
+import { registerCloudPush } from '../../services/cloudPushService';
 
 import {
   DEFAULT_PRELOADER_QUOTE_CONFIG,
@@ -145,6 +147,51 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
     type: 'idle',
     message: '',
   });
+
+  // 云端离线推送状态
+  const [cloudPushEnabled, setCloudPushEnabled] = useState(false);
+  const [cloudServerUrl, setCloudServerUrl] = useState('');
+  const [cloudVapidKey, setCloudVapidKey] = useState('');
+  const [isSyncingPush, setIsSyncingPush] = useState(false);
+
+  // 从本地 db.settings 恢复已有配置
+  useEffect(() => {
+    (async () => {
+      const saved = await db.settings.get('cloudPushConfig');
+      if (saved?.value) {
+        setCloudPushEnabled(saved.value.enabled || false);
+        setCloudServerUrl(saved.value.serverUrl || '');
+        setCloudVapidKey(saved.value.vapidPublicKey || '');
+      }
+    })();
+  }, []);
+
+  // 点击绑定/更新按钮
+  const handleSyncCloudPush = async () => {
+    setIsSyncingPush(true);
+    try {
+      await registerCloudPush({
+        serverUrl: cloudServerUrl,
+        vapidPublicKey: cloudVapidKey,
+      });
+
+      // 保存到本地数据库
+      await db.settings.put({
+        id: 'cloudPushConfig',
+        value: {
+          enabled: true,
+          serverUrl: cloudServerUrl,
+          vapidPublicKey: cloudVapidKey,
+        },
+      });
+      setCloudPushEnabled(true);
+      alert('离线主动唤醒绑定成功！现在你可以杀掉后台并息屏了。');
+    } catch (err) {
+      alert(err.message || '绑定失败，请检查配置与网络');
+    } finally {
+      setIsSyncingPush(false);
+    }
+  };
 
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1270,7 +1317,60 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         </div>
       </GlassCard>
 
-      {/* 4. 锁屏音频陪伴 */}
+      
+
+            {/* 4. 云端离线主动推送卡片 */}
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <Radio className="h-4 w-4" />
+            <span>离线主动唤醒 (云端 Web Push)</span>
+          </div>
+          {cloudPushEnabled && (
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              通道已联通
+            </span>
+          )}
+        </div>
+
+        <p className="text-[11px] leading-relaxed opacity-60">
+          即使退出 PWA 踢出后台、iPhone 锁屏息屏，伴侣也会在云端自主思考，并向你的手机锁屏主动投送消息。
+        </p>
+
+        <div className="space-y-3 pt-1">
+          <div>
+            <label className="text-[10px] font-semibold opacity-60">推送中继服务器地址</label>
+            <input
+              type="url"
+              placeholder="https://xxxx.trycloudflare.com"
+              value={cloudServerUrl}
+              onChange={(e) => setCloudServerUrl(e.target.value)}
+              className="mt-1 w-full rounded-lg bg-black/5 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-black/20 dark:bg-white/5 dark:focus:ring-white/20"
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] font-semibold opacity-60">VAPID Public Key (公钥)</label>
+            <input
+              type="text"
+              placeholder="BKxxxx..."
+              value={cloudVapidKey}
+              onChange={(e) => setCloudVapidKey(e.target.value)}
+              className="mt-1 w-full rounded-lg bg-black/5 px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-black/20 dark:bg-white/5 dark:focus:ring-white/20"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSyncCloudPush}
+            disabled={isSyncingPush}
+            className="w-full rounded-xl bg-black py-2.5 text-xs font-semibold text-white transition-transform active:scale-[0.98] disabled:opacity-50 dark:bg-white dark:text-black"
+          >
+            {isSyncingPush ? '正在与苹果 APNs 握手…' : (cloudPushEnabled ? '更新并重新同步到云端' : '绑定本设备并开启主动离线推送')}
+          </button>
+        </div>
+      </GlassCard>
+
 
 
       {/* 3. 锁屏音频陪伴 */}
