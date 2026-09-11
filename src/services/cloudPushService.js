@@ -18,10 +18,15 @@ export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
   }
 
   // 1. 必须在 iOS PWA (添加到主屏幕) 独立模式下运行
-  const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-  if (!isStandalone) {
-    throw new Error('iOS 必须通过 Safari【添加到主屏幕】，并在桌面上打开本应用才能开启离线推送！');
-  }
+  // 区分 iOS 和其他系统（安卓/PC）
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+// 只有在 iOS 设备上才强制要求“添加到主屏幕”
+if (isIOS && !isStandalone) {
+  throw new Error('iOS 设备必须通过 Safari【添加到主屏幕】，并从桌面打开才能开启离线推送！');
+}
+
 
   // 2. 检查并申请权限
   const permission = await Notification.requestPermission();
