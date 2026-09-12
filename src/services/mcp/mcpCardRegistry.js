@@ -3,6 +3,9 @@
 // MCP 富动作卡片解析中心
 // 负责在工具执行完毕时，将真实返回提取为 UI 渲染用的结构化卡片数据
 
+import { parseHealthMarkdown } from './healthCardParser';
+
+
 const parseToolRawData = (toolResult) => {
   if (!toolResult) return null;
   // MCP 的返回值可能是 structuredContent，也可能是 text 里的 JSON
@@ -92,12 +95,20 @@ const parseMcdonaldsCard = (toolName, toolResult) => {
 export const extractMcpCard = (toolName = '', toolResult = null) => {
   if (!toolName || !toolResult) return null;
 
-  // 麦当劳相关工具匹配
+  // 1. 健康工具匹配 (新增)
+  if (/health|watch|apple_health/i.test(toolName)) {
+    // toolResult 里可能是 content[0].text 或者是字符串本身
+    const rawText = toolResult?.content?.[0]?.text || (typeof toolResult === 'string' ? toolResult : '');
+    const healthCard = parseHealthMarkdown(rawText);
+    if (healthCard) return healthCard;
+  }
+
+  // 2. 原有的麦当劳匹配
   if (/mcd|mcdonald|store|order|meal/i.test(toolName)) {
     const card = parseMcdonaldsCard(toolName, toolResult);
     if (card) return card;
   }
 
-  // 未来需要支持星巴克、打车等其他 MCP 时，直接在下面追加 else if 即可
   return null;
 };
+

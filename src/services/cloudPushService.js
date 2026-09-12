@@ -45,7 +45,6 @@ export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
   const registration = await navigator.serviceWorker.ready;
   let subscription = await registration.pushManager.getSubscription();
 
-  // 如果已有订阅但公钥变更，先退订重新订
   if (!subscription) {
     try {
       subscription = await registration.pushManager.subscribe({
@@ -57,11 +56,28 @@ export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
     }
   }
 
-  // 4. 读取当前本地伴侣数据与 API Key
+  // 4. 读取当前本地伴侣数据、匹配真实的 chatId 与 API Key
   const apiSettings = await db.settings.get('apiConfig');
   const activeChar = (await db.characters.toArray())[0] || {};
-  const recentMsgs = (await db.messages.orderBy('timestamp').reverse().limit(3).toArray()).reverse();
-  const recentContext = recentMsgs.map(m => m.content).join('；');
+  
+  // 查询与当前伴侣关联的活跃聊天会话
+  let activeChat = null;
+  if (activeChar.id) {
+    activeChat = await db.chats.where('characterId').equals(activeChar.id).first();
+  }
+  if (!activeChat) {
+    activeChat = (await db.chats.toArray())[0] || {};
+  }
+
+  // 提取最近的聊天片段，兼容普通 content 字段与 Dexie versions 结构
+  const recentMsgs = await db.messages.orderBy('timestamp').reverse().limit(3).toArray();
+  const recentContext = recentMsgs.reverse().map(m => {
+    if (m.versions && m.versions.length > 0) {
+      const idx = m.currentVersionIndex || 0;
+      return m.versions[idx]?.text || m.content || '';
+    }
+    return m.content || '';
+  }).filter(Boolean).join('；');
 
   // 5. 真正向宝塔服务器发送数据
   let response;
@@ -73,11 +89,13 @@ export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
         'Accept': 'application/json'
       },
       body: JSON.stringify({
-        subscription: subscription.toJSON(), // 使用标准的 toJSON 导出，避免原生对象丢失字段
+        subscription: subscription.toJSON(),
         apiConfig: apiSettings?.value || {},
         character: {
+          id: activeChar.id || 1,
+          chatId: activeChat.id || 1, // 核心：下发真实关联的 chatId
           name: activeChar.name || 'AI伴侣',
-          persona: activeChar.persona || ''
+          persona: activeChar.userPersona || activeChar.bio || activeChar.persona || ''
         },
         recentContext: recentContext
       })
@@ -96,5 +114,13 @@ export async function registerCloudPush({ serverUrl, vapidPublicKey }) {
     throw new Error(`服务器保存失败: ${result.error || '未知错误'}`);
   }
 
+  // 成功后在本地保存已验证有效的推送服务器地址
+  try {
+    localStorage.setItem('push_server_url', cleanServerUrl);
+  } catch (e) {
+    // 忽略静默异常
+  }
+
   return true;
 }
+

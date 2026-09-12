@@ -26,6 +26,7 @@ import KinshipCard from './cards/KinshipCard';
 import StickerCard from './cards/StickerCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
 import McdOrderCard from './cards/McdOrderCard';
+import AppleHealthCard from './cards/AppleHealthCard';
 
 const MessageRow = ({
   msg,
@@ -51,13 +52,12 @@ const MessageRow = ({
   );
 
   const messageMcpTrace = isUser
-  ? null
-  : msg.metadata?.mcpTrace;
+    ? null
+    : msg.metadata?.mcpTrace;
 
-const messageOrderCard = isUser
-  ? null
-  : msg.metadata?.mcpCard;
- // getOrderCardSummary 存的是 {cards:[...]}，历史消息取第一张
+  const messageOrderCard = isUser
+    ? null
+    : msg.metadata?.mcpCard;
 
   return (
     <div
@@ -239,23 +239,26 @@ const messageOrderCard = isUser
             </div>
           )}
 
+          {/* MCP 外接痕迹通用胶囊 */}
           {!isUser && messageMcpTrace && (
             <McpUsageTraceCard
               trace={messageMcpTrace}
             />
           )}
 
-          {!isUser && messageMcpTrace && (
-  <McpUsageTraceCard
-    trace={messageMcpTrace}
-  />
-)}
+          {/* 麦当劳专属卡片 */}
+          {!isUser && messageOrderCard?.kind === 'mcd' && (
+            <McdOrderCard
+              card={messageOrderCard}
+            />
+          )}
 
-{!isUser && messageOrderCard && (
-  <McdOrderCard
-    orderCard={messageOrderCard}
-  />
-)}
+          {/* Apple Watch 健康体征卡片 */}
+          {!isUser && messageOrderCard?.kind === 'health' && (
+            <AppleHealthCard
+              card={messageOrderCard}
+            />
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

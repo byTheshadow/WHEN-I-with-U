@@ -1,12 +1,9 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，都应递增此版本号。
-// 例如：v4 → v5。否则已缓存的静态资源可能继续沿用旧版本。
-const CACHE_NAME = 'when-i-with-u-v8';
+const CACHE_NAME = 'when-i-with-u-v9';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径。
-// 本地示例：       http://localhost:5173/
-// GitHub Pages 示例：https://用户名.github.io/WHEN-I-with-U/
 const APP_SCOPE = self.registration.scope;
 const APP_INDEX_URL = new URL('index.html', APP_SCOPE).href;
 
@@ -16,7 +13,6 @@ self.addEventListener('install', (event) => {
       .open(CACHE_NAME)
       .then(async (cache) => {
         try {
-          // 不使用 cache.addAll，避免任一资源失败导致 SW 整体安装失败。
           const response = await fetch(APP_INDEX_URL, {
             cache: 'reload',
           });
@@ -31,19 +27,10 @@ self.addEventListener('install', (event) => {
             );
           }
         } catch (error) {
-          // 首次离线打开时可能无法预缓存；不应因此导致 SW 安装失败。
           console.warn('[SW] index.html 预缓存失败：', error);
         }
       }),
   );
-
-  /*
-   * 不要在这里调用 self.skipWaiting()。
-   *
-   * 新 SW 安装完成后应停留在 waiting 状态，
-   * 由页面发现更新、展示更新弹窗，并在用户确认后
-   * 通过 SKIP_WAITING 消息主动激活。
-   */
 });
 
 self.addEventListener('activate', (event) => {
@@ -149,7 +136,6 @@ self.addEventListener('fetch', (event) => {
 });
 
 // 页面确认更新后，向 waiting 状态的 SW 发送此消息。
-// 收到后，新 SW 会跳过 waiting 并进入 activate。
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
@@ -178,9 +164,96 @@ self.addEventListener('sync', (event) => {
   );
 });
 
-// ==========================================
+// ==========================================================
+// 🛠️ 原生 IndexedDB 写入（严格匹配 Dexie 架构的 messages 表）
+// ==========================================================
+function savePushMessageToIndexedDB(payload) {
+  return new Promise((resolve) => {
+    // 兼容 Dexie 常见的库名定义；若业务库名不同请保持一致
+    const DB_NAME = 'WhenIWithU';
+    const request = indexedDB.open(DB_NAME);
+
+    request.onerror = () => resolve(false);
+    request.onsuccess = (event) => {
+      const idb = event.target.result;
+      try {
+        if (!idb.objectStoreNames.contains('messages')) {
+          idb.close();
+          return resolve(false);
+        }
+
+        const storeNames = ['messages'];
+        if (idb.objectStoreNames.contains('chats')) {
+          storeNames.push('chats');
+        }
+
+        const tx = idb.transaction(storeNames, 'readwrite');
+        const messageStore = tx.objectStore('messages');
+
+        const now = payload.timestamp || Date.now();
+        const contentText = payload.body || '';
+        const targetChatId = Number(payload.chatId) || 1;
+        const targetCharId = Number(payload.characterId) || 1;
+
+        // 组装符合 db.messages 规范的完整实体对象
+        const newMessage = {
+          chatId: targetChatId,
+          characterId: targetCharId,
+          sender: 'assistant',
+          type: 'text',
+          content: contentText,
+          metadata: {
+            isOfflinePush: true,
+            pushType: payload.type || 'message',
+          },
+          quotedMessageId: null,
+          isRead: 0,
+          timestamp: now,
+          versions: [
+            {
+              text: contentText,
+              timestamp: now,
+              model: 'cloud-push-ai',
+            },
+          ],
+          currentVersionIndex: 0,
+        };
+
+        messageStore.add(newMessage);
+
+        // 联动更新 chats 表的最后修改时间与摘要
+        if (idb.objectStoreNames.contains('chats')) {
+          const chatStore = tx.objectStore('chats');
+          const chatReq = chatStore.get(targetChatId);
+          chatReq.onsuccess = (e) => {
+            const chatData = e.target.result;
+            if (chatData) {
+              chatData.updatedAt = new Date(now).toISOString();
+              chatData.summary = contentText.slice(0, 30);
+              chatStore.put(chatData);
+            }
+          };
+        }
+
+        tx.oncomplete = () => {
+          idb.close();
+          resolve(true);
+        };
+        tx.onerror = () => {
+          idb.close();
+          resolve(false);
+        };
+      } catch (err) {
+        idb.close();
+        resolve(false);
+      }
+    };
+  });
+}
+
+// ==========================================================
 // 监听苹果 APNs / Web Push 远程主动唤醒推送
-// ==========================================
+// ==========================================================
 self.addEventListener('push', (event) => {
   let payload = {
     title: 'WHEN I with U',
@@ -188,6 +261,9 @@ self.addEventListener('push', (event) => {
     type: 'message',
     characterName: '',
     url: APP_INDEX_URL,
+    chatId: 1,
+    characterId: 1,
+    timestamp: Date.now(),
   };
 
   if (event.data) {
@@ -198,7 +274,25 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // 根据伴侣名称与类型动态决定通知标题
+  // 1. 如果是聊天消息，直接在后台写入本地数据库，并通知前台实时渲染
+  const saveTask =
+    payload.type === 'message' && payload.body
+      ? savePushMessageToIndexedDB(payload).then(() => {
+          return self.clients
+            .matchAll({ type: 'window', includeUncontrolled: true })
+            .then((clients) => {
+              clients.forEach((client) => {
+                client.postMessage({
+                  type: 'SYNC_OFFLINE_MESSAGES',
+                  action: 'new_message',
+                  chatId: payload.chatId,
+                });
+              });
+            });
+        })
+      : Promise.resolve();
+
+  // 2. 根据伴侣名称与类型动态决定通知标题
   let displayTitle = payload.characterName || payload.title;
   if (payload.type === 'diary') {
     displayTitle = `${payload.characterName || '伴侣'} · 写了新日记`;
@@ -214,11 +308,16 @@ self.addEventListener('push', (event) => {
     renotify: true,
     data: {
       url: payload.url || APP_INDEX_URL,
+      chatId: payload.chatId,
     },
   };
 
+  // 等待数据写入与通知呈现均完成后再结束事件生命周期
   event.waitUntil(
-    self.registration.showNotification(displayTitle, options),
+    Promise.all([
+      saveTask,
+      self.registration.showNotification(displayTitle, options),
+    ]),
   );
 });
 
@@ -247,3 +346,4 @@ self.addEventListener('notificationclick', (event) => {
       }),
   );
 });
+
