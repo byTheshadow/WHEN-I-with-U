@@ -1205,6 +1205,8 @@ useLayoutEffect(() => {
       {showCalendar && (
   <ChatCalendarModal
     isOpen={showCalendar}
+    chatId={chatId}
+    character={character}
     messages={messages}
     onClose={() => setShowCalendar(false)}
   />

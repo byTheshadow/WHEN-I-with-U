@@ -3981,7 +3981,10 @@ db.version(38).stores({
   `
 });
 
-
+db.version(39).stores({
+  xinjiEntries:
+    '++id, chatId, characterId, type, date, isRecurringYearly, createdAt',
+});
 
 export default db;
 

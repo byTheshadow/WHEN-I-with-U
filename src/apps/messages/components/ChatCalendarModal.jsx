@@ -1,9 +1,24 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  X, ChevronLeft, ChevronRight, Star, Gift, Sparkles, Pencil, Trash2, Check, Loader2,
+} from 'lucide-react';
+import {
+  XINJI_TYPES,
+  runXinjiReflection,
+  getXinjiEntriesForChat,
+  deleteXinjiEntry,
+  updateXinjiEntry,
+} from '../../../services/xinjiService';
 import './chat-calendar.css';
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 const MINI_HEAT_DAYS = 28; // 底部装饰性小热力图覆盖最近几天
+
+const XINJI_TYPE_META = {
+  [XINJI_TYPES.ANNIVERSARY]: { icon: Star, label: '纪念日' },
+  [XINJI_TYPES.MOMENT]: { icon: Sparkles, label: '瞬间' },
+  [XINJI_TYPES.WISH]: { icon: Gift, label: '心愿' },
+};
 
 const toDateKey = (date) => {
   const y = date.getFullYear();
@@ -11,6 +26,8 @@ const toDateKey = (date) => {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
+
+const toMonthDay = (dateKey) => dateKey.slice(5); // "MM-DD"，纪念日按每年重复匹配用
 
 const parseMessageDate = (timestamp) => {
   if (!timestamp) return null;
@@ -36,12 +53,19 @@ const pickSnippet = (dayMessages) => {
   return raw.length > 32 ? `${raw.slice(0, 32)}…` : raw;
 };
 
-const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
+const ChatCalendarModal = ({ isOpen, chatId, character, messages, onClose }) => {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [viewDate, setViewDate] = useState(() => new Date());
   const [slideDir, setSlideDir] = useState('right');
   const [selectedDayKey, setSelectedDayKey] = useState(null);
+
+  const [xinjiEntries, setXinjiEntries] = useState([]);
+  const [isReflecting, setIsReflecting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState({ title: '', content: '' });
+
+  const characterName = character?.name || 'TA';
 
   useEffect(() => {
     let showTimer;
@@ -62,12 +86,19 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  const loadXinjiEntries = useCallback(async () => {
+    if (!chatId) return;
+    const list = await getXinjiEntriesForChat(chatId);
+    setXinjiEntries(list);
+  }, [chatId]);
+
   useEffect(() => {
     if (isOpen) {
       setViewDate(new Date());
       setSelectedDayKey(null);
+      void loadXinjiEntries();
     }
-  }, [isOpen]);
+  }, [isOpen, loadXinjiEntries]);
 
   // 按日期分组一次，日历格子的热度和底部小热力图共用这份数据
   const messagesByDay = useMemo(() => {
@@ -84,6 +115,33 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
 
     return map;
   }, [messages]);
+
+  // 精确日期 -> 心记列表；纪念日按"月-日"额外建一份索引，支持每年重复匹配
+  const { xinjiByExactDate, recurringXinjiByMonthDay } = useMemo(() => {
+    const exact = new Map();
+    const recurring = new Map();
+
+    xinjiEntries.forEach((entry) => {
+      if (!entry.date) return;
+
+      if (entry.isRecurringYearly) {
+        const monthDay = toMonthDay(entry.date);
+        if (!recurring.has(monthDay)) recurring.set(monthDay, []);
+        recurring.get(monthDay).push(entry);
+      } else {
+        if (!exact.has(entry.date)) exact.set(entry.date, []);
+        exact.get(entry.date).push(entry);
+      }
+    });
+
+    return { xinjiByExactDate: exact, recurringXinjiByMonthDay: recurring };
+  }, [xinjiEntries]);
+
+  const getXinjiForDateKey = useCallback((key) => {
+    const exactMatches = xinjiByExactDate.get(key) || [];
+    const recurringMatches = recurringXinjiByMonthDay.get(toMonthDay(key)) || [];
+    return [...exactMatches, ...recurringMatches];
+  }, [xinjiByExactDate, recurringXinjiByMonthDay]);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -135,6 +193,38 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
     setSelectedDayKey((previous) => (previous === key ? null : key));
   }, []);
 
+  const handleReflect = useCallback(async () => {
+    if (!chatId || isReflecting) return;
+    setIsReflecting(true);
+    try {
+      await runXinjiReflection({ chatId, characterId: character?.id, character });
+      await loadXinjiEntries();
+    } finally {
+      setIsReflecting(false);
+    }
+  }, [chatId, character, isReflecting, loadXinjiEntries]);
+
+  const startEdit = (entry) => {
+    setEditingId(entry.id);
+    setEditDraft({ title: entry.title, content: entry.content });
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const saveEdit = async (entryId) => {
+    await updateXinjiEntry(entryId, {
+      title: editDraft.title.trim() || '未命名',
+      content: editDraft.content.trim(),
+    });
+    setEditingId(null);
+    await loadXinjiEntries();
+  };
+
+  const handleDeleteEntry = async (entryId) => {
+    await deleteXinjiEntry(entryId);
+    await loadXinjiEntries();
+  };
+
   if (!mounted) return null;
 
   const selectedDayMessages = selectedDayKey
@@ -144,6 +234,7 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
     ? new Date(`${selectedDayKey}T00:00:00`)
     : null;
   const selectedSnippet = selectedDayKey ? pickSnippet(selectedDayMessages) : null;
+  const selectedDayXinji = selectedDayKey ? getXinjiForDateKey(selectedDayKey) : [];
 
   return (
     <div className={`cc-backdrop ${visible ? 'cc-visible' : ''}`} onClick={onClose}>
@@ -189,6 +280,12 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
             const isSelected = key === selectedDayKey;
             const heatLevel = hasActivity ? getHeatLevel(count) : 0;
 
+            const dayXinji = getXinjiForDateKey(key);
+            const hasXinji = dayXinji.length > 0;
+            const XinjiBadgeIcon = hasXinji
+              ? XINJI_TYPE_META[dayXinji[0].type]?.icon
+              : null;
+
             return (
               <div
                 key={key}
@@ -200,9 +297,14 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
                   isSelected ? 'cc-is-selected' : '',
                 ].filter(Boolean).join(' ')}
                 style={{ '--cc-i': index }}
-                onClick={() => hasActivity && handleDayClick(key)}
+                onClick={() => (hasActivity || hasXinji) && handleDayClick(key)}
               >
                 {date.getDate()}
+                {XinjiBadgeIcon && (
+                  <span className="cc-xinji-badge">
+                    <XinjiBadgeIcon className="h-2.5 w-2.5" />
+                  </span>
+                )}
               </div>
             );
           })}
@@ -223,6 +325,21 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
               <div className="cc-note-text">
                 {selectedSnippet || '这天留下的是一段特别的记录。'}
               </div>
+
+              {selectedDayXinji.length > 0 && (
+                <div className="cc-note-xinji-tags">
+                  {selectedDayXinji.map((entry) => {
+                    const meta = XINJI_TYPE_META[entry.type] || XINJI_TYPE_META[XINJI_TYPES.MOMENT];
+                    const Icon = meta.icon;
+                    return (
+                      <span key={entry.id} className="cc-note-xinji-tag">
+                        <Icon className="h-2.5 w-2.5" />
+                        {entry.title}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -258,6 +375,100 @@ const ChatCalendarModal = ({ isOpen, messages, onClose }) => {
               style={{ background: 'var(--accent-color)' }}
             />
             <span>多</span>
+          </div>
+        </div>
+
+        <div className="cc-xinji-section">
+          <div className="cc-xinji-section-head">
+            <span className="cc-xinji-section-title">{characterName}记得的日子</span>
+
+            <button
+              type="button"
+              className="cc-xinji-reflect-btn"
+              onClick={handleReflect}
+              disabled={isReflecting}
+            >
+              {isReflecting
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <Sparkles className="h-3 w-3" />}
+              {isReflecting ? '回顾中...' : '回顾'}
+            </button>
+          </div>
+
+          {xinjiEntries.length === 0 && !isReflecting && (
+            <div className="cc-xinji-empty">
+              点"回顾"，让 {characterName} 想想有没有值得记下的日子。
+            </div>
+          )}
+
+          <div className="cc-xinji-list">
+            {xinjiEntries.map((entry) => {
+              const meta = XINJI_TYPE_META[entry.type] || XINJI_TYPE_META[XINJI_TYPES.MOMENT];
+              const Icon = meta.icon;
+              const isEditing = editingId === entry.id;
+
+              return (
+                <div key={entry.id} className="cc-xinji-item">
+                  <div className="cc-xinji-item-icon">
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+
+                  <div className="cc-xinji-item-body">
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          className="cc-xinji-edit-input"
+                          value={editDraft.title}
+                          onChange={(event) => setEditDraft((previous) => ({
+                            ...previous,
+                            title: event.target.value,
+                          }))}
+                        />
+                        <textarea
+                          className="cc-xinji-edit-textarea"
+                          value={editDraft.content}
+                          onChange={(event) => setEditDraft((previous) => ({
+                            ...previous,
+                            content: event.target.value,
+                          }))}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div className="cc-xinji-item-head">
+                          <span className="cc-xinji-item-title">{entry.title}</span>
+                          <span className="cc-xinji-item-date">
+                            {entry.date}{entry.isRecurringYearly ? '（每年）' : ''}
+                          </span>
+                        </div>
+                        <div className="cc-xinji-item-content">{entry.content}</div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="cc-xinji-item-actions">
+                    {isEditing ? (
+                      <>
+                        <button type="button" onClick={() => saveEdit(entry.id)} title="保存">
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button type="button" onClick={cancelEdit} title="取消">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => startEdit(entry)} title="编辑">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button type="button" onClick={() => handleDeleteEntry(entry.id)} title="删除">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -648,3 +648,184 @@
     transition: none !important;
   }
 }
+/* ===== 心记 ===== */
+
+.cc-xinji-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--card-bg-gradient, var(--bg-main));
+  border: 1px solid var(--card-border);
+  color: var(--accent-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.cc-note-xinji-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.cc-note-xinji-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: var(--text-main);
+}
+
+.cc-xinji-section {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.cc-xinji-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.cc-xinji-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cc-xinji-reflect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--accent-foreground);
+  background: var(--accent-color);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.cc-xinji-reflect-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.cc-xinji-reflect-btn:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+.cc-xinji-empty {
+  font-size: 0.64rem;
+  opacity: 0.5;
+  padding: 0.4rem 0.1rem 0.2rem;
+  text-align: center;
+}
+
+.cc-xinji-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.cc-xinji-item {
+  position: relative;
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.9rem;
+  border: 1.5px dashed color-mix(in srgb, var(--text-main) 28%, transparent);
+  background: color-mix(in srgb, var(--control-soft-bg) 60%, transparent);
+}
+
+.cc-xinji-item-icon {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 0.1rem;
+  color: color-mix(in srgb, var(--accent-color) 80%, var(--text-main) 20%);
+  flex-shrink: 0;
+}
+
+.cc-xinji-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-xinji-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.cc-xinji-item-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.cc-xinji-item-date {
+  font-size: 0.58rem;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+.cc-xinji-item-content {
+  margin-top: 0.15rem;
+  font-size: 0.64rem;
+  line-height: 1.5;
+  opacity: 0.75;
+  word-break: break-word;
+}
+
+.cc-xinji-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.cc-xinji-item-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.cc-xinji-item-actions button:hover {
+  opacity: 1;
+  background: var(--control-soft-bg);
+}
+
+.cc-xinji-edit-input,
+.cc-xinji-edit-textarea {
+  width: 100%;
+  border-radius: 0.6rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.64rem;
+  background: var(--bg-main);
+  color: var(--text-main);
+  border: 1px solid var(--card-border);
+  outline: none;
+}
+
+.cc-xinji-edit-textarea {
+  margin-top: 0.35rem;
+  min-height: 2.6rem;
+  resize: vertical;
+}
