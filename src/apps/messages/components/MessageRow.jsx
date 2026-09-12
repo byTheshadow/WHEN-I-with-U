@@ -25,6 +25,7 @@ import FoodDeliveryCard from './cards/FoodDeliveryCard';
 import KinshipCard from './cards/KinshipCard';
 import StickerCard from './cards/StickerCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
+import McdOrderCard from './cards/McdOrderCard';
 
 const MessageRow = ({
   msg,
@@ -50,8 +51,12 @@ const MessageRow = ({
   );
 
   const messageMcpTrace = isUser
-    ? null
-    : msg.metadata?.mcpTrace;
+  ? null
+  : msg.metadata?.mcpTrace;
+
+const messageOrderCard = isUser
+  ? null
+  : msg.metadata?.mcdOrderCard?.cards?.[0]; // getOrderCardSummary 存的是 {cards:[...]}，历史消息取第一张
 
   return (
     <div
@@ -238,6 +243,18 @@ const MessageRow = ({
               trace={messageMcpTrace}
             />
           )}
+
+          {!isUser && messageMcpTrace && (
+  <McpUsageTraceCard
+    trace={messageMcpTrace}
+  />
+)}
+
+{!isUser && messageOrderCard && (
+  <McdOrderCard
+    orderCard={messageOrderCard}
+  />
+)}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
