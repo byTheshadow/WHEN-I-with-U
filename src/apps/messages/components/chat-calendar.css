@@ -690,16 +690,67 @@
   border-top: 1px solid var(--card-border);
 }
 
+
 .cc-xinji-section-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.6rem;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
 }
 
-.cc-xinji-section-title {
-  font-size: 0.72rem;
+.cc-xinji-handle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.3rem 0.1rem;
+  background: transparent;
+  color: var(--text-main);
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.cc-xinji-handle:hover {
+  opacity: 1;
+}
+
+.cc-xinji-handle:active {
+  transform: scale(0.99);
+}
+
+.cc-xinji-handle-title {
+  font-size: 0.68rem;
   font-weight: 700;
+}
+
+.cc-xinji-handle-count {
+  font-size: 0.58rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-color) 22%, transparent);
+}
+
+.cc-xinji-handle-chevron {
+  margin-left: auto;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.cc-xinji-handle-chevron-open {
+  transform: rotate(180deg);
+}
+
+.cc-xinji-body {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+}
+
+.cc-xinji-body-open {
+  max-height: 20rem;
+  opacity: 1;
+  margin-top: 0.35rem;
 }
 
 .cc-xinji-reflect-btn {
