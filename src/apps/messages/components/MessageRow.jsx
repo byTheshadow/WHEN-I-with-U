@@ -56,7 +56,8 @@ const MessageRow = ({
 
 const messageOrderCard = isUser
   ? null
-  : msg.metadata?.mcdOrderCard?.cards?.[0]; // getOrderCardSummary 存的是 {cards:[...]}，历史消息取第一张
+  : msg.metadata?.mcpCard;
+ // getOrderCardSummary 存的是 {cards:[...]}，历史消息取第一张
 
   return (
     <div

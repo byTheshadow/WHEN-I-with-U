@@ -1689,14 +1689,18 @@ ${companionshipPrompt}
   const nowIso = new Date().toISOString();
 
   for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
-    const metadata = {
+        const metadata = {
       ...(msgData.metadata || {}),
       source: 'companionship',
       companionshipSessionId: session.id,
       ...(messageIndex === 0 && mcpTrace
         ? { mcpTrace }
         : {}),
+      ...(messageIndex === 0 && result.mcpCard // <--- 新增这行
+        ? { mcpCard: result.mcpCard }
+        : {}),
     };
+
 
     const messagePayload = {
       chatId,
@@ -1998,23 +2002,31 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           sender: 'character',
           type: msgData.type || 'text',
           content: msgData.content || '',
-         metadata: {
+                 metadata: {
   ...(msgData.metadata || {}),
   ...(messageIndex === 0 && mcpTrace
     ? { mcpTrace }
     : {}),
+  ...(messageIndex === 0 && result.mcpCard
+    ? { mcpCard: result.mcpCard }
+    : {}),
 },
+
 
           versions: [
             {
               type: msgData.type || 'text',
               content: msgData.content || '',
-            metadata: {
+                    metadata: {
   ...(msgData.metadata || {}),
   ...(messageIndex === 0 && mcpTrace
     ? { mcpTrace }
     : {}),
+  ...(messageIndex === 0 && result.mcpCard
+    ? { mcpCard: result.mcpCard }
+    : {}),
 },
+
 
               timestamp: nowIso
             }

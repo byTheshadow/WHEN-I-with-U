@@ -11,6 +11,7 @@ import {
 import {
   callMcpToolRuntime,
 } from './mcp/mcpRuntimeService';
+import { extractMcpCard } from './mcp/mcpCardRegistry';
 
 /*
  * 不再限制一次角色回复能经历多少轮 MCP 调用。
@@ -396,17 +397,22 @@ const executeMcpToolCall = async ({
       failureCounts.delete(fingerprint);
     }
 
-    finishMcpChatTraceCall({
+       finishMcpChatTraceCall({
       session: mcpTraceSession,
       callId: traceCallId,
       status: isToolError ? 'tool-error' : 'success',
       toolResult: runtimeResult.rawResult,
     });
 
+    // 尝试从真实返回中提取可视化卡片
+    const mcpCard = isToolError ? null : extractMcpCard(tool.toolName, runtimeResult.rawResult);
+
     return {
       toolCallId: toolCall?.id || '',
       result: makeToolResultText(runtimeResult.rawResult),
+      mcpCard, // <--- 新增这行，带出卡片
     };
+
   } catch (error) {
     /*
      * Runtime 已经为真实调用写入最终失败 / 拒绝活动。
@@ -504,8 +510,10 @@ export const runAiToolOrchestrator = async ({
    * 下一条用户消息会再次进入 runAiToolOrchestrator，
    * 因而不会阻断用户后续持续查询同一个 MCP 工具。
    */
-  const callCounts = new Map();
+    const callCounts = new Map();
   const failureCounts = new Map();
+  let latestMcpCard = null; // <--- 新增这行，记录卡片
+
 
   /*
    * 不设固定工具轮数上限。
@@ -547,10 +555,12 @@ export const runAiToolOrchestrator = async ({
         };
       }
 
-      return {
+            return {
         error: false,
         content,
+        mcpCard: latestMcpCard, // <--- 新增这行，返回给外层
       };
+
     }
 
     messages.push({
@@ -560,7 +570,7 @@ export const runAiToolOrchestrator = async ({
     });
 
     for (const toolCall of toolCalls) {
-      const execution = await executeMcpToolCall({
+            const execution = await executeMcpToolCall({
         toolCall,
         registry,
         callCounts,
@@ -575,7 +585,12 @@ export const runAiToolOrchestrator = async ({
         companionshipAuthorization,
       });
 
+      if (execution.mcpCard) {
+        latestMcpCard = execution.mcpCard; // <--- 新增这行，捕获到卡片
+      }
+
       messages.push({
+
         role: 'tool',
         tool_call_id: execution.toolCallId,
         content: execution.result,
