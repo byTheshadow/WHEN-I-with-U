@@ -24,6 +24,7 @@ function buildReflectionPrompt({ character, recentMessages }) {
 1. moment（重要瞬间）：某个让你印象深刻、想记住的时刻
 2. anniversary（纪念日）：对你或用户有特殊意义的日子（比如认识多久、某个约定的日子）
 3. wish（心愿）：你希望以后能和用户一起做的事
+
 标准要严格一点，真正打动你的才记，宁可少记也不要硬凑。没有就返回空数组。
 
 只输出 JSON 数组，不要输出任何其他文字或代码块标记，格式：
