@@ -1,6 +1,5 @@
 import { getDueWorkflows, markWorkflowRun } from './workflowService';
-import { generateAndDeliverProactiveMessage } from '../scheduledMessageService';
-// ⚠️ 上面这行路径要按你实际存放 scheduledMessageService.js 的位置调整
+import { generateAndDeliverProactiveMessage } from '../../apps/messages/scheduledMessageService';
 
 const CHECK_INTERVAL_MS = 60 * 1000;
 
