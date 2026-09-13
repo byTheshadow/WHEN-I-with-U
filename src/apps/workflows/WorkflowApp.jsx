@@ -1,14 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Plus,
   X,
   Pencil,
   Trash2,
   CheckCircle2,
   CircleAlert,
-  CircleDashed
+  CircleDashed,
+  ImagePlus,
+  Camera,
+  Shuffle,
+  Upload,
+  Moon,
+  Sun
 } from 'lucide-react';
+
 
 import db from '../../db';
 import GlassCard from '../../components/GlassCard';
@@ -452,16 +460,126 @@ const ChatPickerSheet = ({ chats, onPick, onClose }) => (
   </div>
 );
 
+const VISUAL_STORAGE_KEY = 'interactive-polaroid-visuals';
+
+const readCharacterVisuals = () => {
+  try {
+    return JSON.parse(localStorage.getItem(VISUAL_STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+};
+
+const saveCharacterVisuals = (value) => {
+  localStorage.setItem(VISUAL_STORAGE_KEY, JSON.stringify(value));
+};
+
+const PolaroidCard = ({ character, index, onClick }) => {
+  const rotations = [-6, 3, -4, 5, -2];
+  const rotation = rotations[index % rotations.length];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ip-polaroid group"
+      style={{
+        '--ip-rotation': `${rotation}deg`,
+        '--ip-offset': `${index % 2 === 0 ? 16 : -10}px`
+      }}
+    >
+      <div className="ip-polaroid-image">
+        {character.avatar ? (
+          <img src={character.avatar} alt={character.name || ''} />
+        ) : (
+          <div className="ip-empty-image">
+            <Camera size={28} strokeWidth={1} />
+          </div>
+        )}
+      </div>
+
+      <div className="ip-polaroid-name">
+        {character.name || '未命名角色'}
+      </div>
+
+      <div className="ip-polaroid-index">
+        {String(index + 1).padStart(2, '0')}
+      </div>
+    </button>
+  );
+};
+
+const UploadVisualButton = ({ label, onChange }) => (
+  <label className="ip-upload-option">
+    <span>
+      <Upload size={14} />
+      {label}
+    </span>
+    <small>选择图片</small>
+    <input
+      type="file"
+      accept="image/*"
+      onChange={onChange}
+    />
+  </label>
+);
+
+const TimelineEvent = ({ workflow, index }) => {
+  const date = workflow.lastRunAt
+    ? new Date(workflow.lastRunAt).toLocaleDateString('zh-CN')
+    : '未运行';
+
+  return (
+    <article className="ip-event">
+      <div className="ip-event-dot" />
+
+      <div className="ip-event-date">
+        {date}
+      </div>
+
+      <div className="ip-event-content">
+        <h3>
+          {workflow.name || '未命名工作流'}
+        </h3>
+
+        <p>
+          {workflow.goal || '这是一段尚未命名的角色记忆。'}
+        </p>
+
+        <div className="ip-event-meta">
+          <span>
+            {workflow.enabled ? 'ACTIVE' : 'PAUSED'}
+          </span>
+
+          <span>
+            {workflow.time || '--:--'}
+          </span>
+
+          {workflow.lastRunStatus === 'error' && (
+            <span>ERROR</span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+};
+
 export const WorkflowApp = ({ onBackHub }) => {
   const [workflows, setWorkflows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [candidateChats, setCandidateChats] = useState([]);
   const [isPickingChat, setIsPickingChat] = useState(false);
-  const [formTarget, setFormTarget] = useState(null); // { chat } | { workflow } | null
+  const [formTarget, setFormTarget] = useState(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+
+  const [selectedCharacterId, setSelectedCharacterId] = useState(null);
+  const [visuals, setVisuals] = useState(readCharacterVisuals);
+  const [uploadTarget, setUploadTarget] = useState(null);
+  const [isDark, setIsDark] = useState(false);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
+
     try {
       const data = await getAllWorkflowsWithContext();
       setWorkflows(data);
@@ -480,18 +598,36 @@ export const WorkflowApp = ({ onBackHub }) => {
     const groups = new Map();
 
     for (const workflow of workflows) {
-      const key = workflow.characterId;
+      const key = workflow.characterId || 'unknown';
+
       if (!groups.has(key)) {
         groups.set(key, {
-          character: workflow.character,
+          character: workflow.character || {
+            id: key,
+            name: '未知角色',
+            avatar: ''
+          },
           items: []
         });
       }
+
       groups.get(key).items.push(workflow);
     }
 
     return Array.from(groups.values());
   }, [workflows]);
+
+  const selectedGroup = useMemo(
+    () =>
+      groupedByCharacter.find(
+        (group) => String(group.character?.id) === String(selectedCharacterId)
+      ),
+    [groupedByCharacter, selectedCharacterId]
+  );
+
+  const activeCount = workflows.filter(
+    (workflow) => workflow.enabled
+  ).length;
 
   const handleOpenCreate = useCallback(async () => {
     try {
@@ -520,102 +656,467 @@ export const WorkflowApp = ({ onBackHub }) => {
     [reload]
   );
 
-  const activeCount = workflows.filter((workflow) => workflow.enabled).length;
+  const updateVisual = useCallback(
+    (characterId, type, file) => {
+      if (!file) return;
 
-  return (
-    <div className="space-y-6 pb-24">
-      <header className="flex items-center gap-3 px-1 pt-2">
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const next = {
+          ...visuals,
+          [characterId]: {
+            ...(visuals[characterId] || {}),
+            [type]: event.target.result
+          }
+        };
+
+        setVisuals(next);
+        saveCharacterVisuals(next);
+      };
+
+      reader.readAsDataURL(file);
+    },
+    [visuals]
+  );
+
+  const addMemoryImage = useCallback(
+    (characterId, file) => {
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const current = visuals[characterId] || {};
+        const memories = current.memories || [];
+
+        const next = {
+          ...visuals,
+          [characterId]: {
+            ...current,
+            memories: [
+              {
+                id: Date.now(),
+                image: event.target.result,
+                date: new Date().toLocaleDateString('zh-CN'),
+                title: '新的视觉记忆'
+              },
+              ...memories
+            ]
+          }
+        };
+
+        setVisuals(next);
+        saveCharacterVisuals(next);
+      };
+
+      reader.readAsDataURL(file);
+    },
+    [visuals]
+  );
+
+  const getCharacterVisual = (character) => {
+    const characterId = character?.id;
+    const saved = visuals[characterId] || {};
+
+    return {
+      avatar: saved.avatar || character?.avatar || '',
+      banner: saved.banner || character?.avatar || '',
+      memories: saved.memories || []
+    };
+  };
+
+  const renderArchive = () => (
+    <div className={`interactive-polaroid ${isDark ? 'ip-dark' : ''}`}>
+      <header className="ip-topbar">
         <button
           type="button"
           onClick={onBackHub}
-          aria-label="返回"
-          className="rounded-full border p-2"
-          style={{ borderColor: 'var(--card-border)' }}
+          className="ip-logo"
         >
-          <ArrowLeft className="h-4 w-4" style={{ color: 'var(--text-main)' }} />
+          INTERACTIVE / POLAROID
         </button>
 
-        <div>
-          <p className="font-mono text-[9px] uppercase tracking-[0.18em] opacity-40">
-            Standing Routines
-          </p>
-          <h2 className="font-serif text-xl font-semibold">工作流</h2>
+        <div className="ip-top-actions">
+          <button
+            type="button"
+            className="ip-icon-button"
+            onClick={() => setIsDark((value) => !value)}
+            aria-label="切换主题"
+          >
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          <button
+            type="button"
+            className="ip-icon-button"
+            onClick={handleOpenCreate}
+            aria-label="新建工作流"
+          >
+            <Plus size={17} />
+          </button>
         </div>
       </header>
 
-      {/* 封面横幅：撕纸边缘 + 总体状态 */}
-      <div
-        className="relative overflow-hidden px-5 pb-8 pt-6"
-        style={{
-          backgroundColor: 'var(--control-soft-bg)',
-          clipPath: TORN_EDGE_CLIP
-        }}
-      >
-        <p className="font-serif text-2xl italic leading-snug opacity-85">
-          在你不在的时候，
-          <br />
-          也有人记得该说的话。
-        </p>
-        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] opacity-45">
-          {isLoading
-            ? '加载中…'
-            : `${activeCount} / ${workflows.length} 条工作流正在运行`}
-        </p>
-      </div>
+      <main className="ip-page">
+        <section className="ip-hero">
+          <div>
+            <p className="ip-eyebrow">
+              CHARACTER ARCHIVE / PERSONAL TIMELINE
+            </p>
 
-      <div className="space-y-8 px-1">
-        {!isLoading && groupedByCharacter.length === 0 && (
-          <p className="py-10 text-center text-sm opacity-50">
-            还没有任何工作流，点击下方按钮创建第一条吧。
-          </p>
+            <h1>
+              Every
+              <br />
+              person
+              <br />
+              has a side.
+            </h1>
+          </div>
+
+          <div className="ip-hero-note">
+            <p>
+              一个角色不是一张头像，而是一组持续发生的时间、地点、片段与未完成的关系。
+            </p>
+
+            <span>
+              {isLoading
+                ? 'LOADING ARCHIVE…'
+                : `${activeCount} / ${workflows.length} WORKFLOWS ACTIVE`}
+            </span>
+          </div>
+        </section>
+
+        <div className="ip-section-line">
+          <span>01 / PORTRAITS</span>
+        </div>
+
+        {groupedByCharacter.length === 0 && !isLoading && (
+          <div className="ip-empty-archive">
+            <Camera size={34} strokeWidth={1} />
+            <p>还没有角色记忆</p>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="ip-underlined-action"
+            >
+              创建第一条工作流
+            </button>
+          </div>
         )}
 
-        {groupedByCharacter.map((group) => (
-          <section key={group.character?.id || 'unknown'} className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <img
-                src={group.character?.avatar || ''}
-                alt=""
-                className="h-6 w-6 rounded-full object-cover"
-                style={{ backgroundColor: 'var(--control-soft-bg)' }}
-              />
-              <h3 className="font-serif text-sm font-semibold italic opacity-80">
-                {group.character?.name || '未知角色'}
-              </h3>
+        <section className="ip-wall">
+          {groupedByCharacter.map((group, index) => (
+            <PolaroidCard
+              key={group.character?.id || index}
+              character={{
+                ...group.character,
+                avatar: getCharacterVisual(group.character).avatar
+              }}
+              index={index}
+              onClick={() => {
+                setSelectedCharacterId(group.character?.id);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          ))}
+
+          <button
+            type="button"
+            className="ip-add-polaroid"
+            onClick={handleOpenCreate}
+          >
+            <Plus size={32} strokeWidth={1} />
+            <span>ADD MEMORY</span>
+          </button>
+        </section>
+
+        <div className="ip-wall-caption">
+          MOVE THROUGH THE WALL / CLICK TO ENTER
+        </div>
+
+        <div className="ip-section-line">
+          <span>THE ARCHIVE IS NEVER FINISHED</span>
+        </div>
+
+        <section className="ip-workflow-strip">
+          <div>
+            <p className="ip-eyebrow">STANDING ROUTINES</p>
+            <h2>工作流仍在继续。</h2>
+          </div>
+
+          <button
+            type="button"
+            className="ip-text-button"
+            onClick={handleOpenCreate}
+          >
+            新建工作流
+            <ArrowRight size={14} />
+          </button>
+        </section>
+      </main>
+    </div>
+  );
+
+  const renderCharacterDetail = () => {
+    if (!selectedGroup) return null;
+
+    const character = selectedGroup.character;
+    const characterId = character?.id;
+    const visual = getCharacterVisual(character);
+
+    return (
+      <div className={`interactive-polaroid ${isDark ? 'ip-dark' : ''}`}>
+        <header className="ip-topbar">
+          <button
+            type="button"
+            onClick={() => setSelectedCharacterId(null)}
+            className="ip-logo"
+          >
+            INTERACTIVE / POLAROID
+          </button>
+
+          <div className="ip-top-actions">
+            <button
+              type="button"
+              className="ip-icon-button"
+              onClick={() => setIsDark((value) => !value)}
+            >
+              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
+            <button
+              type="button"
+              className="ip-icon-button"
+              onClick={() => setSelectedCharacterId(null)}
+            >
+              <ArrowLeft size={17} />
+            </button>
+          </div>
+        </header>
+
+        <main className="ip-page ip-detail-page">
+          <div className="ip-detail-head">
+            <button
+              type="button"
+              className="ip-back-button"
+              onClick={() => setSelectedCharacterId(null)}
+            >
+              <ArrowLeft size={14} />
+              RETURN TO ARCHIVE
+            </button>
+
+            <div className="ip-detail-meta">
+              <span>CHARACTER / {characterId}</span>
+              <span>MEMORIES / {selectedGroup.items.length}</span>
+            </div>
+          </div>
+
+          <section className="ip-detail-title">
+            <p className="ip-eyebrow">
+              PRIVATE VISUAL DIARY
+            </p>
+
+            <h1>
+              {character?.name || '未命名角色'}
+            </h1>
+          </section>
+
+          <section className="ip-profile-stage">
+            <div className="ip-banner">
+              {visual.banner ? (
+                <img src={visual.banner} alt="" />
+              ) : (
+                <div className="ip-banner-placeholder">
+                  <ImagePlus size={38} strokeWidth={1} />
+                  <span>UPLOAD BANNER</span>
+                </div>
+              )}
+
+              <div className="ip-banner-overlay" />
+
+              <div className="ip-banner-text">
+                <small>CHARACTER / {characterId}</small>
+                <p>
+                  这里记录着与这个角色有关的时间、习惯和正在发生的事情。
+                </p>
+              </div>
+
+              <label className="ip-floating-upload">
+                <ImagePlus size={17} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    updateVisual(
+                      characterId,
+                      'banner',
+                      event.target.files?.[0]
+                    );
+                    event.target.value = '';
+                  }}
+                />
+              </label>
             </div>
 
-            <div className="space-y-4">
-              {group.items.map((workflow, index) => (
-                <WorkflowCard
-                  key={workflow.id}
-                  workflow={workflow}
-                  rotate={index % 2 === 0 ? -1.2 : 1}
-                  onEdit={(target) => setFormTarget({ workflow: target })}
-                  onToggleEnabled={handleToggleEnabled}
-                  onRequestDelete={setConfirmingDeleteId}
-                  confirmingDelete={confirmingDeleteId === workflow.id}
-                  onCancelDelete={() => setConfirmingDeleteId(null)}
-                  onConfirmDelete={handleConfirmDelete}
+            <div className="ip-avatar-wrap">
+              <div className="ip-avatar">
+                {visual.avatar ? (
+                  <img src={visual.avatar} alt={character?.name || ''} />
+                ) : (
+                  <div className="ip-avatar-placeholder">
+                    <Camera size={30} strokeWidth={1} />
+                  </div>
+                )}
+
+                <div className="ip-avatar-label">
+                  {character?.name || 'UNKNOWN'} / {characterId}
+                </div>
+              </div>
+
+              <label className="ip-avatar-upload">
+                <ImagePlus size={16} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    updateVisual(
+                      characterId,
+                      'avatar',
+                      event.target.files?.[0]
+                    );
+                    event.target.value = '';
+                  }}
                 />
-              ))}
+              </label>
             </div>
           </section>
-        ))}
-      </div>
 
-      <button
-        type="button"
-        onClick={handleOpenCreate}
-        className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-lg"
-        style={{
-          backgroundColor: 'var(--text-main)',
-          color: 'var(--bg-main)',
-          borderColor: 'var(--card-border)'
-        }}
-      >
-        <Plus className="h-4 w-4" />
-        新建工作流
-      </button>
+          <div className="ip-detail-tools">
+            <button
+              type="button"
+              className="ip-tool-button"
+              onClick={() => setUploadTarget('memory')}
+            >
+              <ImagePlus size={14} />
+              ADD MEMORY
+            </button>
+
+            <button
+              type="button"
+              className="ip-tool-button"
+              onClick={handleOpenCreate}
+            >
+              <Plus size={14} />
+              ADD WORKFLOW
+            </button>
+
+            <button
+              type="button"
+              className="ip-tool-button"
+              onClick={() => {
+                const reordered = [...workflows].sort(
+                  () => Math.random() - 0.5
+                );
+                setWorkflows(reordered);
+              }}
+            >
+              <Shuffle size={14} />
+              REARRANGE
+            </button>
+          </div>
+
+          {visual.memories.length > 0 && (
+            <section className="ip-memory-strip">
+              {visual.memories.map((memory) => (
+                <div
+                  className="ip-memory-photo"
+                  key={memory.id}
+                >
+                  <img src={memory.image} alt="" />
+                  <span>{memory.date}</span>
+                </div>
+              ))}
+            </section>
+          )}
+
+          <section className="ip-timeline">
+            <h2>
+              A LINE OF
+              <br />
+              FRAGMENTS.
+            </h2>
+
+            {selectedGroup.items.length === 0 ? (
+              <div className="ip-empty-timeline">
+                这个角色还没有被记录。
+              </div>
+            ) : (
+              selectedGroup.items.map((workflow, index) => (
+                <TimelineEvent
+                  key={workflow.id}
+                  workflow={workflow}
+                  index={index}
+                />
+              ))
+            )}
+          </section>
+        </main>
+
+        <input
+          id="ip-memory-upload"
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(event) => {
+            addMemoryImage(
+              characterId,
+              event.target.files?.[0]
+            );
+            event.target.value = '';
+            setUploadTarget(null);
+          }}
+        />
+
+        {uploadTarget === 'memory' && (
+          <label
+            htmlFor="ip-memory-upload"
+            className="ip-memory-upload-modal"
+            onClick={() => setUploadTarget(null)}
+          >
+            <div
+              className="ip-memory-upload-dialog"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setUploadTarget(null)}
+                className="ip-close-button"
+              >
+                <X size={18} />
+              </button>
+
+              <p className="ip-eyebrow">
+                ADD TO TIMELINE
+              </p>
+
+              <h2>放入一张新的记忆照片</h2>
+
+              <span>
+                点击此处选择图片，它会被保存在当前角色的时间轴中。
+              </span>
+            </div>
+          </label>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {selectedCharacterId
+        ? renderCharacterDetail()
+        : renderArchive()}
 
       {isPickingChat && (
         <ChatPickerSheet
@@ -639,7 +1140,7 @@ export const WorkflowApp = ({ onBackHub }) => {
           }}
         />
       )}
-    </div>
+    </>
   );
 };
 
