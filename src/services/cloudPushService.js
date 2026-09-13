@@ -1,4 +1,5 @@
 // src/services/cloudPushService.js
+import Dexie from 'dexie';
 import db from '../db';
 
 function urlBase64ToUint8Array(base64String) {
@@ -13,20 +14,23 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 /**
- * 🛠️ 开屏/切回前台对齐兜底（即使忽略了通知，直接从桌面点开 App 也能 100% 补齐消息）
+ * 🛠️ 开屏/切回前台对齐兜底（全聊天框通用）
+ * 从 cloudPushConfig.serverUrl 拉取未写入本地的消息，不使用任何硬编码服务器兜底
  */
 export async function syncPendingPushMessages() {
   try {
     const cloudPushSetting = await db.settings.get('cloudPushConfig');
-    const serverUrl =
-      cloudPushSetting?.value?.serverUrl ||
-      localStorage.getItem('push_server_url') ||
-      '';
+    const rawServerUrl = cloudPushSetting?.value?.serverUrl;
+    const cleanServerUrl = (rawServerUrl || '').trim().replace(/\/$/, '');
 
-    const cleanServerUrl = (serverUrl || '').trim().replace(/\/$/, '');
-    if (!cleanServerUrl) return;
+    if (!cleanServerUrl) {
+      return; // 用户未配置推送服务器，静默退出
+    }
 
-    const res = await fetch(`${cleanServerUrl}/api/fetch-pending-messages`);
+    const res = await fetch(`${cleanServerUrl}/api/fetch-pending-messages`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
     if (!res.ok) return;
 
     const data = await res.json();
@@ -35,14 +39,13 @@ export async function syncPendingPushMessages() {
     }
 
     const syncedIds = [];
-    const affectedChatIds = new Set();
 
     for (const msg of data.messages) {
       const targetChatId = Number(msg.chatId || 1);
       const rawTimestamp = msg.timestamp || Date.now();
       const numTimestamp = typeof rawTimestamp === 'number' ? rawTimestamp : new Date(rawTimestamp).getTime();
 
-      // 基于 [chatId+timestamp] 复合索引或内容查重
+      // 基于 [chatId+timestamp] 索引精准查重
       let exists = false;
       try {
         exists = await db.messages
@@ -53,16 +56,16 @@ export async function syncPendingPushMessages() {
         exists = await db.messages
           .where('chatId')
           .equals(targetChatId)
-          .and((m) => m.timestamp === numTimestamp || (m.content === msg.content && Math.abs((m.timestamp || 0) - numTimestamp) < 2000))
+          .filter((m) => m.timestamp === numTimestamp)
           .first();
       }
 
       if (!exists) {
-        // 去除可能的字符串 id，确保 Dexie 采用主键自增（++id）
         const { id, ...recordToSave } = msg;
         const nowIso = new Date(numTimestamp).toISOString();
 
         const messageRecord = {
+          ...recordToSave,
           chatId: targetChatId,
           characterId: Number(recordToSave.characterId || 1),
           sender: recordToSave.sender || 'character',
@@ -88,15 +91,13 @@ export async function syncPendingPushMessages() {
 
         const newMsgId = await db.messages.add(messageRecord);
 
-        // 同步更新对应 chats 表的最后更新时间和摘要预览
+        // 联动更新具体聊天框的 updatedAt 与预览摘要
         await db.chats.where('id').equals(targetChatId).modify({
           updatedAt: nowIso,
           summary: (messageRecord.content || '').slice(0, 30),
         });
 
-        affectedChatIds.add(targetChatId);
-
-        // 派发本地消息写入事件，使前端当前处于该会话的界面立刻响应渲染
+        // 派发本地消息通知，前端当前如果正打开着该聊天框，UI 立即刷新出气泡
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('new-local-message-inserted', {
@@ -114,7 +115,7 @@ export async function syncPendingPushMessages() {
       }
     }
 
-    // 告知云端这些消息已经安全落地本地，可以从待取池清理
+    // 回执确认，服务端清理已同步消息
     if (syncedIds.length > 0) {
       await fetch(`${cleanServerUrl}/api/ack-pending-messages`, {
         method: 'POST',
@@ -123,27 +124,36 @@ export async function syncPendingPushMessages() {
       }).catch(() => {});
     }
   } catch (e) {
-    // 纯离线或网络波动时静默跳过，保证体验平滑
+    // 纯离线时静默跳过
   }
 }
 
 /**
- * 注册并向云端同步推送配置（支持多 Chat、多角色）
+ * 注册并向云端同步推送配置
+ * 收集用户存在/聊过的所有消息框，使其全部具备云端独立主动发信的能力
  */
 export async function registerCloudPush({
   serverUrl,
   vapidPublicKey,
-  currentChatId = null,
-  currentCharacterId = null,
 } = {}) {
-  const cleanServerUrl = (serverUrl || '').trim().replace(/\/$/, '');
-  const cleanVapidKey = (vapidPublicKey || '').trim();
+  // 1. 优先从参数取，没传则从 db.settings 取，绝不硬编码
+  let targetServerUrl = serverUrl;
+  let targetVapidKey = vapidPublicKey;
 
-  if (!cleanServerUrl || !cleanVapidKey) {
-    throw new Error('请完整填写服务器地址与 VAPID 公钥');
+  if (!targetServerUrl || !targetVapidKey) {
+    const cloudPushSetting = await db.settings.get('cloudPushConfig');
+    targetServerUrl = targetServerUrl || cloudPushSetting?.value?.serverUrl;
+    targetVapidKey = targetVapidKey || cloudPushSetting?.value?.vapidPublicKey;
   }
 
-  // 1. 跨平台 PWA 环境检测（iOS 要求 standalone，安卓/PC 则只要支持 ServiceWorker 即可）
+  const cleanServerUrl = (targetServerUrl || '').trim().replace(/\/$/, '');
+  const cleanVapidKey = (targetVapidKey || '').trim();
+
+  if (!cleanServerUrl || !cleanVapidKey) {
+    throw new Error('请完整配置推送服务器地址与 VAPID 公钥');
+  }
+
+  // 2. 跨平台 PWA 环境检测
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isStandalone =
     window.navigator.standalone ||
@@ -157,7 +167,7 @@ export async function registerCloudPush({
     throw new Error('当前浏览器不支持 Web Push 推送功能');
   }
 
-  // 2. 检查并申请通知权限
+  // 3. 申请系统通知权限
   let permission = Notification.permission;
   if (permission !== 'granted') {
     permission = await Notification.requestPermission();
@@ -166,7 +176,7 @@ export async function registerCloudPush({
     throw new Error('系统通知权限被拒绝，无法开启主动推送');
   }
 
-  // 3. 向 APNs (iOS) 或 FCM (安卓) 申请设备凭证
+  // 4. 获取 APNs / FCM 订阅凭据
   const registration = await navigator.serviceWorker.ready;
   let subscription = await registration.pushManager.getSubscription();
 
@@ -181,84 +191,97 @@ export async function registerCloudPush({
     }
   }
 
-  // 4. 读取当前本地伴侣数据、全量聊天框列表与当前活跃会话
-  const apiSettings = await db.settings.get('apiConfig');
-  const allCharacters = await db.characters.toArray();
+  // 5. 🎯 核心升级：遍历所有存在的消息框，全部具备主动发信能力
   const allChats = await db.chats.toArray();
-
-  // 确定当前使用的角色
-  let activeChar = null;
-  if (currentCharacterId) {
-    activeChar = allCharacters.find((c) => c.id === currentCharacterId);
-  }
-  if (!activeChar) {
-    activeChar = allCharacters[0] || {};
+  if (!allChats || allChats.length === 0) {
+    throw new Error('本地尚未创建任何聊天框');
   }
 
-  // 确定当前激活的目标会话
-  let activeChat = null;
-  if (currentChatId) {
-    activeChat = allChats.find((c) => c.id === currentChatId);
+  const allCharacters = await db.characters.toArray();
+  const characterMap = new Map(allCharacters.map((c) => [c.id, c]));
+
+  // 为每一个聊天框独立抽取专属的上下文与人设信息
+  const chatTargets = [];
+
+  for (const chat of allChats) {
+    const chatId = Number(chat.id);
+    const charId = Number(chat.characterId || 1);
+    const charObj = characterMap.get(charId) || {};
+
+    // 提取该聊天框专属的最近 5 条对话记录，杜绝多框串戏
+    let recentContext = '';
+    try {
+      const recentMsgs = await db.messages
+        .where('[chatId+timestamp]')
+        .between([chatId, Dexie.minKey], [chatId, Dexie.maxKey])
+        .reverse()
+        .limit(5)
+        .toArray();
+
+      recentContext = recentMsgs
+        .reverse()
+        .map((m) => {
+          if (m.versions && m.versions.length > 0) {
+            const idx = m.currentVersionIndex || 0;
+            return m.versions[idx]?.text || m.content || '';
+          }
+          return m.content || '';
+        })
+        .filter(Boolean)
+        .join('；');
+    } catch (err) {
+      const fallbackMsgs = await db.messages
+        .where('chatId')
+        .equals(chatId)
+        .reverse()
+        .limit(5)
+        .toArray();
+
+      recentContext = fallbackMsgs
+        .reverse()
+        .map((m) => m.content || '')
+        .filter(Boolean)
+        .join('；');
+    }
+
+    chatTargets.push({
+      chatId: chatId,
+      characterId: charId,
+      characterName: charObj.name || chat.title || '伴侣',
+      persona:
+        charObj.bio ||
+        charObj.persona ||
+        charObj.extraNotes ||
+        charObj.userPersona ||
+        '',
+      userName: chat.userName || charObj.userName || '你',
+      recentContext: recentContext,
+      updatedAt: chat.updatedAt || new Date().toISOString(),
+    });
   }
-  if (!activeChat && activeChar.id) {
-    activeChat = allChats.find((c) => c.characterId === activeChar.id);
-  }
-  if (!activeChat) {
-    activeChat = allChats[0] || {};
-  }
 
-  const targetChatId = Number(activeChat.id || currentChatId || 1);
-  const targetCharId = Number(activeChar.id || currentCharacterId || 1);
+  // 6. 读取系统 API 设置
+  const apiSettings = await db.settings.get('apiConfig');
 
-  // 提取对应聊天框最近的上下文片段（优先使用该 targetChatId 的历史记录）
-  const recentMsgs = await db.messages
-    .where('chatId')
-    .equals(targetChatId)
-    .reverse()
-    .limit(5)
-    .toArray();
-
-  const recentContext = recentMsgs
-    .reverse()
-    .map((m) => {
-      if (m.versions && m.versions.length > 0) {
-        const idx = m.currentVersionIndex || 0;
-        return m.versions[idx]?.text || m.content || '';
-      }
-      return m.content || '';
-    })
-    .filter(Boolean)
-    .join('；');
-
-  // 构建支持多角色、多聊天框的同步数据包
+  // 7. 发送包含全部可用消息框的配置数据包
   const payloadData = {
     subscription: subscription.toJSON(),
     apiConfig: apiSettings?.value || {},
-    character: {
-      id: targetCharId,
-      chatId: targetChatId,
-      name: activeChar.name || 'AI伴侣',
-      persona:
-        activeChar.userPersona ||
-        activeChar.bio ||
-        activeChar.persona ||
-        activeChar.extraNotes ||
-        '',
-      userName: activeChat.userName || activeChar.userName || '你',
-    },
-    targetChatId: targetChatId,
-    // 传给服务端所有用户可发信/激活的聊天框列表
-    allowedChatIds: allChats.map((c) => c.id),
-    activeChats: allChats.map((c) => ({
-      id: c.id,
-      characterId: c.characterId,
-      userName: c.userName || '',
-      summary: c.summary || '',
-    })),
-    recentContext: recentContext,
+    // 全量激活的消息框列表，每个都有独立人设和上下文
+    chatTargets: chatTargets,
+    // 兼容老版本后端的单对象字段（默认取最近更新的那个）
+    character: chatTargets[0]
+      ? {
+          id: chatTargets[0].characterId,
+          chatId: chatTargets[0].chatId,
+          name: chatTargets[0].characterName,
+          persona: chatTargets[0].persona,
+          userName: chatTargets[0].userName,
+        }
+      : { id: 1, chatId: 1, name: '伴侣', persona: '' },
+    recentContext: chatTargets[0]?.recentContext || '',
   };
 
-  // 5. 真正向宝塔推送服务器发送配置
   let response;
   try {
     response = await fetch(`${cleanServerUrl}/api/sync-push-config`, {
@@ -283,16 +306,9 @@ export async function registerCloudPush({
     throw new Error(`服务器保存失败: ${result.error || '未知错误'}`);
   }
 
-  // 成功后在本地保存已验证有效的推送服务器地址
-  try {
-    localStorage.setItem('push_server_url', cleanServerUrl);
-  } catch (e) {
-    // 忽略静默异常
-  }
+  // 8. 顺带执行一次开屏拉齐补漏
+  void syncPendingPushMessages();
 
-  // 注册成功后，顺手执行一次拉齐补漏
-  syncPendingPushMessages();
-
+  console.log(`[CloudPush] 已成功同步所有激活的消息框 (${chatTargets.length} 个) 至云端推送服务！`);
   return true;
 }
-
