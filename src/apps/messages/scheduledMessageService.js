@@ -1,6 +1,7 @@
 import Dexie from 'dexie';
 import db from '../../db';
-import { runChatCompletionWithMcpTools } from '../mcp/scheduledMcpToolBridge';
+import { runChatCompletionWithMcpTools } from '../../service/mcp/scheduledMcpToolBridge';
+
 
 const SCHEDULE_PATTERN =
   /\s*\[SCHEDULE_MESSAGE:\s*(\d{1,4})(?:\s*\|\s*([^\]]*))?\]\s*/gi;
