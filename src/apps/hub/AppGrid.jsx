@@ -16,6 +16,7 @@ import {
   Clock,
   Newspaper,
   Feather,
+  Repeat,
   ArrowUpRight
 } from 'lucide-react';
 
@@ -27,23 +28,28 @@ import db from '../../db';
 export const AppGrid = ({ delay = 400, onOpenApp }) => {
   const [habitatCount, setHabitatCount] = useState(0);
   const [askCount, setAskCount] = useState(0);
+  const [activeWorkflowCount, setActiveWorkflowCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadStats = async () => {
       try {
-        const [hCount, unansweredCount] = await Promise.all([
+        const [hCount, unansweredCount, allWorkflows] = await Promise.all([
           db.habitats.count(),
           db.askBoxQuestions
             .filter((question) => !question.reply)
-            .count()
+            .count(),
+          db.workflows.toArray()
         ]);
 
         if (!isMounted) return;
 
         setHabitatCount(hCount);
         setAskCount(unansweredCount);
+        setActiveWorkflowCount(
+          allWorkflows.filter((workflow) => workflow.enabled).length
+        );
       } catch (error) {
         console.error('读取首页应用统计失败：', error);
       }
@@ -374,6 +380,38 @@ export const AppGrid = ({ delay = 400, onOpenApp }) => {
               Morning Press
             </p>
           </div>
+        </GlassCard>
+
+                {/* 工作流：定时唤醒 AI 主动行动 */}
+        <GlassCard
+          delay={delay + 115}
+          onClick={() => onOpenApp('workflows')}
+          className="group col-span-2 flex cursor-pointer items-center justify-between p-4 text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: 'var(--control-soft-bg)' }}
+            >
+              <Repeat
+                className="h-5 w-5 opacity-90"
+                style={{ color: 'var(--text-main)' }}
+              />
+            </div>
+
+            <div>
+              <h4 className="text-sm font-bold">Workflows</h4>
+              <p className="mt-0.5 text-[11px] uppercase tracking-wider opacity-50">
+                {activeWorkflowCount > 0
+                  ? `${activeWorkflowCount} running quietly`
+                  : 'Set a standing routine'}
+              </p>
+            </div>
+          </div>
+
+          <span className="pr-1 font-mono text-[9px] uppercase tracking-[0.16em] opacity-30 transition-opacity group-hover:opacity-60">
+            定时工作流
+          </span>
         </GlassCard>
 
         {/* 提问箱：底部横向信封 */}

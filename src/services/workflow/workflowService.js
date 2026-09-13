@@ -104,13 +104,68 @@ export const getDueWorkflows = async () => {
   });
 };
 
-export const markWorkflowRun = async (id, { success = true } = {}) => {
+export const markWorkflowRun = async (
+  id,
+  { success = true, errorMessage = '' } = {}
+) => {
   const now = new Date();
 
   await db.workflows.update(id, {
     lastRunDate: now.toISOString().slice(0, 10),
     lastRunAt: now.toISOString(),
     lastRunStatus: success ? 'sent' : 'error',
+    lastRunError: success ? '' : normalizeText(errorMessage),
     updatedAt: now.toISOString()
   });
+};
+
+
+/**
+ * 读取全部工作流，并拼上对应的聊天/角色信息，供工作流管理页展示。
+ * 按最近更新时间倒序，最近改动过的排在前面。
+ */
+export const getAllWorkflowsWithContext = async () => {
+  const [workflows, chats, characters] = await Promise.all([
+    db.workflows.toArray(),
+    db.chats.toArray(),
+    db.characters.toArray()
+  ]);
+
+  const chatById = new Map(chats.map((chat) => [chat.id, chat]));
+  const characterById = new Map(
+    characters.map((character) => [character.id, character])
+  );
+
+  return workflows
+    .map((workflow) => ({
+      ...workflow,
+      chat: chatById.get(workflow.chatId) || null,
+      character: characterById.get(workflow.characterId) || null
+    }))
+    .sort((a, b) =>
+      String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
+    );
+};
+
+/**
+ * 新建工作流时，供"选择挂在哪个聊天下"用的候选列表。
+ */
+export const getWorkflowCandidateChats = async () => {
+  const [chats, characters] = await Promise.all([
+    db.chats.toArray(),
+    db.characters.toArray()
+  ]);
+
+  const characterById = new Map(
+    characters.map((character) => [character.id, character])
+  );
+
+  return chats
+    .map((chat) => ({
+      ...chat,
+      character: characterById.get(chat.characterId) || null
+    }))
+    .sort((a, b) =>
+      String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
+    );
 };

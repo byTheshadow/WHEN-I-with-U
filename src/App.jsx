@@ -72,6 +72,8 @@ import {
   stopWorkflowScheduler,
 } from './services/workflow/workflowScheduler';
 
+import WorkflowApp from './apps/workflows/WorkflowApp';
+
 import {
   checkAlmanacGreetings,
   startAlmanacGreetingScheduler,
@@ -124,6 +126,7 @@ const REGISTERED_APPS = [
   'memory',
   'newspaper',
   'margin-notes',
+  'workflows',
 ];
 
 const DEFAULT_AUDIO_CONFIG = {
@@ -1034,10 +1037,18 @@ export const App = () => {
           </ErrorBoundary>
         )}
 
-        {currentApp === 'memory' && (
+                {currentApp === 'memory' && (
           <MemoryApp
             onBackHub={() => openApp('hub')}
           />
+        )}
+
+        {currentApp === 'workflows' && (
+          <ErrorBoundary>
+            <WorkflowApp
+              onBackHub={() => openApp('hub')}
+            />
+          </ErrorBoundary>
         )}
 
         {!REGISTERED_APPS.includes(currentApp) && (

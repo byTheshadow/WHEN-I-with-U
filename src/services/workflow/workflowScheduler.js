@@ -22,7 +22,10 @@ const runDueWorkflows = async () => {
           metadataExtra: { workflowId: workflow.id }
         });
 
-        await markWorkflowRun(workflow.id, { success: !result.error });
+                await markWorkflowRun(workflow.id, {
+          success: !result.error,
+          errorMessage: result.error ? result.message : ''
+        });
 
         if (result.error) {
           console.warn('[Workflow] 执行失败：', workflow.id, result.message);
