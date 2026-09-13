@@ -58,18 +58,21 @@ export async function syncPendingPushMessages() {
 
     for (const msg of data.messages) {
       const targetChatId = Number(msg.chatId || 1);
-      const rawTimestamp = msg.timestamp || Date.now();
-      const numTimestamp =
-        typeof rawTimestamp === 'number'
-          ? rawTimestamp
-          : new Date(rawTimestamp).getTime();
+      
+      // 1. 严格标准化为 ISO 8601 字符串
+      const nowIso =
+        typeof msg.timestamp === 'string' && msg.timestamp.includes('T')
+          ? msg.timestamp
+          : new Date(msg.timestamp || Date.now()).toISOString();
 
-      // 基于 [chatId+timestamp] 索引精准查重，兼容降级
+      const contentText = msg.content || '';
+
+      // 2. 基于 [chatId+timestamp] 查重（兼容降级到内容比对）
       let exists = false;
       try {
         exists = await db.messages
           .where('[chatId+timestamp]')
-          .between([targetChatId, numTimestamp], [targetChatId, numTimestamp])
+          .equals([targetChatId, nowIso])
           .first();
       } catch (err) {
         exists = await db.messages
@@ -77,25 +80,23 @@ export async function syncPendingPushMessages() {
           .equals(targetChatId)
           .filter(
             (m) =>
-              m.timestamp === numTimestamp ||
-              (m.content === msg.content &&
-                Math.abs((m.timestamp || 0) - numTimestamp) < 3000),
+              m.timestamp === nowIso ||
+              (m.content === contentText &&
+                Math.abs(new Date(m.timestamp).getTime() - new Date(nowIso).getTime()) < 3000),
           )
           .first();
       }
 
       if (!exists) {
-        // 彻底剥离可能存在的字符串主键 id，确保 messages 表的 ++id 自增生效
+        // 彻底剥离可能存在的外部 id，确保 messages 表的自增生效
         const { id, ...recordToSave } = msg;
-        const nowIso = new Date(numTimestamp).toISOString();
-        const contentText = recordToSave.content || '';
 
-        // 统一对齐前端标准数据模型（sender 必须为 'assistant'）
+        // 3. 严格对齐前端真实的数据模型
         const messageRecord = {
           chatId: targetChatId,
           characterId: Number(recordToSave.characterId || 1),
-          sender: 'assistant',
-          type: recordToSave.type || 'text',
+          sender: 'character', // ⚠️ 核心：绝不能是 assistant，必须是 character
+          type: 'text',
           content: contentText,
           metadata: {
             isOfflinePush: true,
@@ -103,27 +104,33 @@ export async function syncPendingPushMessages() {
             ...(recordToSave.metadata || {}),
           },
           quotedMessageId: recordToSave.quotedMessageId ?? null,
-          isRead: recordToSave.isRead ?? 0,
-          timestamp: numTimestamp,
-          versions: recordToSave.versions || [
+          isRead: false,       // ⚠️ 核心：布尔值 false
+          timestamp: nowIso,   // ⚠️ 核心：ISO 字符串
+          // ⚠️ 核心：versions 内部结构必须是 type, content, timestamp
+          versions: [
             {
-              text: contentText,
-              timestamp: numTimestamp,
-              model: 'cloud-push-ai',
+              type: 'text',
+              content: contentText,
+              timestamp: nowIso,
+              metadata: {
+                isOfflinePush: true,
+                model: recordToSave.metadata?.model || 'cloud-push-ai',
+              },
             },
           ],
-          currentVersionIndex: recordToSave.currentVersionIndex ?? 0,
+          currentVersionIndex: 0,
         };
 
+        // 4. 写入数据库
         const newMsgId = await db.messages.add(messageRecord);
 
-        // 联动更新具体聊天框的 updatedAt 与预览摘要
+        // 5. 联动更新 chats 列表（更新时间和最后一条摘要）
         await db.chats.where('id').equals(targetChatId).modify({
           updatedAt: nowIso,
           summary: contentText.slice(0, 30),
         });
 
-        // 派发本地消息通知，前端当前如果正打开着该聊天框，UI 立即刷新出气泡
+        // 6. 广播本地事件，通知 React 界面立刻弹出气泡
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('new-local-message-inserted', {
@@ -259,7 +266,7 @@ export async function registerCloudPush({
         .map((m) => {
           if (m.versions && m.versions.length > 0) {
             const idx = m.currentVersionIndex || 0;
-            return m.versions[idx]?.text || m.content || '';
+            return m.versions[idx]?.content || m.versions[idx]?.text || m.content || '';
           }
           return m.content || '';
         })

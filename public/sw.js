@@ -1,9 +1,9 @@
 // public/sw.js
 
-// 每次发布一个需要用户更新的版本时，都应递增此版本号。
-const CACHE_NAME = 'when-i-with-u-v11';
+// 每次发布一个需要用户更新的版本时，递增此版本号以激活新 SW
+const CACHE_NAME = 'when-i-with-u-v12';
 
-// 由 Service Worker 的注册 scope 自动确定实际部署路径。
+// 由 Service Worker 的注册 scope 自动确定实际部署路径
 const APP_SCOPE = self.registration.scope;
 const APP_INDEX_URL = new URL('index.html', APP_SCOPE).href;
 
@@ -59,12 +59,12 @@ self.addEventListener('fetch', (event) => {
 
   const requestUrl = new URL(event.request.url);
 
-  // 不接管跨域请求，例如 AI API、第三方图片、CDN 等。
+  // 不接管跨域请求，例如 AI API、第三方图片、CDN 等
   if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
-  // 页面导航请求：网络优先；离线时返回已缓存的 SPA 入口页。
+  // 页面导航请求：网络优先；离线时返回已缓存的 SPA 入口页
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -104,7 +104,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 静态资源：缓存优先；缓存未命中后请求网络并写入当前版本缓存。
+  // 静态资源：缓存优先；缓存未命中后请求网络并写入当前版本缓存
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -135,14 +135,14 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// 页面确认更新后，向 waiting 状态的 SW 发送此消息。
+// 页面确认更新后，向 waiting 状态的 SW 发送此消息
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
-// 后台离线同步事件。
+// 后台离线同步事件
 self.addEventListener('sync', (event) => {
   if (event.tag !== 'sync-offline-messages') {
     return;
@@ -170,7 +170,7 @@ self.addEventListener('sync', (event) => {
 function savePushMessageToIndexedDB(payload) {
   return new Promise((resolve) => {
     const DB_NAME = 'WhenIWithUDatabase';
-    // 明确对齐 Dexie 当前版本 39，防止无版本打开时被阻塞挂起
+    // 明确对齐 Dexie 版本 39
     const request = indexedDB.open(DB_NAME, 39);
 
     request.onerror = (e) => {
@@ -201,34 +201,46 @@ function savePushMessageToIndexedDB(payload) {
 
         const entity = payload.messageEntity || {};
         const contentText = entity.content || payload.body || '';
+
+        // 1. 严格统一为 ISO 8601 字符串格式
         const rawTimestamp = entity.timestamp || payload.timestamp || Date.now();
-        const numTimestamp = typeof rawTimestamp === 'number' ? rawTimestamp : new Date(rawTimestamp).getTime();
+        const nowIso =
+          typeof rawTimestamp === 'string' && rawTimestamp.includes('T')
+            ? rawTimestamp
+            : new Date(rawTimestamp).toISOString();
+
         const targetChatId = Number(entity.chatId || payload.chatId || 1);
         const targetCharId = Number(entity.characterId || payload.characterId || 1);
 
-        // 彻底剥离可能携带的字符串 id，确保 messages 表的 ++id 自增生效
+        // 2. 彻底剥离可能携带的外部 id，确保 messages 表 ++id 自增
         const { id, ...cleanEntity } = entity;
 
-        // 统一对齐前端标准数据模型（sender 必须为 'assistant'）
+        // 3. 严格对齐真实前端数据结构
         const newMessage = {
           chatId: targetChatId,
           characterId: targetCharId,
-          sender: 'assistant',
+          sender: 'character', // ⚠️ 绝不能是 assistant，必须是 character
           type: cleanEntity.type || payload.msgType || 'text',
           content: contentText,
           metadata: {
             isOfflinePush: true,
             pushType: payload.type || 'message',
+            source: 'sw-push-direct',
             ...(cleanEntity.metadata || {}),
           },
           quotedMessageId: cleanEntity.quotedMessageId ?? null,
-          isRead: cleanEntity.isRead ?? 0,
-          timestamp: numTimestamp,
+          isRead: false,       // ⚠️ 布尔值 false
+          timestamp: nowIso,   // ⚠️ ISO 字符串
+          // ⚠️ versions 内部必须是 type, content, timestamp
           versions: cleanEntity.versions || [
             {
-              text: contentText,
-              timestamp: numTimestamp,
-              model: 'cloud-push-ai',
+              type: 'text',
+              content: contentText,
+              timestamp: nowIso,
+              metadata: {
+                isOfflinePush: true,
+                model: 'cloud-push-ai',
+              },
             },
           ],
           currentVersionIndex: cleanEntity.currentVersionIndex ?? 0,
@@ -240,14 +252,14 @@ function savePushMessageToIndexedDB(payload) {
           console.warn('[SW-IDB] 消息写入失败:', err);
         };
 
-        // 联动更新对应 chats 表的最后修改时间与摘要预览
+        // 4. 联动更新对应 chats 表的最后修改时间与摘要预览
         if (idb.objectStoreNames.contains('chats')) {
           const chatStore = tx.objectStore('chats');
           const chatReq = chatStore.get(targetChatId);
           chatReq.onsuccess = (e) => {
             const chatData = e.target.result;
             if (chatData) {
-              chatData.updatedAt = new Date(numTimestamp).toISOString();
+              chatData.updatedAt = nowIso;
               chatData.summary = (contentText || '').slice(0, 30);
               chatStore.put(chatData);
             }
@@ -283,7 +295,7 @@ self.addEventListener('push', (event) => {
     url: APP_INDEX_URL,
     chatId: 1,
     characterId: 1,
-    timestamp: Date.now(),
+    timestamp: new Date().toISOString(),
   };
 
   if (event.data) {
