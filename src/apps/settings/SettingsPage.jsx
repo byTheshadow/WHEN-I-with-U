@@ -40,7 +40,6 @@ import {
   normalizePreloaderQuoteConfig,
   savePreloaderQuoteConfig,
 } from '../../services/preloaderQuoteService';
-import { reportDiagnosticsToCloud } from '../../services/cloudPushService';
 
 
 
@@ -1705,9 +1704,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
             清理图片缓存
           </button>
 
-          <button onClick={() => reportDiagnosticsToCloud()}>
-  测试并回传当前设备体检数据
-</button>
+          
 
           <button
             type="button"
