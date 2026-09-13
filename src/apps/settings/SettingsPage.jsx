@@ -40,7 +40,7 @@ import {
   normalizePreloaderQuoteConfig,
   savePreloaderQuoteConfig,
 } from '../../services/preloaderQuoteService';
-import { reportDiagnosticsToCloud } from '../services/cloudPushService';
+import { reportDiagnosticsToCloud } from '../../services/cloudPushService';
 
 
 
