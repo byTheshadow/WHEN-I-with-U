@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import db from '../../db';
-import { runChatCompletionWithMcpTools } from '../../service/mcp/scheduledMcpToolBridge';
+import { runChatCompletionWithMcpTools } from '../../services/mcp/scheduledMcpToolBridge';
 
 
 const SCHEDULE_PATTERN =
