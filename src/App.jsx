@@ -67,6 +67,16 @@ import {
 } from './apps/messages/scheduledMessageService';
 
 import {
+  startScheduledMessageScheduler,
+  stopScheduledMessageScheduler,
+} from './apps/messages/scheduledMessageService';
+
+import {
+  startWorkflowScheduler,
+  stopWorkflowScheduler,
+} from './services/workflow/workflowScheduler';
+
+import {
   checkAlmanacGreetings,
   startAlmanacGreetingScheduler,
   stopAlmanacGreetingScheduler,
@@ -76,6 +86,8 @@ import {
   startParallelOrbitScheduler,
   stopParallelOrbitScheduler,
 } from './services/parallelOrbitScheduler';
+
+
 
 import './apps/daily-offering/daily-offering.css';
 import './apps/manual/manual.css';
@@ -404,17 +416,19 @@ export const App = () => {
     };
   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
     startAutoMessageScheduler();
     startTravelPostcardScheduler();
     startScheduledMessageScheduler();
     startParallelOrbitScheduler();
+    startWorkflowScheduler();
 
     return () => {
       stopAutoMessageScheduler();
       stopTravelPostcardScheduler();
       stopScheduledMessageScheduler();
       stopParallelOrbitScheduler();
+      stopWorkflowScheduler();
     };
   }, []);
 

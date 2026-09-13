@@ -3986,6 +3986,17 @@ db.version(39).stores({
     '++id, chatId, characterId, type, date, isRecurringYearly, createdAt',
 });
 
+db.version(40).stores({
+  workflows: `
+    ++id,
+    chatId,
+    characterId,
+    enabled,
+    lastRunDate,
+    [chatId+enabled]
+  `,
+});
+
 export default db;
 
 
