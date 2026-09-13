@@ -14,14 +14,30 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 /**
+ * 动态获取用户在应用内配置的推送服务器地址
+ * 严禁任何硬编码域名兜底
+ */
+async function getEffectiveServerUrl(explicitUrl) {
+  if (explicitUrl && typeof explicitUrl === 'string') {
+    return explicitUrl.trim().replace(/\/$/, '');
+  }
+
+  const cloudPushSetting = await db.settings.get('cloudPushConfig');
+  const savedUrl = cloudPushSetting?.value?.serverUrl;
+  if (savedUrl && typeof savedUrl === 'string') {
+    return savedUrl.trim().replace(/\/$/, '');
+  }
+
+  return '';
+}
+
+/**
  * 🛠️ 开屏/切回前台对齐兜底（全聊天框通用）
  * 从 cloudPushConfig.serverUrl 拉取未写入本地的消息，不使用任何硬编码服务器兜底
  */
 export async function syncPendingPushMessages() {
   try {
-    const cloudPushSetting = await db.settings.get('cloudPushConfig');
-    const rawServerUrl = cloudPushSetting?.value?.serverUrl;
-    const cleanServerUrl = (rawServerUrl || '').trim().replace(/\/$/, '');
+    const cleanServerUrl = await getEffectiveServerUrl();
 
     if (!cleanServerUrl) {
       return; // 用户未配置推送服务器，静默退出
@@ -333,3 +349,143 @@ export async function registerCloudPush({
   return true;
 }
 
+// ==========================================================
+// 🔍 手机真实状态体检探针（无任何硬编码地址）
+// ==========================================================
+export async function reportDiagnosticsToCloud() {
+  const cleanServerUrl = await getEffectiveServerUrl();
+
+  if (!cleanServerUrl) {
+    const msg = '未找到已配置的推送服务器地址，请先在设置中保存服务器 URL';
+    if (typeof window !== 'undefined') {
+      window.alert(msg);
+    }
+    throw new Error(msg);
+  }
+
+  try {
+    // 1. 获取手机本地所有实际存在的 IndexedDB 库名
+    let actualDatabases = [];
+    if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+      try {
+        actualDatabases = await indexedDB.databases();
+      } catch (e) {
+        actualDatabases = [{ error: e.message }];
+      }
+    }
+
+    // 2. 采样一条最近由系统正常产生的真实消息实体
+    let lastNormalMsg = null;
+    try {
+      lastNormalMsg = await db.messages.orderBy('timestamp').reverse().first();
+    } catch (e) {
+      lastNormalMsg = { queryError: e.message };
+    }
+
+    // 3. 采样当前活跃的 chats 结构
+    let activeChats = [];
+    try {
+      const chats = await db.chats.toArray();
+      activeChats = chats.map((c) => ({
+        id: c.id,
+        title: c.title,
+        characterId: c.characterId,
+        updatedAt: c.updatedAt,
+      }));
+    } catch (e) {
+      activeChats = [{ queryError: e.message }];
+    }
+
+    // 4. 检查当前 sw 状态
+    let swStatus = 'unsupported';
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      swStatus = reg
+        ? {
+            scope: reg.scope,
+            active: Boolean(reg.active),
+            waiting: Boolean(reg.waiting),
+            installing: Boolean(reg.installing),
+          }
+        : 'not_registered';
+    }
+
+    const payload = {
+      timestamp: Date.now(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      actualDatabases,
+      dbInstanceName: db?.name || 'unknown',
+      dbVersion: db?.verno || 'unknown',
+      lastNormalMsgSample: lastNormalMsg,
+      activeChats,
+      swStatus,
+    };
+
+    const res = await fetch(`${cleanServerUrl}/api/debug-log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error(`服务器响应失败，状态码: ${res.status}`);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.alert('✅ 诊断数据已成功发往服务器终端！请去宝塔查看');
+    }
+
+    return true;
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      window.alert(`❌ 探针上报失败: ${err.message}`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * 临时悬浮诊断按钮挂载器（可直接在 main.jsx 或 App.jsx 中调用一次）
+ * 点击后立刻收集并上报当前 iPhone 内部的真实 Dexie 与消息结构
+ */
+export function mountTemporaryDebugButton() {
+  if (typeof document === 'undefined') return;
+
+  const EXISTING_ID = '__cloud_push_debug_btn__';
+  if (document.getElementById(EXISTING_ID)) return;
+
+  const btn = document.createElement('button');
+  btn.id = EXISTING_ID;
+  btn.innerText = '🩺 体检上报';
+  btn.style.position = 'fixed';
+  btn.style.right = '16px';
+  btn.style.bottom = '88px';
+  btn.style.zIndex = '999999';
+  btn.style.padding = '8px 12px';
+  btn.style.fontSize = '12px';
+  btn.style.fontWeight = 'bold';
+  btn.style.color = '#ffffff';
+  btn.style.backgroundColor = 'rgba(20, 20, 25, 0.78)';
+  btn.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+  btn.style.borderRadius = '9999px';
+  btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+  btn.style.backdropFilter = 'blur(10px)';
+  btn.style.webkitBackdropFilter = 'blur(10px)';
+  btn.style.cursor = 'pointer';
+
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.innerText = '正在上报...';
+    try {
+      await reportDiagnosticsToCloud();
+    } finally {
+      btn.disabled = false;
+      btn.innerText = '🩺 体检上报';
+    }
+  };
+
+  document.body.appendChild(btn);
+}
