@@ -122,6 +122,127 @@ const DEFAULT_AUDIO_CONFIG = {
   playlist: [],
   activeTrackId: '',
 };
+/**
+ * 开屏/唤醒双保险同步函数：
+ * 从云端待取池拉取未写入本地的消息，确保用户不点系统通知直接点桌面图标打开 App 也能 100% 看见新消息
+ */
+async function syncPendingPushMessages() {
+  try {
+    // 1. 从 db.settings 精准读取用户在设置页配置的推送服务器地址
+    const pushSetting = await db.settings.get('cloudPushConfig');
+    const rawServerUrl = pushSetting?.value?.serverUrl;
+    const serverUrl = (rawServerUrl || '').trim().replace(/\/$/, '');
+
+    // 2. 如果未配置服务器地址，直接警告并跳过，绝不发请求、绝不使用任何硬编码服务器兜底
+    if (!serverUrl) {
+      console.warn('[CloudPushSync] 未配置推送服务器地址 (cloudPushConfig.value.serverUrl)，跳过开屏消息同步。');
+      return;
+    }
+
+    const res = await fetch(`${serverUrl}/api/fetch-pending-messages`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!data.messages || !Array.isArray(data.messages) || data.messages.length === 0) {
+      return;
+    }
+
+    const syncedIds = [];
+
+    for (const msg of data.messages) {
+      const chatIdNum = Number(msg.chatId || 1);
+      const rawTimestamp = msg.timestamp || Date.now();
+      const timestampNum = typeof rawTimestamp === 'number' ? rawTimestamp : new Date(rawTimestamp).getTime();
+
+      // 3. 本地查重（通过 chatId + timestamp 组合索引，或按内容+时间兜底防重）
+      let exists = false;
+      try {
+        exists = await db.messages
+          .where('[chatId+timestamp]')
+          .equals([chatIdNum, timestampNum])
+          .first();
+      } catch {
+        exists = await db.messages
+          .where('chatId')
+          .equals(chatIdNum)
+          .filter((m) => m.timestamp === timestampNum)
+          .first();
+      }
+
+      if (!exists) {
+        // 剥离可能存在的字符串主键，让 Dexie 维持主键自增（++id）
+        const { id, ...recordToSave } = msg;
+        const nowIso = new Date(timestampNum).toISOString();
+
+        const messageRecord = {
+          ...recordToSave,
+          chatId: chatIdNum,
+          characterId: Number(recordToSave.characterId || 1),
+          sender: recordToSave.sender || 'character',
+          type: recordToSave.type || 'text',
+          content: recordToSave.content || '',
+          metadata: {
+            isOfflinePush: true,
+            source: 'cloud-pending-sync',
+            ...(recordToSave.metadata || {}),
+          },
+          quotedMessageId: recordToSave.quotedMessageId ?? null,
+          isRead: recordToSave.isRead ?? 0,
+          timestamp: timestampNum,
+          versions: recordToSave.versions || [
+            {
+              text: recordToSave.content || '',
+              timestamp: timestampNum,
+              model: 'cloud-push-ai',
+            },
+          ],
+          currentVersionIndex: recordToSave.currentVersionIndex ?? 0,
+        };
+
+        const newMsgId = await db.messages.add(messageRecord);
+
+        // 4. 同步更新对应会话列表摘要和最后更新时间
+        const targetChat = await db.chats.get(chatIdNum);
+        if (targetChat) {
+          await db.chats.update(chatIdNum, {
+            updatedAt: nowIso,
+            summary: (messageRecord.content || '').slice(0, 30),
+          });
+        }
+
+        // 5. 派发全局事件，通知当前打开该聊天框的组件无感刷新气泡
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('new-local-message-inserted', {
+              detail: {
+                chatId: chatIdNum,
+                messageId: newMsgId,
+              },
+            })
+          );
+        }
+      }
+
+      if (msg.id) {
+        syncedIds.push(msg.id);
+      }
+    }
+
+    // 6. 告知云端已同步成功并清理待取池
+    if (syncedIds.length > 0) {
+      await fetch(`${serverUrl}/api/ack-pending-messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: syncedIds }),
+      }).catch(() => {});
+    }
+  } catch (error) {
+    // 离线环境或网络抖动静默跳过，保证应用流畅启动
+  }
+}
 
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
@@ -151,6 +272,27 @@ export const App = () => {
     activeCharacterId,
     setActiveCharacterId,
   ] = useState(null);
+
+  // 云端离线推送消息开屏/切回前台无感补齐双保险
+  useEffect(() => {
+    void syncPendingPushMessages();
+
+    const handleWakeSync = () => {
+      if (document.visibilityState === 'visible') {
+        void syncPendingPushMessages();
+      }
+    };
+
+    window.addEventListener('focus', handleWakeSync);
+    window.addEventListener('pageshow', handleWakeSync);
+    document.addEventListener('visibilitychange', handleWakeSync);
+
+    return () => {
+      window.removeEventListener('focus', handleWakeSync);
+      window.removeEventListener('pageshow', handleWakeSync);
+      document.removeEventListener('visibilitychange', handleWakeSync);
+    };
+  }, []);
 
   useEffect(() => {
     const finishOAuthCallback = async () => {
@@ -911,6 +1053,7 @@ export const App = () => {
 };
 
 export default App;
+
 
 
 

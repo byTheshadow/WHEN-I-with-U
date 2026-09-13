@@ -1,5 +1,6 @@
 import Dexie from 'dexie';
 import db from '../../db';
+import { runChatCompletionWithMcpTools } from '../mcp/scheduledMcpToolBridge';
 
 const SCHEDULE_PATTERN =
   /\s*\[SCHEDULE_MESSAGE:\s*(\d{1,4})(?:\s*\|\s*([^\]]*))?\]\s*/gi;
@@ -349,18 +350,24 @@ export const createScheduledMessage = async ({
     }
   );
 
-  // 如果用户配置了推送服务器，告诉服务器一声：
+    // 如果用户配置了推送服务器，告诉服务器一声：
   try {
-    const pushServerUrl = localStorage.getItem('push_server_url') || 'https://push.wheni.icu:8443';
-    fetch(`${pushServerUrl}/api/sync-push-config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        targetTime: new Date(scheduledFor).getTime(), // 传入精确的到期毫秒时间戳
-        intent: intent || '伴侣主动找你',
-        // 这里只需要同步预约时间，不需要重复传大段 context
-      })
-    }).catch(() => {});
+    const cloudPushSetting = await db.settings.get('cloudPushConfig');
+    const pushServerUrl = cloudPushSetting?.value?.serverUrl;
+
+    if (!pushServerUrl) {
+      console.warn('[ScheduledMessage] 未配置推送服务器地址，跳过云端同步。');
+    } else {
+      fetch(`${pushServerUrl}/api/sync-push-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetTime: new Date(scheduledFor).getTime(), // 传入精确的到期毫秒时间戳
+          intent: intent || '伴侣主动找你',
+          // 这里只需要同步预约时间，不需要重复传大段 context
+        })
+      }).catch(() => {});
+    }
   } catch (e) {}
 
   return scheduleId;
@@ -560,35 +567,140 @@ ${
 7. 不要描述已经发生的现实肢体接触，保持在线上陪伴语境。
 8. 若近期对话已经明显不适合原本意图，请自然表达一句不过度打扰的关心即可。`;
 
-  try {
-    const baseUrl = String(
-      apiConfig.baseUrl
-    ).replace(/\/$/, '');
+   const sendRequest = async (payload) => {
+    try {
+      const baseUrl = String(
+        apiConfig.baseUrl
+      ).replace(/\/$/, '');
 
-    const response = await fetch(
-      `${baseUrl}/chat/completions`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization:
-            `Bearer ${apiConfig.apiKey}`
-        },
-        body: JSON.stringify({
-          model:
-            apiConfig.model || 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            ...history
-          ],
-          temperature: 0.8,
-          max_tokens: 1000
-        })
+      const response = await fetch(
+        `${baseUrl}/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization:
+              `Bearer ${apiConfig.apiKey}`
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) {
+        let errorDetail =
+          response.statusText ||
+          '请求未成功';
+
+        try {
+          const errorData =
+            await response.json();
+
+          errorDetail =
+            errorData?.error?.message ||
+            errorData?.message ||
+            errorDetail;
+        } catch {
+          // 某些服务会返回 HTML 或纯文本错误页。
+        }
+
+        return {
+          error: true,
+          code: `HTTP_${response.status}`,
+          message: errorDetail
+        };
       }
-    );
+
+      const data = await response.json();
+      const choice = data?.choices?.[0];
+      const message = choice?.message;
+      const content =
+        extractTextFromApiResponse(data);
+
+      if (choice?.finish_reason === 'length') {
+        console.warn(
+          '[ScheduledMessage] 到期消息因输出长度限制提前结束。',
+          {
+            content
+          }
+        );
+      }
+
+      const hasToolCalls =
+        Array.isArray(message?.tool_calls) &&
+        message.tool_calls.length > 0;
+
+      if (!content && !hasToolCalls) {
+        console.warn(
+          '[ScheduledMessage] API 返回成功但文本内容为空： ' +
+          JSON.stringify(
+            {
+              topLevelKeys: Object.keys(data || {}),
+              topLevelError: data?.error || null,
+              finishReason: choice?.finish_reason ?? null,
+              messageKeys: Object.keys(message || {}),
+              content: message?.content ?? null,
+              reasoningContent:
+                message?.reasoning_content ?? null,
+              refusal: message?.refusal ?? null,
+              contentFilterResults:
+                message?.content_filter_results ??
+                choice?.content_filter_results ??
+                null
+            },
+            null,
+            2
+          )
+        );
+
+        console.warn(
+          '[ScheduledMessage] 原始响应完整内容：',
+          JSON.stringify(data, null, 2)
+        );
+
+        return {
+          error: true,
+          code: 'EMPTY_RESPONSE',
+          message:
+            'AI 返回内容为空，请检查当前模型或 API 服务状态。'
+        };
+      }
+
+      return {
+        error: false,
+        content,
+        rawMessage: message
+      };
+    } catch (error) {
+      console.error(
+        '[ScheduledMessage] 到期消息请求失败：',
+        error
+      );
+
+      return {
+        error: true,
+        code: 'NETWORK_ERROR',
+        message: error?.message || '网络请求失败'
+      };
+    }
+  };
+
+  return runChatCompletionWithMcpTools({
+    requestPayload: {
+      model:
+        apiConfig.model || 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        ...history
+      ],
+      temperature: 0.8,
+      max_tokens: 1000
+    },
+    sendRequest
+  });
+};
 
     if (!response.ok) {
       let errorDetail =

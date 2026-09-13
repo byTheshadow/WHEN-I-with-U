@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，都应递增此版本号。
-const CACHE_NAME = 'when-i-with-u-v9';
+const CACHE_NAME = 'when-i-with-u-v10';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径。
 const APP_SCOPE = self.registration.scope;
@@ -165,12 +165,12 @@ self.addEventListener('sync', (event) => {
 });
 
 // ==========================================================
-// 🛠️ 原生 IndexedDB 写入（严格匹配 Dexie 架构的 messages 表）
+// 🛠️ 原生 IndexedDB 直写（精准对齐 WhenIWithUDatabase）
 // ==========================================================
 function savePushMessageToIndexedDB(payload) {
   return new Promise((resolve) => {
-    // 兼容 Dexie 常见的库名定义；若业务库名不同请保持一致
-    const DB_NAME = 'WhenIWithU';
+    // ⚠️ 数据库名务必完全一致
+    const DB_NAME = 'WhenIWithUDatabase';
     const request = indexedDB.open(DB_NAME);
 
     request.onerror = () => resolve(false);
@@ -190,46 +190,55 @@ function savePushMessageToIndexedDB(payload) {
         const tx = idb.transaction(storeNames, 'readwrite');
         const messageStore = tx.objectStore('messages');
 
-        const now = payload.timestamp || Date.now();
-        const contentText = payload.body || '';
-        const targetChatId = Number(payload.chatId) || 1;
-        const targetCharId = Number(payload.characterId) || 1;
+        // 优先使用完整结构化 entity，兼容直接扁平参数
+        const entity = payload.messageEntity || {};
+        const contentText = entity.content || payload.body || '';
+        const rawTimestamp = entity.timestamp || payload.timestamp || Date.now();
+        const targetChatId = Number(entity.chatId || payload.chatId || 1);
+        const targetCharId = Number(entity.characterId || payload.characterId || 1);
 
-        // 组装符合 db.messages 规范的完整实体对象
+        // 去除可能的字符串 id，确保 Dexie 自增主键（++id）正常生效
+        const { id, ...cleanEntity } = entity;
+
         const newMessage = {
           chatId: targetChatId,
           characterId: targetCharId,
-          sender: 'assistant',
-          type: 'text',
+          sender: cleanEntity.sender || payload.sender || 'character',
+          type: cleanEntity.type || payload.msgType || 'text',
           content: contentText,
           metadata: {
             isOfflinePush: true,
             pushType: payload.type || 'message',
+            ...(cleanEntity.metadata || {}),
           },
-          quotedMessageId: null,
-          isRead: 0,
-          timestamp: now,
-          versions: [
+          quotedMessageId: cleanEntity.quotedMessageId ?? null,
+          isRead: cleanEntity.isRead ?? 0,
+          timestamp: rawTimestamp,
+          versions: cleanEntity.versions || [
             {
               text: contentText,
-              timestamp: now,
+              timestamp: rawTimestamp,
               model: 'cloud-push-ai',
             },
           ],
-          currentVersionIndex: 0,
+          currentVersionIndex: cleanEntity.currentVersionIndex ?? 0,
         };
 
         messageStore.add(newMessage);
 
-        // 联动更新 chats 表的最后修改时间与摘要
+        // 联动更新 chats 表的最后修改时间与摘要预览
         if (idb.objectStoreNames.contains('chats')) {
           const chatStore = tx.objectStore('chats');
           const chatReq = chatStore.get(targetChatId);
           chatReq.onsuccess = (e) => {
             const chatData = e.target.result;
             if (chatData) {
-              chatData.updatedAt = new Date(now).toISOString();
-              chatData.summary = contentText.slice(0, 30);
+              const updatedIso =
+                typeof rawTimestamp === 'number'
+                  ? new Date(rawTimestamp).toISOString()
+                  : String(rawTimestamp || new Date().toISOString());
+              chatData.updatedAt = updatedIso;
+              chatData.summary = (contentText || '').slice(0, 30);
               chatStore.put(chatData);
             }
           };
@@ -274,23 +283,29 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // 1. 如果是聊天消息，直接在后台写入本地数据库，并通知前台实时渲染
-  const saveTask =
-    payload.type === 'message' && payload.body
-      ? savePushMessageToIndexedDB(payload).then(() => {
-          return self.clients
-            .matchAll({ type: 'window', includeUncontrolled: true })
-            .then((clients) => {
-              clients.forEach((client) => {
-                client.postMessage({
-                  type: 'SYNC_OFFLINE_MESSAGES',
-                  action: 'new_message',
-                  chatId: payload.chatId,
-                });
+  const targetChatId = Number(
+    payload.messageEntity?.chatId || payload.chatId || 1
+  );
+
+  // 1. 如果是聊天消息或带有 messageEntity，直接在后台写入本地数据库，并通知前台实时刷新
+  const shouldSave =
+    (payload.type === 'message' && payload.body) || Boolean(payload.messageEntity);
+
+  const saveTask = shouldSave
+    ? savePushMessageToIndexedDB(payload).then(() => {
+        return self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
+          .then((clients) => {
+            clients.forEach((client) => {
+              client.postMessage({
+                type: 'SYNC_OFFLINE_MESSAGES',
+                action: 'new_message',
+                chatId: targetChatId,
               });
             });
-        })
-      : Promise.resolve();
+          });
+      })
+    : Promise.resolve();
 
   // 2. 根据伴侣名称与类型动态决定通知标题
   let displayTitle = payload.characterName || payload.title;
@@ -301,14 +316,14 @@ self.addEventListener('push', (event) => {
   }
 
   const options = {
-    body: payload.body,
+    body: payload.body || payload.messageEntity?.content || '',
     icon: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
     badge: 'https://s1.eisite.cn/autoupload/amqnh/20260821/dHbf/1280X1280/00-d55fd7352057ecab338faca8.png/webp',
-    tag: `companion_${payload.type || 'msg'}_${Date.now()}`,
+    tag: `companion_${targetChatId}_${Date.now()}`,
     renotify: true,
     data: {
       url: payload.url || APP_INDEX_URL,
-      chatId: payload.chatId,
+      chatId: targetChatId,
     },
   };
 
@@ -321,11 +336,12 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 点击系统通知时，尝试聚焦已打开的窗口，否则新开一个 App 入口。
+// 点击系统通知时，尝试聚焦已打开的窗口并导航至对应 chat，否则新开 App 入口。
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const targetUrl = event.notification.data?.url || APP_INDEX_URL;
+  const targetChatId = event.notification.data?.chatId;
 
   event.waitUntil(
     self.clients
@@ -335,15 +351,21 @@ self.addEventListener('notificationclick', (event) => {
       })
       .then((clientList) => {
         for (let client of clientList) {
-          if (client.url.includes(targetUrl) && 'focus' in client) {
+          if (client.url.includes(APP_SCOPE) && 'focus' in client) {
+            if (targetChatId) {
+              client.postMessage({
+                type: 'NAVIGATE_TO_CHAT',
+                chatId: targetChatId,
+              });
+            }
             return client.focus();
           }
         }
 
         if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl);
+          const openUrl = targetChatId ? `${targetUrl}?chatId=${targetChatId}` : targetUrl;
+          return self.clients.openWindow(openUrl);
         }
       }),
   );
 });
-
