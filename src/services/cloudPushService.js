@@ -43,34 +43,44 @@ export async function syncPendingPushMessages() {
     for (const msg of data.messages) {
       const targetChatId = Number(msg.chatId || 1);
       const rawTimestamp = msg.timestamp || Date.now();
-      const numTimestamp = typeof rawTimestamp === 'number' ? rawTimestamp : new Date(rawTimestamp).getTime();
+      const numTimestamp =
+        typeof rawTimestamp === 'number'
+          ? rawTimestamp
+          : new Date(rawTimestamp).getTime();
 
-      // 基于 [chatId+timestamp] 索引精准查重
+      // 基于 [chatId+timestamp] 索引精准查重，兼容降级
       let exists = false;
       try {
         exists = await db.messages
           .where('[chatId+timestamp]')
-          .equals([targetChatId, numTimestamp])
+          .between([targetChatId, numTimestamp], [targetChatId, numTimestamp])
           .first();
       } catch (err) {
         exists = await db.messages
           .where('chatId')
           .equals(targetChatId)
-          .filter((m) => m.timestamp === numTimestamp)
+          .filter(
+            (m) =>
+              m.timestamp === numTimestamp ||
+              (m.content === msg.content &&
+                Math.abs((m.timestamp || 0) - numTimestamp) < 3000),
+          )
           .first();
       }
 
       if (!exists) {
+        // 彻底剥离可能存在的字符串主键 id，确保 messages 表的 ++id 自增生效
         const { id, ...recordToSave } = msg;
         const nowIso = new Date(numTimestamp).toISOString();
+        const contentText = recordToSave.content || '';
 
+        // 统一对齐前端标准数据模型（sender 必须为 'assistant'）
         const messageRecord = {
-          ...recordToSave,
           chatId: targetChatId,
           characterId: Number(recordToSave.characterId || 1),
-          sender: recordToSave.sender || 'character',
+          sender: 'assistant',
           type: recordToSave.type || 'text',
-          content: recordToSave.content || '',
+          content: contentText,
           metadata: {
             isOfflinePush: true,
             source: 'cloud-pending-sync',
@@ -81,7 +91,7 @@ export async function syncPendingPushMessages() {
           timestamp: numTimestamp,
           versions: recordToSave.versions || [
             {
-              text: recordToSave.content || '',
+              text: contentText,
               timestamp: numTimestamp,
               model: 'cloud-push-ai',
             },
@@ -94,7 +104,7 @@ export async function syncPendingPushMessages() {
         // 联动更新具体聊天框的 updatedAt 与预览摘要
         await db.chats.where('id').equals(targetChatId).modify({
           updatedAt: nowIso,
-          summary: (messageRecord.content || '').slice(0, 30),
+          summary: contentText.slice(0, 30),
         });
 
         // 派发本地消息通知，前端当前如果正打开着该聊天框，UI 立即刷新出气泡
@@ -105,7 +115,14 @@ export async function syncPendingPushMessages() {
                 chatId: targetChatId,
                 messageId: newMsgId,
               },
-            })
+            }),
+          );
+          window.dispatchEvent(
+            new CustomEvent('local-chat-updated', {
+              detail: {
+                chatId: targetChatId,
+              },
+            }),
           );
         }
       }
@@ -124,7 +141,7 @@ export async function syncPendingPushMessages() {
       }).catch(() => {});
     }
   } catch (e) {
-    // 纯离线时静默跳过
+    // 纯离线或网络波动时静默跳过
   }
 }
 
@@ -154,13 +171,16 @@ export async function registerCloudPush({
   }
 
   // 2. 跨平台 PWA 环境检测
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isStandalone =
     window.navigator.standalone ||
     window.matchMedia('(display-mode: standalone)').matches;
 
   if (isIOS && !isStandalone) {
-    throw new Error('iOS 设备必须通过 Safari【添加到主屏幕】并在桌面上打开本应用！');
+    throw new Error(
+      'iOS 设备必须通过 Safari【添加到主屏幕】并在桌面上打开本应用！',
+    );
   }
 
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -191,7 +211,7 @@ export async function registerCloudPush({
     }
   }
 
-  // 5. 🎯 核心升级：遍历所有存在的消息框，全部具备主动发信能力
+  // 5. 🎯 核心：遍历所有存在的消息框，全部具备主动发信能力
   const allChats = await db.chats.toArray();
   if (!allChats || allChats.length === 0) {
     throw new Error('本地尚未创建任何聊天框');
@@ -267,9 +287,8 @@ export async function registerCloudPush({
   const payloadData = {
     subscription: subscription.toJSON(),
     apiConfig: apiSettings?.value || {},
-    // 全量激活的消息框列表，每个都有独立人设和上下文
     chatTargets: chatTargets,
-    // 兼容老版本后端的单对象字段（默认取最近更新的那个）
+    // 兼容字段
     character: chatTargets[0]
       ? {
           id: chatTargets[0].characterId,
@@ -293,7 +312,9 @@ export async function registerCloudPush({
       body: JSON.stringify(payloadData),
     });
   } catch (networkErr) {
-    throw new Error(`连接服务器网络失败: ${networkErr.message}（请检查域名证书或反向代理）`);
+    throw new Error(
+      `连接服务器网络失败: ${networkErr.message}（请检查域名证书或反向代理）`,
+    );
   }
 
   if (!response.ok) {
@@ -309,6 +330,6 @@ export async function registerCloudPush({
   // 8. 顺带执行一次开屏拉齐补漏
   void syncPendingPushMessages();
 
-  console.log(`[CloudPush] 已成功同步所有激活的消息框 (${chatTargets.length} 个) 至云端推送服务！`);
   return true;
 }
+

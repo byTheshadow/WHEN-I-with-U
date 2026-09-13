@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，都应递增此版本号。
-const CACHE_NAME = 'when-i-with-u-v10';
+const CACHE_NAME = 'when-i-with-u-v11';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径。
 const APP_SCOPE = self.registration.scope;
@@ -165,15 +165,24 @@ self.addEventListener('sync', (event) => {
 });
 
 // ==========================================================
-// 🛠️ 原生 IndexedDB 直写（精准对齐 WhenIWithUDatabase）
+// 🛠️ 原生 IndexedDB 直写（严格对齐 WhenIWithUDatabase v39）
 // ==========================================================
 function savePushMessageToIndexedDB(payload) {
   return new Promise((resolve) => {
-    // ⚠️ 数据库名务必完全一致
     const DB_NAME = 'WhenIWithUDatabase';
-    const request = indexedDB.open(DB_NAME);
+    // 明确对齐 Dexie 当前版本 39，防止无版本打开时被阻塞挂起
+    const request = indexedDB.open(DB_NAME, 39);
 
-    request.onerror = () => resolve(false);
+    request.onerror = (e) => {
+      console.warn('[SW-IDB] 打开数据库失败:', e);
+      resolve(false);
+    };
+
+    request.onblocked = () => {
+      console.warn('[SW-IDB] 数据库打开被阻塞 (blocked)');
+      resolve(false);
+    };
+
     request.onsuccess = (event) => {
       const idb = event.target.result;
       try {
@@ -190,20 +199,21 @@ function savePushMessageToIndexedDB(payload) {
         const tx = idb.transaction(storeNames, 'readwrite');
         const messageStore = tx.objectStore('messages');
 
-        // 优先使用完整结构化 entity，兼容直接扁平参数
         const entity = payload.messageEntity || {};
         const contentText = entity.content || payload.body || '';
         const rawTimestamp = entity.timestamp || payload.timestamp || Date.now();
+        const numTimestamp = typeof rawTimestamp === 'number' ? rawTimestamp : new Date(rawTimestamp).getTime();
         const targetChatId = Number(entity.chatId || payload.chatId || 1);
         const targetCharId = Number(entity.characterId || payload.characterId || 1);
 
-        // 去除可能的字符串 id，确保 Dexie 自增主键（++id）正常生效
+        // 彻底剥离可能携带的字符串 id，确保 messages 表的 ++id 自增生效
         const { id, ...cleanEntity } = entity;
 
+        // 统一对齐前端标准数据模型（sender 必须为 'assistant'）
         const newMessage = {
           chatId: targetChatId,
           characterId: targetCharId,
-          sender: cleanEntity.sender || payload.sender || 'character',
+          sender: 'assistant',
           type: cleanEntity.type || payload.msgType || 'text',
           content: contentText,
           metadata: {
@@ -213,31 +223,31 @@ function savePushMessageToIndexedDB(payload) {
           },
           quotedMessageId: cleanEntity.quotedMessageId ?? null,
           isRead: cleanEntity.isRead ?? 0,
-          timestamp: rawTimestamp,
+          timestamp: numTimestamp,
           versions: cleanEntity.versions || [
             {
               text: contentText,
-              timestamp: rawTimestamp,
+              timestamp: numTimestamp,
               model: 'cloud-push-ai',
             },
           ],
           currentVersionIndex: cleanEntity.currentVersionIndex ?? 0,
         };
 
-        messageStore.add(newMessage);
+        const addReq = messageStore.add(newMessage);
 
-        // 联动更新 chats 表的最后修改时间与摘要预览
+        addReq.onerror = (err) => {
+          console.warn('[SW-IDB] 消息写入失败:', err);
+        };
+
+        // 联动更新对应 chats 表的最后修改时间与摘要预览
         if (idb.objectStoreNames.contains('chats')) {
           const chatStore = tx.objectStore('chats');
           const chatReq = chatStore.get(targetChatId);
           chatReq.onsuccess = (e) => {
             const chatData = e.target.result;
             if (chatData) {
-              const updatedIso =
-                typeof rawTimestamp === 'number'
-                  ? new Date(rawTimestamp).toISOString()
-                  : String(rawTimestamp || new Date().toISOString());
-              chatData.updatedAt = updatedIso;
+              chatData.updatedAt = new Date(numTimestamp).toISOString();
               chatData.summary = (contentText || '').slice(0, 30);
               chatStore.put(chatData);
             }
@@ -253,6 +263,7 @@ function savePushMessageToIndexedDB(payload) {
           resolve(false);
         };
       } catch (err) {
+        console.warn('[SW-IDB] 事务执行发生异常:', err);
         idb.close();
         resolve(false);
       }
@@ -287,9 +298,9 @@ self.addEventListener('push', (event) => {
     payload.messageEntity?.chatId || payload.chatId || 1
   );
 
-  // 1. 如果是聊天消息或带有 messageEntity，直接在后台写入本地数据库，并通知前台实时刷新
+  // 1. 如果是聊天消息或携带 messageEntity，立即在后台写入本地数据库，并向所有窗口广播
   const shouldSave =
-    (payload.type === 'message' && payload.body) || Boolean(payload.messageEntity);
+    (payload.type === 'message' && Boolean(payload.body)) || Boolean(payload.messageEntity);
 
   const saveTask = shouldSave
     ? savePushMessageToIndexedDB(payload).then(() => {
@@ -307,7 +318,7 @@ self.addEventListener('push', (event) => {
       })
     : Promise.resolve();
 
-  // 2. 根据伴侣名称与类型动态决定通知标题
+  // 2. 根据伴侣名称与推送类型动态决定通知标题
   let displayTitle = payload.characterName || payload.title;
   if (payload.type === 'diary') {
     displayTitle = `${payload.characterName || '伴侣'} · 写了新日记`;
@@ -327,7 +338,7 @@ self.addEventListener('push', (event) => {
     },
   };
 
-  // 等待数据写入与通知呈现均完成后再结束事件生命周期
+  // 等待数据落库与通知展示全部完成后再结束 push 事件生命周期
   event.waitUntil(
     Promise.all([
       saveTask,
