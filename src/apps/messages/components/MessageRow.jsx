@@ -28,6 +28,8 @@ import McpUsageTraceCard from './cards/McpUsageTraceCard';
 import McdOrderCard from './cards/McdOrderCard';
 import AppleHealthCard from './cards/AppleHealthCard';
 import RobotActionCard from './cards/RobotActionCard';
+import AppleCalendarCard from './cards/AppleCalendarCard';
+
 
 const MessageRow = ({
   msg,
@@ -127,6 +129,7 @@ const MessageRow = ({
             <User className="h-3.5 w-3.5 opacity-60" />
           </div>
         )}
+
 
         <div className="flex flex-col gap-1">
           {isErrorMsg ? (
@@ -267,6 +270,13 @@ const MessageRow = ({
               card={messageOrderCard}
             />
           )}
+
+          {/*  Apple 日历专属卡片 */}
+          {!isUser && messageOrderCard?.kind === 'apple_calendar' && (
+            <AppleCalendarCard
+              card={messageOrderCard}
+            />
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -281,6 +291,8 @@ const MessageRow = ({
               <RotateCw className="h-3 w-3" />
             </button>
           )}
+
+          
 
           <button
             type="button"
