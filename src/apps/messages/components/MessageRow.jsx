@@ -27,6 +27,7 @@ import StickerCard from './cards/StickerCard';
 import McpUsageTraceCard from './cards/McpUsageTraceCard';
 import McdOrderCard from './cards/McdOrderCard';
 import AppleHealthCard from './cards/AppleHealthCard';
+import RobotActionCard from './cards/RobotActionCard';
 
 const MessageRow = ({
   msg,
@@ -259,6 +260,13 @@ const MessageRow = ({
               card={messageOrderCard}
             />
           )}
+
+          {/* StackChan 桌面机器人专属卡片 */}
+          {!isUser && messageOrderCard?.kind === 'robot' && (
+            <RobotActionCard
+              card={messageOrderCard}
+            />
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -361,3 +369,4 @@ const MessageRow = ({
 };
 
 export default React.memo(MessageRow);
+
