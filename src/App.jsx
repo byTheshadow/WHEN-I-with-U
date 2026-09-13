@@ -61,10 +61,6 @@ import {
   stopTravelPostcardScheduler,
 } from './apps/travels/travelPostcardScheduler';
 
-import {
-  startScheduledMessageScheduler,
-  stopScheduledMessageScheduler,
-} from './apps/messages/scheduledMessageService';
 
 import {
   startScheduledMessageScheduler,
