@@ -402,6 +402,10 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
       '.chat-room-container .chat-top-toolbar button.rounded-full',
       '.chat-room-container .chat-send-btn',
       '.chat-room-container .chat-input-sparkle-btn[data-open="false"]',
+      // 收起状态下 header 那个心形按钮（ChatHeaderBar.jsx）渲染在
+      // .chat-top-toolbar 外面，是个独立的兄弟节点，上面几条选择器
+      // 覆盖不到它，所以单独补一条。
+      '.chat-room-container .chat-header-heart-button',
     ];
 
     const rules = getControlStyleRules(controlStyleId, selectors);
@@ -443,6 +447,11 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
       const fg = getReadableTextColor(topBtnColor);
       // 只作用于顶部这一排的圆形按钮，下拉菜单里的条目不是 rounded-full，不受影响
       rules.push(`${scope} .chat-top-toolbar button.rounded-full { background: ${topBtnColor} !important; color: ${fg} !important; }`);
+
+      // 收起状态下 header 那个心形按钮跟顶部这排圆形按钮不在同一个
+      // 容器里（是 .chat-top-toolbar 的兄弟节点），上面那条规则天生
+      // 覆盖不到它，单独补一条，让它也跟着顶部按钮颜色走。
+      rules.push(`${scope} .chat-header-heart-button { background: ${topBtnColor} !important; color: ${fg} !important; }`);
     }
 
     if (rules.length === 0) return null;
