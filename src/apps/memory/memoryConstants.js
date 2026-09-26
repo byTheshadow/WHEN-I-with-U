@@ -127,7 +127,8 @@ export const MEMORY_SOURCE_KINDS = {
   CONVERSATION: 'conversation',
   SUMMARY_ASSISTED: 'summary_assisted',
   IMPORTED: 'imported',
-  USER_CREATED: 'user_created'
+  USER_CREATED: 'user_created',
+  OBSIDIAN_IMPORT: 'obsidian_import'
 };
 
 export const MEMORY_CANDIDATE_STATUSES = {

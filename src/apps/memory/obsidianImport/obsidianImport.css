@@ -1,0 +1,66 @@
+/* =========================================================
+   Obsidian 笔记导入
+   复用 memory.css 里的弹窗 / 表单 / 选择项样式，
+   这里只补充笔记条目列表专属的排版。
+   ========================================================= */
+
+.obsidian-default-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.obsidian-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.7rem 0 0.4rem;
+  flex-wrap: wrap;
+}
+
+.obsidian-select-actions button {
+  padding: 0.3rem 0.6rem;
+  border: 1px dashed var(--divider);
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 0.6rem;
+  cursor: pointer;
+}
+
+.obsidian-select-actions button:hover:not(:disabled) {
+  border-color: var(--text-main);
+  color: var(--text-main);
+}
+
+.obsidian-entry-list {
+  display: grid;
+  gap: 0.9rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.obsidian-note-group {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.obsidian-note-group-title {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.obsidian-note-error {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+}
+
+.obsidian-entry-list .memory-choice-item small {
+  white-space: pre-wrap;
+  max-height: 4.5em;
+  overflow: hidden;
+}

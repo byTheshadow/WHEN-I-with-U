@@ -10,6 +10,7 @@ import {
   BookOpen,
   Download,
   FilePlus2,
+  FileText,
   Filter,
   Plus,
   RefreshCw,
@@ -24,6 +25,7 @@ import db from '../../db';
 import MemoryCard from './MemoryCard';
 import MemoryExportModal from './MemoryExportModal';
 import MemoryImportModal from './MemoryImportModal';
+import ObsidianImportModal from './obsidianImport/ObsidianImportModal';
 import MemoryRevisionModal from './MemoryRevisionModal';
 import MemoryGrowthSection from './MemoryGrowthSection';
 import MemorySourceSection from './MemorySourceSection';
@@ -220,6 +222,7 @@ export const MemoryApp = ({
   const [showCandidates, setShowCandidates] = useState(false);
   const [showChatPicker, setShowChatPicker] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showObsidianImportModal, setShowObsidianImportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -892,6 +895,15 @@ const handleDelete = async (memory) => {
 
             <button
               type="button"
+              onClick={() => setShowObsidianImportModal(true)}
+              className="memory-tool-button"
+            >
+              <FileText className="memory-icon" />
+              导入 Obsidian
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowExportModal(true)}
               className="memory-tool-button"
             >
@@ -1374,6 +1386,18 @@ const handleDelete = async (memory) => {
           chats={chats}
           initialChatId={selectedChatId}
           onClose={() => setShowImportModal(false)}
+          onCompleted={handleImportCompleted}
+          onError={(message) => {
+            setErrorMessage(message);
+          }}
+        />
+      )}
+
+      {showObsidianImportModal && (
+        <ObsidianImportModal
+          chats={chats}
+          initialChatId={selectedChatId}
+          onClose={() => setShowObsidianImportModal(false)}
           onCompleted={handleImportCompleted}
           onError={(message) => {
             setErrorMessage(message);
