@@ -112,6 +112,7 @@ import {
 import { useChatCustomFont } from './hooks/useChatCustomFont';
 import useChatEntryCard from './hooks/useChatEntryCard';
 import { isValidHexColor, getReadableTextColor } from './utils/chatColors';
+import { getControlStyleRules } from './chatControlStylePresets';
 
 import InnerWorldApp from '../innerworld/InnerWorldApp';
 
@@ -385,6 +386,30 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const sendBtnColor = isValidHexColor(chat?.sendBtnColor) ? chat.sendBtnColor : null;
   const respondBtnColor = isValidHexColor(chat?.respondBtnColor) ? chat.respondBtnColor : null;
   const topBtnColor = isValidHexColor(chat?.topBtnColor) ? chat.topBtnColor : null;
+
+  // 本聊天窗的"按钮外观"预设（默认纯色块 / 毛玻璃 / 黑玻璃……），
+  // 具体每个预设长什么样在 chatControlStylePresets.js 里注册，这里只
+  // 负责挑出当前预设、拼出要覆盖的选择器，交给注册表生成规则。
+  // 渲染顺序要放在 chatColorStyle 前面：这样如果用户还单独设置了
+  // 顶部按钮/发送按钮的自定义颜色，后面 chatColorStyle 里那些规则
+  // 会按 CSS 层叠顺序覆盖掉这里的背景色/文字色，预设里的模糊和边框
+  // 效果则保留，两者可以叠加。
+  const controlStyleId = chat?.controlStyle || 'default';
+
+  const controlStylePresetStyle = useMemo(() => {
+    const selectors = [
+      '.chat-room-container .chat-input-bar',
+      '.chat-room-container .chat-top-toolbar button.rounded-full',
+      '.chat-room-container .chat-send-btn',
+      '.chat-room-container .chat-input-sparkle-btn[data-open="false"]',
+    ];
+
+    const rules = getControlStyleRules(controlStyleId, selectors);
+
+    if (rules.length === 0) return null;
+
+    return <style>{rules.join('\n')}</style>;
+  }, [controlStyleId]);
 
   const chatColorStyle = useMemo(() => {
     const rules = [];
@@ -1619,6 +1644,7 @@ useLayoutEffect(() => {
     >
       {memoizedStyle}
       {chatFontStyle}
+      {controlStylePresetStyle}
       {chatColorStyle}
 
       <CheckInNotice

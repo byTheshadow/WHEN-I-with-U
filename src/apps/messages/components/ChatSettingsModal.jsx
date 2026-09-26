@@ -20,6 +20,7 @@ import ColorSettingRow from './ColorSettingRow';
 import SavedInfoSection from './SavedInfoSection';
 import AwaySettingsSection from '../away/AwaySettingsSection';
 import db from '../../../db';
+import { CHAT_CONTROL_STYLE_OPTIONS } from '../chatControlStylePresets';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 import { getLocationSettings, setLocationEnabled } from '../../../apps/location/placeService';
@@ -215,6 +216,22 @@ export const ChatSettingsModal = ({
     await db.chats.update(chat.id, { [field]: next });
 
     onUpdatedUserPersona?.({ [field]: next });
+  };
+
+  // 本聊天窗的"按钮外观"预设（默认 / 毛玻璃 / 黑玻璃……），跟上面的
+  // 自定义颜色是两件独立的事：颜色管的是按钮底色，这里管的是要不要
+  // 加模糊/半透明这层质感，两者可以叠加着用。预设列表本身在
+  // chatControlStylePresets.js 注册，这里只负责选中和保存。
+  const handleCommitControlStyle = async (styleId) => {
+    if (!chat?.id) return;
+
+    const next = styleId || 'default';
+
+    if (next === (chat?.controlStyle || 'default')) return;
+
+    await db.chats.update(chat.id, { controlStyle: next });
+
+    onUpdatedUserPersona?.({ controlStyle: next });
   };
 
   // 组件内部，state区域加：
@@ -1434,6 +1451,49 @@ const handleToggleLocation = async () => {
             value={chat?.topBtnColor || ''}
             onCommit={(value) => handleCommitChatColor('topBtnColor', value)}
           />
+        </div>
+
+        {/* 本窗按钮外观预设：默认 / 毛玻璃 / 黑玻璃…… */}
+        <div
+          className="space-y-2.5 p-3 rounded-2xl border w-full"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Palette className="w-3.5 h-3.5" />
+              <span>按钮外观</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">CONTROL STYLE</span>
+          </div>
+
+          <p className="text-[10px] opacity-55 leading-relaxed">
+            切换输入栏和顶部这批按钮的质感（比如毛玻璃/黑玻璃）。跟上面的颜色是两件事：颜色管底色，这里管要不要加模糊和半透明，两者可以叠加。
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            {CHAT_CONTROL_STYLE_OPTIONS.map((styleOpt) => {
+              const isActive = (chat?.controlStyle || 'default') === styleOpt.id;
+
+              return (
+                <button
+                  key={styleOpt.id}
+                  type="button"
+                  onClick={() => handleCommitControlStyle(styleOpt.id)}
+                  className="p-2.5 rounded-xl border text-center font-medium transition-all text-[11px] active:scale-95"
+                  style={{
+                    background: isActive ? 'var(--accent-color)' : 'var(--bg-main)',
+                    borderColor: isActive ? 'var(--accent-color)' : 'var(--divider)',
+                    color: isActive ? 'var(--accent-foreground)' : 'var(--text-main)'
+                  }}
+                >
+                  {styleOpt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
                 {/* 常用信息（全局，所有聊天窗共用） */}
