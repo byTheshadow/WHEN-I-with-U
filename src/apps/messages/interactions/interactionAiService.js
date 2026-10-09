@@ -40,6 +40,21 @@ export const getGenerationContext = async (chatId) => {
   return { chat, character, apiConfig };
 };
 
+/*
+ * 一次性的文本生成请求。
+ *
+ * 修复说明：原来 messages 里只有一条 role:'system'。某些网关/代理（比如
+ * 把 messages 转译成 Gemini 的 contents 字段的那种）会认为"只有 system、
+ * 没有 user 消息"不是合法请求，直接返回 400（contents is not specified），
+ * 而这里非 2xx 时又静默返回空字符串，表现为"AI 调用不了"。
+ *
+ * 现在改成标准的 system + user 两条：system 放一句通用的角色扮演说明，
+ * 调用方传进来的完整提示词（systemPrompt 参数，名字保持不变以兼容所有
+ * 调用方）放在 user 消息里。其他标准的聊天接口对这种写法同样没有问题。
+ *
+ * 失败时仍然返回空字符串（调用方依赖这个行为），但会在控制台打印状态码
+ * 和响应体，方便排查。
+ */
 export const requestAiText = async ({ apiConfig, systemPrompt }) => {
   const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
 
@@ -54,6 +69,10 @@ export const requestAiText = async ({ apiConfig, systemPrompt }) => {
       messages: [
         {
           role: 'system',
+          content: '你是一个游戏里的角色扮演助手，严格按用户给出的要求生成内容。',
+        },
+        {
+          role: 'user',
           content: systemPrompt,
         },
       ],
@@ -61,7 +80,14 @@ export const requestAiText = async ({ apiConfig, systemPrompt }) => {
     }),
   });
 
-  if (!response.ok) return '';
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => '');
+    console.warn(
+      `[InteractionAiService] 接口返回非 2xx（状态码 ${response.status}）。`,
+      bodyText.slice(0, 300)
+    );
+    return '';
+  }
 
   const data = await response.json();
   return removeEmoji(data?.choices?.[0]?.message?.content || '');
