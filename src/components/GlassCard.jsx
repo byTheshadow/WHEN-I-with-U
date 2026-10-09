@@ -39,13 +39,20 @@ export const GlassCard = ({
     return () => clearTimeout(timer);
   }, [delay]);
 
-  const blurValue = 'blur(22px) saturate(120%)';
+  // 模糊强度/饱和度，以及卡片背景本身的透明度，都从 glassStyles.css 里
+  // 定义的 CSS 变量读取——默认值（frosted，白色毛玻璃）跟原来写死的
+  // 数值完全一致，只有在 <html data-glass-style="liquid"> 时才会被
+  // 覆盖成更透、更饱和的「液态玻璃」版本。
+  const blurValue =
+    'blur(var(--glass-blur-amount, 22px)) saturate(var(--glass-saturate-amount, 120%))';
 
   return (
     <div
       onClick={onClick}
       style={{
-        background: isInk ? 'var(--ink-card-bg)' : 'var(--card-bg-gradient)',
+        background: isInk
+          ? 'var(--ink-card-bg)'
+          : 'var(--glass-card-background, var(--card-bg-gradient))',
         borderColor: isInk
           ? 'var(--ink-card-border)'
           : 'var(--card-border)',

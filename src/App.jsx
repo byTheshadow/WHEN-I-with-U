@@ -240,6 +240,9 @@ const DEFAULT_AUDIO_CONFIG = {
 export const App = () => {
   const [showPreloader, setShowPreloader] = useState(true);
   const [activeTheme, setActiveTheme] = useState('mono-mist');
+  // 玻璃质感风格（白色毛玻璃 frosted / 液态玻璃 liquid），跟 activeTheme
+  // 是完全独立的两个维度，组合方式见 src/styles/glassStyles.css。
+  const [activeGlassStyle, setActiveGlassStyle] = useState('frosted');
 const [showTitle, setShowTitle] = useState(true);
 const [hubBackground, setHubBackground] = useState('');
 
@@ -728,6 +731,13 @@ const [hubBackground, setHubBackground] = useState('');
   }, [activeTheme]);
 
   useEffect(() => {
+    document.documentElement.setAttribute(
+      'data-glass-style',
+      activeGlassStyle
+    );
+  }, [activeGlassStyle]);
+
+  useEffect(() => {
     if (
       showPreloader ||
       currentApp !== 'hub' ||
@@ -1060,6 +1070,8 @@ const isTextGameHallApp = currentApp === 'textgames';
                 onOpenManual={handleOpenManual}
                 currentTheme={activeTheme}
                 onChangeTheme={setActiveTheme}
+                currentGlassStyle={activeGlassStyle}
+                onChangeGlassStyle={setActiveGlassStyle}
                 showTitle={showTitle}
                 onToggleTitle={setShowTitle}
                 currentHubBackground={hubBackground}

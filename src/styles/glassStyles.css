@@ -1,0 +1,50 @@
+/* src/styles/glassStyles.css
+ *
+ * 全局"玻璃质感"风格开关：在现有 4(+1) 套 data-theme 配色之上，再叠加
+ * 一个独立维度 data-glass-style（frosted 白色毛玻璃 / liquid 液态玻璃），
+ * 通过 GlassCard.jsx 统一读取这里定义的 CSS 变量来决定模糊强度和卡片
+ * 背景的透明度。
+ *
+ * 不直接改 themes.css：两个维度（配色 / 玻璃风格）正交，用复合属性
+ * 选择器 :root[data-theme="x"][data-glass-style="liquid"] 组合，比起
+ * 互相在对方文件里加条件判断更不容易因为 import 顺序而出 bug。
+ *
+ * 默认（未设置 data-glass-style，或值为 "frosted"）完全保持现状：
+ * --glass-card-background 直接等于原来的 --card-bg-gradient，
+ * --glass-blur-amount / --glass-saturate-amount 跟 GlassCard.jsx 原来
+ * 写死的 blur(22px) saturate(120%) 完全一致，不会影响任何现有页面。
+ */
+
+:root {
+  --glass-blur-amount: 22px;
+  --glass-saturate-amount: 120%;
+  --glass-card-background: var(--card-bg-gradient);
+}
+
+/* 液态玻璃（基础款）：只调「更透 + 更饱和度的背景模糊」，不加边缘高光，
+   不加流光动画。每套配色主题各自给一个贴着自己底色的半透明卡片背景，
+   保证透出来的主页背景颜色跟卡片本身的色温是搭的，而不是统一发灰。 */
+:root[data-glass-style="liquid"] {
+  --glass-blur-amount: 36px;
+  --glass-saturate-amount: 180%;
+}
+
+:root[data-theme="mono-mist"][data-glass-style="liquid"] {
+  --glass-card-background: color-mix(in srgb, var(--card-bg) 55%, transparent);
+}
+
+:root[data-theme="cream-latte"][data-glass-style="liquid"] {
+  --glass-card-background: color-mix(in srgb, var(--card-bg) 55%, transparent);
+}
+
+:root[data-theme="obsidian-dark"][data-glass-style="liquid"] {
+  --glass-card-background: color-mix(in srgb, var(--card-bg) 50%, transparent);
+}
+
+:root[data-theme="cyber-velvet"][data-glass-style="liquid"] {
+  --glass-card-background: color-mix(in srgb, var(--card-bg) 50%, transparent);
+}
+
+:root[data-theme="rose-quartz"][data-glass-style="liquid"] {
+  --glass-card-background: color-mix(in srgb, var(--card-bg) 55%, transparent);
+}

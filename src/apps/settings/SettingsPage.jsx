@@ -97,6 +97,8 @@ export const SettingsPage = ({
   onOpenManual,
   currentTheme,
   onChangeTheme,
+  currentGlassStyle,
+  onChangeGlassStyle,
   showTitle,
   onToggleTitle,
   currentHubBackground,
@@ -107,6 +109,7 @@ export const SettingsPage = ({
   const saveToastTimerRef = useRef(null);
 
   const [draftTheme, setDraftTheme] = useState(currentTheme);
+  const [draftGlassStyle, setDraftGlassStyle] = useState(currentGlassStyle);
 const [draftShowTitle, setDraftShowTitle] = useState(showTitle);
 const [draftHubBackground, setDraftHubBackground] = useState(
   currentHubBackground || '',
@@ -347,6 +350,10 @@ const [isCompanionLoading, setIsCompanionLoading] = useState(true);
           setDraftTheme(settingMap.theme);
         }
 
+        if (typeof settingMap.glassStyle === 'string') {
+          setDraftGlassStyle(settingMap.glassStyle);
+        }
+
         if (typeof settingMap.showTitle === 'boolean') {
           setDraftShowTitle(settingMap.showTitle);
         }
@@ -475,6 +482,7 @@ setIsCompanionLoading(false);
 
   const hasUnsavedChanges =
   draftTheme !== currentTheme ||
+  draftGlassStyle !== currentGlassStyle ||
   draftShowTitle !== showTitle ||
    draftHubBackground !== (currentHubBackground || '') ||
   draftAppNameDisplayMode !== initialAppNameDisplayMode ||
@@ -799,6 +807,7 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
       await db.transaction('rw', db.settings, async () => {
         await db.settings.bulkPut([
           { key: 'theme', value: draftTheme },
+          { key: 'glassStyle', value: draftGlassStyle },
           { key: 'showTitle', value: draftShowTitle },
                  {
   key: 'hubBackground',
@@ -837,6 +846,10 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 
       if (draftTheme !== currentTheme) {
         onChangeTheme(draftTheme);
+      }
+
+      if (draftGlassStyle !== currentGlassStyle) {
+        onChangeGlassStyle(draftGlassStyle);
       }
 
       if (draftShowTitle !== showTitle) {
@@ -1181,6 +1194,29 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
                   }`}
                 >
                   {theme.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-black/5 pt-3 dark:border-white/5">
+            <label className="mb-2 block opacity-60">质感风格 (Glass Style)</label>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {[
+                { id: 'frosted', name: '白色毛玻璃 (Frosted)' },
+                { id: 'liquid', name: '液态玻璃 (Liquid)' },
+              ].map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => setDraftGlassStyle(style.id)}
+                  className={`rounded-xl py-3 font-medium transition-all ${
+                    draftGlassStyle === style.id
+                      ? 'bg-black text-white dark:bg-white dark:text-black font-semibold'
+                      : 'bg-black/5 dark:bg-white/10 hover:bg-black/10'
+                  }`}
+                >
+                  {style.name}
                 </button>
               ))}
             </div>
