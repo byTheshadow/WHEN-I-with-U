@@ -42,6 +42,7 @@ import PetWidgetSettings from '../pet/PetWidgetSettings';
 import ConfirmModal from '../../components/ConfirmModal';
 import DailyOfferingSettings from '../daily-offering/DailyOfferingSettings';
 import GitHubBackupSettings from './github-backup/GitHubBackupSettings';
+import ScreenEffectSettings from '../messages/screenEffects/ScreenEffectSettings';
 import BondConnection from './mcp/BondConnection';
 import { requestNotificationPermission } from '../../services/aiService';
 import { Send, Cloud, Radio } from 'lucide-react'; // 补上图标
@@ -2099,6 +2100,8 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
       <BondConnection />
 
       {/* 6. GitHub 备份云端抽屉组件（全新装配） */}
+      <ScreenEffectSettings />
+
       <GitHubBackupSettings />
 
       {/* 7. 本地数据与存储卡片 */}

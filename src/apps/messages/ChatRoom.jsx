@@ -97,6 +97,7 @@ import {
 import { INTERACTION_TYPES } from './interactions/interactionRules';
 import { createTrickMessage } from './interactions/halloween/trickService';
 import TrickEffectOverlay from './interactions/halloween/TrickEffectOverlay';
+import FullscreenEffectLayer from './screenEffects/FullscreenEffectLayer';
 import HalloweenSvgDefs from './interactions/halloween/HalloweenSvgDefs';
 import { isHalloweenSeasonActive } from './interactions/halloween/halloweenSeason';
 import { containsHalloweenKeyword } from './interactions/halloween/halloweenKeywords';
@@ -2135,6 +2136,7 @@ useLayoutEffect(() => {
       />
 
            <ChatEntryCardOverlay card={entryCard} onDone={dismissEntryCard} />
+<FullscreenEffectLayer chatId={chatId} />
 
       {isHalloweenSeasonActive() && (
         <>

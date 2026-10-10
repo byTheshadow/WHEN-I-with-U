@@ -44,6 +44,14 @@ import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { buildCompanionStatusPromptBlock } from '../apps/companion/companionStatusPrompt';
 import { buildBubbleStylePromptNote, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
+import {
+  buildScreenEffectPromptNote,
+  applyScreenEffectDirective,
+  consumePendingScreenEffect,
+  collectPendingUserTexts,
+  dispatchScreenEffect,
+} from '../apps/messages/screenEffects/screenEffectDirective';
+import { runScreenEffectSession } from '../apps/messages/screenEffects/screenEffectSession';
 import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
@@ -1513,7 +1521,7 @@ ${stickerInstruction}
 - 发送本地表情包：[STICKER: 表情包名称]
 - 分享位置卡片：[LOCATION: 地点名称 | 一句附加感想(可选)]
 - 主动送用户一张和好券/心意兑换券：[COUPON: 券名称 | 可以兑换的具体内容]（没有冷却限制，你自己判断合适的时机）
-- 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（只要用户在这次聊天里提出想让你换一下/重新收拾/重新设计这个小屋的布置，无论说法多随意、哪怕只是一句简短的口语化请求，都要使用这个标签——比如"DIY一下你的小屋""把小屋重新弄一下""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"这些说法都算数，不要因为用户没有说得很正式、很完整就认为不算明确提出；但如果用户只是在闲聊小屋这个话题、没有真的要求你去改，就不要用。用了之后你不需要、也不应该在正文里描述新布置具体是什么样子，小屋会单独自己更新，你只需要像平时一样简短回应一下用户（比如说"好呀""我去弄弄"），不用假装自己正在做某个具体动作）
+- 重新布置你的DIY小屋：[DIYAREA_REQUEST: 确认]（用户这次聊天里提出想让你换一下/重新收拾/重新设计小屋，无论说法多随意都要用，比如"DIY一下你的小屋""换个风格布置小屋""你小屋能不能换个样子""去收拾一下你的房间"；只是闲聊小屋、没有真的要求你改就不要用。用了之后不要在正文里描述新布置的样子，小屋会单独更新，像平时一样简短回应一句"好呀""我去弄弄"就行，别假装自己正在做某个具体动作）
 ${diyPromptBlock}
 ${parcelPromptBlock}
 ${couponPromptBlock}
@@ -2529,6 +2537,10 @@ const companionOfferNote = options.ignoreAway
 // 限制（跟小伙伴邀请不同），只在 ignoreAway 时跟其它"可选行为"一样收起。
 const bubbleStyleNote = options.ignoreAway ? '' : buildBubbleStylePromptNote();
 
+// #3 全屏特效：氛围动画走"角色先写 [SCREEN_WANT]，系统再单独问一次"，
+// 名单和暗号规则只在那一次里给；专注文字不需要暗号，直接留在主提示词。
+const screenEffectNote = options.ignoreAway ? '' : buildScreenEffectPromptNote(chat);
+
 // 背景图切换：跟气泡风格同一套"不设限制"的约定，只有这个聊天窗配置了
 // 背景图库（带注释）时才会往提示词里加字，否则 buildBackgroundSwitchPromptNote
 // 自己返回空字符串。
@@ -2571,6 +2583,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   companionOfferNote ? `\n\n${companionOfferNote}` : ''
 }${
   bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
+}${
+  screenEffectNote ? `\n\n${screenEffectNote}` : ''
 }${
   backgroundSwitchNote ? `\n\n${backgroundSwitchNote}` : ''
 }${
@@ -2714,9 +2728,25 @@ const { content: contentAfterCompanionOffer, offerMessage: companionOfferMessage
 // 装饰名字只要能匹配上已知名单就直接落库生效，不需要额外的"是否交出过
 // 选项"校验（这个功能本身就不设限制，参见 bubbleStyleDirective.js 顶部
 // 注释）。
+const {
+  content: contentAfterScreenEffect,
+  effect: focusEffect,
+  wantsAmbient: wantsScreenAmbient,
+} = applyScreenEffectDirective({ content: contentAfterCompanionOffer });
+
+// 用户这一轮说出了之前邀请过的暗号：直接播放，不需要再调用模型
+const pendingAmbientEffect = await consumePendingScreenEffect({
+  chatId,
+  chat,
+  recentMessages: recentMsgs,
+});
+const screenEffect = focusEffect || pendingAmbientEffect;
+// 要在角色回复写入之前取好，写入后"用户未被回复的消息"就取不到了
+const screenEffectUserTexts = collectPendingUserTexts(recentMsgs);
+
 const { content: contentAfterBubbleStyle, wantsChange: wantsBubbleChange } = await applyBubbleStyleDirective({
   chatId,
-  content: contentAfterCompanionOffer,
+  content: contentAfterScreenEffect,
 });
 
 // 取出角色的 [SWITCH_BACKGROUND: ...] 标签（一律从正文去掉）；标签里写的
@@ -3078,6 +3108,19 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
       // 角色写了 [BUBBLE_WANT]：回复已经写入后，立刻补一次单独的调用，
       // 让它具体决定换形状 / 进场动画 / 自己写 CSS（完整提示词只在那一次里
       // 给）。不等待结果，失败也不影响已经保存的回复。
+      if (screenEffect && messageIds.length > 0) {
+        dispatchScreenEffect(chatId, screenEffect);
+      }
+
+      if (wantsScreenAmbient && !screenEffect && messageIds.length > 0) {
+        void runScreenEffectSession({
+          chatId,
+          character,
+          triggerReply: safeParsedMessages.find((message) => message.type === 'text')?.content || '',
+          userTexts: screenEffectUserTexts,
+        });
+      }
+
       if (wantsBubbleChange && messageIds.length > 0) {
         void runBubbleStyleSession({
           chatId,
