@@ -1,7 +1,8 @@
 // src/apps/hub/hubPageLayouts/HeartbreakPageLayout.jsx
 //
-// 「心碎先生」整页版式（片 A）：拼贴海报 + 桌面窗口，视觉照
-// mr-heartbreak-home-preview_v5 移植。三屏：
+// 「心碎先生」整页版式（片 A，统一风格后的 v6）：拼贴海报 + 桌面窗口，
+// 视觉照 mr-heartbreak-home-preview_v6 移植（v5 的撞色改成每个主题一个低饱和
+// 点缀色，标题和飘字统一用英文衬线，和站内「WHEN I with U.」同一种气质）。三屏：
 //   A 正在放：HEART / BREAK 巨字、铬面光盘、播放器、键帽、抠图占位；
 //   B 有人在找你：Messages 窗口、Ask Box 窗口、哥特体 heartbreak；
 //   C 桌面：Workflows 窗口、骰子、All Apps 文件夹、SIDE B 巨字。
@@ -9,18 +10,24 @@
 //
 // 本片里「真的能用」的：Messages 快速打开、Ask Box 和 Workflows 的真实
 // 数量与打开、全部应用窗口（33 个入口）、名称显示模式、低功耗开关。播放器、
-// 骰子、抠图、键帽都是装饰，工作流开关、播放器联动在后续片里做。
+// 骰子、键帽都是装饰，工作流开关、播放器联动在后续片里做。
+// 装饰文字（标签、飘字、感叹号牌、readme）和图片位（人物图、播放器封面）
+// 可以由用户自己改：顶栏铅笔进入编辑模式，点虚线框修改，保存在
+// db.settings（见 heartbreak/useHbCustom.js）。
 //
 // 性能：字体只在这个版式挂载时才加载（离线回退系统字体）；视差只在滚动时
 // 计算；低功耗模式或系统「减少动画」下，视差、入场、光盘旋转、毛玻璃、发光
 // 全部关闭。约定的 props 见 pageLayoutRegistry.js：{ onOpenApp, onOpenArchive }。
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Zap } from 'lucide-react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Pencil, Zap } from 'lucide-react';
 import './heartbreak/heartbreak.css';
 import HbWindow from './heartbreak/HbWindow';
 import HbAppsWindow from './heartbreak/HbAppsWindow';
 import HbCutout from './heartbreak/HbCutout';
+import { HbText, HbImageSlot } from './heartbreak/HbEditable';
+import HbEditLayer from './heartbreak/HbEditLayer';
+import { HbCustomContext, useHbCustom } from './heartbreak/useHbCustom';
 import {
   useHbParallax,
   useHbReveal,
@@ -33,7 +40,7 @@ import { HUB_APPS } from '../appRegistry';
 
 const FONT_LINK_ID = 'hb-fonts';
 const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Pirata+One&family=ZCOOL+QingKe+HuangYou&display=swap';
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap';
 
 const WINDOW_META = {
   messages: { title: 'Messages', alt: '消息' },
@@ -71,21 +78,39 @@ const useClock = () => {
 };
 
 // 绝对定位的装饰块；data-depth 交给视差 hook（正数偏慢，负数偏快）。
-const Para = ({ left, top, depth = 0, slide, z, className = '', style, children }) => (
-  <div
-    className={`hb-para ${className}`}
-    data-depth={depth}
-    data-slide={slide}
-    style={{ left, top, zIndex: z, ...style }}
-    aria-hidden="true"
-  >
-    {children}
-  </div>
+// 编辑模式下里面有可点的东西，不能再对辅助技术隐藏。
+const Para = ({ left, top, depth = 0, slide, z, className = '', style, children }) => {
+  const { editing } = useContext(HbCustomContext);
+  return (
+    <div
+      className={`hb-para ${className}`}
+      data-depth={depth}
+      data-slide={slide}
+      style={{ left, top, zIndex: z, ...style }}
+      aria-hidden={editing ? undefined : 'true'}
+    >
+      {children}
+    </div>
+  );
+};
+
+// id 不为空的文字用户可以自己改；children 是默认文字。
+const Editable = ({ id, label, maxLength, children }) =>
+  id ? (
+    <HbText id={id} fallback={children} label={label} maxLength={maxLength} />
+  ) : (
+    children
+  );
+
+const Word = ({ id, children, left, top, depth }) => (
+  <Para className="hb-word" left={left} top={top} depth={depth}>
+    <Editable id={id} label="飘字">{children}</Editable>
+  </Para>
 );
 
-const Word = ({ children, left, top, depth }) => (
-  <Para className="hb-word" left={left} top={top} depth={depth}>
-    {children}
+const Bang = ({ id, left, top, depth, z, children = '!!!' }) => (
+  <Para className="hb-bang" left={left} top={top} depth={depth} z={z}>
+    <Editable id={id} label="感叹号牌" maxLength={6}>{children}</Editable>
   </Para>
 );
 
@@ -114,16 +139,16 @@ const Giant = ({ text, left, top, depth, slide, line = false, size, startIndex =
   </Para>
 );
 
-const Tag = ({ children, left, top, rotate = -2 }) => (
+const Tag = ({ id, children, left, top, rotate = -2 }) => (
   <span className="hb-tag hb-pop" style={{ left, top, '--r': `${rotate}deg`, '--d': '0.5s' }}>
-    {children}
+    <Editable id={id} label="标签">{children}</Editable>
   </span>
 );
 
-const Chip = ({ letter, children, left, top }) => (
+const Chip = ({ id, letter, children, left, top }) => (
   <span className="hb-chip hb-pop" style={{ left, top, '--d': '0.3s' }}>
     <em>{letter}</em>
-    {children}
+    <Editable id={id} label="分区名称">{children}</Editable>
   </span>
 );
 
@@ -138,6 +163,25 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
 
   const [windows, setWindows] = useState(INITIAL_WINDOWS);
   const [order, setOrder] = useState(['workflows', 'askbox', 'messages', 'apps']);
+
+  // 编辑模式：用户自己改装饰文字和图片（顶栏铅笔）。
+  const custom = useHbCustom();
+  const [editing, setEditing] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const customContext = useMemo(
+    () => ({
+      editing,
+      texts: custom.texts,
+      images: custom.images,
+      requestEdit: setEditTarget,
+    }),
+    [editing, custom]
+  );
+  const toggleEditing = useCallback(() => {
+    setEditing((prev) => !prev);
+    setEditTarget(null);
+  }, []);
+  const closeEditTarget = useCallback(() => setEditTarget(null), []);
 
   // 字体：只在这个版式显示时才加；离开版式后移除。
   useEffect(() => {
@@ -204,6 +248,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
   const appCount = HUB_APPS.length;
 
   return (
+    <HbCustomContext.Provider value={customContext}>
     <div
       ref={rootRef}
       className="hb-root"
@@ -224,25 +269,30 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       <header className="hb-topbar">
         <div className="hb-logo">
           <b>
-            <span>心碎</span>
-            <span>先生!</span>
+            <span>Mr. &ldquo;Broken</span>
+            <span>Heart&rdquo;</span>
           </b>
-          <i />
-          <small>
-            Mr.
-            <br />
-            &ldquo;Broken Heart&rdquo;
-          </small>
         </div>
-        <button
-          type="button"
-          className="hb-ib"
-          aria-label={lowPower ? '关闭低功耗模式' : '开启低功耗模式'}
-          aria-pressed={lowPower}
-          onClick={() => setHubLowPower(!lowPower)}
-        >
-          <Zap className="hb-i" />
-        </button>
+        <div className="hb-tb">
+          <button
+            type="button"
+            className="hb-ib"
+            aria-label={editing ? '完成编辑' : '编辑装饰文字和图片'}
+            aria-pressed={editing}
+            onClick={toggleEditing}
+          >
+            <Pencil className="hb-i" />
+          </button>
+          <button
+            type="button"
+            className="hb-ib"
+            aria-label={lowPower ? '关闭低功耗模式' : '开启低功耗模式'}
+            aria-pressed={lowPower}
+            onClick={() => setHubLowPower(!lowPower)}
+          >
+            <Zap className="hb-i" />
+          </button>
+        </div>
       </header>
 
       {/* ---------- A 正在放 ---------- */}
@@ -250,7 +300,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <svg className="hb-crack" viewBox="0 0 390 34" preserveAspectRatio="none" aria-hidden="true">
           <path d="M-4 17 L38 11 L58 23 L96 8 L132 26 L170 12 L204 28 L246 9 L282 24 L318 11 L352 21 L394 13" />
         </svg>
-        <Chip letter="A" left="5%" top={18}>正在放</Chip>
+        <Chip id="chipA" letter="A" left="5%" top={18}>正在放</Chip>
 
         <Giant text="HEART" left="-3%" top={62} depth={0.1} slide={0.2} />
         <Giant text="BREAK" left="10%" top={196} depth={0.1} slide={-0.2} startIndex={5} />
@@ -273,7 +323,9 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
                 </span>
               </div>
               <div className="hb-pl-art">
-                <span className="hb-ph-tag">封面 1:1</span>
+                <HbImageSlot id="cover" label="播放器封面" imgClassName="hb-cover-img">
+                  <span className="hb-ph-tag">封面 1:1</span>
+                </HbImageSlot>
               </div>
             </div>
             <span className="hb-pl-chip">暂停中</span>
@@ -316,9 +368,9 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         </Para>
 
         <Para left="58%" top={502} z={7} depth={-0.08} style={{ width: 160, height: 214 }}>
-          <HbCutout variant={0} />
+          <HbCutout variant={0} slotId="cutA" slotLabel="人物图（第一屏）" />
         </Para>
-        <Tag left="52%" top={470} rotate={-4}>正在听</Tag>
+        <Tag id="tagNow" left="52%" top={470} rotate={-4}>正在听</Tag>
 
         <Key letter="M" left="79%" top={122} depth={-0.22} rotate={18} index={0} />
         <Key letter="R" left="3%" top={178} depth={-0.14} rotate={-14} index={1} />
@@ -326,17 +378,19 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <Key letter="H" left="32%" top={684} depth={-0.1} rotate={-9} index={3} />
         <Key letter="B" left="83%" top={404} depth={-0.24} rotate={-22} index={4} />
 
-        <Word left="44%" top={136} depth={-0.3}>replay</Word>
-        <Word left="62%" top={350} depth={-0.26}>slow</Word>
-        <Word left="8%" top={552} depth={-0.2}>其实</Word>
-        <Word left="24%" top={250} depth={-0.34}>没关系</Word>
-        <Word left="12%" top={730} depth={-0.28}>again</Word>
+        <Word id="w01" left="44%" top={136} depth={-0.3}>replay</Word>
+        <Word id="w02" left="62%" top={350} depth={-0.26}>slow</Word>
+        <Word id="w03" left="8%" top={552} depth={-0.2}>其实</Word>
+        <Word id="w04" left="24%" top={250} depth={-0.34}>没关系</Word>
+        <Word id="w05" left="12%" top={730} depth={-0.28}>again</Word>
       </section>
 
       {/* ---------- B 有人在找你 ---------- */}
       <section className="hb-spread" style={{ height: 760 }}>
-        <Chip letter="B" left="5%" top={0}>有人在找你</Chip>
-        <Para className="hb-goth" left="-6%" top={330} depth={0.06} slide={0.14}>heartbreak</Para>
+        <Chip id="chipB" letter="B" left="5%" top={0}>有人在找你</Chip>
+        <Para className="hb-goth" left="-6%" top={330} depth={0.06} slide={0.14}>
+          <Editable id="goth" label="大字" maxLength={14}>heartbreak</Editable>
+        </Para>
 
         <HbWindow {...windowProps('messages')} paraStyle={{ left: '4%', top: 50 }} depth={0.03} winStyle={{ '--r': '-1deg' }}>
           <div className="hb-field">
@@ -353,7 +407,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
             </button>
           </div>
         </HbWindow>
-        <Para className="hb-bang" left="82%" top={26} depth={-0.18}>!!!</Para>
+        <Bang id="bangB1" left="82%" top={26} depth={-0.18} />
 
         <HbWindow {...windowProps('askbox')} paraStyle={{ left: '38%', top: 384 }} depth={-0.04} winStyle={{ width: 226, '--r': '2deg' }}>
           <div className="hb-qq">???</div>
@@ -373,24 +427,24 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <Para className="hb-qm" left="28%" top={310} depth={-0.22} style={{ fontSize: 62, rotate: '16deg' }}>?</Para>
 
         <Para left="2%" top={500} z={7} depth={-0.06} style={{ width: 154, height: 206 }}>
-          <HbCutout variant={1} />
+          <HbCutout variant={1} slotId="cutB" slotLabel="人物图（第二屏）" />
         </Para>
-        <Tag left="44%" top={640} rotate={3}>这是谁？</Tag>
-        <Tag left="58%" top={310} rotate={-3}>别装没看见</Tag>
-        <Para className="hb-bang" left="76%" top={700} depth={-0.12}>!!!</Para>
+        <Tag id="tagWho" left="44%" top={640} rotate={3}>这是谁？</Tag>
+        <Tag id="tagLook" left="58%" top={310} rotate={-3}>别装没看见</Tag>
+        <Bang id="bangB2" left="76%" top={700} depth={-0.12} />
 
-        <Word left="84%" top={240} depth={-0.3}>until</Word>
-        <Word left="12%" top={300} depth={-0.24}>someone</Word>
-        <Word left="50%" top={720} depth={-0.2}>在吗</Word>
-        <Word left="80%" top={560} depth={-0.32}>to</Word>
+        <Word id="w06" left="84%" top={240} depth={-0.3}>until</Word>
+        <Word id="w07" left="12%" top={300} depth={-0.24}>someone</Word>
+        <Word id="w08" left="50%" top={720} depth={-0.2}>在吗</Word>
+        <Word id="w09" left="80%" top={560} depth={-0.32}>to</Word>
       </section>
 
       {/* ---------- C 桌面 ---------- */}
       <section className="hb-spread" style={{ height: 840 }}>
-        <Chip letter="C" left="5%" top={0}>桌面</Chip>
-        <Giant text="SIDE B" left="-4%" top={700} depth={0.08} slide={0.16} line size={150} />
+        <Chip id="chipC" letter="C" left="5%" top={0}>桌面</Chip>
+        <Giant text="SIDE B" left="-4%" top={700} depth={0.08} slide={0.16} line size={104} />
 
-        <Tag left="64%" top={20} rotate={4}>最常去</Tag>
+        <Tag id="tagMost" left="64%" top={20} rotate={4}>最常去</Tag>
 
         <HbWindow {...windowProps('workflows')} paraStyle={{ left: '43%', top: 318 }} depth={-0.04} winStyle={{ width: 206, '--r': '-2deg' }}>
           <div className="hb-wf-count">
@@ -403,7 +457,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
             </button>
           </div>
         </HbWindow>
-        <Para className="hb-bang" left="84%" top={300} z={9} depth={-0.1}>!!!</Para>
+        <Bang id="bangC" left="84%" top={300} z={9} depth={-0.1} />
 
         <Para left="5%" top={330} depth={-0.1} style={{ textAlign: 'center' }}>
           <div className="hb-die">
@@ -428,9 +482,9 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         </div>
         <Tag left="44%" top={536} rotate={-3}>{appCount} 个入口</Tag>
 
-        <Word left="76%" top={250} depth={-0.3}>own</Word>
-        <Word left="36%" top={470} depth={-0.24}>收好</Word>
-        <Word left="10%" top={290} depth={-0.2}>the</Word>
+        <Word id="w10" left="76%" top={250} depth={-0.3}>own</Word>
+        <Word id="w11" left="36%" top={470} depth={-0.24}>收好</Word>
+        <Word id="w12" left="10%" top={290} depth={-0.2}>the</Word>
 
         <HbWindow
           {...windowProps('apps')}
@@ -451,8 +505,16 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
             </span>
           </div>
           <div className="hb-win-body">
-            <p>Things kept close, and places to return to.</p>
-            <small>Personal Index</small>
+            <p>
+              <Editable id="readme" label="readme 标题" maxLength={60}>
+                Things kept close, and places to return to.
+              </Editable>
+            </p>
+            <small>
+              <Editable id="readmeSub" label="readme 小字" maxLength={30}>
+                Personal Index
+              </Editable>
+            </small>
           </div>
         </section>
       </div>
@@ -473,6 +535,13 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <span className="hb-tray">{clock}</span>
       </nav>
     </div>
+    <HbEditLayer
+      editing={editing}
+      onDone={toggleEditing}
+      target={editTarget}
+      onCloseTarget={closeEditTarget}
+    />
+    </HbCustomContext.Provider>
   );
 };
 

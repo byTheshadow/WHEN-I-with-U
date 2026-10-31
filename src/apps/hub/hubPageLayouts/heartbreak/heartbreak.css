@@ -5,8 +5,11 @@
  * 抠图占位、倾斜的标签。所有类名以 hb- 开头，且都写在 .hb-root 之下。
  *
  * 颜色：全部取自全站主题变量（--bg-main / --text-main / --card-bg /
- * --ink-card-bg ...），只有撞色 --hb-pop 是这个版式自己的，按主题给了
- * 默认值，想换色只改下面 5 行。
+ * --ink-card-bg ...），只有点缀色 --hb-pop 是这个版式自己的：每个主题一个
+ * 低饱和色，和站内的黑白衬线标题保持同一种气质；光晕只用主题自带的
+ * --bg-blob-*。想换色只改下面 5 行。
+ * 字体：标题、标签、飘字统一用英文衬线（Playfair Display，后面依次接站内
+ * 已加载的 Noto Serif SC、Georgia），中文字不会再缺字。
  *
  * 性能（保护手机）：
  *   - 没有颗粒叠层、没有常驻的光晕呼吸动画、没有滚动模糊；
@@ -18,24 +21,28 @@
  *     视差写进去的 transform。
  */
 
-.hb-root {
-  --hb-pop: #2b3bff;
+.hb-root,
+.hb-overlay {
+  --hb-pop: #3f4a66;
   --hb-pop-ink: #ffffff;
   --hb-pop-deep: color-mix(in srgb, var(--hb-pop) 62%, #000);
-  --hb-glow: var(--hb-pop);
+  --hb-glow: var(--bg-blob-3);
   --hb-glass: color-mix(in srgb, var(--card-bg) 54%, transparent);
   --hb-glass-line: color-mix(in srgb, var(--text-main) 60%, transparent);
   --hb-lit: inset 0 1px 0 color-mix(in srgb, var(--bg-main) 75%, transparent);
-  --hb-shadow: 0 18px 44px color-mix(in srgb, var(--hb-glow) 32%, transparent),
+  --hb-shadow: 0 14px 34px color-mix(in srgb, var(--hb-glow) 28%, transparent),
     0 2px 0 color-mix(in srgb, var(--text-main) 12%, transparent);
-  --hb-grot: 'Bricolage Grotesque', 'Arial Black', system-ui, sans-serif;
-  --hb-goth: 'Pirata One', 'Old English Text MT', serif;
-  --hb-block: 'ZCOOL QingKe HuangYou', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --hb-serif: 'Playfair Display', 'Noto Serif SC', Georgia, 'Songti SC', 'Times New Roman', serif;
+  --hb-grot: var(--hb-serif);
+  --hb-goth: var(--hb-serif);
+  --hb-block: var(--hb-serif);
   --hb-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --hb-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --hb-hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 26%, transparent) 0 1px, transparent 1px 6px);
   --hb-chrome: linear-gradient(135deg, var(--bg-main) 0%, var(--text-muted) 28%, var(--bg-main) 46%, var(--bg-surface-strong) 60%, var(--text-sub) 82%, var(--bg-main) 100%);
+}
 
+.hb-root {
   position: relative;
   isolation: isolate;
   margin: 0 -1rem;
@@ -45,10 +52,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-:root[data-theme='cream-latte'] .hb-root { --hb-pop: #e5461f; --hb-pop-ink: #fffaf5; }
-:root[data-theme='obsidian-dark'] .hb-root { --hb-pop: #ff4a2a; --hb-pop-ink: #ffffff; }
-:root[data-theme='cyber-velvet'] .hb-root { --hb-pop: #ff6fd2; --hb-pop-ink: #24102f; }
-:root[data-theme='rose-quartz'] .hb-root { --hb-pop: #d8203e; --hb-pop-ink: #fff8f9; }
+:root[data-theme='cream-latte'] .hb-root, :root[data-theme='cream-latte'] .hb-overlay { --hb-pop: #8a4b2d; --hb-pop-ink: #fffaf5; }
+:root[data-theme='obsidian-dark'] .hb-root, :root[data-theme='obsidian-dark'] .hb-overlay { --hb-pop: #d9d4c7; --hb-pop-ink: #111111; --hb-glow: var(--bg-blob-1); }
+:root[data-theme='cyber-velvet'] .hb-root, :root[data-theme='cyber-velvet'] .hb-overlay { --hb-pop: #d8b4f0; --hb-pop-ink: #24102f; --hb-glow: var(--bg-blob-1); }
+:root[data-theme='rose-quartz'] .hb-root, :root[data-theme='rose-quartz'] .hb-overlay { --hb-pop: #8a4a5a; --hb-pop-ink: #fff8f9; }
 
 .hb-root *, .hb-root *::before, .hb-root *::after { box-sizing: border-box; }
 :where(.hb-root) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -584,3 +591,181 @@
 .hb-root[data-motion='on'] .hb-in .hb-pop { animation: hb-pop 0.6s var(--hb-spring) both; animation-delay: var(--d, 0.3s); }
 @keyframes hb-slam { from { opacity: 0; translate: 0 -60px; rotate: -10deg; } to { opacity: 1; translate: 0 0; rotate: 0deg; } }
 @keyframes hb-pop { from { opacity: 0; scale: 0.2; } to { opacity: 1; scale: 1; } }
+
+/* =========================================================
+ * 统一风格（v6）：和站内黑白衬线标题同一种气质
+ * 巨字保持衬线粗体；撞色元素降级为低饱和点缀色；去掉错位发光。
+ * ========================================================= */
+
+.hb-aura i { opacity: 0.55; }
+.hb-aura i.h2, .hb-aura i.h3 { filter: none; }
+
+.hb-logo b { font-style: italic; font-weight: 600; font-size: 17px; line-height: 1.02; letter-spacing: -0.01em; }
+.hb-logo b span:last-child { padding-left: 14px; }
+
+.hb-giant {
+  font-weight: 700;
+  font-size: 112px;
+  line-height: 0.8;
+  letter-spacing: -0.055em;
+  text-shadow: 0 0 60px color-mix(in srgb, var(--hb-glow) 55%, transparent);
+}
+.hb-giant-line { font-style: italic; font-weight: 600; -webkit-text-stroke: 1.2px var(--text-main); text-shadow: 0 0 40px color-mix(in srgb, var(--hb-glow) 50%, transparent); }
+.hb-root[data-lp='on'] .hb-giant,
+.hb-root[data-lp='on'] .hb-giant-line { text-shadow: none; }
+.hb-goth { font-style: italic; font-weight: 500; font-size: 92px; -webkit-text-stroke: 1px var(--text-main); text-shadow: none; }
+
+.hb-word { font-style: italic; font-weight: 500; font-size: 17px; color: var(--text-sub); opacity: 0.8; text-shadow: none; }
+
+.hb-tag { font-style: italic; font-weight: 600; font-size: 16px; padding: 5px 10px; border-radius: 2px; }
+.hb-chip { font-family: var(--hb-serif); font-weight: 600; }
+.hb-chip em { font-style: italic; }
+
+.hb-bang {
+  background: var(--bg-main);
+  color: var(--text-main);
+  border: 1.4px solid var(--text-main);
+  outline: 0;
+  box-shadow: none;
+  font-style: italic;
+  font-size: 22px;
+}
+.hb-qm { color: var(--text-main); }
+.hb-qq { color: var(--text-main); font-style: italic; }
+
+.hb-key .cap {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  box-shadow: 0 7px 0 -1px var(--bg-surface-strong), 0 7px 0 0.6px var(--text-main),
+    0 16px 24px color-mix(in srgb, var(--hb-glow) 40%, transparent);
+}
+.hb-key .cap::after { border-color: color-mix(in srgb, var(--text-main) 14%, transparent); }
+.hb-root[data-lp='on'] .hb-key .cap { box-shadow: 0 7px 0 -1px var(--bg-surface-strong), 0 7px 0 0.6px var(--text-main); }
+
+.hb-cd { box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14); }
+.hb-cut { filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.16)); }
+.hb-crack { filter: none; }
+.hb-crack path { stroke: var(--text-main); stroke-width: 1.4; }
+.hb-player { box-shadow: var(--ink-card-shadow); }
+
+.hb-win-bar { font-weight: 600; }
+.hb-btn.main { box-shadow: none; }
+.hb-folder svg { fill: var(--bg-surface-strong); filter: drop-shadow(3px 3px 0 color-mix(in srgb, var(--text-main) 80%, transparent)); }
+.hb-grp h4 { font-weight: 600; }
+.hb-pin { box-shadow: none; }
+.hb-badge { box-shadow: none; }
+.hb-task { box-shadow: none; }
+.hb-taskbar { box-shadow: 0 12px 30px color-mix(in srgb, var(--hb-glow) 28%, transparent); }
+.hb-root[data-lp='on'] .hb-taskbar { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12); }
+
+/* =========================================================
+ * 用户自定义的图片
+ * ========================================================= */
+
+/* 抠图：透明 PNG 会得到一圈白色贴纸描边；普通照片则显示为带边框的整张图。 */
+.hb-user-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(2px 0 0 var(--bg-main)) drop-shadow(-2px 0 0 var(--bg-main))
+    drop-shadow(0 2px 0 var(--bg-main)) drop-shadow(0 -2px 0 var(--bg-main))
+    drop-shadow(0 8px 12px rgba(0, 0, 0, 0.16));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.hb-root[data-lp='on'] .hb-user-img { filter: drop-shadow(0 0 0 var(--bg-main)) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.14)); }
+.hb-cover-img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+.hb-pl-art > .hb-editable-block, .hb-pl-art > .hb-cover-img { position: absolute; inset: 0; }
+
+/* =========================================================
+ * 编辑模式（顶栏铅笔）
+ * ========================================================= */
+
+.hb-editable {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  outline: 1.3px dashed var(--text-main);
+  outline-offset: 4px;
+}
+.hb-editable-block { display: block; width: 100%; height: 100%; }
+.hb-editable::after {
+  content: '';
+  position: absolute;
+  right: -9px;
+  top: -9px;
+  z-index: 50;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-color) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'/></svg>") center / 10px no-repeat;
+  pointer-events: none;
+}
+.hb-pl-art .hb-editable { outline-offset: -3px; }
+.hb-pl-art .hb-editable::after { right: 5px; top: 5px; }
+.hb-editable:focus-visible { outline-style: solid; }
+
+.hb-overlay .hb-edit-banner {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  z-index: 160;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 7px 7px 7px 16px;
+  border-radius: 999px;
+  background: var(--text-main);
+  color: var(--bg-main);
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translate(-50%, -140%);
+  pointer-events: none;
+  transition: transform 0.4s var(--hb-ease);
+}
+.hb-overlay .hb-edit-banner.show { transform: translate(-50%, 0); pointer-events: auto; }
+.hb-overlay .hb-edit-banner button { flex: none; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--bg-main); color: var(--text-main); font-size: 12px; font-weight: 600; cursor: pointer; border: 0; }
+.hb-overlay .hb-edit-banner button.ghost { background: transparent; color: var(--bg-main); border: 1px solid color-mix(in srgb, var(--bg-main) 45%, transparent); }
+
+.hb-overlay .hb-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, var(--text-main) 28%, transparent);
+}
+.hb-overlay .hb-sheet-card {
+  width: min(440px, 100%);
+  padding: 16px 18px calc(env(safe-area-inset-bottom, 0px) + 22px);
+  border: 1px solid var(--card-border);
+  border-radius: 24px 24px 0 0;
+  background: var(--card-bg);
+  color: var(--text-main);
+  animation: hb-sheet-up 0.35s var(--hb-ease);
+}
+@keyframes hb-sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.hb-overlay .hb-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.hb-overlay .hb-sheet-head b { font-family: var(--hb-serif); font-size: 18px; }
+.hb-overlay .hb-sheet-head button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--control-soft-bg); color: var(--text-main); cursor: pointer; }
+.hb-overlay svg.hb-i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.hb-overlay .hb-sheet-input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--card-border); border-radius: 12px; background: var(--bg-surface); color: var(--text-main); font: 600 16px var(--hb-serif); }
+.hb-overlay .hb-sheet-preview { display: grid; place-items: center; height: 160px; overflow: hidden; border-radius: 16px; background: var(--hb-hatch), var(--bg-surface-strong); color: var(--text-muted); font-size: 12px; }
+.hb-overlay .hb-sheet-preview img { width: 100%; height: 100%; object-fit: contain; }
+.hb-overlay .hb-sheet-note { margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: var(--text-muted); }
+.hb-overlay .hb-sheet-row { display: flex; gap: 8px; margin-top: 12px; }
+.hb-overlay .hb-sheet-row.end { justify-content: flex-end; margin-top: 16px; }
+.hb-overlay .hb-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 1.2px solid var(--hb-glass-line); border-radius: 999px; background: color-mix(in srgb, var(--bg-main) 60%, transparent); color: var(--text-main); font-size: 12px; font-weight: 600; cursor: pointer; }
+.hb-overlay .hb-btn.main { border-color: transparent; background: var(--hb-pop); color: var(--hb-pop-ink); }
+.hb-overlay .hb-btn:disabled { opacity: 0.5; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+  .hb-overlay .hb-sheet-card, .hb-overlay .hb-edit-banner { animation: none; transition: none; }
+}
+
+.hb-overlay *, .hb-overlay *::before, .hb-overlay *::after { box-sizing: border-box; }
+.hb-overlay button { font: inherit; }
+.hb-overlay button:focus-visible, .hb-overlay input:focus-visible { outline: 2px solid var(--hb-pop); outline-offset: 2px; }
+.hb-tb { display: flex; gap: 4px; }

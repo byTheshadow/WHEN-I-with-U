@@ -2,8 +2,11 @@
 //
 // 人物抠图占位：白色描边的剪影加斜线填充，和预览里一致。后续片里
 // 会换成角色头像加贴纸描边。三种剪影用 variant 0/1/2 选。
+// 传了 slotId 之后，这个位置可以由用户自己换成图片（编辑模式下点它），
+// 换了图就显示用户的图，恢复后回到剪影占位。
 
 import React, { useId } from 'react';
+import { HbImageSlot } from './HbEditable';
 
 const SHAPES = [
   <>
@@ -23,12 +26,12 @@ const SHAPES = [
   </>,
 ];
 
-export const HbCutout = ({ label = '人物抠图占位', variant = 0 }) => {
+export const HbCutout = ({ label = '人物抠图占位', variant = 0, slotId, slotLabel = '人物图' }) => {
   const rawId = useId();
   const patternId = `hb-hatch-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   const shape = SHAPES[variant % SHAPES.length];
 
-  return (
+  const placeholder = (
     <div className="hb-cutwrap">
       <svg className="hb-cut" viewBox="-8 -8 116 146" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <defs>
@@ -42,6 +45,14 @@ export const HbCutout = ({ label = '人物抠图占位', variant = 0 }) => {
       </svg>
       <span className="hb-ph-tag">{label}</span>
     </div>
+  );
+
+  if (!slotId) return placeholder;
+
+  return (
+    <HbImageSlot id={slotId} label={slotLabel}>
+      {placeholder}
+    </HbImageSlot>
   );
 };
 
