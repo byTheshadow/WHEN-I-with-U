@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，递增此版本号以激活新 SW
-const CACHE_NAME = 'when-i-with-u-v16';
+const CACHE_NAME = 'when-i-with-u-v17';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径
 const APP_SCOPE = self.registration.scope;
@@ -63,31 +63,44 @@ self.addEventListener('fetch', (event) => {
   if (requestUrl.origin !== self.location.origin) {
     return;
   }
-
-  // 页面导航请求：网络优先；离线时返回已缓存的 SPA 入口页
+  // 页面导航请求：缓存优先 + 后台更新（2026-10）。
+  // 原来是"网络优先、没有超时"：网络慢但没断时，fetch 会一直等，页面入口
+  // 迟迟拿不到，表现为长时间纯白屏（index.html 里的启动占位也画不出来）。
+  // 现在有缓存的入口页就立刻返回，同时后台去网络拉最新的 index.html 写进
+  // 缓存，下一次打开就是新版；没有缓存（首次访问）才等网络，网络也失败
+  // 时返回 503 提示。
   if (event.request.mode === 'navigate') {
+    // 后台更新必须在同步阶段创建并交给 waitUntil，保证 SW 不会在它完成
+    // 之前被浏览器回收；失败（离线等）时静默忽略，继续用旧缓存。
+    const networkUpdate = fetch(event.request).then((response) => {
+      if (response && response.ok) {
+        const responseCopy = response.clone();
+
+        return caches
+          .open(CACHE_NAME)
+          .then((cache) => cache.put(APP_INDEX_URL, responseCopy))
+          .then(
+            () => response,
+            () => response,
+          );
+      }
+
+      return response;
+    });
+
+    event.waitUntil(networkUpdate.catch(() => {}));
+
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const responseCopy = response.clone();
+      (async () => {
+        const cachedIndex = await caches.match(APP_INDEX_URL);
 
-            event.waitUntil(
-              caches.open(CACHE_NAME).then((cache) => {
-                return cache.put(APP_INDEX_URL, responseCopy);
-              }),
-            );
-          }
+        if (cachedIndex) {
+          return cachedIndex;
+        }
 
-          return response;
-        })
-        .catch(async () => {
-          const cachedIndex = await caches.match(APP_INDEX_URL);
-
-          if (cachedIndex) {
-            return cachedIndex;
-          }
-
+        try {
+          return await networkUpdate;
+        } catch (error) {
           return new Response(
             '当前处于离线状态，且应用入口尚未缓存。',
             {
@@ -98,12 +111,12 @@ self.addEventListener('fetch', (event) => {
               },
             },
           );
-        }),
+        }
+      })(),
     );
 
     return;
   }
-
   // 静态资源：缓存优先；缓存未命中后请求网络并写入当前版本缓存
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
