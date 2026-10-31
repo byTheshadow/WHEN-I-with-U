@@ -48,7 +48,7 @@ export const HUB_PAGE_LAYOUTS = [
   },
   {
     id: HUB_PAGE_LAYOUT_HEARTBREAK,
-    label: '心碎先生',
+    label: '心碎先生（装修中）',
     hint: 'Collage + Windows',
   },
 ];
