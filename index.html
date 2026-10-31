@@ -22,18 +22,124 @@
         <!-- PWA Manifest 引用 -->
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
 
+    <!-- 启动占位的内联样式（2026-10）。
+         背景：每次更新后，带 hash 的 JS 入口文件都要重新下载，下载期间 React
+         还没有执行，页面上什么都没有，表现为长时间纯白屏。这里把占位层的样式
+         直接内联进 <head>，这样浏览器一解析到 body 就能画出来，不需要等任何
+         外部文件。颜色固定为默认主题的白底黑字——主题设置只存在 Dexie 里，
+         JS 启动之前读不到，所以占位层不随主题变化（和之前加载小圆点的白底一致）。
+         小圆点的位置、大小、动画刻意和 OnboardingGate.css 的 .onboarding-loading-dot
+         对齐，占位层被 main.jsx 移除、换成 React 的加载圆点时视觉上是连续的。 -->
+    <style>
+      #initial-startup-quote {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 9998;
+        background: #ffffff;
+        color: #111111;
+        font-family: Inter, "SF Pro Display", "SF Pro Text", -apple-system,
+          BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #initial-startup-quote .initial-startup__brand {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(50% + 28px);
+        margin: 0;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+      }
+
+      #initial-startup-quote .initial-startup__brand span {
+        font-weight: 300;
+        text-transform: none;
+        letter-spacing: 0.2em;
+      }
+
+      #initial-startup-quote .initial-startup__dot {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 9px;
+        height: 9px;
+        margin: -4.5px 0 0 -4.5px;
+        border-radius: 50%;
+        background: #111111;
+        animation: initial-startup-pulse 1s ease-in-out infinite;
+      }
+
+      #initial-startup-quote .initial-startup__quote {
+        position: absolute;
+        top: calc(50% + 28px);
+        left: 50%;
+        width: min(300px, calc(100% - 48px));
+        margin: 0;
+        transform: translateX(-50%);
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.8;
+        color: #707070;
+      }
+
+      #initial-startup-quote .initial-startup__quote:empty {
+        display: none;
+      }
+
+      @keyframes initial-startup-pulse {
+        0%,
+        100% {
+          opacity: 0.2;
+          transform: scale(0.8);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.2);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #initial-startup-quote .initial-startup__dot {
+          animation: none;
+          opacity: 0.6;
+        }
+      }
+    </style>
+
     <!-- Noto Serif SC：给 memory 等页面的标题衬线字体用，直接加载字体文件，
          不再依赖访问设备上恰好装了什么系统衬线字体（之前"字体被改粗了"的
          问题根源就是系统字体不稳定）。注意：Google Fonts 在国内网络环境下
          可能被墙，访问不到时会自动退回各处 CSS 里已经写好的系统字体兜底
-         （不会报错、也不会空白），只是回到之前那种"看设备"的不稳定状态。 -->
+         （不会报错、也不会空白），只是回到之前那种"看设备"的不稳定状态。
+
+         2026-10：样式表改成不阻塞首次渲染的写法（media="print" + onload 切回
+         all）。原来的普通 stylesheet 链接会让浏览器等它下载完才画任何东西，
+         在连不上 Google 的网络里要一直等到超时，是长时间纯白屏的原因之一。
+         字体加载完之后才会生效，加载期间沿用系统字体兜底，和上面说的失败
+         退回行为一致。noscript 里保留一份普通写法，给关闭 JS 的环境用。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
       crossorigin="anonymous"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;700&display=swap"
+        rel="stylesheet"
+        crossorigin="anonymous"
+      />
+    </noscript>
 
     <meta
       name="viewport"
@@ -50,8 +156,63 @@
   </head>
 
   <body class="antialiased min-h-screen selection:bg-stone-300 selection:text-stone-900">
-   <div id="initial-startup-quote" aria-live="polite"></div>
-<div id="root"></div>
+    <!-- 启动占位层：JS 入口文件下载、执行期间显示。
+         React 首次渲染完成后，由 src/main.jsx 末尾按 id 把整个节点移除，
+         所以这个 id 不要改名。 -->
+    <div id="initial-startup-quote" aria-live="polite">
+      <p class="initial-startup__brand">WHEN I <span>with U.</span></p>
+      <span class="initial-startup__dot" aria-hidden="true"></span>
+      <p class="initial-startup__quote" id="initial-startup-quote-text"></p>
+    </div>
+
+    <!-- 同步小脚本：如果用户在设置里自定义过启动文案，就在占位层上显示其中
+         随机一句。读取的是 src/services/preloaderQuoteService.js 里
+         PRELOADER_QUOTE_CACHE_KEY 写进 localStorage 的那份缓存，键名必须和
+         那边保持一致。没有自定义文案（或读取失败）就什么都不显示，只留
+         品牌名和圆点，不在这里重复一份默认语录库。文字一律用 textContent
+         写入，不当 HTML 解析。 -->
+    <script>
+      (function () {
+        try {
+          var raw = window.localStorage.getItem(
+            'when-i-with-u-preloader-quote-config'
+          );
+          if (!raw) return;
+
+          var config = JSON.parse(raw);
+          var categories = (config && config.categories) || [];
+          var active = null;
+
+          for (var i = 0; i < categories.length; i += 1) {
+            if (categories[i] && categories[i].id === config.activeCategoryId) {
+              active = categories[i];
+              break;
+            }
+          }
+
+          var quotes = [];
+          var rawQuotes = active && active.quotes ? active.quotes : [];
+
+          for (var j = 0; j < rawQuotes.length; j += 1) {
+            if (typeof rawQuotes[j] === 'string' && rawQuotes[j].trim()) {
+              quotes.push(rawQuotes[j].trim());
+            }
+          }
+
+          if (!quotes.length) return;
+
+          var target = document.getElementById('initial-startup-quote-text');
+
+          if (target) {
+            target.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+          }
+        } catch (error) {
+          // localStorage 不可用或缓存内容损坏时，保持只显示品牌名和圆点。
+        }
+      })();
+    </script>
+
+    <div id="root"></div>
 
     <script type="module" src="/src/main.jsx"></script>
   </body>
