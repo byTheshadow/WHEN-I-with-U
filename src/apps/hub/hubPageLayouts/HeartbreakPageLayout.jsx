@@ -8,9 +8,10 @@
 //   C 桌面：Workflows 窗口、骰子、All Apps 文件夹、SIDE B 巨字。
 // 底部是 readme 窗口和任务栏（开始键回到顶部，最小化的窗口会变成任务按钮）。
 //
-// 本片里「真的能用」的：Messages 快速打开、Ask Box 和 Workflows 的真实
-// 数量与打开、全部应用窗口（33 个入口）、名称显示模式、低功耗开关。播放器、
-// 骰子、键帽都是装饰，工作流开关、播放器联动在后续片里做。
+// 「真的能用」的：Messages 快速打开（显示最近的聊天）、Ask Box 的真实数量、
+// 最新问题和打开、Workflows 窗口里真实的工作流列表和开关（写 enabled，带
+// 撤销提示）、全部应用窗口（33 个入口）、名称显示模式、低功耗开关。播放器、
+// 骰子、键帽是装饰，播放器联动在后续片里做。
 // 装饰文字（标签、飘字、感叹号牌、readme）和图片位（人物图、播放器封面）
 // 可以由用户自己改：顶栏铅笔进入编辑模式，点虚线框修改，保存在
 // db.settings（见 heartbreak/useHbCustom.js）。
@@ -24,6 +25,7 @@ import { Pencil, Zap } from 'lucide-react';
 import './heartbreak/heartbreak.css';
 import HbWindow from './heartbreak/HbWindow';
 import HbAppsWindow from './heartbreak/HbAppsWindow';
+import HbWorkflowsWindow from './heartbreak/HbWorkflowsWindow';
 import HbCutout from './heartbreak/HbCutout';
 import { HbText, HbImageSlot } from './heartbreak/HbEditable';
 import HbEditLayer from './heartbreak/HbEditLayer';
@@ -35,6 +37,8 @@ import {
 } from './heartbreak/useHbMotion';
 import { useHubLowPower, setHubLowPower } from '../useHubLowPower';
 import { useHubAppStats } from '../useHubAppStats';
+import { useHubWorkflows } from '../useHubWorkflows';
+import { useHubAskPreview, useHubLatestChat } from '../useHubPreviews';
 import { useAppNameDisplayMode } from '../useAppNameDisplayMode';
 import { HUB_APPS } from '../appRegistry';
 
@@ -157,7 +161,18 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
   const lowPower = useHubLowPower();
   const reducedMotion = usePrefersReducedMotion();
   const motionOn = !lowPower && !reducedMotion;
-  const stats = useHubAppStats();
+  const baseStats = useHubAppStats();
+  const workflowState = useHubWorkflows();
+  const latestChat = useHubLatestChat();
+  const askPreview = useHubAskPreview();
+  // 工作流的启用数量以列表为准（开关切换后马上变），其余数字仍用统计 hook。
+  const stats = useMemo(
+    () =>
+      workflowState.ready
+        ? { ...baseStats, activeWorkflowCount: workflowState.activeCount }
+        : baseStats,
+    [baseStats, workflowState.ready, workflowState.activeCount]
+  );
   const nameMode = useAppNameDisplayMode();
   const clock = useClock();
 
@@ -395,11 +410,10 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <HbWindow {...windowProps('messages')} paraStyle={{ left: '4%', top: 50 }} depth={0.03} winStyle={{ '--r': '-1deg' }}>
           <div className="hb-field">
             <b>To:</b>
-            <span className="hb-boxed">角色 A</span>
+            <span className="hb-boxed">{latestChat?.characterName || '还没有聊天'}</span>
           </div>
-          <div className="hb-bubble">Continue the conversation</div>
-          <div className="hb-draft">
-            正在输入：
+          <div className={`hb-bubble ${latestChat?.fromUser ? 'me' : ''}`}>
+            {latestChat?.text || 'Continue the conversation'}
           </div>
           <div className="hb-btns">
             <button type="button" className="hb-btn main" onClick={() => onOpenApp('messages')}>
@@ -414,6 +428,11 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
           <div className="hb-ask-sub">
             <b>{stats.askCount}</b> 个问题还没回答
           </div>
+          {askPreview && (
+            <p className="hb-ask-quote">
+              {askPreview.locked ? '最新一条是上锁的问题' : `\u201c${askPreview.text}\u201d`}
+            </p>
+          )}
           <div className="hb-btns">
             <button type="button" className="hb-btn" onClick={() => minimizeWindow('askbox')}>
               等会儿
@@ -447,17 +466,14 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <Tag id="tagMost" left="64%" top={20} rotate={4}>最常去</Tag>
 
         <HbWindow {...windowProps('workflows')} paraStyle={{ left: '43%', top: 318 }} depth={-0.04} winStyle={{ width: 206, '--r': '-2deg' }}>
-          <div className="hb-wf-count">
-            <span>{stats.activeWorkflowCount}</span>
-            <small>个已启用</small>
-          </div>
-          <div className="hb-btns">
-            <button type="button" className="hb-btn main" onClick={() => onOpenApp('workflows')}>
-              去看看
-            </button>
-          </div>
+          <HbWorkflowsWindow
+            workflows={workflowState.workflows}
+            ready={workflowState.ready}
+            activeCount={workflowState.activeCount}
+            onOpenWorkflows={() => onOpenApp('workflows')}
+          />
         </HbWindow>
-        <Bang id="bangC" left="84%" top={300} z={9} depth={-0.1} />
+        <Bang id="bangC" left="84%" top={258} z={9} depth={-0.1} />
 
         <Para left="5%" top={330} depth={-0.1} style={{ textAlign: 'center' }}>
           <div className="hb-die">
@@ -480,7 +496,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
             <span className="hb-chip">全部应用</span>
           </button>
         </div>
-        <Tag left="44%" top={536} rotate={-3}>{appCount} 个入口</Tag>
+        <Tag left="30%" top={584} rotate={-3}>{appCount} 个入口</Tag>
 
         <Word id="w10" left="76%" top={250} depth={-0.3}>own</Word>
         <Word id="w11" left="36%" top={470} depth={-0.24}>收好</Word>
@@ -520,7 +536,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       </div>
 
       {/* ---------- 任务栏 ---------- */}
-      <nav className="hb-taskbar" aria-label="任务栏">
+<nav className="hb-taskbar" aria-label="任务栏">
         <button type="button" className="hb-start" onClick={scrollToTop}>
           <i />
           心碎

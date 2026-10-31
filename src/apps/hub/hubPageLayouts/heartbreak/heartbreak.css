@@ -769,3 +769,35 @@
 .hb-overlay button { font: inherit; }
 .hb-overlay button:focus-visible, .hb-overlay input:focus-visible { outline: 2px solid var(--hb-pop); outline-offset: 2px; }
 .hb-tb { display: flex; gap: 4px; }
+
+/* =========================================================
+ * 片 B：真实内容的窗口
+ * ========================================================= */
+
+.hb-bubble.me { margin-left: auto; border-radius: 12px 12px 3px 12px; background: var(--hb-pop); color: var(--hb-pop-ink); }
+.hb-bubble { overflow-wrap: anywhere; }
+
+.hb-ask-quote { margin: 8px 0 0; font-size: 12px; font-style: italic; line-height: 1.5; color: var(--text-sub); overflow-wrap: anywhere; }
+
+.hb-wf-empty { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-sub); }
+.hb-wf-list { max-height: 150px; margin: 8px 0 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; list-style: none; scrollbar-width: none; }
+.hb-wf-list::-webkit-scrollbar { display: none; }
+.hb-wf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--divider); }
+.hb-wf-row:last-child { border-bottom: 0; }
+.hb-wf-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.hb-wf-info b { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.hb-wf-info small { overflow: hidden; font-size: 10px; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.hb-wf-row[data-on='false'] .hb-wf-info b { color: var(--text-sub); }
+
+/* 开关：视觉 42x24，点击区用伪元素向外扩，手指好点 */
+.hb-sw { position: relative; flex: none; width: 42px; height: 24px; border: 1.2px solid var(--text-main); border-radius: 999px; background: var(--bg-surface); transition: background 0.25s; }
+.hb-sw::before { content: ''; position: absolute; inset: -10px -6px; }
+.hb-sw::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--text-main); transition: transform 0.35s var(--hb-spring), background 0.25s; }
+.hb-sw[aria-checked='true'] { background: var(--hb-pop); }
+.hb-sw[aria-checked='true']::after { transform: translateX(18px); background: var(--hb-pop-ink); }
+.hb-sw:disabled { opacity: 0.6; cursor: default; }
+.hb-root[data-motion='off'] .hb-sw, .hb-root[data-motion='off'] .hb-sw::after { transition: none; }
+
+.hb-wf-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 6px 6px 6px 10px; border-radius: 10px; background: var(--text-main); color: var(--bg-main); font-size: 11px; line-height: 1.3; }
+.hb-wf-note span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-wf-note button { flex: none; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--bg-main); color: var(--text-main); font-size: 11px; font-weight: 600; }
