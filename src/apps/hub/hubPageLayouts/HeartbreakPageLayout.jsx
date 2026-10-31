@@ -265,6 +265,20 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
     };
   }, []);
 
+  // 顶栏贴顶后才显示底色：用一个 1px 的哨兵元素观察，直接改属性，不触发 React 渲染。
+  const topbarRef = useRef(null);
+  const sentinelRef = useRef(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    const topbar = topbarRef.current;
+    if (!sentinel || !topbar || typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      topbar.dataset.stuck = !entry.isIntersecting && entry.boundingClientRect.top < 0 ? 'true' : 'false';
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
   useHbParallax(rootRef, motionOn);
   useHbReveal(rootRef, motionOn);
 
@@ -336,12 +350,11 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <i className="h2" style={{ left: '38%', top: '83%', width: 500, height: 500 }} />
       </div>
 
-      <header className="hb-topbar">
+      <div ref={sentinelRef} className="hb-topbar-sentinel" aria-hidden="true" />
+      <header ref={topbarRef} className="hb-topbar" data-stuck="false">
         <div className="hb-logo">
-          <b>
-            <span>Mr. &ldquo;Broken</span>
-            <span>Heart&rdquo;</span>
-          </b>
+          <i className="hb-logo-mark" aria-hidden="true" />
+          <span>Mr. &ldquo;Broken Heart&rdquo;</span>
         </div>
         <div className="hb-tb">
           <button

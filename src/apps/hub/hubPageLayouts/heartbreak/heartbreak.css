@@ -600,8 +600,6 @@
 .hb-aura i { opacity: 0.55; }
 .hb-aura i.h2, .hb-aura i.h3 { filter: none; }
 
-.hb-logo b { font-style: italic; font-weight: 600; font-size: 17px; line-height: 1.02; letter-spacing: -0.01em; }
-.hb-logo b span:last-child { padding-left: 14px; }
 
 .hb-giant {
   font-weight: 700;
@@ -887,3 +885,42 @@
 .hb-shelf-cell[data-span='2'] { grid-column: 1 / -1; }
 .hb-shelf-remove { position: absolute; right: 8px; top: 8px; z-index: 5; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--text-main); color: var(--bg-main); font-size: 11px; font-weight: 600; }
 .hb-shelf-remove[data-armed='true'] { background: var(--hb-pop); color: var(--hb-pop-ink); }
+
+
+/* =========================================================
+ * 顶栏与站内标题的衔接
+ * 站内「WHEN I with U.」是页面标题；这里的顶栏只是一条分区工具栏：
+ *   - 品牌是小字大写字距（和首页「Applications」小标签同一套写法），
+ *     不再是第二个衬线大标题；
+ *   - 平时没有底色，只有一条细分隔线，和页面背景融为一体；
+ *   - 滚动到贴顶之后才出现半透明底色（低功耗下是更不透明的纯色）。
+ * ========================================================= */
+
+.hb-topbar-sentinel { height: 1px; margin-bottom: -1px; pointer-events: none; }
+
+.hb-topbar {
+  margin-top: 6px;
+  background: transparent;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-main) 14%, transparent);
+  transition: background-color 0.25s;
+}
+.hb-topbar[data-stuck='true'] { background: color-mix(in srgb, var(--bg-main) 86%, transparent); }
+.hb-root[data-lp='off'] .hb-topbar { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.hb-root[data-lp='off'] .hb-topbar[data-stuck='true'] {
+  background: color-mix(in srgb, var(--bg-main) 58%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+
+.hb-logo { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hb-logo i.hb-logo-mark { flex: none; width: 8px; height: 8px; background: var(--text-main); opacity: 0.55; transform: rotate(45deg); }
+.hb-logo span {
+  font-family: var(--hb-sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-main);
+  opacity: 0.55;
+  white-space: nowrap;
+}
