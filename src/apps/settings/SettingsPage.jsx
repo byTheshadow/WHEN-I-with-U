@@ -1378,13 +1378,13 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         />
       </GlassCard>
 
-      <GlassCard className="space-y-4 text-left">
+          <GlassCard className="space-y-4 text-left">
         <div className="flex items-center gap-2 text-sm font-bold">
           <Palette className="h-4 w-4" />
           <span>主页版式</span>
         </div>
 
-         <HubHeaderLayoutSettings
+        <HubHeaderLayoutSettings
           value={draftHubHeaderLayout}
           onChange={setDraftHubHeaderLayout}
         />
@@ -1399,16 +1399,9 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
         <HubHomeStyleSettings />
       </GlassCard>
 
-        <HubHeaderLayoutSettings
-          value={draftHubHeaderLayout}
-          onChange={setDraftHubHeaderLayout}
-        />
-      </GlassCard>
-
-
-          {/* 情感偏好问卷（自带保存，不依赖本页底部的保存按钮） */}
+      {/* 情感偏好问卷（自带保存，不依赖本页底部的保存按钮） */}
       <GlassCard className="space-y-4 text-left">
-              <LoveProfileSettings />
+        <LoveProfileSettings />
       </GlassCard>
 
       {/* 我的生日（自带保存和预览） */}
