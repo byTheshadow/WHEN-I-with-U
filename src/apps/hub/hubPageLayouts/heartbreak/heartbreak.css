@@ -924,3 +924,28 @@
   opacity: 0.55;
   white-space: nowrap;
 }
+
+/* ---- Slice D: character sticker book ---- */
+.hb-avsk {
+  position: relative; display: grid; place-items: center; overflow: hidden;
+  border: 7px solid var(--bg-main); border-radius: 26px;
+  background: var(--hb-hatch), var(--bg-surface-strong);
+  box-shadow: 0 0 0 1px var(--card-border), 0 8px 14px rgba(0, 0, 0, 0.16);
+}
+.hb-avsk img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hb-avsk b { font-family: var(--hb-serif); font-size: 56px; font-weight: 700; color: var(--text-sub); }
+.hb-cutwrap > .hb-avsk { width: 100% !important; height: auto !important; aspect-ratio: 1; margin-top: 24px; }
+.hb-book-wrap { position: relative; margin: 36px 0 0; }
+.hb-book-wrap .hb-shelf-head { margin: 0 20px 12px; }
+.hb-book-wrap .hb-shelf-head h2 { margin: 0; font-family: var(--hb-serif); font-weight: 600; font-size: 26px; font-style: italic; line-height: 1; }
+.hb-book { display: flex; gap: 14px; padding: 8px 20px 14px; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.hb-book::-webkit-scrollbar { display: none; }
+.hb-stk { flex: 0 0 auto; width: 150px; display: flex; flex-direction: column; align-items: center; gap: 8px; scroll-snap-align: start; }
+.hb-stk-btn { padding: 0; background: none; border: 0; cursor: pointer; transition: scale 0.15s ease; }
+.hb-stk-btn:active { scale: 0.96; }
+.hb-stk[data-open='true'] .hb-avsk { box-shadow: 0 0 0 2px var(--hb-pop), 0 8px 14px rgba(0, 0, 0, 0.16); }
+.hb-stk-name { max-width: 100%; padding: 3px 12px; overflow: hidden; border-radius: 999px; background: var(--text-main); color: var(--bg-main); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.hb-stk-more { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.hb-stk-more small { font-size: 11px; color: var(--text-muted); }
+.hb-stk-more button { height: 28px; padding: 0 14px; border-radius: 999px; background: var(--hb-pop); color: var(--hb-pop-ink); font-size: 12px; font-weight: 600; }
+.hb-root[data-lp='on'] .hb-avsk { box-shadow: 0 0 0 1px var(--card-border); }

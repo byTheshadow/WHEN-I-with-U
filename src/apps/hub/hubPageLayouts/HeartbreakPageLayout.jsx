@@ -32,6 +32,7 @@ import HbHabitatCard from './heartbreak/HbHabitatCard';
 import HbElapsed from './heartbreak/HbElapsed';
 import { HbWidgetModals, HbWidgetShelf } from './heartbreak/HbWidgets';
 import HbCutout from './heartbreak/HbCutout';
+import HbStickerBook from './heartbreak/HbStickerBook';
 import { HbText, HbImageSlot } from './heartbreak/HbEditable';
 import HbEditLayer from './heartbreak/HbEditLayer';
 import { HbCustomContext, useHbCustom } from './heartbreak/useHbCustom';
@@ -47,6 +48,7 @@ import { useKeepAliveAudio, useKeepAliveConfig } from '../useKeepAliveAudio';
 import { useStartupAnimationChoice } from '../useStartupAnimationChoice';
 import { useHubHomeWidgets } from '../useHubHomeWidgets';
 import { addHomeWidget, removeHomeWidget, updateHomeWidgetConfig } from '../widgets/homeWidgetsStore';
+import { useHubCharacters } from '../useHubCharacters';
 import { useHubAskPreview, useHubLatestChat } from '../useHubPreviews';
 import { useAppNameDisplayMode } from '../useAppNameDisplayMode';
 import { HUB_APPS } from '../appRegistry';
@@ -175,6 +177,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
   const workflowState = useHubWorkflows();
   const latestChat = useHubLatestChat();
   const askPreview = useHubAskPreview();
+  const characters = useHubCharacters();
   // 工作流的启用数量以列表为准（开关切换后马上变），其余数字仍用统计 hook。
   const stats = useMemo(
     () =>
@@ -469,7 +472,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         </Para>
 
         <Para left="58%" top={502} z={7} depth={-0.08} style={{ width: 160, height: 214 }}>
-          <HbCutout variant={0} slotId="cutA" slotLabel="人物图（第一屏）" />
+          <HbCutout variant={0} character={characters[0]} slotId="cutA" slotLabel="人物图（第一屏）" />
         </Para>
         {keepAlive.isPlaying ? (
           <Tag id="tagNow" left="52%" top={470} rotate={-4}>正在听</Tag>
@@ -536,7 +539,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <Para className="hb-qm" left="28%" top={310} depth={-0.22} style={{ fontSize: 62, rotate: '16deg' }}>?</Para>
 
         <Para left="2%" top={500} z={7} depth={-0.06} style={{ width: 154, height: 206 }}>
-          <HbCutout variant={1} slotId="cutB" slotLabel="人物图（第二屏）" />
+          <HbCutout variant={1} character={characters[1]} slotId="cutB" slotLabel="人物图（第二屏）" />
         </Para>
         <Tag id="tagWho" left="44%" top={640} rotate={3}>这是谁？</Tag>
         <Tag id="tagLook" left="58%" top={310} rotate={-3}>别装没看见</Tag>
@@ -630,6 +633,8 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         onEditWidget={setEditingWidget}
         onRemoveWidget={removeHomeWidget}
       />
+
+      <HbStickerBook characters={characters} onOpenApp={onOpenApp} />
 
       <div className="hb-readme">
         <section className="hb-win" style={{ '--r': '-1deg' }} aria-label="readme.txt">
