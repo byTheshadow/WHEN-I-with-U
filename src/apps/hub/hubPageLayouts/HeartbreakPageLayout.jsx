@@ -357,7 +357,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       <header ref={topbarRef} className="hb-topbar" data-stuck="false">
         <div className="hb-logo">
           <i className="hb-logo-mark" aria-hidden="true" />
-          <span>Mr. &ldquo;Broken Heart&rdquo;</span>
+          <span><Editable id="brand" label="顶栏品牌字" maxLength={24}>Mr. “Broken Heart”</Editable></span>
         </div>
         <div className="hb-tb">
           <button

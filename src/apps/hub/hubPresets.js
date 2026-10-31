@@ -57,6 +57,15 @@ export const BUILT_IN_HUB_PRESETS = [
     theme: null,
     appNameDisplayMode: null,
   },
+  {
+    id: 'heartbreak',
+    label: '心碎先生',
+    description: '整页拼贴版式：窗口、播放器、角色贴纸册（头部版式和主题不变）',
+    hubHeaderLayout: null,
+    hubPageLayout: 'heartbreak',
+    theme: null,
+    appNameDisplayMode: null,
+  },
 ];
 
 export const getHubPreset = (id) =>
