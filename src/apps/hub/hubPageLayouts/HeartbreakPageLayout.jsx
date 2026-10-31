@@ -1,23 +1,26 @@
 // src/apps/hub/hubPageLayouts/HeartbreakPageLayout.jsx
 //
-// 「心碎先生」整页版式（片 A）：拼贴海报 + 桌面窗口。
-// 三屏：第一屏大字和消息窗口，第二屏匿名信箱和定时工作流窗口，第三屏
-// 「SIDE B」和文件夹，点文件夹打开「全部应用」窗口（33 个入口，来自
-// appRegistry）。底部是任务栏：开始键回到顶部，最小化的窗口会变成任务按钮。
+// 「心碎先生」整页版式（片 A）：拼贴海报 + 桌面窗口，视觉照
+// mr-heartbreak-home-preview_v5 移植。三屏：
+//   A 正在放：HEART / BREAK 巨字、铬面光盘、播放器、键帽、抠图占位；
+//   B 有人在找你：Messages 窗口、Ask Box 窗口、哥特体 heartbreak；
+//   C 桌面：Workflows 窗口、骰子、All Apps 文件夹、SIDE B 巨字。
+// 底部是 readme 窗口和任务栏（开始键回到顶部，最小化的窗口会变成任务按钮）。
 //
-// 本片里「真的能用」的：消息窗口（快速打开消息）、匿名信箱和定时工作流
-// 窗口的数量与打开、全部应用窗口、名称显示模式、低功耗开关。播放器、
-// 剪纸、键帽、文字贴纸都是装饰。工作流开关、播放器联动在后续片里做。
+// 本片里「真的能用」的：Messages 快速打开、Ask Box 和 Workflows 的真实
+// 数量与打开、全部应用窗口（33 个入口）、名称显示模式、低功耗开关。播放器、
+// 骰子、抠图、键帽都是装饰，工作流开关、播放器联动在后续片里做。
 //
-// 性能：字体只在这个版式挂载时才加载（离线自动回退系统字体）；视差只在
-// 滚动时计算；低功耗模式或系统「减少动画」下视差、入场、光盘旋转全部关闭。
-// 约定的 props 见 pageLayoutRegistry.js：{ onOpenApp, onOpenArchive }。
+// 性能：字体只在这个版式挂载时才加载（离线回退系统字体）；视差只在滚动时
+// 计算；低功耗模式或系统「减少动画」下，视差、入场、光盘旋转、毛玻璃、发光
+// 全部关闭。约定的 props 见 pageLayoutRegistry.js：{ onOpenApp, onOpenArchive }。
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, FolderOpen, Play, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import './heartbreak/heartbreak.css';
 import HbWindow from './heartbreak/HbWindow';
 import HbAppsWindow from './heartbreak/HbAppsWindow';
+import HbCutout from './heartbreak/HbCutout';
 import {
   useHbParallax,
   useHbReveal,
@@ -30,14 +33,13 @@ import { HUB_APPS } from '../appRegistry';
 
 const FONT_LINK_ID = 'hb-fonts';
 const FONT_HREF =
-  'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Pirata+One&family=ZCOOL+QingKe+HuangYou&display=swap';
+  'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Pirata+One&family=ZCOOL+QingKe+HuangYou&display=swap';
 
-const WINDOW_TITLES = {
-  messages: 'messages.exe',
-  askbox: 'ask_box.exe',
-  workflows: 'workflows.exe',
-  apps: 'all_apps',
-  readme: 'readme.txt',
+const WINDOW_META = {
+  messages: { title: 'Messages', alt: '消息' },
+  askbox: { title: 'Ask Box', alt: '匿名信箱' },
+  workflows: { title: 'Workflows', alt: '定时工作流' },
+  apps: { title: 'All Apps', alt: '全部应用' },
 };
 
 const INITIAL_WINDOWS = {
@@ -45,7 +47,6 @@ const INITIAL_WINDOWS = {
   askbox: { open: true, min: false },
   workflows: { open: true, min: false },
   apps: { open: false, min: false },
-  readme: { open: true, min: false },
 };
 
 const formatClock = (date) =>
@@ -69,6 +70,63 @@ const useClock = () => {
   return formatClock(now);
 };
 
+// 绝对定位的装饰块；data-depth 交给视差 hook（正数偏慢，负数偏快）。
+const Para = ({ left, top, depth = 0, slide, z, className = '', style, children }) => (
+  <div
+    className={`hb-para ${className}`}
+    data-depth={depth}
+    data-slide={slide}
+    style={{ left, top, zIndex: z, ...style }}
+    aria-hidden="true"
+  >
+    {children}
+  </div>
+);
+
+const Word = ({ children, left, top, depth }) => (
+  <Para className="hb-word" left={left} top={top} depth={depth}>
+    {children}
+  </Para>
+);
+
+const Key = ({ letter, left, top, depth, rotate, index }) => (
+  <Para left={left} top={top} depth={depth}>
+    <div className="hb-key hb-pop" style={{ '--r': `${rotate}deg`, '--d': `${0.8 + index * 0.08}s` }}>
+      <div className="cap">{letter}</div>
+    </div>
+  </Para>
+);
+
+const Giant = ({ text, left, top, depth, slide, line = false, size, startIndex = 0 }) => (
+  <Para
+    className={`hb-giant ${line ? 'hb-giant-line' : ''}`}
+    left={left}
+    top={top}
+    depth={depth}
+    slide={slide}
+    style={size ? { fontSize: size } : undefined}
+  >
+    {[...text].map((char, index) => (
+      <span key={index} className="hb-slam" style={{ '--i': startIndex + index }}>
+        {char === ' ' ? ' ' : char}
+      </span>
+    ))}
+  </Para>
+);
+
+const Tag = ({ children, left, top, rotate = -2 }) => (
+  <span className="hb-tag hb-pop" style={{ left, top, '--r': `${rotate}deg`, '--d': '0.5s' }}>
+    {children}
+  </span>
+);
+
+const Chip = ({ letter, children, left, top }) => (
+  <span className="hb-chip hb-pop" style={{ left, top, '--d': '0.3s' }}>
+    <em>{letter}</em>
+    {children}
+  </span>
+);
+
 export const HeartbreakPageLayout = ({ onOpenApp }) => {
   const rootRef = useRef(null);
   const lowPower = useHubLowPower();
@@ -79,7 +137,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
   const clock = useClock();
 
   const [windows, setWindows] = useState(INITIAL_WINDOWS);
-  const [order, setOrder] = useState(['readme', 'workflows', 'askbox', 'messages', 'apps']);
+  const [order, setOrder] = useState(['workflows', 'askbox', 'messages', 'apps']);
 
   // 字体：只在这个版式显示时才加；离开版式后移除。
   useEffect(() => {
@@ -105,6 +163,12 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
     (id) => {
       setWindows((prev) => ({ ...prev, [id]: { open: true, min: false } }));
       focusWindow(id);
+      // 打开后把窗口带到视野中间，免得用户还停在别的屏上找不到。
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`hb-${id}-win`)
+          ?.scrollIntoView({ block: 'center', behavior: 'auto' });
+      });
     },
     [focusWindow]
   );
@@ -117,13 +181,25 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
     setWindows((prev) => ({ ...prev, [id]: { open: false, min: false } }));
   }, []);
 
-  const zOf = (id) => 3 + order.indexOf(id);
+  // 全部应用窗口盖在标签和装饰之上（标签 z 13），其余窗口在它们之下。
+  const zOf = (id) => (id === 'apps' ? 20 : 8) + order.indexOf(id);
   const hiddenOf = (id) => !windows[id].open || windows[id].min;
   const minimized = Object.keys(windows).filter((id) => windows[id].open && windows[id].min);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: motionOn ? 'smooth' : 'auto' });
   };
+
+  const windowProps = (id) => ({
+    id,
+    title: WINDOW_META[id].title,
+    alt: WINDOW_META[id].alt,
+    hidden: hiddenOf(id),
+    zIndex: zOf(id),
+    onFocus: focusWindow,
+    onMinimize: minimizeWindow,
+    onClose: id === 'apps' ? closeWindow : undefined,
+  });
 
   const appCount = HUB_APPS.length;
 
@@ -134,196 +210,267 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       data-lp={lowPower ? 'on' : 'off'}
       data-motion={motionOn ? 'on' : 'off'}
     >
-      {/* ---------- 第一屏 ---------- */}
-      <div className="hb-spread">
-        <div className="hb-brand hb-fade-up">
-          <div className="hb-brand-mr">Mr.</div>
-          <div className="hb-brand-mr" style={{ marginTop: '-0.1rem' }}>
+      <div className="hb-aura" aria-hidden="true">
+        <i style={{ left: '-38%', top: '2%', width: 540, height: 540 }} />
+        <i className="h2" style={{ left: '36%', top: '11%', width: 460, height: 460 }} />
+        <i className="h3" style={{ left: '-24%', top: '25%', width: 500, height: 500 }} />
+        <i style={{ left: '46%', top: '35%', width: 540, height: 540 }} />
+        <i className="h2" style={{ left: '-34%', top: '47%', width: 520, height: 520 }} />
+        <i className="h3" style={{ left: '42%', top: '58%', width: 470, height: 470 }} />
+        <i style={{ left: '-28%', top: '70%', width: 540, height: 540 }} />
+        <i className="h2" style={{ left: '38%', top: '83%', width: 500, height: 500 }} />
+      </div>
+
+      <header className="hb-topbar">
+        <div className="hb-logo">
+          <b>
+            <span>心碎</span>
+            <span>先生!</span>
+          </b>
+          <i />
+          <small>
+            Mr.
+            <br />
             &ldquo;Broken Heart&rdquo;
-          </div>
-          <div className="hb-brand-zh">心碎先生!</div>
-          <div className="hb-brand-sub">SIDE A / HOME SCREEN</div>
-          <div style={{ marginTop: '0.7rem' }}>
-            <button
-              type="button"
-              className="hb-chip"
-              aria-pressed={lowPower}
-              onClick={() => setHubLowPower(!lowPower)}
-            >
-              <Zap size={13} aria-hidden="true" />
-              {lowPower ? '低功耗 开' : '低功耗 关'}
-            </button>
-          </div>
+          </small>
         </div>
-
-        <div
-          className="hb-deco hb-giant hb-giant-pop"
-          data-depth="0.08"
-          style={{ top: '9.5rem', left: '0.5rem', fontSize: '7.5rem' }}
-          aria-hidden="true"
+        <button
+          type="button"
+          className="hb-ib"
+          aria-label={lowPower ? '关闭低功耗模式' : '开启低功耗模式'}
+          aria-pressed={lowPower}
+          onClick={() => setHubLowPower(!lowPower)}
         >
-          Heart
-        </div>
-        <div
-          className="hb-deco hb-giant hb-giant-outline"
-          data-depth="0.14"
-          style={{ top: '16rem', right: '-0.5rem', fontSize: '7.5rem' }}
-          aria-hidden="true"
-        >
-          Break
-        </div>
-        <div className="hb-deco hb-cd" data-depth="0.2" data-slide="0.05" style={{ top: '4.5rem', right: '1.2rem' }} aria-hidden="true" />
-        <div className="hb-deco hb-star" data-depth="0.25" style={{ top: '8rem', right: '8.5rem' }} aria-hidden="true" />
-        <div className="hb-deco hb-keycap" data-depth="0.18" style={{ top: '26rem', left: '0.8rem' }} aria-hidden="true">M</div>
-        <div className="hb-deco hb-keycap" data-depth="0.12" style={{ top: '27.5rem', left: '3.6rem' }} aria-hidden="true">R</div>
-        <div className="hb-deco hb-word" data-depth="0.1" style={{ top: '13.5rem', right: '1rem' }} aria-hidden="true">no signal / no sleep</div>
+          <Zap className="hb-i" />
+        </button>
+      </header>
 
-        <div style={{ position: 'relative', marginTop: '17.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <HbWindow
-            id="messages"
-            title={WINDOW_TITLES.messages}
-            hidden={hiddenOf('messages')}
-            zIndex={zOf('messages')}
-            onFocus={focusWindow}
-            onMinimize={minimizeWindow}
-            onClose={closeWindow}
-          >
-            <div className="hb-player" style={{ marginBottom: '0.6rem' }} aria-hidden="true">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <Play size={11} /> now playing (demo)
-              </span>
-              <div className="hb-player-bar" />
+      {/* ---------- A 正在放 ---------- */}
+      <section className="hb-spread" style={{ height: 760 }}>
+        <svg className="hb-crack" viewBox="0 0 390 34" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M-4 17 L38 11 L58 23 L96 8 L132 26 L170 12 L204 28 L246 9 L282 24 L318 11 L352 21 L394 13" />
+        </svg>
+        <Chip letter="A" left="5%" top={18}>正在放</Chip>
+
+        <Giant text="HEART" left="-3%" top={62} depth={0.1} slide={0.2} />
+        <Giant text="BREAK" left="10%" top={196} depth={0.1} slide={-0.2} startIndex={5} />
+
+        <Para left="26%" top={226} depth={-0.02}>
+          <div className="hb-cd" />
+        </Para>
+
+        <Para left="6%" top={282} z={6} depth={0.02}>
+          <div className="hb-player hb-pop" style={{ '--d': '0.45s' }}>
+            <div className="hb-pl-top">
+              <div className="hb-pl-meta">
+                <small>
+                  <b>KeepAlive Player</b>心碎先生
+                </small>
+                <span className="hb-pl-star">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 2l2.6 6.6L21 9.3l-5 4.6 1.5 6.9L12 17.3 6.5 20.8 8 13.9 3 9.3l6.4-.7z" />
+                  </svg>
+                </span>
+              </div>
+              <div className="hb-pl-art">
+                <span className="hb-ph-tag">封面 1:1</span>
+              </div>
             </div>
-            <button type="button" className="hb-open" onClick={() => onOpenApp('messages')}>
-              <span>Continue the conversation</span>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </button>
-            <p className="hb-note">快速打开消息。</p>
-          </HbWindow>
-        </div>
-      </div>
-
-      {/* ---------- 第二屏 ---------- */}
-      <div className="hb-spread">
-        <div className="hb-deco hb-tag" data-depth="0.16" style={{ top: '1rem', right: '1.2rem' }} aria-hidden="true">
-          MAIL / TASKS
-        </div>
-        <div className="hb-deco hb-cutout" data-depth="0.22" style={{ top: '2.4rem', left: '0.9rem' }} aria-hidden="true">
-          PHOTO
-        </div>
-
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.4rem', alignItems: 'flex-start', paddingTop: '9rem' }}>
-          <HbWindow
-            id="askbox"
-            title={WINDOW_TITLES.askbox}
-            hidden={hiddenOf('askbox')}
-            zIndex={zOf('askbox')}
-            onFocus={focusWindow}
-            onMinimize={minimizeWindow}
-            onClose={closeWindow}
-          >
-            <div className="hb-count">{stats.askCount}</div>
-            <p className="hb-note">条匿名问题等你回答</p>
-            <button type="button" className="hb-open" style={{ marginTop: '0.6rem' }} onClick={() => onOpenApp('askbox')}>
-              <span>Open Ask Box</span>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </button>
-          </HbWindow>
-
-          <HbWindow
-            id="workflows"
-            title={WINDOW_TITLES.workflows}
-            hidden={hiddenOf('workflows')}
-            zIndex={zOf('workflows')}
-            onFocus={focusWindow}
-            onMinimize={minimizeWindow}
-            onClose={closeWindow}
-          >
-            <div className="hb-count">{stats.activeWorkflowCount}</div>
-            <p className="hb-note">个定时工作流正在运行</p>
-            <button type="button" className="hb-open hb-open-plain" style={{ marginTop: '0.6rem' }} onClick={() => onOpenApp('workflows')}>
-              <span>Open Workflows</span>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </button>
-          </HbWindow>
-        </div>
-      </div>
-
-      {/* ---------- 第三屏 ---------- */}
-      <div className="hb-spread">
-        <div
-          className="hb-deco hb-giant hb-giant-outline"
-          data-depth="0.1"
-          style={{ top: '1rem', left: '0.5rem', fontSize: '6.5rem' }}
-          aria-hidden="true"
-        >
-          Side
-        </div>
-        <div
-          className="hb-deco hb-giant hb-giant-pop"
-          data-depth="0.16"
-          style={{ top: '6.5rem', right: '0.5rem', fontSize: '6.5rem' }}
-          aria-hidden="true"
-        >
-          B
-        </div>
-        <div className="hb-deco hb-tag hb-tag-plain" data-depth="0.2" style={{ top: '13rem', left: '1.2rem' }} aria-hidden="true">
-          {appCount} 个入口
-        </div>
-
-        <div style={{ position: 'relative', paddingTop: '15.5rem', display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
-          <button type="button" className="hb-folder" onClick={() => openWindow('apps')}>
-            <FolderOpen size={22} aria-hidden="true" />
-            <span>
-              All Apps
-              <span className="hb-app-sub" style={{ display: 'block' }}>
-                全部应用 / {appCount} 个入口
+            <span className="hb-pl-chip">暂停中</span>
+            <div className="hb-pl-panel">
+              <div className="hb-pl-title">(曲目 01 占位)</div>
+              <div className="hb-pl-prog">
+                <span>0:00</span>
+                <div className="hb-pl-track" />
+                <span>3:47</span>
+              </div>
+            </div>
+            <div className="hb-pl-ctrl">
+              <span>
+                <svg className="hb-i" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20" /><line x1="5" x2="5" y1="19" y2="5" /></svg>
               </span>
-            </span>
+              <span className="play">
+                <svg className="hb-i" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" /></svg>
+              </span>
+              <span>
+                <svg className="hb-i" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4" /><line x1="19" x2="19" y1="5" y2="19" /></svg>
+              </span>
+            </div>
+          </div>
+        </Para>
+
+        <Para left="72%" top={226} depth={-0.16} className="hb-star">
+          <svg viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="hb-chromeG" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" style={{ stopColor: 'var(--bg-main)' }} />
+                <stop offset=".3" style={{ stopColor: 'var(--text-muted)' }} />
+                <stop offset=".5" style={{ stopColor: 'var(--bg-main)' }} />
+                <stop offset=".72" style={{ stopColor: 'var(--text-sub)' }} />
+                <stop offset="1" style={{ stopColor: 'var(--bg-surface-strong)' }} />
+              </linearGradient>
+            </defs>
+            <path d="M50 0 C54 34,66 46,100 50 C66 54,54 66,50 100 C46 66,34 54,0 50 C34 46,46 34,50 0Z" fill="url(#hb-chromeG)" style={{ stroke: 'var(--text-muted)' }} strokeWidth=".8" />
+            <path d="M50 22 C52 42,58 48,78 50 C58 52,52 58,50 78 C48 58,42 52,22 50 C42 48,48 42,50 22Z" fill="url(#hb-chromeG)" transform="rotate(45 50 50)" style={{ stroke: 'var(--text-muted)' }} strokeWidth=".6" />
+          </svg>
+        </Para>
+
+        <Para left="58%" top={502} z={7} depth={-0.08} style={{ width: 160, height: 214 }}>
+          <HbCutout variant={0} />
+        </Para>
+        <Tag left="52%" top={470} rotate={-4}>正在听</Tag>
+
+        <Key letter="M" left="79%" top={122} depth={-0.22} rotate={18} index={0} />
+        <Key letter="R" left="3%" top={178} depth={-0.14} rotate={-14} index={1} />
+        <Key letter="!" left="5%" top={612} depth={-0.18} rotate={12} index={2} />
+        <Key letter="H" left="32%" top={684} depth={-0.1} rotate={-9} index={3} />
+        <Key letter="B" left="83%" top={404} depth={-0.24} rotate={-22} index={4} />
+
+        <Word left="44%" top={136} depth={-0.3}>replay</Word>
+        <Word left="62%" top={350} depth={-0.26}>slow</Word>
+        <Word left="8%" top={552} depth={-0.2}>其实</Word>
+        <Word left="24%" top={250} depth={-0.34}>没关系</Word>
+        <Word left="12%" top={730} depth={-0.28}>again</Word>
+      </section>
+
+      {/* ---------- B 有人在找你 ---------- */}
+      <section className="hb-spread" style={{ height: 760 }}>
+        <Chip letter="B" left="5%" top={0}>有人在找你</Chip>
+        <Para className="hb-goth" left="-6%" top={330} depth={0.06} slide={0.14}>heartbreak</Para>
+
+        <HbWindow {...windowProps('messages')} paraStyle={{ left: '4%', top: 50 }} depth={0.03} winStyle={{ '--r': '-1deg' }}>
+          <div className="hb-field">
+            <b>To:</b>
+            <span className="hb-boxed">角色 A</span>
+          </div>
+          <div className="hb-bubble">Continue the conversation</div>
+          <div className="hb-draft">
+            正在输入：
+          </div>
+          <div className="hb-btns">
+            <button type="button" className="hb-btn main" onClick={() => onOpenApp('messages')}>
+              打开
+            </button>
+          </div>
+        </HbWindow>
+        <Para className="hb-bang" left="82%" top={26} depth={-0.18}>!!!</Para>
+
+        <HbWindow {...windowProps('askbox')} paraStyle={{ left: '38%', top: 384 }} depth={-0.04} winStyle={{ width: 226, '--r': '2deg' }}>
+          <div className="hb-qq">???</div>
+          <div className="hb-ask-sub">
+            <b>{stats.askCount}</b> 个问题还没回答
+          </div>
+          <div className="hb-btns">
+            <button type="button" className="hb-btn" onClick={() => minimizeWindow('askbox')}>
+              等会儿
+            </button>
+            <button type="button" className="hb-btn main" onClick={() => onOpenApp('askbox')}>
+              去回答
+            </button>
+          </div>
+        </HbWindow>
+        <Para className="hb-qm" left="6%" top={338} depth={-0.14} style={{ fontSize: 112 }}>?</Para>
+        <Para className="hb-qm" left="28%" top={310} depth={-0.22} style={{ fontSize: 62, rotate: '16deg' }}>?</Para>
+
+        <Para left="2%" top={500} z={7} depth={-0.06} style={{ width: 154, height: 206 }}>
+          <HbCutout variant={1} />
+        </Para>
+        <Tag left="44%" top={640} rotate={3}>这是谁？</Tag>
+        <Tag left="58%" top={310} rotate={-3}>别装没看见</Tag>
+        <Para className="hb-bang" left="76%" top={700} depth={-0.12}>!!!</Para>
+
+        <Word left="84%" top={240} depth={-0.3}>until</Word>
+        <Word left="12%" top={300} depth={-0.24}>someone</Word>
+        <Word left="50%" top={720} depth={-0.2}>在吗</Word>
+        <Word left="80%" top={560} depth={-0.32}>to</Word>
+      </section>
+
+      {/* ---------- C 桌面 ---------- */}
+      <section className="hb-spread" style={{ height: 840 }}>
+        <Chip letter="C" left="5%" top={0}>桌面</Chip>
+        <Giant text="SIDE B" left="-4%" top={700} depth={0.08} slide={0.16} line size={150} />
+
+        <Tag left="64%" top={20} rotate={4}>最常去</Tag>
+
+        <HbWindow {...windowProps('workflows')} paraStyle={{ left: '43%', top: 318 }} depth={-0.04} winStyle={{ width: 206, '--r': '-2deg' }}>
+          <div className="hb-wf-count">
+            <span>{stats.activeWorkflowCount}</span>
+            <small>个已启用</small>
+          </div>
+          <div className="hb-btns">
+            <button type="button" className="hb-btn main" onClick={() => onOpenApp('workflows')}>
+              去看看
+            </button>
+          </div>
+        </HbWindow>
+        <Para className="hb-bang" left="84%" top={300} z={9} depth={-0.1}>!!!</Para>
+
+        <Para left="5%" top={330} depth={-0.1} style={{ textAlign: 'center' }}>
+          <div className="hb-die">
+            <div className="hb-cube">
+              <i /><i /><i /><i /><i /><i />
+            </div>
+          </div>
+          <span className="hb-capt">
+            <b style={{ fontSize: 13, color: 'var(--text-main)' }}>加载页</b>
+            <br />
+            敬请期待
+          </span>
+        </Para>
+
+        <div className="hb-para" data-depth="-0.06" style={{ left: '7%', top: 520, zIndex: 5 }}>
+          <button type="button" className="hb-folder" aria-label="全部应用" onClick={() => openWindow('apps')}>
+            <svg viewBox="0 0 24 24">
+              <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+            </svg>
+            <span className="hb-chip">全部应用</span>
           </button>
-
-          <HbWindow
-            id="apps"
-            title={WINDOW_TITLES.apps}
-            hidden={hiddenOf('apps')}
-            zIndex={zOf('apps')}
-            onFocus={focusWindow}
-            onMinimize={minimizeWindow}
-            onClose={closeWindow}
-          >
-            <HbAppsWindow nameMode={nameMode} stats={stats} onOpenApp={onOpenApp} />
-          </HbWindow>
-
-          <HbWindow
-            id="readme"
-            title={WINDOW_TITLES.readme}
-            hidden={hiddenOf('readme')}
-            zIndex={zOf('readme')}
-            onFocus={focusWindow}
-            onMinimize={minimizeWindow}
-            onClose={closeWindow}
-          >
-            <p className="hb-note" style={{ marginTop: 0 }}>
-              这里是心碎先生的首页。窗口可以拖动、最小化和关闭，找不到的窗口去底部任务栏，
-              或者点 All Apps 文件夹。手机发热卡顿时，点最上面的「低功耗」。
-            </p>
-          </HbWindow>
         </div>
+        <Tag left="44%" top={536} rotate={-3}>{appCount} 个入口</Tag>
+
+        <Word left="76%" top={250} depth={-0.3}>own</Word>
+        <Word left="36%" top={470} depth={-0.24}>收好</Word>
+        <Word left="10%" top={290} depth={-0.2}>the</Word>
+
+        <HbWindow
+          {...windowProps('apps')}
+          paraStyle={{ left: '5%', top: 60, width: 'min(350px, 90%)' }}
+          depth={0}
+          winStyle={{ width: '100%' }}
+        >
+          <HbAppsWindow nameMode={nameMode} stats={stats} onOpenApp={onOpenApp} />
+        </HbWindow>
+      </section>
+
+      <div className="hb-readme">
+        <section className="hb-win" style={{ '--r': '-1deg' }} aria-label="readme.txt">
+          <div className="hb-win-bar" style={{ cursor: 'default' }}>
+            <span className="hb-grip">
+              <i />
+              readme.txt
+            </span>
+          </div>
+          <div className="hb-win-body">
+            <p>Things kept close, and places to return to.</p>
+            <small>Personal Index</small>
+          </div>
+        </section>
       </div>
 
       {/* ---------- 任务栏 ---------- */}
       <nav className="hb-taskbar" aria-label="任务栏">
         <button type="button" className="hb-start" onClick={scrollToTop}>
-          <Zap size={13} aria-hidden="true" /> START
+          <i />
+          心碎
         </button>
         <div className="hb-tasks">
           {minimized.map((id) => (
             <button key={id} type="button" className="hb-task" onClick={() => openWindow(id)}>
-              {WINDOW_TITLES[id]}
+              {WINDOW_META[id].title}
             </button>
           ))}
         </div>
-        <span className="hb-clock">{clock}</span>
+        <span className="hb-tray">{clock}</span>
       </nav>
     </div>
   );
