@@ -801,3 +801,89 @@
 .hb-wf-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 6px 6px 6px 10px; border-radius: 10px; background: var(--text-main); color: var(--bg-main); font-size: 11px; line-height: 1.3; }
 .hb-wf-note span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hb-wf-note button { flex: none; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--bg-main); color: var(--text-main); font-size: 11px; font-weight: 600; }
+
+/* =========================================================
+ * 片 C：播放器联动、骰子、Habitats 卡片、小组件
+ * ========================================================= */
+
+.hb-fill { width: 100%; height: 100%; }
+
+/* 光盘只在真的「正在放」时转；暂停时停住，省电 */
+.hb-cd { animation-play-state: paused; }
+.hb-root[data-playing='true'] .hb-cd { animation-play-state: running; }
+.hb-root[data-playing='true'][data-lp='off'] .hb-player {
+  box-shadow: var(--ink-card-shadow), 0 10px 50px color-mix(in srgb, var(--hb-glow) 55%, transparent);
+}
+.hb-root[data-playing='true'][data-lp='off'] .hb-cd {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14), 0 0 50px color-mix(in srgb, var(--hb-glow) 60%, transparent);
+}
+
+.hb-pl-ctrl button.play { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--hb-pop); color: var(--hb-pop-ink); transition: transform 0.25s var(--hb-spring); }
+.hb-pl-ctrl button.play:active { transform: scale(0.88); }
+.hb-pl-ctrl span.dim { opacity: 0.3; }
+.hb-pl-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-pl-prog span:last-child { font-size: 12px; line-height: 1; }
+
+/* 骰子：现在是按钮，点一下随机换一款加载页 */
+.hb-die { padding: 0; border: 0; background: none; cursor: pointer; }
+.hb-die:disabled { cursor: default; }
+.hb-cube { display: block; }
+.hb-root[data-motion='on'] .hb-cube { transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.24, 1); }
+.hb-capt { line-height: 1.5; }
+.hb-capt em { font-style: italic; color: var(--text-muted); font-size: 10px; }
+
+/* Habitats 卡片 */
+.hb-prof {
+  width: 300px;
+  padding: 14px;
+  border: 1.5px solid var(--hb-glass-line);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--card-bg) 86%, transparent);
+  box-shadow: var(--hb-shadow), var(--hb-lit);
+}
+.hb-root[data-lp='off'] .hb-prof { background: var(--hb-glass); -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%); }
+.hb-root[data-lp='on'] .hb-prof { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12), var(--hb-lit); }
+.hb-prof-row { display: grid; grid-template-columns: 70px 1fr; gap: 14px; align-items: center; }
+.hb-avatar { position: relative; width: 70px; height: 70px; overflow: hidden; border: 1px solid var(--card-border); border-radius: 50%; background: var(--hb-hatch), var(--bg-surface-strong); }
+.hb-avatar-ph { display: block; width: 100%; height: 100%; }
+.hb-avatar-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hb-avatar .hb-editable { outline-offset: -3px; }
+.hb-avatar .hb-editable::after { right: 4px; top: 4px; }
+.hb-prof-stat { text-align: center; }
+.hb-prof-stat b { display: block; font-family: var(--hb-serif); font-weight: 700; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.hb-prof-stat span { font-size: 11px; color: var(--text-sub); }
+.hb-prof-name { margin-top: 12px; font-size: 13px; line-height: 1.7; }
+.hb-prof-name b { font-family: var(--hb-serif); font-size: 15px; }
+.hb-prof-name .hb-boxed { display: inline-block; margin-top: 2px; padding: 0 4px; font-style: italic; }
+.hb-prof-go { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin-top: 10px; border-radius: 10px; background: var(--control-soft-bg); font-size: 12px; font-weight: 600; }
+.hb-prof-go:active { transform: scale(0.97); }
+
+/* 「贴一个小组件」 */
+.hb-sticker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px 14px 14px;
+  border: 1.6px dashed var(--text-main);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-main) 70%, transparent);
+  font-family: var(--hb-serif);
+  font-style: italic;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  rotate: 4deg;
+  transition: rotate 0.45s var(--hb-spring), scale 0.2s;
+}
+.hb-sticker:active { rotate: -3deg; scale: 1.04; }
+
+/* 小组件区 */
+.hb-shelf { position: relative; margin: 36px 20px 0; }
+.hb-shelf-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+.hb-shelf-head h2 { margin: 0; font-family: var(--hb-serif); font-weight: 600; font-size: 26px; font-style: italic; line-height: 1; }
+.hb-shelf-head span { font-size: 11px; color: var(--text-muted); }
+.hb-shelf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hb-shelf-cell { position: relative; min-height: 120px; }
+.hb-shelf-cell[data-span='2'] { grid-column: 1 / -1; }
+.hb-shelf-remove { position: absolute; right: 8px; top: 8px; z-index: 5; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--text-main); color: var(--bg-main); font-size: 11px; font-weight: 600; }
+.hb-shelf-remove[data-armed='true'] { background: var(--hb-pop); color: var(--hb-pop-ink); }

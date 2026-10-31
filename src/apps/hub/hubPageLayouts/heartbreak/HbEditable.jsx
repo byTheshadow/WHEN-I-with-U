@@ -40,18 +40,21 @@ export const HbText = ({ id, fallback, maxLength = 16, label = '文字' }) => {
   );
 };
 
+// fallbackSrc：用户没有自己换图时显示的图（比如陪伴者头像）；都没有才显示 children 占位。
 export const HbImageSlot = ({
   id,
   label = '图片',
   imgClassName = 'hb-user-img',
   className = '',
+  fallbackSrc = '',
   children,
 }) => {
   const { editing, images, requestEdit } = useContext(HbCustomContext);
   const src = typeof images[id] === 'string' ? images[id] : '';
+  const shownSrc = src || fallbackSrc;
 
-  const content = src ? (
-    <img className={imgClassName} src={src} alt="" draggable={false} />
+  const content = shownSrc ? (
+    <img className={imgClassName} src={shownSrc} alt="" draggable={false} />
   ) : (
     children
   );

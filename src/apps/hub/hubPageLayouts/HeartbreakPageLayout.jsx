@@ -10,8 +10,10 @@
 //
 // 「真的能用」的：Messages 快速打开（显示最近的聊天）、Ask Box 的真实数量、
 // 最新问题和打开、Workflows 窗口里真实的工作流列表和开关（写 enabled，带
-// 撤销提示）、全部应用窗口（33 个入口）、名称显示模式、低功耗开关。播放器、
-// 骰子、键帽是装饰，播放器联动在后续片里做。
+// 撤销提示）、全部应用窗口（33 个入口）、名称显示模式、低功耗开关；
+// 播放器控制真实的静音保活（播放键、光盘转动、标签、计时随之变化）；
+// 骰子随机换一款开机加载页；Habitats 卡片显示真实数量；「贴一个小组件」
+// 打开添加面板，贴上的小组件显示在下方的小组件区。键帽、文字贴纸是装饰。
 // 装饰文字（标签、飘字、感叹号牌、readme）和图片位（人物图、播放器封面）
 // 可以由用户自己改：顶栏铅笔进入编辑模式，点虚线框修改，保存在
 // db.settings（见 heartbreak/useHbCustom.js）。
@@ -21,11 +23,14 @@
 // 全部关闭。约定的 props 见 pageLayoutRegistry.js：{ onOpenApp, onOpenArchive }。
 
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Zap } from 'lucide-react';
+import { Pencil, Plus, Zap } from 'lucide-react';
 import './heartbreak/heartbreak.css';
 import HbWindow from './heartbreak/HbWindow';
 import HbAppsWindow from './heartbreak/HbAppsWindow';
 import HbWorkflowsWindow from './heartbreak/HbWorkflowsWindow';
+import HbHabitatCard from './heartbreak/HbHabitatCard';
+import HbElapsed from './heartbreak/HbElapsed';
+import { HbWidgetModals, HbWidgetShelf } from './heartbreak/HbWidgets';
 import HbCutout from './heartbreak/HbCutout';
 import { HbText, HbImageSlot } from './heartbreak/HbEditable';
 import HbEditLayer from './heartbreak/HbEditLayer';
@@ -38,6 +43,10 @@ import {
 import { useHubLowPower, setHubLowPower } from '../useHubLowPower';
 import { useHubAppStats } from '../useHubAppStats';
 import { useHubWorkflows } from '../useHubWorkflows';
+import { useKeepAliveAudio, useKeepAliveConfig } from '../useKeepAliveAudio';
+import { useStartupAnimationChoice } from '../useStartupAnimationChoice';
+import { useHubHomeWidgets } from '../useHubHomeWidgets';
+import { addHomeWidget, removeHomeWidget, updateHomeWidgetConfig } from '../widgets/homeWidgetsStore';
 import { useHubAskPreview, useHubLatestChat } from '../useHubPreviews';
 import { useAppNameDisplayMode } from '../useAppNameDisplayMode';
 import { HUB_APPS } from '../appRegistry';
@@ -83,7 +92,8 @@ const useClock = () => {
 
 // 绝对定位的装饰块；data-depth 交给视差 hook（正数偏慢，负数偏快）。
 // 编辑模式下里面有可点的东西，不能再对辅助技术隐藏。
-const Para = ({ left, top, depth = 0, slide, z, className = '', style, children }) => {
+// decor=false：里面有可操作的按钮（播放器、骰子、卡片……），不能对辅助技术隐藏。
+const Para = ({ left, top, depth = 0, slide, z, className = '', style, decor = true, children }) => {
   const { editing } = useContext(HbCustomContext);
   return (
     <div
@@ -91,7 +101,7 @@ const Para = ({ left, top, depth = 0, slide, z, className = '', style, children 
       data-depth={depth}
       data-slide={slide}
       style={{ left, top, zIndex: z, ...style }}
-      aria-hidden={editing ? undefined : 'true'}
+      aria-hidden={decor && !editing ? 'true' : undefined}
     >
       {children}
     </div>
@@ -198,6 +208,50 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
   }, []);
   const closeEditTarget = useCallback(() => setEditTarget(null), []);
 
+  // 播放器：真实的静音保活。标题、歌手优先用用户在编辑模式里改的，其次是
+  // KeepAlivePlayer 保存的配置。
+  const keepAliveConfig = useKeepAliveConfig();
+  const playerTitle = custom.texts.plTitle || keepAliveConfig.title;
+  const playerArtist = custom.texts.plArtist || keepAliveConfig.artist;
+  const keepAlive = useKeepAliveAudio(
+    useMemo(() => ({ title: playerTitle, artist: playerArtist }), [playerTitle, playerArtist])
+  );
+
+  // 骰子：随机换一款开机加载页。
+  const { animation: startupAnimation, roll: rollStartup } = useStartupAnimationChoice();
+  const [cubeTurn, setCubeTurn] = useState({ x: -22, y: 32 });
+  const [diceBusy, setDiceBusy] = useState(false);
+  const [diceNote, setDiceNote] = useState('');
+  const handleRollDice = useCallback(async () => {
+    if (diceBusy) return;
+    setDiceBusy(true);
+    if (motionOn) {
+      setCubeTurn((prev) => ({
+        x: prev.x + 360 + 90 * Math.floor(Math.random() * 4),
+        y: prev.y + 360 + 90 * Math.floor(Math.random() * 4),
+      }));
+    }
+    const next = await rollStartup();
+    setDiceNote(next ? '' : '现在只有这一款可选');
+    setDiceBusy(false);
+  }, [diceBusy, motionOn, rollStartup]);
+
+  // 小组件：和经典首页是同一批数据（db.homeWidgets）。
+  const homeWidgets = useHubHomeWidgets();
+  const [addWidgetOpen, setAddWidgetOpen] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
+  const handleAddWidget = useCallback(async ({ type, config }) => {
+    await addHomeWidget({ type, config });
+    setAddWidgetOpen(false);
+    setTimeout(() => {
+      document.getElementById('hb-widget-shelf')?.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }, 350);
+  }, []);
+  const handleSaveWidgetConfig = useCallback(async (widgetId, config) => {
+    await updateHomeWidgetConfig(widgetId, config);
+    setEditingWidget(null);
+  }, []);
+
   // 字体：只在这个版式显示时才加；离开版式后移除。
   useEffect(() => {
     if (document.getElementById(FONT_LINK_ID)) return undefined;
@@ -269,6 +323,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       className="hb-root"
       data-lp={lowPower ? 'on' : 'off'}
       data-motion={motionOn ? 'on' : 'off'}
+      data-playing={keepAlive.isPlaying ? 'true' : 'false'}
     >
       <div className="hb-aura" aria-hidden="true">
         <i style={{ left: '-38%', top: '2%', width: 540, height: 540 }} />
@@ -324,12 +379,13 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
           <div className="hb-cd" />
         </Para>
 
-        <Para left="6%" top={282} z={6} depth={0.02}>
+        <Para left="6%" top={282} z={6} depth={0.02} decor={false}>
           <div className="hb-player hb-pop" style={{ '--d': '0.45s' }}>
             <div className="hb-pl-top">
               <div className="hb-pl-meta">
                 <small>
-                  <b>KeepAlive Player</b>心碎先生
+                  <b>KeepAlive Player</b>
+                  <HbText id="plArtist" fallback={keepAliveConfig.artist} maxLength={28} label="歌手" />
                 </small>
                 <span className="hb-pl-star">
                   <svg viewBox="0 0 24 24">
@@ -338,28 +394,45 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
                 </span>
               </div>
               <div className="hb-pl-art">
-                <HbImageSlot id="cover" label="播放器封面" imgClassName="hb-cover-img">
+                <HbImageSlot
+                  id="cover"
+                  label="播放器封面"
+                  imgClassName="hb-cover-img"
+                  fallbackSrc={keepAliveConfig.companionAvatar || ''}
+                >
                   <span className="hb-ph-tag">封面 1:1</span>
                 </HbImageSlot>
               </div>
             </div>
-            <span className="hb-pl-chip">暂停中</span>
+            <span className="hb-pl-chip">{keepAlive.isPlaying ? '正在放' : '暂停中'}</span>
             <div className="hb-pl-panel">
-              <div className="hb-pl-title">(曲目 01 占位)</div>
+              <div className="hb-pl-title">
+                <HbText id="plTitle" fallback={keepAliveConfig.title} maxLength={28} label="曲名" />
+              </div>
               <div className="hb-pl-prog">
-                <span>0:00</span>
+                <HbElapsed since={keepAlive.startedAt} />
                 <div className="hb-pl-track" />
-                <span>3:47</span>
+                <span aria-hidden="true">&infin;</span>
               </div>
             </div>
             <div className="hb-pl-ctrl">
-              <span>
+              <span className="dim" aria-hidden="true">
                 <svg className="hb-i" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20" /><line x1="5" x2="5" y1="19" y2="5" /></svg>
               </span>
-              <span className="play">
-                <svg className="hb-i" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" /></svg>
-              </span>
-              <span>
+              <button
+                type="button"
+                className="play"
+                aria-label={keepAlive.isPlaying ? '暂停静音保活' : '开始静音保活'}
+                aria-pressed={keepAlive.isPlaying}
+                onClick={keepAlive.toggle}
+              >
+                {keepAlive.isPlaying ? (
+                  <svg className="hb-i" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" /><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" /></svg>
+                ) : (
+                  <svg className="hb-i" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" /></svg>
+                )}
+              </button>
+              <span className="dim" aria-hidden="true">
                 <svg className="hb-i" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4" /><line x1="19" x2="19" y1="5" y2="19" /></svg>
               </span>
             </div>
@@ -385,7 +458,11 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <Para left="58%" top={502} z={7} depth={-0.08} style={{ width: 160, height: 214 }}>
           <HbCutout variant={0} slotId="cutA" slotLabel="人物图（第一屏）" />
         </Para>
-        <Tag id="tagNow" left="52%" top={470} rotate={-4}>正在听</Tag>
+        {keepAlive.isPlaying ? (
+          <Tag id="tagNow" left="52%" top={470} rotate={-4}>正在听</Tag>
+        ) : (
+          <Tag id="tagPaused" left="52%" top={470} rotate={-4}>先停一会</Tag>
+        )}
 
         <Key letter="M" left="79%" top={122} depth={-0.22} rotate={18} index={0} />
         <Key letter="R" left="3%" top={178} depth={-0.14} rotate={-14} index={1} />
@@ -463,6 +540,9 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         <Chip id="chipC" letter="C" left="5%" top={0}>桌面</Chip>
         <Giant text="SIDE B" left="-4%" top={700} depth={0.08} slide={0.16} line size={104} />
 
+        <Para left="4%" top={52} z={6} depth={0.03} decor={false} style={{ rotate: '-1.5deg' }}>
+          <HbHabitatCard count={stats.habitatCount} onOpen={() => onOpenApp('habitat')} />
+        </Para>
         <Tag id="tagMost" left="64%" top={20} rotate={4}>最常去</Tag>
 
         <HbWindow {...windowProps('workflows')} paraStyle={{ left: '43%', top: 318 }} depth={-0.04} winStyle={{ width: 206, '--r': '-2deg' }}>
@@ -475,16 +555,27 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         </HbWindow>
         <Bang id="bangC" left="84%" top={258} z={9} depth={-0.1} />
 
-        <Para left="5%" top={330} depth={-0.1} style={{ textAlign: 'center' }}>
-          <div className="hb-die">
-            <div className="hb-cube">
+        <Para left="5%" top={330} depth={-0.1} decor={false} style={{ textAlign: 'center' }}>
+          <button
+            type="button"
+            className="hb-die"
+            aria-label="换一个开机加载页"
+            disabled={diceBusy}
+            onClick={handleRollDice}
+          >
+            <span
+              className="hb-cube"
+              style={motionOn ? { transform: `rotateX(${cubeTurn.x}deg) rotateY(${cubeTurn.y}deg)` } : undefined}
+            >
               <i /><i /><i /><i /><i /><i />
-            </div>
-          </div>
-          <span className="hb-capt">
+            </span>
+          </button>
+          <span className="hb-capt" aria-live="polite">
             <b style={{ fontSize: 13, color: 'var(--text-main)' }}>加载页</b>
             <br />
-            敬请期待
+            {startupAnimation.title}
+            <br />
+            <em>{diceNote || '点一下换一款'}</em>
           </span>
         </Para>
 
@@ -498,9 +589,16 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
         </div>
         <Tag left="30%" top={584} rotate={-3}>{appCount} 个入口</Tag>
 
+        <Para left="54%" top={622} z={7} depth={0.08} decor={false}>
+          <button type="button" className="hb-sticker" onClick={() => setAddWidgetOpen(true)}>
+            <Plus className="hb-i" />
+            贴一个小组件
+          </button>
+        </Para>
+
         <Word id="w10" left="76%" top={250} depth={-0.3}>own</Word>
         <Word id="w11" left="36%" top={470} depth={-0.24}>收好</Word>
-        <Word id="w12" left="10%" top={290} depth={-0.2}>the</Word>
+        <Word id="w12" left="10%" top={308} depth={-0.2}>the</Word>
 
         <HbWindow
           {...windowProps('apps')}
@@ -511,6 +609,14 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
           <HbAppsWindow nameMode={nameMode} stats={stats} onOpenApp={onOpenApp} />
         </HbWindow>
       </section>
+
+      <HbWidgetShelf
+        widgets={homeWidgets}
+        editing={editing}
+        onOpenApp={onOpenApp}
+        onEditWidget={setEditingWidget}
+        onRemoveWidget={removeHomeWidget}
+      />
 
       <div className="hb-readme">
         <section className="hb-win" style={{ '--r': '-1deg' }} aria-label="readme.txt">
@@ -536,7 +642,7 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       </div>
 
       {/* ---------- 任务栏 ---------- */}
-<nav className="hb-taskbar" aria-label="任务栏">
+      <nav className="hb-taskbar" aria-label="任务栏">
         <button type="button" className="hb-start" onClick={scrollToTop}>
           <i />
           心碎
@@ -556,6 +662,14 @@ export const HeartbreakPageLayout = ({ onOpenApp }) => {
       onDone={toggleEditing}
       target={editTarget}
       onCloseTarget={closeEditTarget}
+    />
+    <HbWidgetModals
+      addOpen={addWidgetOpen}
+      onCloseAdd={() => setAddWidgetOpen(false)}
+      onAdd={handleAddWidget}
+      editingWidget={editingWidget}
+      onCloseEdit={() => setEditingWidget(null)}
+      onSaveEdit={handleSaveWidgetConfig}
     />
     </HbCustomContext.Provider>
   );
