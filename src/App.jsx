@@ -30,6 +30,7 @@ import AppUpdatePrompt from './apps/app-update/AppUpdatePrompt';
 
 import { startOfflineSessionScheduler, stopOfflineSessionScheduler } from './apps/offline/offlineSessionScheduler';
 import { startOfflineCountdownLockscreenScheduler, stopOfflineCountdownLockscreenScheduler } from './apps/offline/offlineCountdownLockscreenScheduler';
+import HubPage from './apps/hub/HubPage';
 
 import {
   syncWorkflowsToServer,
@@ -1166,30 +1167,17 @@ const isFictionApp = currentApp === 'fiction';
         )}
 
         {currentApp === 'hub' && (
-          <DailyOfferingHubGate
-            onOpenSettings={() => openApp('settings')}
-          >
-
-                        <ErrorBoundary>
-              <HubHeader />
-            </ErrorBoundary>
-
-            <ErrorBoundary>
-              <NewThingsBar delay={260} />
-            </ErrorBoundary>
-
-            <ErrorBoundary>
-                          <QuickBoard delay={300} onOpenArchive={() => openApp('mailArchive')} />
-            </ErrorBoundary>
-
-            <ErrorBoundary>
-              <AppGrid
-                delay={400}
-                onOpenApp={openApp}
-              />
-            </ErrorBoundary>
-          </DailyOfferingHubGate>
-        )}
+  <DailyOfferingHubGate
+    onOpenSettings={() => openApp('settings')}
+  >
+    <ErrorBoundary>
+      <HubPage
+        onOpenApp={openApp}
+        onOpenArchive={() => openApp('mailArchive')}
+      />
+    </ErrorBoundary>
+  </DailyOfferingHubGate>
+)}
 
         {currentApp === 'settings' && (
           <ErrorBoundary>

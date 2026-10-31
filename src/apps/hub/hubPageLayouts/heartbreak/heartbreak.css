@@ -1,0 +1,414 @@
+/* src/apps/hub/hubPageLayouts/heartbreak/heartbreak.css
+ *
+ * 「心碎先生」整页版式的样式。所有类名以 hb- 开头，并且都写在 .hb-root
+ * 之下，不会影响别的页面。
+ *
+ * 颜色：底色、文字、卡片全部取自全站主题变量（--bg-main / --text-main /
+ * --card-bg ...），只有一个撞色 --hb-pop 是这个版式自己的，按主题给了
+ * 默认值，想换色只改下面 5 行。
+ *
+ * 性能约定（保护手机）：
+ *   - 没有颗粒叠层、没有滚动模糊；
+ *   - 只有任务栏用了 backdrop-filter，低功耗下也关掉；
+ *   - 常驻动画只有一个（光盘慢转），低功耗和「减少动画」下停掉；
+ *   - 入场动画是一次性的，用独立属性 translate/rotate/scale，
+ *     不会盖掉视差写进去的 transform。
+ */
+
+.hb-root {
+  --hb-pop: #2b3bff;
+  --hb-pop-ink: #ffffff;
+  --hb-paper: var(--bg-main);
+  --hb-ink: var(--text-main);
+  --hb-line: var(--text-main);
+
+  position: relative;
+  margin: 0 -1rem;
+  padding-bottom: 5.5rem;
+  overflow-x: clip;
+  color: var(--hb-ink);
+  font-family: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root[data-theme='cream-latte'] .hb-root { --hb-pop: #e5461f; --hb-pop-ink: #fffaf5; }
+:root[data-theme='obsidian-dark'] .hb-root { --hb-pop: #ff4a2a; --hb-pop-ink: #ffffff; }
+:root[data-theme='cyber-velvet'] .hb-root { --hb-pop: #ff6fd2; --hb-pop-ink: #24102f; }
+:root[data-theme='rose-quartz'] .hb-root { --hb-pop: #d8203e; --hb-pop-ink: #fff8f9; }
+
+.hb-root button { font-family: inherit; cursor: pointer; }
+.hb-root button:focus-visible { outline: 2px solid var(--hb-pop); outline-offset: 2px; }
+
+/* ---------- 屏（spread） ---------- */
+
+.hb-spread {
+  position: relative;
+  min-height: 34rem;
+  padding: 1.25rem 1rem;
+}
+
+.hb-spread + .hb-spread { border-top: 2px dashed color-mix(in srgb, var(--hb-line) 35%, transparent); }
+
+.hb-fade-up { opacity: 0; translate: 0 18px; }
+.hb-in .hb-fade-up {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 0.5s ease, translate 0.5s ease;
+  transition-delay: var(--hb-d, 0ms);
+}
+.hb-root[data-motion='off'] .hb-fade-up {
+  opacity: 1;
+  translate: 0 0;
+  transition: none;
+}
+
+/* ---------- 装饰层 ---------- */
+
+.hb-deco { position: absolute; pointer-events: none; will-change: transform; }
+
+.hb-giant {
+  font-family: 'Pirata One', 'Bricolage Grotesque', Impact, system-ui, sans-serif;
+  font-weight: 900;
+  line-height: 0.82;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+}
+.hb-giant-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--hb-line);
+}
+.hb-giant-pop { color: var(--hb-pop); }
+
+.hb-cd {
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--hb-paper) 0 14%, transparent 15%),
+    conic-gradient(from 20deg, var(--hb-pop), var(--text-muted), var(--hb-paper), var(--hb-pop), var(--text-muted), var(--hb-pop));
+  border: 2px solid var(--hb-line);
+  animation: hb-spin 22s linear infinite;
+}
+.hb-root[data-motion='off'] .hb-cd { animation: none; }
+@keyframes hb-spin { to { rotate: 360deg; } }
+
+.hb-star {
+  width: 3rem;
+  height: 3rem;
+  background: var(--hb-pop);
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+.hb-keycap {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.6rem;
+  background: var(--card-bg);
+  box-shadow: 0 4px 0 var(--hb-line);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.hb-word {
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hb-tag {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 999px;
+  background: var(--hb-pop);
+  color: var(--hb-pop-ink);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  rotate: -4deg;
+}
+.hb-tag-plain { background: var(--card-bg); color: var(--hb-ink); rotate: 3deg; }
+
+.hb-cutout {
+  display: grid;
+  place-items: center;
+  width: 6rem;
+  height: 7.5rem;
+  border: 2px dashed var(--hb-line);
+  background: color-mix(in srgb, var(--hb-pop) 14%, var(--card-bg));
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  clip-path: polygon(4% 0, 100% 3%, 96% 100%, 0 97%);
+}
+
+.hb-player {
+  width: 9.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.8rem;
+  background: var(--card-bg);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.hb-player-bar { height: 4px; margin-top: 0.4rem; border-radius: 2px; background: var(--divider); }
+.hb-player-bar::after { content: ''; display: block; width: 38%; height: 100%; border-radius: 2px; background: var(--hb-pop); }
+
+/* ---------- 品牌块 ---------- */
+
+.hb-brand { position: relative; z-index: 2; padding-top: 0.5rem; }
+.hb-brand-mr { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; }
+.hb-brand-zh {
+  margin-top: 0.1rem;
+  font-family: 'ZCOOL QingKe HuangYou', 'Bricolage Grotesque', system-ui, sans-serif;
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--hb-ink);
+  -webkit-text-stroke: 1px var(--hb-line);
+  text-shadow: 3px 3px 0 var(--hb-pop);
+}
+.hb-brand-sub { margin-top: 0.35rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; color: var(--text-muted); }
+
+.hb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.75rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--hb-ink);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.hb-chip[aria-pressed='true'] { background: var(--hb-pop); color: var(--hb-pop-ink); }
+
+/* ---------- 窗口 ---------- */
+
+.hb-win {
+  position: relative;
+  z-index: 3;
+  width: min(100%, 21rem);
+  border: 2px solid var(--hb-line);
+  border-radius: 0.9rem;
+  background: var(--card-bg);
+  box-shadow: 5px 5px 0 var(--hb-line);
+  overflow: hidden;
+  translate: var(--hb-dx, 0px) var(--hb-dy, 0px);
+}
+.hb-win[data-dragging='true'] { box-shadow: 8px 8px 0 var(--hb-line); }
+.hb-win[hidden] { display: none; }
+
+.hb-win-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 2px solid var(--hb-line);
+  background: var(--hb-pop);
+  color: var(--hb-pop-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.hb-win-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-win-btn {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.35rem;
+  background: var(--card-bg);
+  color: var(--hb-ink);
+  padding: 0;
+}
+.hb-win-body { padding: 0.75rem; }
+
+.hb-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.8rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.7rem;
+  background: var(--hb-pop);
+  color: var(--hb-pop-ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: left;
+}
+.hb-open-plain { background: var(--card-bg); color: var(--hb-ink); }
+
+.hb-count { font-size: 2.4rem; font-weight: 900; line-height: 1; color: var(--hb-pop); }
+.hb-note { margin-top: 0.4rem; font-size: 0.7rem; color: var(--text-muted); }
+
+/* ---------- 应用窗口 ---------- */
+
+.hb-seg { display: flex; gap: 0.35rem; margin-bottom: 0.7rem; }
+.hb-seg button {
+  flex: 1;
+  min-height: 2rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--hb-ink);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+.hb-seg button[aria-pressed='true'] { background: var(--hb-ink); color: var(--hb-paper); }
+
+.hb-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.hb-group-title small { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); }
+
+.hb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; }
+
+.hb-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-height: 4.4rem;
+  padding: 0.5rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.7rem;
+  background: var(--bg-surface);
+  color: var(--hb-ink);
+  text-align: left;
+}
+.hb-app:active { translate: 1px 1px; }
+.hb-app-wide { grid-column: span 3; flex-direction: row; align-items: center; min-height: 3rem; }
+.hb-app-name { font-size: 0.7rem; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.hb-app-sub { font-size: 0.58rem; font-weight: 600; color: var(--text-muted); line-height: 1.15; }
+
+.hb-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.3rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 999px;
+  background: var(--hb-pop);
+  color: var(--hb-pop-ink);
+  font-size: 0.6rem;
+  font-weight: 900;
+  line-height: 0.95rem;
+  text-align: center;
+}
+.hb-wip {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  padding: 0 0.3rem;
+  border: 1.5px solid var(--hb-line);
+  border-radius: 0.3rem;
+  background: var(--card-bg);
+  font-size: 0.5rem;
+  font-weight: 800;
+}
+
+.hb-pinned { margin-bottom: 0.2rem; }
+.hb-pinned .hb-app { background: var(--hb-pop); color: var(--hb-pop-ink); }
+.hb-pinned .hb-app-sub { color: inherit; opacity: 0.8; }
+
+.hb-folder {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.9rem 0.9rem 0.9rem 0;
+  background: var(--card-bg);
+  color: var(--hb-ink);
+  box-shadow: 5px 5px 0 var(--hb-line);
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-align: left;
+}
+
+/* ---------- 任务栏 ---------- */
+
+.hb-taskbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 0.4rem 0.6rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+  border-top: 2px solid var(--hb-line);
+  background: color-mix(in srgb, var(--card-bg) 94%, transparent);
+}
+.hb-root[data-lp='off'] .hb-taskbar {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.hb-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.25rem;
+  padding: 0 0.7rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.5rem;
+  background: var(--hb-pop);
+  color: var(--hb-pop-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.hb-tasks { display: flex; flex: 1; gap: 0.3rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.hb-tasks::-webkit-scrollbar { display: none; }
+.hb-task {
+  flex: none;
+  max-width: 6.5rem;
+  min-height: 2.25rem;
+  padding: 0 0.6rem;
+  border: 2px solid var(--hb-line);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--hb-ink);
+  font-size: 0.65rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hb-clock { flex: none; font-size: 0.7rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---------- 低功耗：去掉发光和阴影位移，只留静态画面 ---------- */
+
+.hb-root[data-lp='on'] .hb-win,
+.hb-root[data-lp='on'] .hb-folder { box-shadow: 3px 3px 0 var(--hb-line); }
+.hb-root[data-lp='on'] .hb-deco { will-change: auto; }

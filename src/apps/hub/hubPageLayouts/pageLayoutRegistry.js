@@ -28,8 +28,16 @@
 // 懒加载的版式可以直接用。
 
 import ClassicPageLayout from './ClassicPageLayout';
+import lazyWithRetry from '../../../utils/lazyWithRetry';
 
 export const HUB_PAGE_LAYOUT_CLASSIC = 'classic';
+export const HUB_PAGE_LAYOUT_HEARTBREAK = 'heartbreak';
+
+// 心碎先生体积较大（样式 + 窗口组件），懒加载，只有选中时才下载。
+const HeartbreakPageLayout = lazyWithRetry(
+  () => import('./HeartbreakPageLayout'),
+  'HeartbreakPageLayout'
+);
 
 // 版式列表，用于设置页渲染选择器
 export const HUB_PAGE_LAYOUTS = [
@@ -38,11 +46,17 @@ export const HUB_PAGE_LAYOUTS = [
     label: '经典首页',
     hint: 'Header + Board + Grid',
   },
+  {
+    id: HUB_PAGE_LAYOUT_HEARTBREAK,
+    label: '心碎先生',
+    hint: 'Collage + Windows',
+  },
 ];
 
 // id -> 组件，用于 HubPage.jsx 实际渲染
 export const HUB_PAGE_LAYOUT_COMPONENTS = {
   [HUB_PAGE_LAYOUT_CLASSIC]: ClassicPageLayout,
+  [HUB_PAGE_LAYOUT_HEARTBREAK]: HeartbreakPageLayout,
 };
 
 export const isKnownHubPageLayout = (id) =>

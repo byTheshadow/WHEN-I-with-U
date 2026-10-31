@@ -35,6 +35,7 @@ import { applyPwaIcon } from '../../services/pwaIconService';
 import AppNameDisplaySettings from './AppNameDisplaySettings';
 import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
 import HubHeaderLayoutSettings from './HubHeaderLayoutSettings';
+import HubHomeStyleSettings from './HubHomeStyleSettings';
 import LoveProfileSettings from '../messages/loveProfile/LoveProfileSettings';
 import BirthdaySettings from './BirthdaySettings';
 import { HUB_HEADER_LAYOUT_CLASSIC } from '../hub/hubHeaderLayouts/registry';
@@ -1382,6 +1383,21 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
           <Palette className="h-4 w-4" />
           <span>主页版式</span>
         </div>
+
+         <HubHeaderLayoutSettings
+          value={draftHubHeaderLayout}
+          onChange={setDraftHubHeaderLayout}
+        />
+      </GlassCard>
+
+      <GlassCard className="space-y-4 text-left">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <Palette size={16} />
+          首页整体风格
+        </h3>
+
+        <HubHomeStyleSettings />
+      </GlassCard>
 
         <HubHeaderLayoutSettings
           value={draftHubHeaderLayout}
