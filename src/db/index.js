@@ -5147,4 +5147,9 @@ db.version(107).stores({
   popupBooks: '++id, characterId, status, source, createdAt, revealAt, [characterId+createdAt]',
 });
 
+// 修图室相册（src/apps/layoutstudio/layoutWorksService.js）：只存成品图（JPEG Blob）和版面信息，不存原图。
+db.version(108).stores({
+  layoutWorks: '++id, characterId, createdAt',
+});
+
 export default db;

@@ -22,11 +22,11 @@ const LayoutTemplateSheet = ({ open, photos, onClose, onPick }) => {
   return (
     <>
       <div
-        className={`ls-sbg${open ? ' on' : ''}`}
+        className={`ls-sbg${open ? ' ls-on' : ''}`}
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className={`ls-sheet${open ? ' on' : ''}`} role="dialog" aria-label="挑一个模板">
+      <div className={`ls-sheet${open ? ' ls-on' : ''}`} role="dialog" aria-label="挑一个模板">
         <div className="ls-grab" />
         <h3>挑一个模板</h3>
         <p className="ls-s">出图后，文字和位置都还能再改。</p>

@@ -90,7 +90,7 @@ const LayoutTweakPanel = ({ spec, disabled, onChange, onReroll }) => {
                 key={value}
                 type="button"
                 disabled={disabled}
-                className={`ls-chip${spec.params[option.key] === value ? ' on' : ''}`}
+                className={`ls-chip${spec.params[option.key] === value ? ' ls-on' : ''}`}
                 onClick={() =>
                   onChange({
                     ...spec,

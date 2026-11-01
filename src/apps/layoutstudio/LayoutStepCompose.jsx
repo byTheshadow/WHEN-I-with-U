@@ -15,6 +15,7 @@ const LayoutStepCompose = ({
   playKey,
   busy,
   thinking,
+  thinkText,
   charName,
   onDecide,
   onPick,
@@ -54,7 +55,7 @@ const LayoutStepCompose = ({
             还没出图<small>点下面的按钮开始</small>
           </div>
           <div className="ls-ov ls-think">
-            <span>{charName} 正在挑模板、写字</span>
+            <span>{thinkText || `${charName} 正在想`}</span>
             <span className="ls-dots">
               <i />
               <i />
