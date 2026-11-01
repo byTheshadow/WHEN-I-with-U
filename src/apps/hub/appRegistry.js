@@ -58,6 +58,7 @@ export const HUB_APPS = [
   { id: 'shared-world', en: 'Shared World', zh: '共享世界', ko: '공유 세계', sub: 'Booklets', icon: 'Globe', group: 'story', badge: null, status: null },
   { id: 'margin-notes', en: 'The Margin Notes', zh: '页边注', ko: null, sub: 'A shared reading room', icon: 'BookOpen', group: 'story', badge: null, status: null },
   { id: 'imagestudio', en: 'Studio', zh: '生图室', ko: '이미지 스튜디오', sub: 'Image Studio', icon: 'Palette', group: 'story', badge: null, status: null },
+   { id: 'layoutstudio', en: 'Retouch', zh: '修图室', ko: '사진 편집실', sub: 'Layout Studio', icon: 'Wand2', group: 'story', badge: null, status: null },
   { id: 'greeting', en: 'Cards', zh: '贺卡', ko: '카드', sub: 'Greeting Cards', icon: 'Gift', group: 'story', badge: null, status: null },
 
   // ---- 日常与外出 ----

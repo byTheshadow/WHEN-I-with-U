@@ -40,6 +40,7 @@ import {
   Sparkles,
   Ticket,
   Users,
+  Wand2,
   Waves,
 } from 'lucide-react';
 
@@ -76,6 +77,7 @@ export const APP_ICON_COMPONENTS = {
   Sparkles,
   Ticket,
   Users,
+  Wand2,
   Waves,
 };
 
