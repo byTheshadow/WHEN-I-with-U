@@ -5,6 +5,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { checkForNewVersion } from './appVersionCheck';
 import './app-update.css';
 
 const UPDATE_MESSAGE = {
@@ -131,47 +132,15 @@ const AppUpdatePrompt = ({
       }
     };
 
-    const checkForUpdate = () => {
-      if (!currentRegistration) return;
-
-      currentRegistration.update().catch(() => {
-        /*
-         * 网络不可用时静默处理。
-         * 当前缓存版本仍然可以继续使用。
-         */
-      });
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkForUpdate();
-      }
-    };
-
-    const handleFocus = () => {
-      checkForUpdate();
-    };
-
-    const handleOnline = () => {
-      checkForUpdate();
-    };
+    /*
+     * 2026-11：只在打开应用时检查更新（注册完成后的那一次 update()），
+     * 使用过程中不再因为切回前台、重新联网、定时而检查，避免发布修复时
+     * 打断正在使用的用户。
+     */
 
     navigator.serviceWorker.addEventListener(
       'controllerchange',
       handleControllerChange,
-    );
-
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('online', handleOnline);
-
-    document.addEventListener(
-      'visibilitychange',
-      handleVisibilityChange,
-    );
-
-    const intervalId = window.setInterval(
-      checkForUpdate,
-      60 * 60 * 1000,
     );
 
     void registerServiceWorker();
@@ -184,16 +153,6 @@ const AppUpdatePrompt = ({
         handleControllerChange,
       );
 
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('online', handleOnline);
-
-      document.removeEventListener(
-        'visibilitychange',
-        handleVisibilityChange,
-      );
-
-      window.clearInterval(intervalId);
-
       if (currentRegistration) {
         currentRegistration.removeEventListener(
           'updatefound',
@@ -202,6 +161,31 @@ const AppUpdatePrompt = ({
       }
     };
   }, [isApplying, markUpdateAvailable]);
+
+  /*
+   * 2026-11：打开应用时，除了 Service Worker 自己的更新检查，还看一眼线上
+   * 页面是不是比当前跑的新。因为 sw.js 文件没变时（没改 CACHE_NAME），浏览器
+   * 不会发现新的 Service Worker，也就不会有弹窗。这里只在刚打开时做一次
+   * （稍等几秒，不和启动抢网络），不会在使用过程中反复检查。
+   * 没有等待中的 Service Worker 时，点"载入新的布置"会直接刷新页面，
+   * 此时缓存里的入口页已经被检测请求更新成最新版。
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const timerId = window.setTimeout(async () => {
+      const hasNewVersion = await checkForNewVersion({ force: true });
+
+      if (!cancelled && hasNewVersion) {
+        setUpdateAvailable(true);
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }, []);
 
   const handleApplyUpdate = () => {
     if (!registration) {

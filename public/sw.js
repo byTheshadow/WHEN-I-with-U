@@ -1,7 +1,7 @@
 // public/sw.js
 
 // 每次发布一个需要用户更新的版本时，递增此版本号以激活新 SW
-const CACHE_NAME = 'when-i-with-u-v17';
+const CACHE_NAME = 'when-i-with-u-v18';
 
 // 由 Service Worker 的注册 scope 自动确定实际部署路径
 const APP_SCOPE = self.registration.scope;
@@ -60,7 +60,32 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
 
   // 不接管跨域请求，例如 AI API、第三方图片、CDN 等
-  if (requestUrl.origin !== self.location.origin) {
+   if (requestUrl.origin !== self.location.origin) {
+    return;
+  }
+
+  // 版本检测请求（2026-11）：页面带 __vc 标记来拉线上最新的 index.html，用来判断
+  // 有没有新版本。这类请求必须直接走网络（否则会被下面"缓存优先"返回旧页面，
+  // 永远检测不出更新），并顺手把拿到的新 index.html 写进缓存，这样页面确认更新
+  // 后重新加载，直接就是新版，不用再开第二次。离线或失败时请求直接失败，页面静默忽略。
+  if (requestUrl.searchParams.has('__vc')) {
+    event.respondWith(
+      fetch(APP_INDEX_URL, { cache: 'reload' }).then((response) => {
+        if (response && response.ok) {
+          const responseCopy = response.clone();
+
+          event.waitUntil(
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(APP_INDEX_URL, responseCopy))
+              .catch(() => {}),
+          );
+        }
+
+        return response;
+      }),
+    );
+
     return;
   }
   // 页面导航请求：缓存优先 + 后台更新（2026-10）。
