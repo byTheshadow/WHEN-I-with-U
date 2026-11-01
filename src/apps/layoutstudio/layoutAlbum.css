@@ -1,0 +1,29 @@
+/* 修图室相册页样式。全部挂在 .ls-app 下，带 ls- 前缀，颜色取主题变量。 */
+.ls-app .ls-album{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;background:var(--bg-main)}
+.ls-app .ls-alb-filter{display:flex;gap:8px;padding:10px 20px 4px;overflow-x:auto;scrollbar-width:none}
+.ls-app .ls-alb-filter::-webkit-scrollbar{display:none}
+.ls-app .ls-alb-chip{flex:none;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--card-bg);border:1px solid var(--card-border);transition:.2s}
+.ls-app .ls-alb-chip.ls-on{color:var(--accent-foreground);background:var(--accent-color);border-color:var(--accent-color)}
+.ls-app .ls-alb-body{flex:1;min-height:0;overflow-y:auto;padding:14px 20px 40px;scrollbar-width:none}
+.ls-app .ls-alb-body::-webkit-scrollbar{display:none}
+.ls-app .ls-alb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.ls-app .ls-alb-cell{position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;background:var(--card-bg);border:1px solid var(--card-border);padding:0;text-align:left}
+.ls-app .ls-alb-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.ls-app .ls-alb-cell span{position:absolute;left:8px;bottom:8px;max-width:calc(100% - 16px);padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:600;color:var(--text-main);background:var(--card-bg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ls-app .ls-alb-cell span:empty{display:none}
+.ls-app .ls-alb-empty{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:80px;text-align:center;color:var(--text-muted);font-size:12.5px;line-height:1.7}
+.ls-app .ls-alb-empty b{font-size:15px;color:var(--text-main)}
+.ls-app .ls-alb-view{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;background:var(--bg-main)}
+.ls-app .ls-alb-vtop{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px}
+.ls-app .ls-alb-time{font-size:11px;color:var(--text-muted)}
+.ls-app .ls-alb-vbody{flex:1;min-height:0;overflow-y:auto;padding:12px 20px 48px;scrollbar-width:none}
+.ls-app .ls-alb-vbody::-webkit-scrollbar{display:none}
+.ls-app .ls-alb-words{margin:14px 0 6px;padding:14px 16px;border-radius:16px;background:var(--card-bg);border:1px solid var(--card-border);font-size:13px;line-height:1.75;color:var(--text-main)}
+.ls-app .ls-alb-words p+p{margin-top:8px}
+.ls-app .ls-alb-who{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px}
+.ls-app .ls-alb-confirm{margin-top:10px;padding:14px 16px;border-radius:16px;background:var(--card-bg);border:1px solid var(--card-border);font-size:13px}
+.ls-app .ls-alb-confirm p{margin-bottom:10px}
+.ls-app .ls-alb-confirm div{display:flex;gap:10px}
+.ls-app .ls-alb-confirm button{flex:1;padding:9px 0;border-radius:12px;font-size:12.5px;font-weight:600;background:var(--control-soft-bg);color:var(--text-main)}
+.ls-app .ls-alb-confirm button.ls-danger{background:var(--accent-color);color:var(--accent-foreground)}
+.ls-app .ls-album-entry{justify-self:end}

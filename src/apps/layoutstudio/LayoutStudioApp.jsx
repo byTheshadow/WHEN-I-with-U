@@ -3,15 +3,17 @@
 // 修图室（Layout Studio）顶层 app：四步向导，每一步一个小页面。
 //   1 选角色  2 放照片  3 出图  4 保存
 // 切片 A：模板、渲染、手动改字、保存到设备。
-// 角色 AI 选模板 / 写字 / 点评、存相册、摘要发回聊天室在后续切片接上。
+// 切片 B：角色 AI 选模板 / 写字 / 点评、摘要发回聊天室。
+// 切片 C：存进相册、相册页（第 1 步右上角和第 4 步都能进）。
 //
 // 这不是聊天室类 app，只需要一个返回首页的回调。
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Images } from 'lucide-react';
 
 import db from '../../db';
 import { getVisionApiConfig, isVisionConfigured } from '../../services/visionService';
+import LayoutAlbumPage from './LayoutAlbumPage';
 import LayoutStepCharacter from './LayoutStepCharacter';
 import LayoutStepCompose from './LayoutStepCompose';
 import LayoutStepFinish from './LayoutStepFinish';
@@ -19,7 +21,15 @@ import LayoutStepPhotos from './LayoutStepPhotos';
 import LayoutTemplateSheet from './LayoutTemplateSheet';
 import { MAX_PHOTOS } from './layoutConstants';
 import { filesToPhotos } from './layoutPhotoService';
-import { createDefaultSpec, pickTemplateId } from './layoutSpec';
+import {
+  buildSummaryText,
+  composeWithCharacter,
+  describePhotos,
+  sendResultToChat,
+  writeNotes,
+} from './layoutAiService';
+import { createDefaultSpec } from './layoutSpec';
+import { canvasToJpegBlob, saveLayoutWork } from './layoutWorksService';
 import './layoutStudio.css';
 
 const STEPS = [
@@ -29,8 +39,6 @@ const STEPS = [
   { n: 4, name: '保存', sub: '修好了' },
 ];
 
-const THINK_MS = 900;
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const newSeed = () => 1 + Math.floor(Math.random() * 99999);
 
 const canvasToBlob = (canvas) =>
@@ -47,6 +55,14 @@ const LayoutStudioApp = ({ onBackHub }) => {
   const [playKey, setPlayKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [thinkText, setThinkText] = useState('');
+  const [notes, setNotes] = useState(null);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [albumSaving, setAlbumSaving] = useState(false);
+  const [albumSaved, setAlbumSaved] = useState(false);
+  const [albumOpen, setAlbumOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [resultUrl, setResultUrl] = useState('');
   const [saved, setSaved] = useState(false);
@@ -55,6 +71,8 @@ const LayoutStudioApp = ({ onBackHub }) => {
   const canvasRef = useRef(null);
   const toastTimer = useRef(0);
   const aliveRef = useRef(true);
+  const blobRef = useRef(null);
+  const descCacheRef = useRef({ key: '', list: [] });
 
   const showToast = useCallback((text) => {
     setToast(text);
@@ -109,7 +127,11 @@ const LayoutStudioApp = ({ onBackHub }) => {
   const resetResult = useCallback(() => {
     setSpec(null);
     setSaved(false);
+    setSent(false);
+    setAlbumSaved(false);
+    setNotes(null);
     setResultUrl('');
+    blobRef.current = null;
   }, []);
 
   /* ---------- 照片 ---------- */
@@ -151,37 +173,70 @@ const LayoutStudioApp = ({ onBackHub }) => {
 
   /* ---------- 出图 ---------- */
 
+  const getDescriptions = useCallback(async () => {
+    const key = photos.map((photo) => photo.id).join(',');
+    if (descCacheRef.current.key === key) return descCacheRef.current.list;
+    const list = await describePhotos(photos);
+    descCacheRef.current = { key, list };
+    return list;
+  }, [photos]);
+
+  // 用户自己选 / 重新排布：直接用默认排布，不问角色。
   const runCompose = useCallback(
-    async (templateId, { think = false } = {}) => {
+    (templateId) => {
       if (photos.length === 0) return;
       setBusy(true);
       setSaved(false);
-      if (think) {
-        setThinking(true);
-        await sleep(THINK_MS);
-        if (!aliveRef.current) return;
-        setThinking(false);
-      }
+      setSent(false);
+      setAlbumSaved(false);
+      setNotes(null);
       setSpec(createDefaultSpec(templateId, { photoCount: photos.length, seed: newSeed() }));
       setPlayKey((key) => key + 1);
     },
     [photos.length]
   );
 
-  const handleDecide = () => runCompose(pickTemplateId(spec?.templateId), { think: true });
+  // 让角色决定：先看图（有视觉模型时），再挑模板、写字、写话。
+  const handleDecide = async () => {
+    if (photos.length === 0 || busy) return;
+    setBusy(true);
+    setSaved(false);
+    setSent(false);
+    setAlbumSaved(false);
+    setNotes(null);
+    setThinking(true);
+    setThinkText(`${charName} 正在看照片`);
+    const descriptions = await getDescriptions();
+    if (!aliveRef.current) return;
+    setThinkText(`${charName} 正在挑版式、写字`);
+    const result = await composeWithCharacter({
+      character,
+      photos,
+      descriptions,
+      excludeId: spec?.templateId,
+    });
+    if (!aliveRef.current) return;
+    setThinking(false);
+    setSpec(result.spec);
+    setNotes(result.why || result.praise ? { why: result.why, praise: result.praise } : null);
+    if (!result.usedAi) showToast(`没能联系上 ${charName}，先用随机排布`);
+    setPlayKey((key) => key + 1);
+  };
 
   const handlePickTemplate = (templateId) => {
     setSheetOpen(false);
-    void runCompose(templateId);
+    runCompose(templateId);
   };
 
   const handleReroll = () => {
-    if (spec) void runCompose(spec.templateId);
+    if (spec) runCompose(spec.templateId);
   };
 
   const handleSpecChange = (next) => {
     setSpec(next);
     setSaved(false);
+    setSent(false);
+    setAlbumSaved(false);
   };
 
   const handlePlayEnd = useCallback(() => setBusy(false), []);
@@ -208,6 +263,83 @@ const LayoutStudioApp = ({ onBackHub }) => {
     showToast('已保存');
   };
 
+  const handleSend = async () => {
+    if (!blobRef.current || !character || !spec || sending || sent) return;
+    setSending(true);
+    try {
+      const descriptions = await getDescriptions();
+      const ok = await sendResultToChat({
+        characterId: character.id,
+        blob: blobRef.current,
+        summary: buildSummaryText({ spec, notes, descriptions, photoCount: photos.length }),
+      });
+      if (!aliveRef.current) return;
+      if (ok) {
+        setSent(true);
+        showToast(`已发给 ${charName}`);
+      } else {
+        showToast(`还没有和 ${charName} 的聊天，先去聊天室开个头`);
+      }
+    } catch (error) {
+      console.warn('[LayoutStudio] 发送到聊天室失败：', error);
+      if (aliveRef.current) showToast('发送失败，请再试一次');
+    } finally {
+      if (aliveRef.current) setSending(false);
+    }
+  };
+
+  // 存进相册：只存成品图（JPEG）和版面信息，不存原图。
+  const handleSaveAlbum = async () => {
+    if (!character || !spec || albumSaving || albumSaved) return;
+    const canvas = canvasRef.current?.getCanvas();
+    if (!canvas) return;
+    setAlbumSaving(true);
+    try {
+      const blob = await canvasToJpegBlob(canvas);
+      if (!blob) {
+        showToast('导出失败，请再试一次');
+        return;
+      }
+      let summary = '';
+      try {
+        const descriptions = await getDescriptions();
+        summary = buildSummaryText({ spec, notes, descriptions, photoCount: photos.length });
+      } catch (error) {
+        console.warn('[LayoutStudio] 生成摘要失败，相册里先不带摘要：', error);
+      }
+      await saveLayoutWork({
+        characterId: character.id,
+        templateId: spec.templateId,
+        spec,
+        blob,
+        why: notes?.why || '',
+        praise: notes?.praise || '',
+        summary,
+      });
+      if (!aliveRef.current) return;
+      setAlbumSaved(true);
+      showToast('已存进相册');
+    } catch (error) {
+      console.warn('[LayoutStudio] 存进相册失败：', error);
+      if (aliveRef.current) showToast('存进相册失败，请再试一次');
+    } finally {
+      if (aliveRef.current) setAlbumSaving(false);
+    }
+  };
+
+  // 从相册里把一张旧作品发回聊天室：优先用已存的摘要，没有就用角色的两句话拼一条。
+  const handleSendFromAlbum = async (work, blob) => {
+    const fallback = [work.praise, work.why].filter(Boolean).join('\n');
+    const ok = await sendResultToChat({
+      characterId: work.characterId,
+      blob,
+      summary: work.summary || fallback || '我在修图室修好了一张图。',
+    });
+    if (!aliveRef.current) return;
+    const name = characters.find((item) => item.id === work.characterId)?.name || 'TA';
+    showToast(ok ? `已发给 ${name}` : `还没有和 ${name} 的聊天，先去聊天室开个头`);
+  };
+
   /* ---------- 步骤切换 ---------- */
 
   const canProceed = (n) => {
@@ -222,7 +354,18 @@ const LayoutStudioApp = ({ onBackHub }) => {
       const canvas = canvasRef.current?.getCanvas();
       const blob = canvas ? await canvasToBlob(canvas) : null;
       if (!aliveRef.current) return;
+      blobRef.current = blob;
       setResultUrl(blob ? URL.createObjectURL(blob) : '');
+      setStep(4);
+      if (!notes && character && spec) {
+        setNotesLoading(true);
+        const descriptions = await getDescriptions();
+        const written = await writeNotes({ character, photos, descriptions, spec });
+        if (!aliveRef.current) return;
+        setNotes(written);
+        setNotesLoading(false);
+      }
+      return;
     }
     setStep(n);
   };
@@ -271,7 +414,14 @@ const LayoutStudioApp = ({ onBackHub }) => {
             <h1>修图室</h1>
             <p>{STEPS[step - 1].sub}</p>
           </div>
-          <div />
+          {step === 1 ? (
+            <button type="button" className="ls-back ls-album-entry" onClick={() => setAlbumOpen(true)}>
+              <Images size={16} />
+              <span>相册</span>
+            </button>
+          ) : (
+            <div />
+          )}
         </header>
 
         <nav className="ls-stepper">
@@ -323,6 +473,7 @@ const LayoutStudioApp = ({ onBackHub }) => {
                   playKey={playKey}
                   busy={busy}
                   thinking={thinking}
+                  thinkText={thinkText}
                   charName={charName}
                   onDecide={handleDecide}
                   onPick={() => setSheetOpen(true)}
@@ -333,10 +484,20 @@ const LayoutStudioApp = ({ onBackHub }) => {
               )}
               {n === 4 && (
                 <LayoutStepFinish
+                  character={character}
                   resultUrl={resultUrl}
                   charName={charName}
                   saved={saved}
+                  notes={notes}
+                  notesLoading={notesLoading}
+                  sending={sending}
+                  sent={sent}
+                  albumSaving={albumSaving}
+                  albumSaved={albumSaved}
                   onSave={handleSave}
+                  onSend={handleSend}
+                  onSaveAlbum={handleSaveAlbum}
+                  onOpenAlbum={() => setAlbumOpen(true)}
                   onRestart={handleRestart}
                 />
               )}
@@ -364,6 +525,14 @@ const LayoutStudioApp = ({ onBackHub }) => {
           onClose={() => setSheetOpen(false)}
           onPick={handlePickTemplate}
         />
+        {albumOpen && (
+          <LayoutAlbumPage
+            characters={characters}
+            onBack={() => setAlbumOpen(false)}
+            onSendToChat={handleSendFromAlbum}
+            showToast={showToast}
+          />
+        )}
         <div className={`ls-toast${toast ? ' ls-in' : ''}`}>{toast}</div>
       </div>
     </div>
