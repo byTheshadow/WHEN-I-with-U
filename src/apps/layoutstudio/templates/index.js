@@ -16,12 +16,14 @@ import bracketTemplate from './bracketTemplate';
 import bigTypeTemplate from './bigTypeTemplate';
 import scatterTemplate from './scatterTemplate';
 import stickerTemplate from './stickerTemplate';
+import filmTemplate from './filmTemplate';
 
 export const TEMPLATES = [
   bracketTemplate,
   bigTypeTemplate,
   scatterTemplate,
   stickerTemplate,
+  filmTemplate,
 ];
 
 export const getTemplate = (id) => TEMPLATES.find((tpl) => tpl.id === id) || null;
