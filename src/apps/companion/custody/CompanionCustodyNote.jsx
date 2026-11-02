@@ -51,7 +51,7 @@ const CompanionCustodyNote = ({ enabled, busy, characterName, onToggle, onClose 
 
           <ul className="ccn-rules">
             <li>每天帮忙做完没做的喂食、清洁、玩耍</li>
-            <li>{`数值还低就买最便宜的补上，一天最多${CUSTODY_DAILY_BUY_CAP}次`}</li>
+            <li>{`数值还低就挑够用的补上，一天最多${CUSTODY_DAILY_BUY_CAP}次`}</li>
             <li>你平时自己来照顾小伙伴，一样照常</li>
           </ul>
 

@@ -4,8 +4,9 @@
  * 规则（跟用户确认过的设计一致）：
  *   - 一个开关，打开后持续生效，不是在线/离线触发式。
  *   - 打开后，每天自动帮忙做完当天还没做的免费日常（喂食/清洁/玩耍）。
- *   - 做完免费动作后某项数值还低，自动买最便宜的对应道具并使用，
- *     每天最多自动买 CUSTODY_DAILY_BUY_CAP 次。
+  *   - 做完免费动作后某项数值还低，按"离补到 CUSTODY_LOW_THRESHOLD 还差多少"
+ *     挑对应道具：买得起的里面，最便宜且一次能补够的；没有能补够的，就买
+ *     加得最多的。然后使用，每天最多自动买 CUSTODY_DAILY_BUY_CAP 次。
  *   - 心心不够就不买、不强制，只在信里温和提示一句。
  *   - 跟现有"角色自主照顾"（triggerCompanionAutonomousCare）并存，互不影响。
  *
@@ -55,16 +56,35 @@ const todayDateStr = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
-// 最便宜的、当前能买的对应道具：普通档直接可买，稀有档要已解锁，传说档不参与。
-const pickCheapestItem = (plan, companion) => {
+// 按"缺口"挑道具。候选：普通档直接可买，稀有档要已解锁，传说档不参与。
+//   1) 先筛掉心心买不起的；
+//   2) 买得起的里面，有一次能补够缺口的，就挑最便宜的（同价挑加得多的）；
+//   3) 没有能补够的，就挑加得最多的（同样多挑便宜的），下一轮巡检再接着补；
+//   4) 有候选但一个都买不起，返回 short: true，信里温和提示；没有候选返回 item: null。
+const pickItemForGap = (plan, companion, gap) => {
   const unlocked = companion[plan.unlockField] || [];
-  return plan.pool
+  const hearts = companion.hearts || 0;
+  const effectOf = (item) => item.effects?.[plan.effectKey] || 0;
+
+  const eligible = plan.pool
     .filter((item) => (
       item.tier === FOOD_TIERS.COMMON
       || (item.tier === FOOD_TIERS.RARE && unlocked.includes(item.id))
     ))
-    .filter((item) => (item.effects?.[plan.effectKey] || 0) > 0)
-    .sort((a, b) => a.price - b.price)[0] || null;
+    .filter((item) => effectOf(item) > 0);
+  if (eligible.length === 0) return { item: null, short: false };
+
+  const affordable = eligible.filter((item) => item.price <= hearts);
+  if (affordable.length === 0) return { item: null, short: true };
+
+  const enough = affordable
+    .filter((item) => effectOf(item) >= gap)
+    .sort((a, b) => (a.price - b.price) || (effectOf(b) - effectOf(a)));
+  if (enough.length > 0) return { item: enough[0], short: false };
+
+  const best = [...affordable]
+    .sort((a, b) => (effectOf(b) - effectOf(a)) || (a.price - b.price));
+  return { item: best[0], short: false };
 };
 
 // 给"最近的动态"写的一句话。
@@ -104,7 +124,7 @@ const runCustodyInner = async (companionId) => {
     }
   }
 
-  // 2) 数值还低，就买最便宜的对应道具并使用（每天最多 3 次）。
+  // 2) 数值还低，就按缺口挑够用的对应道具并使用（每天最多 3 次）。
   companion = await db.companions.get(companionId);
   if (!companion) return false;
   companion = await applyTimeDecay(companion);
@@ -114,13 +134,13 @@ const runCustodyInner = async (companionId) => {
     if (buyCount >= CUSTODY_DAILY_BUY_CAP) break;
     if ((companion[plan.stat] ?? 100) >= CUSTODY_LOW_THRESHOLD) continue;
 
-    const item = pickCheapestItem(plan, companion);
-    if (!item) continue;
-
-    if ((companion.hearts || 0) < item.price) {
+    const gap = CUSTODY_LOW_THRESHOLD - (companion[plan.stat] ?? 100);
+    const { item, short } = pickItemForGap(plan, companion, gap);
+    if (short) {
       shortOfHearts = true; // 不强制购买，只记一笔，信里温和提示。
       continue;
     }
+    if (!item) continue;
 
     try {
       const afterBuy = await buyShopItem(companionId, item.id);
