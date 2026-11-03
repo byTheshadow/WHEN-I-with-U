@@ -13,8 +13,9 @@ import './call-ringing-screen.css';
 // 剩余空间，视觉上是屏幕主体），底部是操作按钮。
 const CallRingingScreen = ({
   character,
-  direction,
+    direction,
   statusLabel,
+  reason,
   realVoiceAvailable,
   videoVisionAvailable,
   onAccept,
@@ -59,8 +60,12 @@ const CallRingingScreen = ({
             className="font-mono text-[11px] tracking-[0.1em]"
             style={{ color: 'rgba(255,255,255,0.75)' }}
           >
-            {statusLabel}
+                        {statusLabel}
           </p>
+
+          {isIncoming && reason && (
+            <p className="call-ringing__reason">{reason}</p>
+          )}
         </div>
             </div>
 

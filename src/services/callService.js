@@ -153,7 +153,7 @@ const isCallDocumentVisible = () => {
 // 注意：这只在浏览器 / PWA 进程本身还存活的前提下有效——App 被系统
 // 彻底杀掉之后，是没有任何本地代码能再运行的，那种情况需要云端
 // 推送服务器主动推送，不是这里能解决的。
-const triggerIncomingCallNotification = async (character, chatId) => {
+const triggerIncomingCallNotification = async (character, chatId, reason = '') => {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
   if (!('serviceWorker' in navigator)) return;
@@ -165,7 +165,7 @@ const triggerIncomingCallNotification = async (character, chatId) => {
     // 现有的普通消息通知走的是同一套跳转逻辑，点开就直接定位到这个
     // 聊天窗（这个聊天窗一打开，来电全屏界面会跟平时一样自动弹出）。
     await registration.showNotification(`${character?.name || '对方'} 来电`, {
-      body: '点开 App 接听这通语音通话',
+           body: reason ? `${reason} · 点开 App 接听` : '点开 App 接听这通语音通话',
       icon: character?.avatar || '/favicon.ico',
       tag: 'incoming-call',
       requireInteraction: true,
@@ -1189,7 +1189,7 @@ export const startIncomingCall = async ({ chatId, characterId, inviteId = null, 
 
   if (!isCallDocumentVisible()) {
     const character = await db.characters.get(characterId);
-    void triggerIncomingCallNotification(character, chatId);
+        void triggerIncomingCallNotification(character, chatId, String(reason || ''));
   }
 
   return messageId;

@@ -420,6 +420,7 @@ const CallScreen = ({ call, onMinimize }) => {
             character={character}
             direction={direction}
             statusLabel={statusLabel}
+            reason={direction === 'incoming' ? String(metadata.reason || '') : ''}
             realVoiceAvailable={realVoiceAvailable}
             videoVisionAvailable={videoVisionAvailable}
             onAccept={handleAccept}

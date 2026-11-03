@@ -33,6 +33,11 @@ const CallLogEntry = ({ message, isUser, character, userName, userAvatar }) => {
   const isReviewable = status === 'ended' && !declined && hasTranscript;
   const duration = formatCallDuration(metadata);
   const isMissedOrDeclined = status === 'ended' && declined;
+  // 角色主动来电时带的理由(callScheduler.js 生成);没接的来电在记录条上
+  // 留一句,云端邀请和旧记录没有这个字段,按空串处理。
+  const missedReason = isMissedOrDeclined && direction === 'incoming'
+    ? String(metadata.reason || '').trim()
+    : '';
 
   // 视频通话的记录条文案跟语音通话区分开，其余（点开回看、记忆落地
   // 等）走的都是同一套逻辑。
@@ -143,7 +148,12 @@ const CallLogEntry = ({ message, isUser, character, userName, userAvatar }) => {
               className="truncate text-[11px]"
               style={{ color: isMissedOrDeclined ? '#ef4444' : 'var(--text-muted)' }}
             >
-              {subtitle}
+                          {subtitle}
+            </span>
+          )}
+          {missedReason && (
+            <span className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {`「${missedReason}」`}
             </span>
           )}
         </span>
