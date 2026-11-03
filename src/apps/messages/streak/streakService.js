@@ -11,7 +11,10 @@
  *   freezeCards 剩余冻结卡数量（每张可阻止一天衰减）
  *
  * 冻结卡购买：5心心一张，通过 buyFreezeCard(chatId, companionId) 购买。
- * 打卡判定：每天只打一次，当天第一次收到角色AI回复时触发。
+ * 打卡判定：每天只打一次。当天第一次在聊天室发消息（文字/图片/转账/表情包等），
+ * 或点"回应"收到角色回复时触发。角色在用户不在时主动发来的消息不算。
+ * 展示判定：库里的 count 只在下一次打卡时才重置，所以读取时要过一遍
+ * resolveDisplayStreak——最近一次打卡不是今天也不是昨天，就算断了。
  *
  * 与 companionService 的职责分离：
  *   - streakService 只管 chatStreaks 表 + 调用 db.companions 扣心心
@@ -40,6 +43,23 @@ function yesterdayStr() {
 /* 冻结卡单价（心心）*/
 export const FREEZE_CARD_PRICE = 5;
 
+/**
+ * 把库里存的 streak 行换算成"此刻实际展示的值"（只用于读取展示，不写库）。
+ * 最近一次打卡不是今天也不是昨天，就算断了：
+ *   - 没有冻结卡：count 显示为 0（界面按 count < 2 隐藏火花）；
+ *   - 有冻结卡：维持原数字，等下一次打卡再消耗一张卡（规则不变）。
+ * recordStreakCheckin / buyFreezeCard 仍然直接读库里的原始行，不经过这里。
+ */
+function resolveDisplayStreak(row) {
+  if (!row) return null;
+  const last = row.lastDateStr;
+  const isBroken = Boolean(last) && last !== todayStr() && last !== yesterdayStr();
+  if (isBroken && (row.freezeCards ?? 0) <= 0) {
+    return { ...row, count: 0 };
+  }
+  return row;
+}
+
 /* ------------------------------------------------------------------ */
 /* 核心 API                                                              */
 /* ------------------------------------------------------------------ */
@@ -52,7 +72,7 @@ export const FREEZE_CARD_PRICE = 5;
 export async function getStreakForChat(chatId) {
   if (!chatId) return null;
   const row = await db.chatStreaks.where('chatId').equals(chatId).first();
-  return row ?? null;
+  return resolveDisplayStreak(row);
 }
 
 /**
@@ -62,7 +82,7 @@ export async function getStreakForChat(chatId) {
 export async function getStreakMapForChats(chatIds) {
   if (!chatIds?.length) return new Map();
   const rows = await db.chatStreaks.where('chatId').anyOf(chatIds).toArray();
-  return new Map(rows.map((r) => [r.chatId, r]));
+  return new Map(rows.map((r) => [r.chatId, resolveDisplayStreak(r)]));
 }
 
 /**

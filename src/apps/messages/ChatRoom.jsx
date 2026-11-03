@@ -700,7 +700,10 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
     };
 
    const stickerMsgId = await db.messages.add(newMsg);
-   newMsg.id = stickerMsgId;
+      newMsg.id = stickerMsgId;
+
+   // 火花打卡：发表情包也算当天聊过（同一天多次幂等）。
+   void recordStreakCheckin(chat.id);
 
    // 每日任务：给TA发表情包（这个聊天窗没养小伙伴就静默跳过）。
    void recordTaskEventForChat(chat.id, 'sticker_sent');
@@ -1544,8 +1547,11 @@ useLayoutEffect(() => {
     const payload = { ...newMsg };
     delete payload.id;
 
-    const msgId = await db.messages.add(payload);
+        const msgId = await db.messages.add(payload);
     newMsg.id = msgId;
+
+    // 火花打卡：用户在聊天室发了消息就算当天聊过（同一天多次幂等）。
+    void recordStreakCheckin(chatId);
 
     // 早安/晚安彩蛋：改成发消息触发之后，这里是唯一的判断入口。
     // 只看纯文字消息，图片/转账这类卡片类型不参与问候判断。

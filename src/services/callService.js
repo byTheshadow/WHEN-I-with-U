@@ -610,7 +610,13 @@ const generateCallReply = async ({ messageId }) => {
     systemPrompt += memoryContext + characterEmotionContext;
 
     if (isOpeningLine) {
-      systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
+           systemPrompt += '\n\n现在电话刚刚接通，请你先开口说第一句话（比如打招呼，或者说明这通电话想说的事）。';
+
+      // 来电理由:有的话让第一句话自然带出来,没有就保持原来的开场方式。
+      const callReason = String(message.metadata?.reason || '').trim();
+      if (callReason) {
+        systemPrompt += `\n你打这通电话的原因是：${callReason}。第一句话要自然地带出这个原因，不要原样照念。`;
+      }
     }
 
     // 视频模式：从最新的用户轮次里取截帧，注入视觉上下文。
@@ -1115,7 +1121,7 @@ export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
  * 角色主动打进来（由 callScheduler.js 调用）。这里只负责"响铃"，
  * 接听方式（mode）要等用户接听时才选。
  */
-export const startIncomingCall = async ({ chatId, characterId, inviteId = null, ringUntil = null }) => {
+export const startIncomingCall = async ({ chatId, characterId, inviteId = null, ringUntil = null, reason = '' }) => {
   if (await hasAnyLiveCall()) return null;
 
   // inviteId 来自云端后台来电邀请（cloudCallService.js），本地调度器
@@ -1166,9 +1172,12 @@ export const startIncomingCall = async ({ chatId, characterId, inviteId = null, 
       aiThinking: false,
       audioRetentionDecided: false,
       audioRetained: null,
-      turns: [],
+           turns: [],
       inviteId,
       ringUntil,
+      // 角色为什么打来(callScheduler.js 概率命中后生成;云端邀请和
+      // 用户手动拨出的通话没有这个字段,读取方要按空串处理)。
+      reason: String(reason || ''),
     },
     isRead: false,
     timestamp,

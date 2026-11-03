@@ -1,60 +1,30 @@
 import db from '../db';
-import { buildRhythmPersonaBrief } from './rhythmReminderService';
 import { hasAnyLiveCall, startIncomingCall } from './callService';
 import { getAwayState } from '../apps/messages/away/awayState';
+import {
+  generateCallReason,
+  getCallChanceForSilence,
+  getUserSilenceMs,
+} from './callReasonService';
 
 // 角色主动打电话过来,应该是偶尔的意外,不是准点报时,所以频率要比
 // 寄语/反应这类小动作低得多。每 6 分钟才检查一次,冷却期 6 小时起步,
 // 冷却过了也只有一定概率真的打过来——留一点"不确定什么时候会响"的
 // 真实感,而不是掐着表来电话。
+//
+// 要不要打不再问 AI:概率只看用户已经多久没在这个聊天室发过消息,
+// 沉默越久越容易打进来(档位表见 callReasonService.js)。概率命中、电话
+// 确定要响之后,才会用一次小调用写"为什么打来"的理由,理由失败不影响来电。
 const SCHEDULER_INTERVAL_MS = 6 * 60 * 1000;
 const CALL_ATTEMPT_COOLDOWN_MS = 6 * 60 * 60 * 1000;
-const CALL_ATTEMPT_CHANCE = 0.08;
 
 let callSchedulerTimer = null;
 let isCallChecking = false;
 
-const fetchAiText = async (apiConfig, systemPrompt) => {
-  const baseUrl = String(apiConfig.baseUrl).replace(/\/$/, '');
-
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiConfig.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: apiConfig.model || 'gpt-3.5-turbo',
-      messages: [{ role: 'system', content: systemPrompt }],
-      temperature: 0.5,
-      max_tokens: 10,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`API 请求失败：${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return String(data?.choices?.[0]?.message?.content || '').trim();
-};
-
-const buildCallDecisionPrompt = ({ character, worldBookText, extraNotesText }) => `
-你正在扮演角色「${character.name}」。
-
-人设背景：${character.bio || '普通人'}。${worldBookText}${extraNotesText}
-
-你偶尔会想直接打电话给对方,而不是发消息——比如突然很想听TA的声音、
-有点小事想立刻说、或者单纯想撒娇一下。但这应该是偶尔的、真实的冲动,
-不是每次都要打,大多数时候你应该选择不打。
-
-现在,你想不想立刻打个电话过去？只输出 yes 或 no,不要输出任何其他内容。
-`;
-
 /**
  * 扫描所有开启了 rhythmEnabled 的聊天窗（复用"角色可以主动联系我"
- * 这个既有开关,没有再单独加一个"允许来电"的设置项),逐个用一次
- * 很小的是/否判断,决定这次醒来要不要真的打一通电话进来。
+ * 这个既有开关,没有再单独加一个"允许来电"的设置项),逐个按沉默时长
+ * 掷一次概率,决定这次醒来要不要真的打一通电话进来。
  *
  * 串行执行、一次最多打进一通,避免多个角色同时抢着打电话。
  */
@@ -76,7 +46,7 @@ export const runCallScheduler = async (providedChats = null) => {
         chat?.id != null &&
         chat?.characterId != null &&
         chat?.rhythmEnabled !== false &&
-        // 角色暂时不在线时不主动来电，也省掉一次决定要不要打的 AI 请求。
+        // 角色暂时不在线时不主动来电。
         !getAwayState(chat).away
     );
 
@@ -95,28 +65,38 @@ export const runCallScheduler = async (providedChats = null) => {
           continue;
         }
 
-        if (Math.random() > CALL_ATTEMPT_CHANCE) {
+        // 沉默时长 -> 概率。用户从没发过消息的聊天窗(silentMs 为 null)不打。
+        const silentMs = await getUserSilenceMs(chat.id, now);
+        const chance = silentMs == null ? 0 : getCallChanceForSilence(silentMs);
+
+        if (chance <= 0 || Math.random() >= chance) {
           continue;
         }
 
         const character = await db.characters.get(chat.characterId);
         if (!character) continue;
 
+        // 没配 API 的话接起来也说不了话,干脆不打。
         const apiSettings = await db.settings.get('apiConfig');
         const apiConfig = apiSettings?.value || {};
         if (!apiConfig.baseUrl || !apiConfig.apiKey) continue;
 
-        // 无论最终决定打不打,都先刷新冷却时间,避免判断失败时
+        // 概率命中就先刷新冷却时间,避免理由生成或响铃失败后
         // 下一轮检查（6 分钟后）又立刻重试。
         await db.settings.put({ key: cooldownKey, value: String(now) });
 
-        const { worldBookText, extraNotesText } = await buildRhythmPersonaBrief(character);
-        const systemPrompt = buildCallDecisionPrompt({ character, worldBookText, extraNotesText });
-        const rawResponse = await fetchAiText(apiConfig, systemPrompt);
+        const reason = await generateCallReason({ chat, character, apiConfig, silentMs });
 
-        if (/^yes/i.test(rawResponse)) {
-          await startIncomingCall({ chatId: chat.id, characterId: character.id });
-          console.log(`[callScheduler] chatId=${chat.id} 发起来电`);
+        const messageId = await startIncomingCall({
+          chatId: chat.id,
+          characterId: character.id,
+          reason,
+        });
+
+        if (messageId) {
+          console.log(
+            `[callScheduler] chatId=${chat.id} 发起来电(沉默 ${Math.round(silentMs / 60000)} 分钟,概率 ${chance})`
+          );
           break;
         }
       } catch (err) {
