@@ -517,3 +517,24 @@ export const deleteSecretCodeFolder = async (characterId, folderId) => {
   await writeBook(characterId, { entries: nextEntries, folders: nextFolders });
   return { ok: true, entries: nextEntries, folders: nextFolders, movedCount, reason: '' };
 };
+
+// ---------------------------------------------------------------------------
+// 是否允许角色提议新暗号（存在角色记录上的无索引字段，默认开启）
+// ---------------------------------------------------------------------------
+
+/** 纯函数：没设置过（undefined）就是开启，只有明确设成 false 才算关闭。 */
+export const isSecretCodeProposalEnabled = (character) =>
+  character?.secretCodeProposalEnabled !== false;
+
+export const getSecretCodeProposalEnabled = async (characterId) => {
+  if (!characterId) return true;
+  const character = await db.characters.get(characterId);
+  return isSecretCodeProposalEnabled(character);
+};
+
+export const setSecretCodeProposalEnabled = async (characterId, enabled) => {
+  const next = Boolean(enabled);
+  if (!characterId) return next;
+  await db.characters.update(characterId, { secretCodeProposalEnabled: next });
+  return next;
+};

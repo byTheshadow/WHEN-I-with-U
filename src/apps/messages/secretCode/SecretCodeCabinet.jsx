@@ -16,6 +16,8 @@ import {
   SECRET_CODE_LIMITS,
   addSecretCodeFolder,
   getSecretCodeBook,
+  getSecretCodeProposalEnabled,
+  setSecretCodeProposalEnabled,
 } from './secretCodeService';
 import { getFolderColorVar } from './secretCodeFolderStyle';
 import { BigClip, FOLDER_TILTS, padTwo } from './SecretCodeDecor';
@@ -35,6 +37,7 @@ export const SecretCodeCabinet = ({ character, onClose, onUpdated }) => {
   const [guideEnter, setGuideEnter] = useState(true);
   const [guideLeaving, setGuideLeaving] = useState(false);
 
+  const [proposalEnabled, setProposalEnabled] = useState(true);
   const [namingFolder, setNamingFolder] = useState(false);
   const [freshFolderId, setFreshFolderId] = useState(null);
   const [bumpFolderId, setBumpFolderId] = useState(null);
@@ -51,7 +54,10 @@ export const SecretCodeCabinet = ({ character, onClose, onUpdated }) => {
     const load = async () => {
       const next = await getSecretCodeBook(characterId);
       if (cancelled) return;
+      const enabled = await getSecretCodeProposalEnabled(characterId);
+      if (cancelled) return;
       setBook({ entries: next.entries, folders: next.folders });
+      setProposalEnabled(enabled);
       setLoaded(true);
     };
     void load();
@@ -135,6 +141,24 @@ export const SecretCodeCabinet = ({ character, onClose, onUpdated }) => {
     } else {
       setGuideOpen(true);
       setGuideEnter(true);
+    }
+  };
+
+  const toggleProposal = async () => {
+    const next = !proposalEnabled;
+    setProposalEnabled(next);
+    try {
+      await setSecretCodeProposalEnabled(characterId, next);
+      if (onUpdated) onUpdated({ secretCodeProposalEnabled: next });
+      showToast(
+        next
+          ? `${characterName}会在合适的时候提议新暗号。`
+          : `${characterName}不会再提议新暗号了，已有的暗号照常能用。`
+      );
+    } catch (error) {
+      console.warn('[SecretCodeCabinet] 保存提议开关失败：', error);
+      setProposalEnabled(!next);
+      showToast('没能保存，请稍后再试。');
     }
   };
 
@@ -242,6 +266,21 @@ export const SecretCodeCabinet = ({ character, onClose, onUpdated }) => {
           </div>
         </div>
       )}
+
+      <div className="sc-switchrow">
+        <span>
+          <b>允许{characterName}提议新暗号</b>
+          关掉后不会再有提议卡片，已有的暗号照常能用。
+        </span>
+        <button
+          type="button"
+          className="sc-switch"
+          role="switch"
+          aria-checked={proposalEnabled}
+          aria-label={`允许${characterName}提议新暗号`}
+          onClick={() => void toggleProposal()}
+        />
+      </div>
 
       <div className="sc-grid">
         {shownFolders.map((folder, index) => (

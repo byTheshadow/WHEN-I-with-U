@@ -83,6 +83,12 @@ import {
 import { buildReplyLanguagePromptBlock } from '../apps/messages/replyLanguage/chatReplyLanguagePresets';
 import { buildSecretCodePromptBlock } from '../apps/messages/secretCode/secretCodePrompt';
 import {
+  parseSecretCodeProposalTag,
+  buildSecretCodeProposalMessage,
+  formatSecretCodeProposalForPrompt,
+  countPendingSecretCodeProposals,
+} from '../apps/messages/secretCode/secretCodeProposal';
+import {
   pickDailyLifeTopic,
   describeDailyLifeTopic,
   getUserInterestMaterial,
@@ -331,7 +337,7 @@ export const parseAiResponseToMessages = async (text = '') => {
   // GENIMAGE：聊天里AI自主触发的真实生图（跟 IMAGE 的纯文字占位卡完全
   // 独立，见 chatImageGen/chatImageGenDirective.js 的系统提示词说明）。
  const pattern =
-  /\[(TRANSFER|VOICE|IMAGE|GENIMAGE|PHONESHOT|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON|COUPON_REDEEM|HARP):\s*([^\]]+)\]/g;
+  /\[(TRANSFER|VOICE|IMAGE|GENIMAGE|PHONESHOT|TODO|GIFT|FOOD|KINSHIP|STICKER|LOCATION|TRICK|DIYAREA_REQUEST|DIYAREA_SELF_UPDATE|DIYAREA_INSPIRATION|PARCEL_START|PARCEL_NOTE|COUPON|COUPON_REDEEM|HARP|CODE):\s*([^\]]+)\]/g;
   // 一次性读取本地表情包库，建立「名称 -> URL」映射
   const allStickers = await db.stickers.toArray();
 
@@ -556,6 +562,15 @@ export const parseAiResponseToMessages = async (text = '') => {
           },
         });
       }
+    } else if (cardType === 'code') {
+      // 悄悄话词典：角色提议一个新暗号，[CODE: 暗号=含义 | 文件夹名]。
+      // 格式不对或暗号不合规则时 proposal 为 null，标签照常从正文里摘掉，
+      // 只是不出卡片。
+      const proposal = parseSecretCodeProposalTag(rawPayload);
+
+      if (proposal) {
+        result.push(buildSecretCodeProposalMessage(proposal));
+      }
     } else if (cardType === 'diyarea_request') {
       // 静默信号标签：这里只负责把标签从正文里摘掉，不产出卡片。
     } else if (cardType === 'diyarea_self_update') {
@@ -739,6 +754,10 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
 
     if (msg.type === 'harp_melody') {
     return describeMelodyForPrompt(msg);
+  }
+
+  if (msg.type === 'secret_code_proposal') {
+    return formatSecretCodeProposalForPrompt(msg);
   }
 
   if (msg.type === 'challenge_complete') {
@@ -1463,7 +1482,15 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   const replyLanguagePromptBlock = buildReplyLanguagePromptBlock(chat);
 
   // 专属暗号词典：词典为空时返回空字符串，不影响默认行为。
-  const secretCodePromptBlock = buildSecretCodePromptBlock(character);
+   let pendingSecretCodeProposalCount = 0;
+  try {
+    pendingSecretCodeProposalCount = await countPendingSecretCodeProposals(chatId);
+  } catch (error) {
+    console.warn('[buildChatSystemPrompt] 统计未处理的暗号提议失败：', error);
+  }
+  const secretCodePromptBlock = buildSecretCodePromptBlock(character, {
+    pendingProposalCount: pendingSecretCodeProposalCount,
+  });
   // DIY小屋：灵感笔记标签始终开放；自主换装标签只有这个聊天开着
   // diyAutoDecorateEnabled 才会出现在提示词里。
   const diyPromptBlock = buildDiyPromptBlock(chat);

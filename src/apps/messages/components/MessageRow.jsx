@@ -51,6 +51,7 @@ import GiftCard from './cards/GiftCard';
 import FoodDeliveryCard from './cards/FoodDeliveryCard';
 import KinshipCard from './cards/KinshipCard';
 import CouponCard from './cards/CouponCard';
+import SecretCodeProposalNotice from '../secretCode/SecretCodeProposalNotice';
 import MarginNoteCard from './cards/MarginNoteCard';
 import OrderRequestCard from './cards/OrderRequestCard';
 import StickerCard from './cards/StickerCard';
@@ -314,6 +315,11 @@ const MessageRow = ({
   }
 
   // 星光小竖琴旋律卡片，可点击重听。
+   // 悄悄话词典——角色提议的新暗号：电报票卡片，处理完缩成一行记录。
+  if (msg.type === 'secret_code_proposal') {
+    return <SecretCodeProposalNotice message={msg} character={character} />;
+  }
+
   if (msg.type === 'harp_melody') {
     return <HarpMelodyNotice message={msg} />;
   }
