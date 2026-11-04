@@ -80,7 +80,7 @@ export const SecretCodeSettingsSection = ({ character, onUpdated }) => {
 
       <p className="text-[10px] opacity-55 leading-relaxed">
         你和{characterName}之间的专属约定：一个很短的暗号，对应一句话的含义。
-        {characterName}会在合适的时候用暗号代替长句，历史越长越省。
+        {characterName}会在合适的时候用暗号代替长句。
         这本词典属于这个角色，TA 的所有聊天窗共用。
       </p>
 

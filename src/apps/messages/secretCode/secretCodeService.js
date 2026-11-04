@@ -6,10 +6,18 @@
 // 同一个角色的所有聊天窗共用同一本；不需要升级 db.version。
 //
 // 单条暗号：
-//   { id, code, meaning, source, folderId, useCount, lastUsedAt, createdAt, updatedAt }
+//   { id, code, meaning, source, folderId, useCount, roleUseCount, userUseCount,
+//     lastUsedAt, createdAt, updatedAt }
 //   - source   'manual'（用户手动添加）| 'ai'（角色提议、用户确认）
 //   - folderId 所在文件夹；没有或指向已不存在的文件夹时，读取时自动归到"未分类"
-//   - useCount / lastUsedAt  使用统计，切片C/D才会真正更新
+//   - useCount 气泡里出现的总次数（角色和用户合计）；切片D起另外分开记：
+//     roleUseCount 角色用的次数、userUseCount 用户用的次数。升级前的旧次数
+//     只在 useCount 里，没有拆分，所以 roleUseCount + userUseCount 可能小于 useCount。
+//
+// 角色记录上的其他无索引字段：
+//   secretCodeProposalEnabled  角色能不能提议新暗号（默认开启）
+//   secretCodeCountingSince    用量统计起点
+//   secretCodeLightInjection   省着带模式（默认关闭）：只把用户这一轮用到的暗号放进提示词
 //
 // 单个文件夹：
 //   { id, name, desc, colorIndex, uncat }
@@ -69,6 +77,8 @@ export const normalizeSecretCodes = (raw) => {
       source: item.source === 'ai' ? 'ai' : 'manual',
       folderId: typeof item.folderId === 'string' && item.folderId ? item.folderId : null,
       useCount: Number(item.useCount) || 0,
+      roleUseCount: Number(item.roleUseCount) || 0,
+      userUseCount: Number(item.userUseCount) || 0,
       lastUsedAt: item.lastUsedAt || null,
       createdAt: item.createdAt || new Date().toISOString(),
       updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
@@ -365,6 +375,8 @@ export const addSecretCode = async (
     source: source === 'ai' ? 'ai' : 'manual',
     folderId: targetFolderId,
     useCount: 0,
+    roleUseCount: 0,
+    userUseCount: 0,
     lastUsedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -561,21 +573,28 @@ export const ensureSecretCodeCountingSince = async (characterId) => {
 };
 
 /**
- * 批量记录使用次数：totals 是 { 暗号: 新增次数 }。只改 useCount 和 lastUsedAt，
- * 不碰 updatedAt（updatedAt 表示"内容被改过"，不是"被用过"）。
+ * 批量记录使用次数：totals 是 { 暗号: 新增次数 }，sender 是这些次数来自谁
+ * （'user' 用户发的消息，其余都算角色）。只改 useCount、roleUseCount / userUseCount
+ * 和 lastUsedAt，不碰 updatedAt（updatedAt 表示"内容被改过"，不是"被用过"）。
  */
-export const recordSecretCodeUses = async (characterId, totals) => {
+export const recordSecretCodeUses = async (characterId, totals, sender = 'character') => {
   const book = await readBook(characterId);
   if (!book) return { ...NOT_FOUND };
 
   const now = new Date().toISOString();
+  const senderField = sender === 'user' ? 'userUseCount' : 'roleUseCount';
   let changed = false;
 
   const next = book.entries.map((entry) => {
     const add = Number(totals?.[entry.code]) || 0;
     if (add <= 0) return entry;
     changed = true;
-    return { ...entry, useCount: entry.useCount + add, lastUsedAt: now };
+    return {
+      ...entry,
+      useCount: entry.useCount + add,
+      [senderField]: (entry[senderField] || 0) + add,
+      lastUsedAt: now,
+    };
   });
 
   if (!changed) return { ok: true, entries: book.entries, folders: book.folders, reason: '' };
@@ -602,5 +621,27 @@ export const setSecretCodeProposalEnabled = async (characterId, enabled) => {
   const next = Boolean(enabled);
   if (!characterId) return next;
   await db.characters.update(characterId, { secretCodeProposalEnabled: next });
+  return next;
+};
+
+// ---------------------------------------------------------------------------
+// 省着带模式（存在角色记录上的无索引字段，默认关闭）
+// 打开后，提示词里只放用户这一轮消息里用到的暗号；平时放的"最常用几条"也不放了。
+// ---------------------------------------------------------------------------
+
+/** 纯函数：只有明确设成 true 才算开启。 */
+export const isSecretCodeLightInjection = (character) =>
+  character?.secretCodeLightInjection === true;
+
+export const getSecretCodeLightInjection = async (characterId) => {
+  if (!characterId) return false;
+  const character = await db.characters.get(characterId);
+  return isSecretCodeLightInjection(character);
+};
+
+export const setSecretCodeLightInjection = async (characterId, enabled) => {
+  const next = Boolean(enabled);
+  if (!characterId) return next;
+  await db.characters.update(characterId, { secretCodeLightInjection: next });
   return next;
 };

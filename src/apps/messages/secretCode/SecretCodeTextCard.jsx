@@ -22,26 +22,38 @@ import db from '../../../db';
 
 // ---- 用量统计：模块级批量队列 ---------------------------------------------
 const FLUSH_DELAY_MS = 1500;
-const pendingUses = new Map(); // characterId -> { 暗号: 次数 }
+// characterId -> { user: { 暗号: 次数 }, role: { 暗号: 次数 } }，用户和角色分开记
+const pendingUses = new Map();
 let flushTimer = null;
+// 写库是"读出整本、改完再写回"，所以所有写入排成一条队，不能同时跑
+let writeChain = Promise.resolve();
 
 const flushUses = () => {
   flushTimer = null;
   const jobs = Array.from(pendingUses.entries());
   pendingUses.clear();
-  jobs.forEach(([characterId, totals]) => {
-    recordSecretCodeUses(characterId, totals).catch((error) => {
-      console.warn('[SecretCodeTextCard] 记录暗号用量失败：', error);
+  jobs.forEach(([characterId, buckets]) => {
+    [
+      ['user', buckets.user],
+      ['character', buckets.role],
+    ].forEach(([sender, totals]) => {
+      if (!totals || Object.keys(totals).length === 0) return;
+      writeChain = writeChain
+        .then(() => recordSecretCodeUses(characterId, totals, sender))
+        .catch((error) => {
+          console.warn('[SecretCodeTextCard] 记录暗号用量失败：', error);
+        });
     });
   });
 };
 
-const queueUses = (characterId, totals) => {
-  const bucket = pendingUses.get(characterId) || {};
+const queueUses = (characterId, totals, isUser) => {
+  const buckets = pendingUses.get(characterId) || { user: {}, role: {} };
+  const bucket = isUser ? buckets.user : buckets.role;
   Object.entries(totals).forEach(([code, n]) => {
     bucket[code] = (bucket[code] || 0) + n;
   });
-  pendingUses.set(characterId, bucket);
+  pendingUses.set(characterId, buckets);
   if (flushTimer === null && typeof window !== 'undefined') {
     flushTimer = window.setTimeout(flushUses, FLUSH_DELAY_MS);
   }
@@ -104,7 +116,7 @@ export const SecretCodeTextCard = ({ msg, character }) => {
       await db.messages.update(msg.id, {
         metadata: { ...(latest.metadata || {}), secretCodeUsesCounted: true },
       });
-      queueUses(characterId, totals);
+      queueUses(characterId, totals, isUser);
     };
 
     run().catch((error) => {
@@ -113,7 +125,7 @@ export const SecretCodeTextCard = ({ msg, character }) => {
     return () => {
       cancelled = true;
     };
-  }, [regexp, alreadyCounted, characterId, msg?.id, msg?.timestamp, msg?.createdAt, content]);
+  }, [regexp, alreadyCounted, characterId, isUser, msg?.id, msg?.timestamp, msg?.createdAt, content]);
 
   // 点气泡以外的地方收起纸条
   useEffect(() => {

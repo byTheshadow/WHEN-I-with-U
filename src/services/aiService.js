@@ -81,13 +81,12 @@ import {
   extractBubbleTranslation,
 } from '../apps/messages/learningMode/learningModePrompt';
 import { buildReplyLanguagePromptBlock } from '../apps/messages/replyLanguage/chatReplyLanguagePresets';
-import { buildSecretCodePromptBlock } from '../apps/messages/secretCode/secretCodePrompt';
+import { buildSecretCodePromptForChat } from '../apps/messages/secretCode/secretCodeChatPrompt';
 import { extractSecretCodeMarks } from '../apps/messages/secretCode/secretCodeMarks';
 import {
   parseSecretCodeProposalTag,
   buildSecretCodeProposalMessage,
   formatSecretCodeProposalForPrompt,
-  countPendingSecretCodeProposals,
 } from '../apps/messages/secretCode/secretCodeProposal';
 import {
   pickDailyLifeTopic,
@@ -1490,15 +1489,8 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   const replyLanguagePromptBlock = buildReplyLanguagePromptBlock(chat);
 
   // 专属暗号词典：词典为空时返回空字符串，不影响默认行为。
-  let pendingSecretCodeProposalCount = 0;
-  try {
-    pendingSecretCodeProposalCount = await countPendingSecretCodeProposals(chatId);
-  } catch (error) {
-    console.warn('[buildChatSystemPrompt] 统计未处理的暗号提议失败：', error);
-  }
-  const secretCodePromptBlock = buildSecretCodePromptBlock(character, {
-    pendingProposalCount: pendingSecretCodeProposalCount,
-  });
+  // 放哪些暗号、待处理提议数、用户这一轮的文字，都在 buildSecretCodePromptForChat 里处理。
+  const secretCodePromptBlock = await buildSecretCodePromptForChat(chatId, character);
   // DIY小屋：灵感笔记标签始终开放；自主换装标签只有这个聊天开着
   // diyAutoDecorateEnabled 才会出现在提示词里。
   const diyPromptBlock = buildDiyPromptBlock(chat);

@@ -22,6 +22,7 @@ import {
 import { getFolderColorVar } from './secretCodeFolderStyle';
 import { BigClip, FOLDER_TILTS, padTwo } from './SecretCodeDecor';
 import SecretCodeFolderView from './SecretCodeFolderView';
+import SecretCodeStatsStrip from './SecretCodeStatsStrip';
 
 const UNCAT_DESC = '还没归类的暗号都放在这里';
 
@@ -229,7 +230,7 @@ export const SecretCodeCabinet = ({ character, onClose, onUpdated }) => {
           <h3>什么是悄悄话词典？</h3>
           <p className="sc-guide__lead">
             你和{characterName}之间的专属约定：给一句话起一个很短的暗号，
-            {characterName}会在聊天里用它代替长句。只有你们俩懂，聊得越久越省 token。
+            {characterName}会在聊天里用它代替长句。只有你们俩懂，聊得越久越有默契。
           </p>
           <ol className="sc-steps">
             <li>
@@ -266,6 +267,16 @@ export const SecretCodeCabinet = ({ character, onClose, onUpdated }) => {
           </div>
         </div>
       )}
+
+      <SecretCodeStatsStrip
+        characterId={characterId}
+        characterName={characterName}
+        entries={entries}
+        folders={folders}
+        proposalEnabled={proposalEnabled}
+        onUpdated={onUpdated}
+        showToast={showToast}
+      />
 
       <div className="sc-switchrow">
         <span>
