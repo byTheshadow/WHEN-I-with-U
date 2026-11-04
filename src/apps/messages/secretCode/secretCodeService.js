@@ -79,7 +79,7 @@ const makeUncategorizedFolder = () => ({
   id: UNCATEGORIZED_FOLDER_ID,
   name: UNCATEGORIZED_FOLDER_NAME,
   desc: '',
-  colorIndex: FOLDER_COLOR_COUNT - 1,
+  colorIndex: 1,
   uncat: true,
 });
 
