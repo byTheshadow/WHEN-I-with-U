@@ -22,6 +22,7 @@ import { DECORATION_FIELDS, DECORATION_FIELD_LABELS } from '../chatButtonDecorat
 import SavedInfoSection from './SavedInfoSection';
 import AwaySettingsSection from '../away/AwaySettingsSection';
 import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSection';
+import SecretCodeSettingsSection from '../secretCode/SecretCodeSettingsSection';
 import ChatReplyLanguageSettingsSection from '../replyLanguage/ChatReplyLanguageSettingsSection';
 import ChatImageGenSettingsSection from '../chatImageGen/ChatImageGenSettingsSection';
 import PhoneScreenSettingsSection from '../phoneScreen/PhoneScreenSettingsSection';
@@ -967,6 +968,12 @@ const handleToggleLocation = async () => {
         {/* AI自动生图（每个聊天窗单独设置，默认关闭） */}
         <ChatImageGenSettingsSection
           chat={chat}
+          onUpdated={onUpdatedUserPersona}
+        />
+
+                {/* 专属暗号词典（存在角色上，同一角色的所有聊天窗共用） */}
+        <SecretCodeSettingsSection
+          character={character}
           onUpdated={onUpdatedUserPersona}
         />
 

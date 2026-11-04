@@ -81,6 +81,7 @@ import {
   extractBubbleTranslation,
 } from '../apps/messages/learningMode/learningModePrompt';
 import { buildReplyLanguagePromptBlock } from '../apps/messages/replyLanguage/chatReplyLanguagePresets';
+import { buildSecretCodePromptBlock } from '../apps/messages/secretCode/secretCodePrompt';
 import {
   pickDailyLifeTopic,
   describeDailyLifeTopic,
@@ -1461,6 +1462,8 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   // 默认行为——两者都想控制回应语言时，学习模式自己的设置优先。
   const replyLanguagePromptBlock = buildReplyLanguagePromptBlock(chat);
 
+  // 专属暗号词典：词典为空时返回空字符串，不影响默认行为。
+  const secretCodePromptBlock = buildSecretCodePromptBlock(character);
   // DIY小屋：灵感笔记标签始终开放；自主换装标签只有这个聊天开着
   // diyAutoDecorateEnabled 才会出现在提示词里。
   const diyPromptBlock = buildDiyPromptBlock(chat);
@@ -1675,6 +1678,7 @@ ${harpPromptBlock}
 ${diyPromptBlock}
 ${parcelPromptBlock}
 ${couponPromptBlock}
+${secretCodePromptBlock}
 
 【不可逾越的输出格式终极规则（最高优先级）】：
 1. 卡片指令必须严格遵循上面 [] 的规定，括号内用 "|" 分割参数。不要杜撰任何未注册的卡片语法。
