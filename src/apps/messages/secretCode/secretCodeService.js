@@ -228,11 +228,27 @@ const readBook = async (characterId) => {
   return normalizeSecretCodeBook(character);
 };
 
+// 词典变化时发一个全局事件，聊天气泡那边的词典缓存（secretCodeDictionaryStore）
+// 收到后重新读库，这样气泡不用每条消息都读一次 db，词典页改了东西又能立刻生效。
+export const SECRET_CODE_DICTIONARY_EVENT = 'secret-code-dictionary-changed';
+
+const notifyDictionaryChanged = (characterId) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent(SECRET_CODE_DICTIONARY_EVENT, { detail: { characterId } })
+    );
+  } catch (error) {
+    console.warn('[secretCodeService] 通知词典变化失败：', error);
+  }
+};
+
 const writeBook = async (characterId, { entries, folders }) => {
   await db.characters.update(characterId, {
     secretCodes: entries,
     secretCodeFolders: folders,
   });
+  notifyDictionaryChanged(characterId);
   return { entries, folders };
 };
 
@@ -516,6 +532,56 @@ export const deleteSecretCodeFolder = async (characterId, folderId) => {
 
   await writeBook(characterId, { entries: nextEntries, folders: nextFolders });
   return { ok: true, entries: nextEntries, folders: nextFolders, movedCount, reason: '' };
+};
+
+// ---------------------------------------------------------------------------
+// 使用次数统计（切片C开始写入）
+// ---------------------------------------------------------------------------
+
+/**
+ * 统计的起点：只统计这个时间之后的消息，避免第一次打开老聊天时把历史消息
+ * 一次性全算进去。没记录过就取词典里最早一条暗号的创建时间（暗号建立之前
+ * 的聊天不可能是在用它），并存起来；一条都没有就取现在。
+ */
+export const ensureSecretCodeCountingSince = async (characterId) => {
+  const character = await db.characters.get(characterId);
+  if (!character) return new Date().toISOString();
+
+  if (character.secretCodeCountingSince) return character.secretCodeCountingSince;
+
+  const entries = normalizeSecretCodes(character.secretCodes);
+  const earliest = entries
+    .map((entry) => entry.createdAt)
+    .filter(Boolean)
+    .sort()[0];
+  const since = earliest || new Date().toISOString();
+
+  await db.characters.update(characterId, { secretCodeCountingSince: since });
+  return since;
+};
+
+/**
+ * 批量记录使用次数：totals 是 { 暗号: 新增次数 }。只改 useCount 和 lastUsedAt，
+ * 不碰 updatedAt（updatedAt 表示"内容被改过"，不是"被用过"）。
+ */
+export const recordSecretCodeUses = async (characterId, totals) => {
+  const book = await readBook(characterId);
+  if (!book) return { ...NOT_FOUND };
+
+  const now = new Date().toISOString();
+  let changed = false;
+
+  const next = book.entries.map((entry) => {
+    const add = Number(totals?.[entry.code]) || 0;
+    if (add <= 0) return entry;
+    changed = true;
+    return { ...entry, useCount: entry.useCount + add, lastUsedAt: now };
+  });
+
+  if (!changed) return { ok: true, entries: book.entries, folders: book.folders, reason: '' };
+
+  await writeBook(characterId, { entries: next, folders: book.folders });
+  return { ok: true, entries: next, folders: book.folders, reason: '' };
 };
 
 // ---------------------------------------------------------------------------

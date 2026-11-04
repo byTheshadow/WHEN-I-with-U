@@ -82,6 +82,7 @@ import {
 } from '../apps/messages/learningMode/learningModePrompt';
 import { buildReplyLanguagePromptBlock } from '../apps/messages/replyLanguage/chatReplyLanguagePresets';
 import { buildSecretCodePromptBlock } from '../apps/messages/secretCode/secretCodePrompt';
+import { extractSecretCodeMarks } from '../apps/messages/secretCode/secretCodeMarks';
 import {
   parseSecretCodeProposalTag,
   buildSecretCodeProposalMessage,
@@ -368,10 +369,17 @@ export const parseAiResponseToMessages = async (text = '') => {
         const { content: cleanContent, translationText } =
           extractBubbleTranslation(part);
 
+        // 词语型暗号 [C:晚晚] 摘掉括号，并记下这条用了哪些暗号（符号型不用标记）
+        const { content: markedContent, codes: secretCodes } =
+          extractSecretCodeMarks(cleanContent || part);
+
         result.push({
           type: 'text',
-          content: cleanContent || part,
-          metadata: translationText ? { translationText } : {},
+          content: markedContent,
+          metadata: {
+            ...(translationText ? { translationText } : {}),
+            ...(secretCodes.length > 0 ? { secretCodes } : {}),
+          },
         });
       });
   };
@@ -1482,7 +1490,7 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
   const replyLanguagePromptBlock = buildReplyLanguagePromptBlock(chat);
 
   // 专属暗号词典：词典为空时返回空字符串，不影响默认行为。
-   let pendingSecretCodeProposalCount = 0;
+  let pendingSecretCodeProposalCount = 0;
   try {
     pendingSecretCodeProposalCount = await countPendingSecretCodeProposals(chatId);
   } catch (error) {

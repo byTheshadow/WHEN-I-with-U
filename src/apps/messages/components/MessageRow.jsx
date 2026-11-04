@@ -40,6 +40,7 @@ import { matchSpecialMessageEffect, RECENT_MESSAGE_EFFECT_WINDOW_MS } from './sp
 import { BubbleDecorationOverlay } from './bubbleDecorations';
 
 import TextCard from './cards/TextCard';
+import SecretCodeTextCard from '../secretCode/SecretCodeTextCard';
 import LearningModeTranslationToggle from '../learningMode/LearningModeTranslationToggle';
 import ImageCard from './cards/ImageCard';
 import GeneratedImageCard from './cards/GeneratedImageCard';
@@ -601,7 +602,7 @@ const MessageRow = ({
                   {msg.metadata?.autoReply && (
                     <div className="mb-1 text-[10px] opacity-60">自动回复</div>
                   )}
-                  <TextCard content={msg.content} />
+                  <SecretCodeTextCard msg={msg} character={character} />
                   <LearningModeTranslationToggle
                     translationText={msg.metadata?.translationText}
                   />

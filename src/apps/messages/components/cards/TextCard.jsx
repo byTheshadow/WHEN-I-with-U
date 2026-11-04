@@ -3,15 +3,23 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 
-export const TextCard = ({ content = '' }) => {
+const NO_PLUGINS = [];
+const NO_COMPONENTS = {};
+
+export const TextCard = ({
+  content = '',
+  extraRemarkPlugins = NO_PLUGINS,
+  extraComponents = NO_COMPONENTS,
+}) => {
   return (
         <div
       className="markdown-content max-w-full text-xs leading-relaxed tracking-wide font-sans break-words select-text"
       style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
+        remarkPlugins={[remarkGfm, remarkBreaks, ...extraRemarkPlugins]}
         components={{
+          ...extraComponents,
           a: ({ href, children }) => (
             <a
               href={href}
@@ -108,4 +116,3 @@ export const TextCard = ({ content = '' }) => {
 };
 
 export default TextCard;
-

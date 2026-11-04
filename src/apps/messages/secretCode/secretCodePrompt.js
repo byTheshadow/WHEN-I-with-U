@@ -16,6 +16,7 @@ import {
   normalizeSecretCodeBook,
   normalizeSecretCodes,
 } from './secretCodeService';
+import { isSymbolOnlyCode } from './secretCodeMarks';
 
 // 注入提示词的条数上限。词典本身是为了省 token，不能让词典比省下的还长。
 export const SECRET_CODE_PROMPT_MAX_ENTRIES = 20;
@@ -36,6 +37,15 @@ const buildDictionaryBlock = (selected, canPropose) => {
   if (selected.length === 0) return '';
 
   const lines = selected.map((item) => `- ${item.code} = ${item.meaning}`).join('\n');
+  // 只有词典里确实有词语型暗号时才说明标记写法，纯符号词典不多花 token
+  const wordCodes = selected.filter((item) => !isSymbolOnlyCode(item.code));
+  const markLine =
+    wordCodes.length > 0
+      ? `- 符号型暗号直接写；词语型暗号（${wordCodes
+          .slice(0, 3)
+          .map((item) => item.code)
+          .join('、')}这类）在作为暗号使用时写成 [C:词语]，例如 [C:${wordCodes[0].code}]，系统会自动去掉方括号；只是普通说话碰巧用到这个词时不要加。\n`
+      : '';
   const noInventLine = canPropose
     ? '- 词典里没有的暗号不要直接用在正文里；想新增，只能用下面的提议标签。'
     : '- 不要自己编造词典里没有的暗号。';
@@ -45,7 +55,7 @@ const buildDictionaryBlock = (selected, canPropose) => {
 ${lines}
 - 想表达某个含义时，可以用对应的暗号代替完整的句子。要自然，不要每句话都用，也不要硬塞。
 - 暗号要原样书写，不要改字，也不要在后面附带解释；用户没问，就不要解释暗号的意思。
-- 用户的消息里出现这些暗号时，按上面的含义理解。
+${markLine}- 用户的消息里出现这些暗号时，按上面的含义理解。
 ${noInventLine}
 `;
 };
