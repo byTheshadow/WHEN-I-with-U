@@ -95,6 +95,7 @@ import {
   describeUserInterestMaterial,
 } from './dailyLifeTopicPicker';
 import { getActiveCallAwarenessNote, hasAnyLiveCall } from './callService';
+import { formatCallForPrompt } from './callPromptFormat';
 import { getMonthlyBadgeContextForPrompt } from '../apps/badges/monthlyBadgeService';
 
 import {
@@ -638,6 +639,10 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
   if (msg.metadata?.autoReply) {
     return `[自动回复（系统按“暂时不在线”的设置自动发出，并非你亲口所说）: ${msg.content || ''}]`;
   }
+  if (msg.type === 'call') {
+    return formatCallForPrompt(msg);
+  }
+
 
   if (msg.type === 'sticker') {
     return `[发送了表情包: ${
