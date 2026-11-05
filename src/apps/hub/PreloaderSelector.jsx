@@ -11,7 +11,8 @@ import {
   Layers3,
   LockKeyhole,
   Mail,
-  MoonStar,
+   MoonStar,
+  Snowflake,
   Sparkles
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
@@ -34,7 +35,8 @@ const ICON_MAP = {
   pebble: Layers3,
   rose: Flower2,
   'halloween-dice': Dices,
-  'halloween-ritual': MoonStar
+  'halloween-ritual': MoonStar,
+  'winter-mirror': Snowflake
 };
 const readStoredAnimationId = () => {
   try {

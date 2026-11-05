@@ -10,6 +10,7 @@ import PebbleLoader from './PebbleLoader';
 import RoseLoader from './RoseLoader';
 import HalloweenDiceLoader from './HalloweenDiceLoader';
 import HalloweenRitualLoader from './HalloweenRitualLoader';
+import WinterMirrorLoader from './WinterMirrorLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
@@ -71,6 +72,16 @@ const LOADER_MAP = {
     Component: HalloweenRitualLoader,
     status: 'Waiting out an eclipse',
     fullBleed: true
+  },
+  // 十一月限定：固定深冬夜背景（浅色主题下也不会变色）；整段动画约 8 秒，
+  // 所以单独延长淡出/结束时间，其他加载页仍然是默认的 3600 / 4300。
+  'winter-mirror': {
+    Component: WinterMirrorLoader,
+    status: 'Waiting for the first snow',
+    fullBleed: true,
+    background: '#0e1620',
+    fadeMs: 8200,
+    finishMs: 8900
   }
 };
 export const Preloader = ({ onFinish }) => {
@@ -98,13 +109,16 @@ useEffect(() => {
     }
   });
 
+  // 个别加载页（如 11 月限定）动画更长，可在 LOADER_MAP 里用 fadeMs / finishMs 单独延长。
+  const timing = LOADER_MAP[loaderType] || LOADER_MAP.astrology;
+
   const fadeTimer = window.setTimeout(() => {
     setIsFading(true);
-  }, 3600);
+  }, timing.fadeMs ?? 3600);
 
   const finishTimer = window.setTimeout(() => {
     onFinishRef.current?.();
-  }, 4300);
+  }, timing.finishMs ?? 4300);
 
   return () => {
     isMounted = false;
@@ -127,7 +141,9 @@ useEffect(() => {
         isFading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
       style={{
-        backgroundColor: isFullBleed ? '#07030a' : 'var(--bg-main)',
+               backgroundColor: isFullBleed
+          ? (activeLoader.background || '#07030a')
+          : 'var(--bg-main)',
         color: isFullBleed ? '#f3f1f4' : 'var(--text-main)',
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)'

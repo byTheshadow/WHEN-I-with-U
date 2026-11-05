@@ -1,6 +1,7 @@
 // src/config/startupAnimations.js
-
 import { isHalloweenSeasonActive } from '../apps/messages/interactions/halloween/halloweenSeason';
+import { isNovemberSeasonActive } from './novemberSeason';
+
 
 export const STARTUP_ANIMATION_STORAGE_KEY = 'whenIWithU.preloaderType';
 export const STARTUP_ANIMATION_SETTING_KEY = 'preloaderConfig';
@@ -73,6 +74,15 @@ export const STARTUP_ANIMATIONS = [
     archiveDescription: 'Returns automatically every October',
     status: 'SEASONAL',
     isAvailable: isHalloweenSeasonActive(),
+    seasonal: true
+  },
+  {
+    id: 'winter-mirror',
+    title: 'Frosted Mirror',
+    description: 'Mist slides down a frosted mirror, and a small cabin lights up as the first snow falls.',
+    archiveDescription: 'Returns automatically every November',
+    status: 'SEASONAL',
+    isAvailable: isNovemberSeasonActive(),
     seasonal: true
   }
 ];
