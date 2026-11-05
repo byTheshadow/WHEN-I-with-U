@@ -7,6 +7,8 @@ import {
   getGreetingCardContent,
   getLocalDateKey,
   matchGreetingKeyword,
+  matchThanksKeyword,
+  getThanksCardContent,
 } from '../../../services/festivalService';
 
 // 判断"这个聊天窗要不要弹一张节日/问候卡"，并负责去重——同一个聊天窗、
@@ -101,9 +103,55 @@ export default function useChatEntryCard(chat) {
     });
   }, [chat]);
 
+  // 感恩节"谢谢"彩蛋：十一月限定，用户或角色的文字消息里出现"谢谢"
+  // 或感恩节相关词语就弹一张纯视觉小卡片（不带 AI 现写的文案）。跟
+  // 早安/晚安共用同一套"关键词命中就弹卡 + 每天每种卡片只弹一次"去重
+  // 逻辑，但没有早安/晚安那样的时段限制。ChatRoom.jsx 在用户发文字
+  // 消息、以及监测到角色发来新文字消息时都会调用这个函数——两边谁说
+  // 都算（跟早安/晚安只认用户自己说的不一样）。
+  const triggerThanksFromMessage = useCallback((text) => {
+    if (!chat?.id) return;
+
+    if (!matchThanksKeyword(text)) return;
+
+    const content = getThanksCardContent();
+
+    if (!content) return;
+
+    const todayKey = getLocalDateKey();
+    const nextCard = {
+      kind: 'thanks:keyword',
+      title: content.title,
+      subtitle: content.subtitle,
+      accent: content.accent,
+    };
+
+    const lastShown = chat.lastEntryCardShown;
+    const alreadyShownToday = (
+      lastShown
+      && lastShown.date === todayKey
+      && lastShown.kind === nextCard.kind
+    );
+
+    // 同一天只弹一次，避免反复说谢谢刷屏——想改成每次说谢谢都弹，
+    // 把这段去重判断删掉就行。
+    if (alreadyShownToday) return;
+
+    setEntryCard(nextCard);
+
+    void db.chats.update(chat.id, {
+      lastEntryCardShown: { date: todayKey, kind: nextCard.kind },
+    });
+  }, [chat]);
+
   const dismissEntryCard = useCallback(() => {
     setEntryCard(null);
   }, []);
 
-  return { entryCard, dismissEntryCard, triggerGreetingFromMessage };
+  return {
+    entryCard,
+    dismissEntryCard,
+    triggerGreetingFromMessage,
+    triggerThanksFromMessage,
+  };
 }

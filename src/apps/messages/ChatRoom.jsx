@@ -303,6 +303,7 @@ export const ChatRoom = ({
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
   const loadedMessageCountRef = useRef(INITIAL_VISIBLE_MESSAGE_COUNT);
   const [showCouponWallet, setShowCouponWallet] = useState(false);
+  const lastCheckedCharMsgIdRef = useRef(undefined);
 
   /*
    * 当前尚未持久化到 messages.metadata 的实时 MCP 调用轨迹。
@@ -433,7 +434,12 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
   // 早安/晚安问候卡、节日彩蛋卡：每个聊天窗第一次进来时各自判断一次，
   // 播完自动消失，不写进聊天记录。
-  const { entryCard, dismissEntryCard, triggerGreetingFromMessage } = useChatEntryCard(chat);
+  const {
+    entryCard,
+    dismissEntryCard,
+    triggerGreetingFromMessage,
+    triggerThanksFromMessage,
+  } = useChatEntryCard(chat);
 
   // 本聊天窗自定义字号（px）。未设置时不输出任何规则，保持原有样式不变。
   const chatFontSizePx = Number.isFinite(chat?.chatFontSize)
@@ -673,7 +679,23 @@ const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
       setMessages(safeMsgList);
       loadedMessageCountRef.current = safeMsgList.length;
-      setHasMoreOlderMessages(safeMsgList.length >= limit);
+          setHasMoreOlderMessages(safeMsgList.length >= limit);
+
+      const lastMsg = safeMsgList[safeMsgList.length - 1] || null;
+      const lastMsgId = lastMsg?.id ?? null;
+      const previousCheckedId = lastCheckedCharMsgIdRef.current;
+      const isFirstLoad = previousCheckedId === undefined;
+
+      lastCheckedCharMsgIdRef.current = lastMsgId;
+
+      if (
+        !isFirstLoad
+        && lastMsgId !== previousCheckedId
+        && lastMsg?.sender === 'character'
+        && lastMsg?.type === 'text'
+      ) {
+        triggerThanksFromMessage(lastMsg.content);
+      }
     } catch (error) {
       console.error(
         '[ChatRoom] loadChatData batch query failed safely:',
@@ -1555,8 +1577,9 @@ useLayoutEffect(() => {
 
     // 早安/晚安彩蛋：改成发消息触发之后，这里是唯一的判断入口。
     // 只看纯文字消息，图片/转账这类卡片类型不参与问候判断。
-    if (selectedType === 'text') {
+      if (selectedType === 'text') {
       triggerGreetingFromMessage(newMsg.content);
+      triggerThanksFromMessage(newMsg.content);
     }
 
     void recordAlmanacEvent({

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Ghost } from 'lucide-react';
+import { Ghost, Heart } from 'lucide-react';
 
 import GreetingScene, {
   GREETING_SCENE_DURATION_MS,
@@ -27,6 +27,17 @@ function resolveTiming(kind) {
     return { displayMs: GREETING_SCENE_DURATION_MS, exitMs: GREETING_SCENE_EXIT_MS };
   }
   return { displayMs: DEFAULT_DISPLAY_MS, exitMs: DEFAULT_EXIT_MS };
+}
+
+// 图标+文字简单版卡片（节日彩蛋/谢谢彩蛋）按 kind 前缀挑图标，不在表里
+// 的（目前就是万圣节 festival:halloween）保留原来的 Ghost，不影响。
+const ICON_BY_KIND_PREFIX = [
+  { prefix: 'thanks:', Icon: Heart },
+];
+
+function resolveIcon(kind) {
+  const matched = ICON_BY_KIND_PREFIX.find(({ prefix }) => kind?.startsWith(prefix));
+  return matched ? matched.Icon : Ghost;
 }
 
 // card: { kind, title, subtitle, accent } | null，由 useChatEntryCard 给出。
@@ -57,6 +68,7 @@ const ChatEntryCardOverlay = ({ card, onDone }) => {
 
   const accent = card.accent || 'var(--accent-color)';
   const isExiting = phase === 'exit';
+  const CardIcon = resolveIcon(card.kind);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center px-6">
@@ -89,7 +101,7 @@ const ChatEntryCardOverlay = ({ card, onDone }) => {
               boxShadow: `0 0 22px 2px color-mix(in srgb, ${accent} 35%, transparent)`,
             }}
           >
-            <Ghost className="h-5 w-5" style={{ color: accent }} />
+            <CardIcon className="h-5 w-5" style={{ color: accent }} />
           </div>
 
           <div className="text-sm font-bold leading-tight">{card.title}</div>

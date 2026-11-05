@@ -4,6 +4,8 @@
 // 节日日历先只放万圣节这一条；以后要加圣诞节或别的节日，直接往
 // FESTIVALS 数组里加一条同样结构的记录就行，不用改调用方的代码。
 
+import { isNovemberSeasonActive } from '../config/novemberSeason';
+
 const FESTIVALS = [
   {
     key: 'halloween',
@@ -80,6 +82,42 @@ export function matchGreetingKeyword(text) {
   }
 
   return null;
+}
+
+// 感恩节"谢谢"彩蛋：十一月限定（复用 novemberSeason.js 的季节开关，
+// 跟十一月限定加载页共用同一个开关，明年要改时间段改那一个文件就够
+// 了），不像早安/晚安那样卡时段。关键词表里除了"谢谢"类表达，也放了
+// 几个感恩节本身相关的词（火鸡/感恩节），命中任意一个都算。跟早安/
+// 晚安是同一套"整句包含匹配、忽略大小写和首尾空白"判断方式。
+const THANKS_KEYWORDS = [
+  '谢谢', '谢谢你', '多谢', '谢啦', '感谢', '感激',
+  'thank you', 'thanks', 'thx',
+  '感恩', '感恩节', 'thanksgiving',
+  '火鸡', 'turkey',
+];
+
+// 只负责"这句话像不像在说谢谢/提到感恩节，而且现在是十一月"，不管
+// 去重——是否已经弹过由调用方（useChatEntryCard）自己判断。
+export function matchThanksKeyword(text, date = new Date()) {
+  if (!isNovemberSeasonActive(date)) return false;
+
+  const normalized = String(text || '').trim().toLowerCase();
+
+  if (!normalized) return false;
+
+  return THANKS_KEYWORDS.some(
+    (keyword) => normalized.includes(keyword.toLowerCase())
+  );
+}
+
+const THANKS_CARD_CONTENT = {
+  title: '谢谢你',
+  subtitle: '这份心意被看见了',
+  accent: '#e8935a',
+};
+
+export function getThanksCardContent() {
+  return THANKS_CARD_CONTENT;
 }
 
 // 按本地日期生成一个 "YYYY-MM-DD" 的去重用 key。
