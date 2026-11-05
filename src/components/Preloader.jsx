@@ -11,6 +11,7 @@ import RoseLoader from './RoseLoader';
 import HalloweenDiceLoader from './HalloweenDiceLoader';
 import HalloweenRitualLoader from './HalloweenRitualLoader';
 import WinterMirrorLoader from './WinterMirrorLoader';
+import WinterWindowLoader from './WinterWindowLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
@@ -80,6 +81,14 @@ const LOADER_MAP = {
     status: 'Waiting for the first snow',
     fullBleed: true,
     background: '#0e1620',
+    fadeMs: 8200,
+    finishMs: 8900
+  },
+  'winter-window': {
+    Component: WinterWindowLoader,
+    status: 'Waiting by the window',
+    fullBleed: true,
+    background: '#060b20',
     fadeMs: 8200,
     finishMs: 8900
   }

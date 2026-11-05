@@ -84,6 +84,15 @@ export const STARTUP_ANIMATIONS = [
     status: 'SEASONAL',
     isAvailable: isNovemberSeasonActive(),
     seasonal: true
+  },
+  {
+    id: 'winter-window',
+    title: 'Lamplit Window',
+    description: 'A lamp flickers on in a snowbound cabin, seen through an arched frosty window.',
+    archiveDescription: 'Returns automatically every November',
+    status: 'SEASONAL',
+    isAvailable: isNovemberSeasonActive(),
+    seasonal: true
   }
 ];
 

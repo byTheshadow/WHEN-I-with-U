@@ -6,7 +6,8 @@ import {
   CircleDot,
   Dices,
   Disc3,
-  Flower2,
+    Flower2,
+  Home,
   Image,
   Layers3,
   LockKeyhole,
@@ -36,7 +37,8 @@ const ICON_MAP = {
   rose: Flower2,
   'halloween-dice': Dices,
   'halloween-ritual': MoonStar,
-  'winter-mirror': Snowflake
+  'winter-mirror': Snowflake,
+  'winter-window': Home
 };
 const readStoredAnimationId = () => {
   try {

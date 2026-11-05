@@ -1,0 +1,378 @@
+/* src/components/winter-window-loader.css */
+/*
+ * 十一月限定加载页（拱形窗里的亮灯小屋）。固定的深蓝冬夜配色，不读取主题变量；
+ * 外层深色背景由 Preloader.jsx 的 LOADER_MAP[...].background 提供。
+ *
+ * 背景层（渐变、极光、星星、雪）用 position:fixed 铺满整个视口，放在负 z-index 里，
+ * 垫在 Preloader 共用的标题/引言/状态文字后面；窗和进度环在正常排版流里。
+ * 动画名一律带 ww- 前缀，避免和全局的 spin / fade 之类重名。
+ */
+
+.winter-window {
+  --ww-night: #060b20;
+  --ww-deep: #0c1638;
+  --ww-indigo: #1d2d63;
+  --ww-ice: #dfeaff;
+  --ww-frost: #9fb4e0;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.2rem;
+  margin-bottom: 1.4rem;
+}
+
+/* ---------- 背景：渐变 + 极光 + 星 ---------- */
+
+.winter-window__backdrop {
+  position: fixed;
+  z-index: -3;
+  inset: 0;
+  background: radial-gradient(
+    120% 70% at 50% 0%,
+    var(--ww-indigo) 0%,
+    var(--ww-deep) 48%,
+    var(--ww-night) 100%
+  );
+  pointer-events: none;
+}
+
+.winter-window__aurora {
+  position: fixed;
+  z-index: -2;
+  inset: -10% -20% auto -20%;
+  height: 60%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: ww-aurora-in 3.2s 0.2s ease-out forwards;
+}
+
+.winter-window__aurora i {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(46px);
+}
+
+.winter-window__aurora i:nth-child(1) {
+  top: 6%;
+  left: 6%;
+  width: 62%;
+  height: 55%;
+  background: radial-gradient(closest-side, rgba(92, 210, 200, 0.55), transparent);
+  animation: ww-drift-a 11s ease-in-out infinite alternate;
+}
+
+.winter-window__aurora i:nth-child(2) {
+  top: 0;
+  left: 38%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(closest-side, rgba(150, 120, 255, 0.5), transparent);
+  animation: ww-drift-b 13s ease-in-out infinite alternate;
+}
+
+.winter-window__stars {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.winter-window__stars b {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  animation: ww-twinkle var(--t) ease-in-out var(--d) infinite;
+}
+
+/* 飘落的雪（canvas，由组件里的 effect 绘制） */
+.winter-window__snow {
+  position: fixed;
+  z-index: 5;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  animation: ww-fade-in 2.6s 0.6s ease forwards;
+}
+
+/* ---------- 拱形窗 ---------- */
+
+.winter-window__stage {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.winter-window__arch {
+  position: relative;
+  height: min(46dvh, 420px);
+  aspect-ratio: 3 / 4;
+  border-radius: 999px 999px 22px 22px;
+  opacity: 0;
+  box-shadow:
+    0 0 0 1px rgba(223, 234, 255, 0.34),
+    0 0 0 10px rgba(223, 234, 255, 0.04),
+    0 0 0 11px rgba(223, 234, 255, 0.14),
+    0 30px 80px rgba(80, 110, 220, 0.28);
+  animation: ww-arch-in 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards;
+}
+
+.winter-window__scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 999px 999px 22px 22px;
+}
+
+.winter-window__layer {
+  opacity: 0;
+  transform: translateY(46px);
+  animation: ww-rise 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d) forwards;
+}
+
+.winter-window__moon {
+  opacity: 0;
+  animation:
+    ww-moon-in 2.2s 1.2s ease forwards,
+    ww-breathe 6s 3.4s ease-in-out infinite alternate;
+}
+
+/* 小屋灯光：先闪一下，再稳稳亮起来 */
+.winter-window__halo {
+  opacity: 0.08;
+  animation: ww-halo-on 2.4s 2.6s forwards;
+}
+
+.winter-window__lamp {
+  opacity: 0.08;
+  animation:
+    ww-lamp-on 1.8s 2.6s forwards,
+    ww-flicker 3.4s 4.6s ease-in-out infinite alternate;
+}
+
+.winter-window__smoke circle {
+  fill: #cfdcff;
+  opacity: 0;
+  animation: ww-smoke 5.5s ease-out var(--d) infinite;
+}
+
+.winter-window__shoot {
+  opacity: 0;
+  animation: ww-shoot 1.3s ease-in 4.2s forwards;
+}
+
+.winter-window__gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0) 28%,
+    rgba(255, 255, 255, 0) 70%,
+    rgba(180, 200, 255, 0.1) 100%
+  );
+  pointer-events: none;
+}
+
+/* 窗花：沿着窗角一笔笔长出来 */
+.winter-window__frost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.winter-window__frost path {
+  fill: none;
+  stroke: rgba(235, 243, 255, 0.85);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ww-grow 2.2s ease-out var(--d) forwards;
+}
+
+/* ---------- 雪花封印（进度环） ---------- */
+
+.winter-window__seal {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-top: -26px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(12, 22, 56, 0.82);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 0 0 1px rgba(223, 234, 255, 0.25),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  animation: ww-fade-in 1s 1s ease forwards;
+}
+
+.winter-window__seal > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.winter-window__track {
+  fill: none;
+  stroke: rgba(223, 234, 255, 0.14);
+  stroke-width: 1.5;
+}
+
+.winter-window__prog {
+  fill: none;
+  stroke: var(--ww-ice);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 132;
+  stroke-dashoffset: 132;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 3px rgba(190, 215, 255, 0.9));
+  animation: ww-fill 5.6s cubic-bezier(0.45, 0.1, 0.3, 1) 1.3s forwards;
+}
+
+.winter-window__seal > .winter-window__flake {
+  position: static;
+  width: 26px;
+  height: 26px;
+  stroke: var(--ww-ice);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  fill: none;
+  animation: ww-spin 18s linear infinite;
+}
+
+/* 进度走满时，封印外圈轻轻"呼"出一圈光 */
+.winter-window__seal::after {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(190, 215, 255, 0.7);
+  content: '';
+  opacity: 0;
+  animation: ww-done 1.4s 6.9s ease-out forwards;
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes ww-aurora-in {
+  to { opacity: 0.85; }
+}
+
+@keyframes ww-drift-a {
+  from { transform: translate(-6%, 0) scale(1); }
+  to { transform: translate(14%, 10%) scale(1.25); }
+}
+
+@keyframes ww-drift-b {
+  from { transform: translate(8%, 6%) scale(1.1); }
+  to { transform: translate(-14%, -4%) scale(0.9); }
+}
+
+@keyframes ww-twinkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: var(--o); }
+}
+
+@keyframes ww-fade-in {
+  to { opacity: 1; }
+}
+
+@keyframes ww-arch-in {
+  from { opacity: 0; transform: translateY(26px) scale(0.94); filter: blur(8px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+@keyframes ww-rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ww-moon-in {
+  to { opacity: 0.9; }
+}
+
+@keyframes ww-breathe {
+  from { opacity: 0.9; }
+  to { opacity: 0.55; }
+}
+
+@keyframes ww-lamp-on {
+  0% { opacity: 0.08; }
+  18% { opacity: 0.95; }
+  26% { opacity: 0.3; }
+  38% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes ww-flicker {
+  from { opacity: 1; }
+  to { opacity: 0.82; }
+}
+
+@keyframes ww-halo-on {
+  0% { opacity: 0.08; }
+  38% { opacity: 0.6; }
+  100% { opacity: 0.5; }
+}
+
+@keyframes ww-smoke {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  20% { opacity: 0.5; }
+  100% { opacity: 0; transform: translate(22px, -70px) scale(2.6); }
+}
+
+@keyframes ww-shoot {
+  0% { opacity: 0; transform: translate(0, 0); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-120px, 70px); }
+}
+
+@keyframes ww-grow {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ww-fill {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ww-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ww-done {
+  0% { opacity: 1; box-shadow: 0 0 0 0 rgba(190, 215, 255, 0.7); }
+  100% { opacity: 0; box-shadow: 0 0 0 26px rgba(190, 215, 255, 0); }
+}
+
+/* ---------- 减少动态效果：动画几乎瞬间走到最终画面 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .winter-window *,
+  .winter-window *::before,
+  .winter-window *::after {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}
