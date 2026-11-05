@@ -11,9 +11,9 @@
 // 文字内容全部走 React 文本节点，颜色在解析阶段已经被严格校验成
 // #rgb/#rrggbb，所以不存在 HTML/CSS 注入的问题。
 //
-// 四种画面：锁屏通知栏 / 浏览器搜索记录 / 音乐播放器 / 聊天软件对话，按 spec.kind 分
-// 发。以后加新画面只需要在这个文件里多写一个画面组件、在
-// phoneScreenSpec.js 里多写一段解析，不用动别的地方。
+// 六种画面：锁屏通知栏 / 浏览器搜索记录 / 音乐播放器 / 聊天软件对话 / 备忘录
+// 笔记列表 / 日历日程，按 spec.kind 分发。以后加新画面只需要在这个文件里
+// 多写一个画面组件、在 phoneScreenSpec.js 里多写一段解析，不用动别的地方。
 import React, { useMemo, useRef, useState } from 'react';
 import {
   Lock,
@@ -28,6 +28,9 @@ import {
   Pause,
   ChevronLeft,
   Plus,
+  StickyNote,
+  CalendarDays,
+  MapPin,
 } from 'lucide-react';
 import { exportPageToImage } from '../../margin-notes/marginNotesExportService';
 import {
@@ -35,6 +38,8 @@ import {
   PHONE_SCREEN_KIND_BROWSER,
   PHONE_SCREEN_KIND_MUSIC,
   PHONE_SCREEN_KIND_CHAT,
+  PHONE_SCREEN_KIND_NOTES,
+  PHONE_SCREEN_KIND_CALENDAR,
   PHONE_SCREEN_STYLE_ANDROID,
   DEFAULT_WALLPAPER_COLOR,
   isPhoneScreenSpecRenderable,
@@ -370,11 +375,94 @@ const ChatScreen = ({ spec, date, cardRef }) => {
   );
 };
 
+// 备忘录：沿用浏览器那套浅色页面底 + 强调色，列表样式也跟搜索记录类似，
+// 只是每行多一条摘要。
+const NotesScreen = ({ spec, date, cardRef }) => {
+  const isAndroid = spec.style === PHONE_SCREEN_STYLE_ANDROID;
+  const timeText = spec.time || formatClock(date);
+
+  return (
+    <div
+      ref={cardRef}
+      className={`phone-screen-card phone-screen-card--page ${
+        isAndroid ? 'phone-screen-card--android' : 'phone-screen-card--ios'
+      }`}
+      style={buildPageVars(spec.wallpaper)}
+    >
+      <StatusBar timeText={timeText} battery={spec.battery} />
+
+      <div className="phone-browser-title">
+        <StickyNote className="h-3.5 w-3.5" />
+        <span>备忘录</span>
+      </div>
+
+      <div className="phone-notes-list">
+        {spec.notes.map((item, index) => (
+          <div className="phone-notes-row" key={`${item.title}-${index}`}>
+            <div className="phone-notes-row__head">
+              <span className="phone-notes-row__title">{item.title}</span>
+              {item.time && (
+                <span className="phone-notes-row__time">{item.time}</span>
+              )}
+            </div>
+            {item.preview && (
+              <div className="phone-notes-row__preview">{item.preview}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// 日历：标题栏用这条截图自己的日期（跟锁屏一样用 formatDateLine 现算），
+// 日程按时间先后排成一条时间线，没写时间的排在"全天"区。
+const CalendarScreen = ({ spec, date, cardRef }) => {
+  const isAndroid = spec.style === PHONE_SCREEN_STYLE_ANDROID;
+  const timeText = spec.time || formatClock(date);
+
+  return (
+    <div
+      ref={cardRef}
+      className={`phone-screen-card phone-screen-card--page ${
+        isAndroid ? 'phone-screen-card--android' : 'phone-screen-card--ios'
+      }`}
+      style={buildPageVars(spec.wallpaper)}
+    >
+      <StatusBar timeText={timeText} battery={spec.battery} />
+
+      <div className="phone-browser-title">
+        <CalendarDays className="h-3.5 w-3.5" />
+        <span>{formatDateLine(date)}</span>
+      </div>
+
+      <div className="phone-calendar-list">
+        {spec.events.map((item, index) => (
+          <div className="phone-calendar-row" key={`${item.title}-${index}`}>
+            <span className="phone-calendar-row__time">{item.time || '全天'}</span>
+            <div className="phone-calendar-row__main">
+              <span className="phone-calendar-row__title">{item.title}</span>
+              {item.location && (
+                <span className="phone-calendar-row__location">
+                  <MapPin className="h-2.5 w-2.5" strokeWidth={2} />
+                  {item.location}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const SCREEN_BY_KIND = {
   [PHONE_SCREEN_KIND_LOCKSCREEN]: LockScreen,
   [PHONE_SCREEN_KIND_BROWSER]: BrowserScreen,
   [PHONE_SCREEN_KIND_MUSIC]: MusicScreen,
   [PHONE_SCREEN_KIND_CHAT]: ChatScreen,
+  [PHONE_SCREEN_KIND_NOTES]: NotesScreen,
+  [PHONE_SCREEN_KIND_CALENDAR]: CalendarScreen,
 };
 
 export const PhoneScreenCard = ({ content, metadata, timestamp, messageId }) => {

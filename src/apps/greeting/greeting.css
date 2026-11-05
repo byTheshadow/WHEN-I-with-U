@@ -1109,7 +1109,8 @@
 .gc-card.is-read .gc-wv:nth-of-type(3) { animation-duration: 17s; animation-delay: -6s; }
 @keyframes gc-wave { to { transform: translateX(-26px); } }
 
-/* 内页下半：文字 */
+/* 内页下半：文字。内容可能比卡片本身长（角色写多了），所以这里自己滚动，
+   而不是被 .gc-pg 的 overflow:hidden 直接裁掉。 */
 .gc-txt {
   position: absolute; inset: 0;
   padding: 11% 11% 10%;
@@ -1120,7 +1121,13 @@
   line-height: 2;
   color: var(--gc-ink, #111111);
   text-align: left;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
 }
+.gc-txt::-webkit-scrollbar { display: none; }
 .gc-txt p {
   margin: 0 0 .35em;
   letter-spacing: .04em;

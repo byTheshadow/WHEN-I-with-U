@@ -12,7 +12,7 @@
 //
 // 标签格式：前 5 项是所有画面通用的固定字段，第 6 项起是各画面自己的内容：
 //   [PHONESHOT: 画面 | 手机风格 | 时间 | 电量 | 主色 | 内容]
-// 四种画面（kind）：
+// 六种画面（kind）：
 //   lockscreen  内容 = 通知1 ;; 通知2 ...      每条：应用名::标题::正文::时间(可选)
 //   browser     内容 = 搜索1 ;; 搜索2 ...      每条：搜索词::时间(可选)
 //   music       内容 = 歌名::歌手::歌词::进度::状态     （只有一首）
@@ -20,8 +20,13 @@
 //               第一项是聊天对象和应用名（应用名可省略）；后面每条是一句话，
 //               "谁"写 我 表示角色自己发的（显示在右边），写别的（比如对方
 //               的名字）都算对方发的（显示在左边）。
+//   notes       内容 = 笔记1 ;; 笔记2 ...      每条：标题::摘要::时间(可选)
+//               备忘录App的笔记列表，1到6条。
+//   calendar    内容 = 日程1 ;; 日程2 ...      每条：标题::时间(可选)::地点(可选)
+//               日历App里某一天的日程列表，1到8条；日期标题用截图自己的
+//               发送时间来显示，不用在内容里单独写日期。
 // "主色"在锁屏里是壁纸颜色，在浏览器里是强调色，在音乐里是封面和背景色，
-// 在聊天里是"我"发出的气泡颜色。
+// 在聊天里是"我"发出的气泡颜色，在备忘录/日历里是列表的强调色。
 //
 // 解析一律"宽容但不放过危险值"：缺字段就用默认值，颜色/数字严格校验，
 // 文字内容只会作为 React 文本节点渲染，不会当 HTML 解释，所以不需要
@@ -34,6 +39,8 @@ export const PHONE_SCREEN_KIND_LOCKSCREEN = 'lockscreen';
 export const PHONE_SCREEN_KIND_BROWSER = 'browser';
 export const PHONE_SCREEN_KIND_MUSIC = 'music';
 export const PHONE_SCREEN_KIND_CHAT = 'chat';
+export const PHONE_SCREEN_KIND_NOTES = 'notes';
+export const PHONE_SCREEN_KIND_CALENDAR = 'calendar';
 
 export const PHONE_SCREEN_STYLE_IOS = 'ios';
 export const PHONE_SCREEN_STYLE_ANDROID = 'android';
@@ -55,6 +62,14 @@ const MAX_CHAT_MESSAGES = 10;
 const MAX_CHAT_TEXT_LENGTH = 60;
 const MAX_CONTACT_LENGTH = 12;
 const DEFAULT_CHAT_APP = '聊天';
+const MAX_NOTES = 6;
+const MAX_NOTE_TITLE_LENGTH = 20;
+const MAX_NOTE_PREVIEW_LENGTH = 60;
+const MAX_NOTE_TIME_LENGTH = 10;
+const MAX_EVENTS = 8;
+const MAX_EVENT_TITLE_LENGTH = 24;
+const MAX_EVENT_TIME_LENGTH = 10;
+const MAX_EVENT_LOCATION_LENGTH = 20;
 
 // 按字符（而不是 UTF-16 码元）截断，避免把一个字符劈成两半。
 const clean = (value, maxLength) => {
@@ -95,6 +110,25 @@ const normalizeKind = (value) => {
     || text === '聊天软件'
   ) {
     return PHONE_SCREEN_KIND_CHAT;
+  }
+
+  if (
+    text === 'notes'
+    || text === 'note'
+    || text === 'memo'
+    || text === '备忘录'
+    || text === '笔记'
+  ) {
+    return PHONE_SCREEN_KIND_NOTES;
+  }
+
+  if (
+    text === 'calendar'
+    || text === 'schedule'
+    || text === '日历'
+    || text === '日程'
+  ) {
+    return PHONE_SCREEN_KIND_CALENDAR;
   }
 
   return null;
@@ -278,6 +312,64 @@ const parseChat = (itemsText) => {
   };
 };
 
+// 备忘录：每条 标题::摘要::时间(可选)。只有摘要没有标题的，摘要顶上去当标题。
+const parseNotes = (itemsText) => {
+  const result = [];
+
+  splitItems(itemsText).forEach((rawItem) => {
+    if (result.length >= MAX_NOTES) return;
+
+    const parts = splitFields(rawItem);
+
+    if (!parts.some(Boolean)) return;
+
+    let title = '';
+    let preview = '';
+    let time = '';
+
+    if (parts.length === 1) {
+      [title] = parts;
+    } else {
+      [title, preview, time = ''] = parts;
+    }
+
+    const cleanTitle = clean(title, MAX_NOTE_TITLE_LENGTH);
+    const cleanPreview = clean(preview, MAX_NOTE_PREVIEW_LENGTH);
+
+    if (!cleanTitle && !cleanPreview) return;
+
+    result.push({
+      title: cleanTitle || cleanPreview,
+      preview: cleanTitle ? cleanPreview : '',
+      time: clean(time, MAX_NOTE_TIME_LENGTH),
+    });
+  });
+
+  return result;
+};
+
+// 日历日程：每条 标题::时间(可选)::地点(可选)。
+const parseEvents = (itemsText) => {
+  const result = [];
+
+  splitItems(itemsText).forEach((rawItem) => {
+    if (result.length >= MAX_EVENTS) return;
+
+    const [title = '', time = '', location = ''] = splitFields(rawItem);
+    const cleanTitle = clean(title, MAX_EVENT_TITLE_LENGTH);
+
+    if (!cleanTitle) return;
+
+    result.push({
+      title: cleanTitle,
+      time: clean(time, MAX_EVENT_TIME_LENGTH),
+      location: clean(location, MAX_EVENT_LOCATION_LENGTH),
+    });
+  });
+
+  return result;
+};
+
 /**
  * 解析 [PHONESHOT: ...] 标签里的文字。
  * 返回 spec，或者 null（格式不对/没有可显示的内容）。
@@ -321,6 +413,18 @@ export const parsePhoneScreenPayload = (rawPayload) => {
     return { ...spec, chat };
   }
 
+  if (kind === PHONE_SCREEN_KIND_NOTES) {
+    const notes = parseNotes(itemsText);
+    if (notes.length === 0) return null;
+    return { ...spec, notes };
+  }
+
+  if (kind === PHONE_SCREEN_KIND_CALENDAR) {
+    const events = parseEvents(itemsText);
+    if (events.length === 0) return null;
+    return { ...spec, events };
+  }
+
   const track = parseTrack(itemsText);
   if (!track) return null;
   return { ...spec, track };
@@ -349,6 +453,14 @@ export const isPhoneScreenSpecRenderable = (spec) => {
     return Boolean(spec.chat?.contact)
       && Array.isArray(spec.chat?.messages)
       && spec.chat.messages.length > 0;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_NOTES) {
+    return Array.isArray(spec.notes) && spec.notes.length > 0;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_CALENDAR) {
+    return Array.isArray(spec.events) && spec.events.length > 0;
   }
 
   return false;
@@ -392,6 +504,25 @@ export const buildPhoneScreenSummary = (spec) => {
       .join('；');
 
     return `[手机聊天界面截图] ${timePart}${batteryPart}在${chat.app}里和「${chat.contact}」的聊天记录：${lines}`;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_NOTES) {
+    const notes = spec.notes
+      .map((item) => (item.preview ? `${item.title}：${item.preview}` : item.title))
+      .join('；');
+
+    return `[手机备忘录截图] ${timePart}${batteryPart}备忘录列表：${notes}`;
+  }
+
+  if (spec.kind === PHONE_SCREEN_KIND_CALENDAR) {
+    const events = spec.events
+      .map((item) => {
+        const head = item.time ? `${item.time} ${item.title}` : item.title;
+        return item.location ? `${head}（${item.location}）` : head;
+      })
+      .join('；');
+
+    return `[手机日历截图] ${timePart}${batteryPart}当天日程：${events}`;
   }
 
   const { track } = spec;

@@ -544,3 +544,91 @@
   background: #e4e6eb;
   color: var(--ps-fg);
 }
+/* ------------------------------------------------------------------
+ * 第三片新增：备忘录笔记列表、日历日程
+ * ------------------------------------------------------------------ */
+
+.phone-notes-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.phone-notes-row {
+  padding: 9px 2px;
+  border-bottom: 1px solid rgba(27, 27, 31, 0.08);
+}
+
+.phone-notes-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.phone-notes-row__title {
+  min-width: 0;
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.phone-notes-row__time {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--ps-fg-soft);
+}
+
+.phone-notes-row__preview {
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--ps-fg-soft);
+  word-break: break-word;
+}
+
+.phone-calendar-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.phone-calendar-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px solid rgba(27, 27, 31, 0.08);
+}
+
+.phone-calendar-row__time {
+  flex-shrink: 0;
+  width: 38px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--ps-accent);
+}
+
+.phone-calendar-row__main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phone-calendar-row__title {
+  font-size: 11.5px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.phone-calendar-row__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--ps-fg-soft);
+}

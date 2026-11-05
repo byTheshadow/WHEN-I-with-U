@@ -6,10 +6,22 @@ import {
   Play,
   Settings2,
   Upload,
+  UserRound,
 } from 'lucide-react';
 import GlassCard from '../../components/GlassCard';
 import db from '../../db';
 
+// 这张卡片要显示的"陪伴者"是谁，跟它下面标题/描述这些纯装饰文字分开存，
+// 存成单独一个 settings key（而不是塞进 PLAYER_CONFIG_KEY 那个大对象里）。
+// 之所以要分开，是因为之前的实现把"当前第一个角色的名字/头像"在首次加载时
+// 算出来，混进同一份草稿里——用户哪怕只是改了期刊标签这种跟角色毫不相干的
+// 文字，保存时也会把那个角色的名字/头像一起写死进设置，这个角色后来被删掉
+// 也不会再更新，陪伴者就永久"跟着"一个不存在的角色了。现在改成：陪伴者是谁
+// 由这个单独的 key 存一个 characterId（用户在编辑面板里手动选，选中就立刻
+// 单独写入，不等其它字段一起保存），显示时永远拿这个 id 去 db.characters 里
+// 现查，查不到（角色被删了）就自动清空这个 key、回退到"按创建顺序排第一个
+// 角色"这个兜底，而不是抱着一个死 id 不放。
+const COMPANION_LINK_KEY = 'keep_alive_player_companion_id';
 const PLAYER_CONFIG_KEY = 'keep_alive_player_config';
 const SILENT_WAV_DATA =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
@@ -34,6 +46,11 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
       '有些歌不是一个人听完的。它们穿过夜色，把两个相隔很远的人，暂时放进同一段旋律。',
     companionName: '陪伴者',
     userAvatar: null,
+    // 用户手动上传的自定义陪伴者头像（跟角色头像分开存）；有这个就优先显示
+    // 这张，没有才落回下面选中的角色头像。
+    companionAvatarOverride: null,
+    // companionAvatar 永远是"最终显示用"的那张图，每次加载/切换角色时现算，
+    // 不直接存进设置里，避免再次冻结成某个旧角色的死链接。
     companionAvatar: null,
   });
 
@@ -45,6 +62,11 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
     todos: 0,
   });
 
+  // 陪伴者绑定的是哪个角色：''=没手动选过，跟着"创建最早的角色"这个兜底走。
+  const [companionCharacterId, setCompanionCharacterId] = useState('');
+  const [characterOptions, setCharacterOptions] = useState([]);
+  const [isPickingCompanion, setIsPickingCompanion] = useState(false);
+
   const audioContextRef = useRef(null);
   const oscillatorRef = useRef(null);
   const audioRef = useRef(null);
@@ -54,18 +76,47 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const [savedSetting, profile, character, diaries, snapshots, travels, todos] =
-          await Promise.all([
-            db.settings.get(PLAYER_CONFIG_KEY),
-            db.profile.toCollection().first(),
-            db.characters.orderBy('id').first(),
-            db.diaries.count(),
-            db.snapshots.count(),
-            db.travels.count(),
-            db.todos.count(),
-          ]);
+        const [
+          savedSetting,
+          companionLink,
+          profile,
+          characters,
+          diaries,
+          snapshots,
+          travels,
+          todos,
+        ] = await Promise.all([
+          db.settings.get(PLAYER_CONFIG_KEY),
+          db.settings.get(COMPANION_LINK_KEY),
+          db.profile.toCollection().first(),
+          db.characters.orderBy('id').toArray(),
+          db.diaries.count(),
+          db.snapshots.count(),
+          db.travels.count(),
+          db.todos.count(),
+        ]);
 
         const savedConfig = savedSetting?.value || {};
+        const pinnedId = companionLink?.value?.characterId || '';
+        const pinnedCharacter = pinnedId
+          ? characters.find((item) => String(item.id) === String(pinnedId))
+          : null;
+
+        // 之前手动选过角色，但那个角色现在找不到了（被删了）：清掉这个死
+        // 引用，回到"按创建顺序排第一个角色"兜底，而不是继续抱着死 id。
+        if (pinnedId && !pinnedCharacter) {
+          setCompanionCharacterId('');
+          db.settings
+            .put({ key: COMPANION_LINK_KEY, value: { characterId: '' } })
+            .catch((error) =>
+              console.warn('Unable to clear stale companion link:', error),
+            );
+        } else {
+          setCompanionCharacterId(pinnedId);
+        }
+
+        const fallbackCharacter = characters[0] || null;
+        const resolvedCharacter = pinnedCharacter || fallbackCharacter;
 
         const nextConfig = {
           issue: savedConfig.issue || 'LATE NIGHT ISSUE / 001',
@@ -74,15 +125,20 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
           description:
             savedConfig.description ||
             '有些歌不是一个人听完的。它们穿过夜色，把两个相隔很远的人，暂时放进同一段旋律。',
-          companionName:
-            savedConfig.companionName || character?.name || '陪伴者',
           userAvatar: savedConfig.userAvatar || profile?.avatar || null,
+          companionAvatarOverride: savedConfig.companionAvatarOverride || null,
+          // 名字/头像永远现查现算，不落进 savedConfig：角色改名、换头像、
+          // 被删都会在下次打开时自动反映出来，不会被冻结成某次保存时的快照。
+          companionName: resolvedCharacter?.name || '陪伴者',
           companionAvatar:
-            savedConfig.companionAvatar || character?.avatar || null,
+            savedConfig.companionAvatarOverride ||
+            resolvedCharacter?.avatar ||
+            null,
         };
 
         setConfig(nextConfig);
         setDraft(nextConfig);
+        setCharacterOptions(characters);
         setStats({
           diaries,
           snapshots,
@@ -111,14 +167,55 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
     return () => stopKeepAlive();
   }, [isActive, isReady]);
 
+  // 只持久化这几个纯装饰字段；companionName/companionAvatar 是现查出来的
+  // 显示值，故意不收进这里，不然编辑这些字段时又会把它们一起冻结进设置。
   const saveConfig = async (nextConfig) => {
     try {
       await db.settings.put({
         key: PLAYER_CONFIG_KEY,
-        value: nextConfig,
+        value: {
+          issue: nextConfig.issue,
+          title: nextConfig.title,
+          artist: nextConfig.artist,
+          description: nextConfig.description,
+          userAvatar: nextConfig.userAvatar,
+          companionAvatarOverride: nextConfig.companionAvatarOverride || null,
+        },
       });
     } catch (error) {
       console.error('Unable to save keep-alive player configuration:', error);
+    }
+  };
+
+  // 手动选一个角色当陪伴者：立刻单独写进 COMPANION_LINK_KEY，跟标题/描述那些
+  // 字段的保存彻底分开，不会因为之后改别的字段而被连带覆盖或冻结。
+  // characterId 传空字符串 = 取消手动绑定，回到"创建最早的角色"这个兜底。
+  const handleSelectCompanion = async (characterId) => {
+    const normalizedId = characterId || '';
+    const resolvedCharacter = normalizedId
+      ? characterOptions.find((item) => String(item.id) === String(normalizedId))
+      : characterOptions[0] || null;
+
+    setCompanionCharacterId(normalizedId);
+    setIsPickingCompanion(false);
+
+    const displayConfig = (current) => ({
+      ...current,
+      companionName: resolvedCharacter?.name || '陪伴者',
+      companionAvatar:
+        current.companionAvatarOverride || resolvedCharacter?.avatar || null,
+    });
+
+    setConfig(displayConfig);
+    setDraft(displayConfig);
+
+    try {
+      await db.settings.put({
+        key: COMPANION_LINK_KEY,
+        value: { characterId: normalizedId },
+      });
+    } catch (error) {
+      console.warn('Unable to save companion link:', error);
     }
   };
 
@@ -213,10 +310,13 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
       const avatar = loadEvent.target?.result;
       if (!avatar) return;
 
-      const nextConfig = {
-        ...config,
-        [target]: avatar,
-      };
+      // 陪伴者头像是"自定义上传"和"现查的角色头像"两层：上传的这张存进
+      // companionAvatarOverride（持久化），同时立刻更新 companionAvatar
+      // 这个显示字段，让它优先盖过角色头像。
+      const nextConfig =
+        target === 'companionAvatarOverride'
+          ? { ...config, companionAvatarOverride: avatar, companionAvatar: avatar }
+          : { ...config, [target]: avatar };
 
       setConfig(nextConfig);
       setDraft(nextConfig);
@@ -246,7 +346,7 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(event) => handleAvatarUpload(event, 'companionAvatar')}
+        onChange={(event) => handleAvatarUpload(event, 'companionAvatarOverride')}
       />
 
       <audio ref={audioRef} src={SILENT_WAV_DATA} loop hidden />
@@ -386,6 +486,60 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
             <p className="mt-3 text-center text-[8px] uppercase tracking-[0.16em] text-[var(--text-on-ink-muted)]">
               Quiet transmission
             </p>
+
+            {isEditing && (
+              <div className="relative mt-2 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setIsPickingCompanion((value) => !value)}
+                  className="flex items-center gap-1 text-[8px] uppercase tracking-[0.14em] text-[var(--text-on-ink-muted)] transition-opacity hover:opacity-70"
+                >
+                  <UserRound className="h-2.5 w-2.5" strokeWidth={1.6} />
+                  选择陪伴角色
+                </button>
+
+                {isPickingCompanion && (
+                  <div
+                    className="absolute right-0 top-full z-20 mt-1 max-h-48 w-44 overflow-y-auto rounded-lg border p-1"
+                    style={{
+                      backgroundColor: 'var(--modal-bg, #111)',
+                      borderColor: 'var(--modal-border, rgba(255,255,255,.15))',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCompanion('')}
+                      className={`block w-full rounded-md px-2 py-1.5 text-left text-[10px] transition-colors hover:bg-white/10 ${
+                        !companionCharacterId ? 'text-[var(--text-on-ink)]' : 'text-[var(--text-on-ink-muted)]'
+                      }`}
+                    >
+                      自动（跟随最早创建的角色）
+                    </button>
+
+                    {characterOptions.map((character) => (
+                      <button
+                        key={character.id}
+                        type="button"
+                        onClick={() => handleSelectCompanion(character.id)}
+                        className={`block w-full truncate rounded-md px-2 py-1.5 text-left text-[10px] transition-colors hover:bg-white/10 ${
+                          String(companionCharacterId) === String(character.id)
+                            ? 'text-[var(--text-on-ink)]'
+                            : 'text-[var(--text-on-ink-muted)]'
+                        }`}
+                      >
+                        {character.name || '未命名角色'}
+                      </button>
+                    ))}
+
+                    {characterOptions.length === 0 && (
+                      <p className="px-2 py-1.5 text-[10px] text-[var(--text-on-ink-muted)]">
+                        还没有角色
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         </div>
 
@@ -755,4 +909,3 @@ export const KeepAlivePlayer = ({ delay = 600 }) => {
 };
 
 export default KeepAlivePlayer;
-
