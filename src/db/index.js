@@ -5152,4 +5152,8 @@ db.version(108).stores({
   layoutWorks: '++id, characterId, createdAt',
 });
 
+db.version(109).stores({
+  longDiaries: '++id, chatId, characterId, createdAt',
+});
+
 export default db;

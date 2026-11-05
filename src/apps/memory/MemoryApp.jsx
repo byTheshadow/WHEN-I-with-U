@@ -24,6 +24,7 @@ import db from '../../db';
 
 import MemoryCard from './MemoryCard';
 import MemoryExportModal from './MemoryExportModal';
+import LongDiaryPage from './longDiary/LongDiaryPage';
 import MemoryImportModal from './MemoryImportModal';
 import ObsidianImportModal from './obsidianImport/ObsidianImportModal';
 import ObsidianWatchModal from './obsidianImport/ObsidianWatchModal';
@@ -239,6 +240,7 @@ export const MemoryApp = ({
   const [obsidianPendingUpdates, setObsidianPendingUpdates] = useState([]);
   const [showOperitImportModal, setShowOperitImportModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showLongDiary, setShowLongDiary] = useState(false);
 
   const [listView, setListView] = useState(readStoredListView);
   const [selectMode, setSelectMode] = useState(false);
@@ -1081,6 +1083,16 @@ const handleDelete = async (memory) => {
 
             <button
               type="button"
+              onClick={() => setShowLongDiary(true)}
+              disabled={!selectedChat}
+              className="memory-tool-button"
+            >
+              <BookOpen className="memory-icon" />
+              长期日记
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowExportModal(true)}
               className="memory-tool-button"
             >
@@ -1741,8 +1753,17 @@ const handleDelete = async (memory) => {
           }}
         />
       )}
+      
+      {showLongDiary && selectedChat && (
+        <LongDiaryPage
+          chat={selectedChat}
+          chatLabel={getChatLabel(selectedChat)}
+          onClose={() => setShowLongDiary(false)}
+        />
+      )}
 
       <MemoryBackToTop />
+      
 
       {revisionMemory && (
         <MemoryRevisionModal

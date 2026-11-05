@@ -1,0 +1,347 @@
+/* src/apps/memory/longDiary/longDiary.css
+ *
+ * 长期日记页面。颜色全部来自 App 主题变量（themes.css），跟记忆页保持同一套黑白杂志质感。
+ * 全屏浮层自己 position:fixed 铺满，所以这里的 fixed 是安全的（不在窄栏容器里）。
+ */
+
+.ld-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+.ld-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ld-wrap {
+  box-sizing: border-box;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: clamp(3.6rem, 9vw, 5rem) 1.2rem 5rem;
+}
+
+.ld-back {
+  position: absolute;
+  top: max(0.9rem, env(safe-area-inset-top, 0px));
+  left: 0.9rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-main) 82%, transparent);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+/* 顶部标题区 */
+.ld-masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-bottom: 1.8rem;
+  border-bottom: 1px solid var(--divider);
+}
+
+.ld-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ld-eyebrow::before {
+  content: "";
+  display: block;
+  width: 1.8rem;
+  height: 1px;
+  background: currentColor;
+}
+
+.ld-masthead h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-family: "Noto Serif SC", "Songti SC", STSong, Georgia, serif;
+  font-size: clamp(2.2rem, 9vw, 3.6rem);
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ld-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+}
+
+/* 选日期 + 生成 */
+.ld-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.4rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.ld-compose-for {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ld-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.ld-range label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ld-range label span {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ld-range input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--divider);
+  border-radius: 0.5rem;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.ld-range input:focus-visible,
+.ld-btn:focus-visible,
+.ld-chip:focus-visible,
+.ld-back:focus-visible {
+  outline: 2px solid var(--text-main);
+  outline-offset: 2px;
+}
+
+.ld-compose-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.ld-hint {
+  min-width: 0;
+  flex: 1 1 12rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.7;
+}
+
+.ld-progress {
+  margin: 0;
+  color: var(--text-sub);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.ld-error {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.75rem;
+  line-height: 1.7;
+  padding-left: 0.8rem;
+  border-left: 2px solid var(--text-main);
+}
+
+/* 按钮 */
+.ld-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-sub);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ld-btn--solid {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.ld-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 已保存日记标签条 */
+.ld-saved {
+  display: flex;
+  gap: 0.6rem;
+  padding: 1.1rem 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--divider);
+}
+
+.ld-chip {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.58rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ld-chip.is-active {
+  border-color: var(--text-main);
+  color: var(--text-main);
+}
+
+/* 当前日记 */
+.ld-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.3rem 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.ld-meta-range {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.ld-meta-range strong {
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.ld-meta-range span {
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ld-meta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ld-article {
+  margin-top: 2rem;
+  color: var(--text-sub);
+  font-family: "Noto Serif SC", "Songti SC", STSong, Georgia, serif;
+  font-size: 1rem;
+  line-height: 2;
+}
+
+.ld-article p {
+  max-width: 34em;
+  margin: 0 0 1.5em;
+  overflow-wrap: anywhere;
+}
+
+.ld-article p:first-of-type::first-letter {
+  float: left;
+  padding: 0.04em 0.1em 0 0;
+  color: var(--text-main);
+  font-size: 3.1em;
+  font-weight: 300;
+  line-height: 0.82;
+}
+
+/* 写“角色观察到的你”的段落：极细左边线，字色稍浅，不打断连续阅读 */
+.ld-article p.ld-voice-user {
+  padding-left: 1rem;
+  border-left: 1px solid var(--text-main);
+  color: var(--text-muted);
+}
+
+.ld-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--divider);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ld-empty {
+  margin: 2.5rem 0 0;
+  padding-left: 1rem;
+  border-left: 1px solid var(--text-main);
+  color: var(--text-sub);
+  font-size: 0.8rem;
+  line-height: 1.9;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ld-btn,
+  .ld-chip {
+    transition: opacity 160ms ease, border-color 160ms ease;
+  }
+}
