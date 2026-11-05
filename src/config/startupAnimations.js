@@ -93,6 +93,23 @@ export const STARTUP_ANIMATIONS = [
     status: 'SEASONAL',
     isAvailable: isNovemberSeasonActive(),
     seasonal: true
+  },
+  {
+    id: 'first-snow',
+    title: 'First Snow',
+    description: 'A trail of footprints crosses a moonlit snowfield toward one lit cabin window.',
+    archiveDescription: 'Returns automatically every November',
+    status: 'SEASONAL',
+    isAvailable: isNovemberSeasonActive(),
+    seasonal: true
+  },
+  {
+    id: 'planet-code',
+    title: 'Planet Code',
+    description: 'Scattered characters drift inward and settle into a small orbiting planet of code.',
+    archiveDescription: 'A private planet assembled from source',
+    status: 'READY',
+    isAvailable: true
   }
 ];
 

@@ -1,0 +1,126 @@
+/* src/components/planet-code-loader.css */
+/*
+ * 常驻加载页选项（Planet Code）。固定的深空配色，不读取主题变量。
+ * 外层深色背景由 Preloader.jsx 的 LOADER_MAP[...].background 提供。
+ *
+ * 远景星空（canvas）用 position:fixed 铺满整个视口，垫在 Preloader 共用的
+ * 标题/引言/状态文字后面；星球卡片在正常排版流里，跟 WinterWindowLoader
+ * 的拱形窗是同一个思路。动画名一律带 pc- 前缀。
+ */
+
+.planet-code {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.2rem;
+  margin-bottom: 1.4rem;
+}
+
+.planet-code__stars {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.planet-code__stage {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.planet-code__frame {
+  position: relative;
+  width: min(80vw, 21rem);
+  height: min(42dvh, 320px);
+  overflow: hidden;
+  border-radius: 1.25rem;
+  opacity: 0;
+  box-shadow:
+    0 0 0 1px rgba(127, 227, 255, 0.18),
+    0 0 40px rgba(127, 227, 255, 0.08),
+    0 24px 70px rgba(5, 8, 22, 0.6);
+  animation: pc-frame-in 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s forwards;
+}
+
+.planet-code__scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 启动光标：中心一闪，再展开成一条扫过卡片的细线 */
+.planet-code__boot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 14px;
+  background: #7fe3ff;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  box-shadow: 0 0 14px #7fe3ff, 0 0 40px rgba(127, 227, 255, 0.5);
+  z-index: 4;
+}
+
+.planet-code__boot--on {
+  animation: pc-boot 1.3s cubic-bezier(0.6, 0, 0.2, 1) forwards;
+}
+
+@keyframes pc-frame-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pc-boot {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0;
+  }
+  32% {
+    opacity: 1;
+    width: 8px;
+    height: 14px;
+  }
+  50% {
+    width: 8px;
+    height: 2px;
+  }
+  82% {
+    width: 92%;
+    height: 1px;
+    opacity: 0.9;
+  }
+  100% {
+    width: 100%;
+    height: 1px;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planet-code__frame,
+  .planet-code__boot--on {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

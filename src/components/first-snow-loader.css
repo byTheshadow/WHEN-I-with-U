@@ -1,0 +1,259 @@
+/* src/components/first-snow-loader.css */
+/*
+ * 十一月限定加载页（初雪/First Snow）。固定的深冬夜配色，不读取主题变量。
+ * 外层深色背景由 Preloader.jsx 的 LOADER_MAP[...].background 提供。
+ *
+ * 背景层（渐变、月晕、两层雪）用 position:fixed 铺满整个视口，垫在/叠在
+ * Preloader 共用的标题/引言/状态文字周围；小屋雪景卡片在正常排版流里，
+ * 跟 WinterWindowLoader 的拱形窗是同一个思路。动画名一律带 fs- 前缀。
+ */
+
+.first-snow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.2rem;
+  margin-bottom: 1.4rem;
+}
+
+/* ---------- 背景：渐变 + 月晕 ---------- */
+
+.first-snow__backdrop {
+  position: fixed;
+  z-index: -3;
+  inset: 0;
+  background:
+    radial-gradient(120% 70% at 50% 108%, #56638f 0%, transparent 60%),
+    linear-gradient(180deg, #141a33 0%, #1b2340 34%, #3b4a74 78%, #5d6b96 100%);
+  opacity: 0;
+  animation: fs-fade-in 3s ease 0.2s forwards;
+}
+
+.first-snow__moon {
+  position: fixed;
+  z-index: -2;
+  top: 9%;
+  right: -14%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(232, 238, 252, 0.3) 0%,
+    rgba(201, 212, 236, 0.1) 32%,
+    transparent 66%
+  );
+  opacity: 0;
+  animation: fs-fade-in 3s ease 0.2s forwards;
+}
+
+.first-snow__moon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #fbfcff, #dfe5f3 70%);
+  box-shadow: 0 0 40px 10px rgba(230, 236, 252, 0.35);
+}
+
+/* 飘落的雪（canvas，由组件里的 effect 绘制），两层做景深 */
+.first-snow__snow {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.first-snow__snow--back {
+  z-index: -1;
+  animation: fs-fade-in 2.6s 0.8s ease forwards;
+}
+
+.first-snow__snow--front {
+  z-index: 5;
+  animation: fs-fade-in 2.6s 1.1s ease forwards;
+}
+
+/* ---------- 雪景卡片 ---------- */
+
+.first-snow__stage {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.first-snow__frame {
+  position: relative;
+  width: min(84vw, 23rem);
+  height: min(40dvh, 300px);
+  overflow: hidden;
+  border-radius: 1.5rem;
+  opacity: 0;
+  box-shadow:
+    0 0 0 1px rgba(223, 234, 255, 0.28),
+    0 0 0 8px rgba(223, 234, 255, 0.04),
+    0 24px 70px rgba(20, 26, 51, 0.5);
+  animation: fs-frame-in 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s forwards;
+}
+
+.first-snow__scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.first-snow__far,
+.first-snow__mid {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.first-snow__far {
+  animation: fs-rise 2.6s ease 0.4s forwards;
+}
+
+.first-snow__mid {
+  animation: fs-rise 2.6s ease 0.9s forwards;
+}
+
+.first-snow__glow,
+.first-snow__window {
+  opacity: 0;
+}
+
+.first-snow__glow {
+  animation: fs-lamp-glow 2.4s ease 4.3s forwards, fs-flicker 3.6s ease-in-out 6.8s infinite;
+}
+
+.first-snow__window {
+  animation: fs-lamp 1.8s ease 4.2s forwards;
+}
+
+.first-snow__smoke circle {
+  opacity: 0;
+  animation: fs-smoke 5s ease-out infinite;
+  animation-delay: var(--d);
+}
+
+.first-snow__print {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fs-print 0.9s ease forwards;
+  animation-delay: var(--d);
+}
+
+@keyframes fs-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fs-frame-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fs-lamp {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.7;
+  }
+  40% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fs-lamp-glow {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fs-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.82;
+  }
+  55% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes fs-smoke {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  20% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(14px, -46px) scale(2.2);
+  }
+}
+
+@keyframes fs-print {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0.55;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-snow__backdrop,
+  .first-snow__moon,
+  .first-snow__snow,
+  .first-snow__frame,
+  .first-snow__far,
+  .first-snow__mid,
+  .first-snow__glow,
+  .first-snow__window,
+  .first-snow__smoke circle,
+  .first-snow__print {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

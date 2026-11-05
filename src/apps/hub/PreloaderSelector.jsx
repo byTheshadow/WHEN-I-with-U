@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
   CircleDot,
+  CloudSnow,
   Dices,
   Disc3,
     Flower2,
@@ -13,6 +14,7 @@ import {
   LockKeyhole,
   Mail,
    MoonStar,
+  Orbit,
   Snowflake,
   Sparkles
 } from 'lucide-react';
@@ -38,7 +40,9 @@ const ICON_MAP = {
   'halloween-dice': Dices,
   'halloween-ritual': MoonStar,
   'winter-mirror': Snowflake,
-  'winter-window': Home
+  'winter-window': Home,
+  'first-snow': CloudSnow,
+  'planet-code': Orbit
 };
 const readStoredAnimationId = () => {
   try {

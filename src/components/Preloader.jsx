@@ -12,6 +12,8 @@ import HalloweenDiceLoader from './HalloweenDiceLoader';
 import HalloweenRitualLoader from './HalloweenRitualLoader';
 import WinterMirrorLoader from './WinterMirrorLoader';
 import WinterWindowLoader from './WinterWindowLoader';
+import FirstSnowLoader from './FirstSnowLoader';
+import PlanetCodeLoader from './PlanetCodeLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
@@ -89,6 +91,23 @@ const LOADER_MAP = {
     status: 'Waiting by the window',
     fullBleed: true,
     background: '#060b20',
+    fadeMs: 8200,
+    finishMs: 8900
+  },
+  'first-snow': {
+    Component: FirstSnowLoader,
+    status: 'Walking a quiet trail home',
+    fullBleed: true,
+    background: '#0d1224',
+    fadeMs: 8200,
+    finishMs: 8900
+  },
+  // 常驻选项，但动画本身比较长，单独给它和十一月限定几款一样的淡出时间。
+  'planet-code': {
+    Component: PlanetCodeLoader,
+    status: 'Assembling a planet of code',
+    fullBleed: true,
+    background: '#050816',
     fadeMs: 8200,
     finishMs: 8900
   }
