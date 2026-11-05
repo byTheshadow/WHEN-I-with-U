@@ -1,0 +1,493 @@
+/* ============================================================
+   美食判官——跟文字游戏大厅同一套黑白质感，颜色变量复用 .tgh-app，
+   选角色/对局入口/操作按钮走 textGameShared.css 的公共样式，这里只补
+   这个游戏自己的东西：杂志刊头、差评卡片、老板回应的小票、盖章动画、
+   评分条、真相卡和结案列表。
+
+   点缀色（--tgf-*）定义在 .tgf-screen 上，只给这一个游戏用，选择器
+   全部带 .tgf- 前缀，不碰 textGameShared.css 里给所有游戏共用的类。
+   ============================================================ */
+
+.tgf-screen {
+  --tgf-mustard: #e0a526;
+  --tgf-mustard-ink: #4a3500;
+  --tgf-keep: #c4301f;
+  --tgf-void: #1d3b57;
+  --tgf-receipt: #ece9e0;
+  --tgf-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* ---------- 刊头 ---------- */
+
+.tgf-masthead {
+  margin-top: 28px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--tgh-ink);
+  display: grid;
+  gap: 10px;
+}
+
+.tgf-mast-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--tgf-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-mast-title {
+  margin: 0;
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+}
+
+.tgf-mast-title span {
+  background: linear-gradient(transparent 62%, var(--tgf-mustard) 62%);
+}
+
+.tgf-ticks {
+  display: flex;
+  gap: 6px;
+}
+
+.tgf-tick {
+  width: 22px;
+  height: 6px;
+  background: var(--tgh-hairline);
+}
+
+.tgf-tick-done {
+  background: var(--tgh-ink);
+}
+
+.tgf-tick-now {
+  background: var(--tgf-mustard);
+}
+
+/* ---------- 版面 ---------- */
+
+.tgf-body {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.tgf-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--tgf-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--tgh-hairline);
+}
+
+/* ---------- 差评卡片（点评平台风） ---------- */
+
+.tgf-review {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+}
+
+.tgf-review-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tgf-review-avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--tgh-ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+}
+
+.tgf-review-who {
+  min-width: 0;
+  flex: 1;
+}
+
+.tgf-review-name {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.tgf-review-meta {
+  font-family: var(--tgf-mono);
+  font-size: 11px;
+  color: var(--tgh-ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.tgf-review-stars {
+  flex: none;
+  color: var(--tgf-mustard);
+  letter-spacing: 2px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.tgf-review-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.tgf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tgf-chip {
+  font-size: 12px;
+  padding: 1px 9px;
+  border: 1px solid var(--tgh-hairline);
+  border-radius: 999px;
+  color: var(--tgh-ink-soft);
+}
+
+/* ---------- 老板回应（小票风） ---------- */
+
+.tgf-receipt {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 20px;
+  background: var(--tgf-receipt);
+  border-top: 1px dashed var(--tgh-ink-soft);
+  border-bottom: 1px dashed var(--tgh-ink-soft);
+  font-family: var(--tgf-mono);
+  font-size: 13px;
+}
+
+.tgf-receipt-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-receipt-text {
+  margin: 0;
+  font-family: var(--tgh-font-sans), 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.tgf-receipt-evidence {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--tgh-ink-soft);
+  font-size: 12px;
+}
+
+.tgf-receipt-evidence > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tgf-receipt-evidence span {
+  color: var(--tgh-ink-soft);
+}
+
+.tgf-receipt-evidence b {
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 判决按钮 ---------- */
+
+.tgf-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tgf-btn {
+  font: inherit;
+  font-weight: 700;
+  min-height: 52px;
+  padding: 14px 10px;
+  border: 2px solid var(--tgh-ink);
+  background: transparent;
+  color: var(--tgh-ink);
+  cursor: pointer;
+}
+
+.tgf-btn small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  font-family: var(--tgf-mono);
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-btn:hover small,
+.tgf-btn:focus-visible small {
+  color: inherit;
+}
+
+.tgf-btn-keep:hover,
+.tgf-btn-keep:focus-visible {
+  background: var(--tgf-keep);
+  border-color: var(--tgf-keep);
+  color: #fff;
+}
+
+.tgf-btn-void:hover,
+.tgf-btn-void:focus-visible {
+  background: var(--tgf-void);
+  border-color: var(--tgf-void);
+  color: #fff;
+}
+
+.tgf-btn-solid {
+  grid-column: 1 / -1;
+  background: var(--tgh-ink);
+  color: #fff;
+}
+
+.tgf-btn-solid:hover,
+.tgf-btn-solid:focus-visible {
+  background: var(--tgf-mustard);
+  border-color: var(--tgf-mustard);
+  color: var(--tgf-mustard-ink);
+}
+
+.tgf-btn:focus-visible {
+  outline: 3px solid var(--tgf-mustard);
+  outline-offset: 2px;
+}
+
+/* ---------- 盖章 ---------- */
+
+.tgf-stage {
+  position: relative;
+}
+
+.tgf-stage .tgf-review {
+  opacity: 0.55;
+}
+
+.tgf-stamp-keep {
+  color: var(--tgf-keep);
+}
+
+.tgf-stamp-void {
+  color: var(--tgf-void);
+}
+
+.tgf-stage .tgf-stamp-keep,
+.tgf-stage .tgf-stamp-void {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 4px 18px;
+  border: 5px solid currentColor;
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: 44px;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  background: rgba(246, 246, 244, 0.7);
+  transform: translate(-50%, -50%) rotate(-12deg);
+  animation: tgf-stamp-drop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes tgf-stamp-drop {
+  0% {
+    transform: translate(-50%, -50%) rotate(-12deg) scale(2.6);
+    opacity: 0;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(-12deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- 店铺评分条 ---------- */
+
+.tgf-rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+}
+
+.tgf-rating-shop {
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.tgf-rating-num {
+  font-family: var(--tgf-mono);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tgf-rating-delta {
+  font-family: var(--tgf-mono);
+  font-size: 12px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-rating-down {
+  color: var(--tgf-keep);
+}
+
+/* ---------- 案件真相 ---------- */
+
+.tgf-truth {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--tgh-hairline);
+  background: var(--tgh-paper-card);
+}
+
+.tgf-truth p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.tgf-truth-tag {
+  width: fit-content;
+  padding: 1px 8px;
+  font-family: var(--tgf-mono);
+  font-size: 11px;
+}
+
+.tgf-truth-ok {
+  background: var(--tgh-ink);
+  color: #fff;
+}
+
+.tgf-truth-off {
+  border: 1px solid var(--tgf-keep);
+  color: var(--tgf-keep);
+}
+
+.tgf-truth-gray {
+  background: var(--tgf-mustard);
+  color: var(--tgf-mustard-ink);
+}
+
+/* ---------- 结案 ---------- */
+
+.tgf-summary-count {
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.tgf-summary-count span {
+  color: var(--tgh-ink-faint);
+  font-weight: 400;
+}
+
+.tgf-rows {
+  border-top: 2px solid var(--tgh-ink);
+}
+
+.tgf-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--tgh-hairline);
+}
+
+.tgf-row-main {
+  min-width: 0;
+}
+
+.tgf-row-no {
+  font-family: var(--tgf-mono);
+  font-size: 11px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-row-name {
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+.tgf-row-stamp {
+  padding: 0 10px;
+  border: 3px solid currentColor;
+  font-family: var(--tgh-font-display);
+  font-weight: 900;
+  transform: rotate(-6deg);
+}
+
+.tgf-row-sub {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--tgh-ink-faint);
+}
+
+.tgf-row-truth {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--tgh-ink-soft);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tgf-stage .tgf-stamp-keep,
+  .tgf-stage .tgf-stamp-void {
+    animation: none;
+  }
+}

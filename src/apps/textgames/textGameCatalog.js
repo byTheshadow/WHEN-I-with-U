@@ -150,6 +150,15 @@ export const TEXT_GAME_CATALOG = [
     modeEmphasis: true,
     status: TEXT_GAME_STATUS.AVAILABLE,
   },
+    {
+    id: 'food-judge',
+    title: '美食判官',
+    titleEn: 'The verdict on a bad review',
+    desc: '顾客一条差评，老板一番反驳，这条该不该展示，由你来判。',
+    mode: '人机 · 三案一局',
+    modeEmphasis: true,
+    status: TEXT_GAME_STATUS.AVAILABLE,
+  },
   {
     id: 'scratch-card',
     title: '刮刮乐',

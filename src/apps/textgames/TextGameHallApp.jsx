@@ -21,6 +21,7 @@ import UndercoverGame from './undercover/UndercoverGame';
 import LiarsDiceGame from './liarsDice/LiarsDiceGame';
 import SkullGame from './skull/SkullGame';
 import TwoTruthsOneLieGame from './twoTruthsOneLie/TwoTruthsOneLieGame';
+import FoodJudgeGame from './foodJudge/FoodJudgeGame';
 import './textGameHall.css';
 
 const GAME_COMPONENTS = {
@@ -33,6 +34,7 @@ const GAME_COMPONENTS = {
     'liars-dice': LiarsDiceGame,
   'skull': SkullGame,
   'two-truths-one-lie': TwoTruthsOneLieGame,
+  'food-judge': FoodJudgeGame,
 };
 
 const ChevronIcon = () => (
