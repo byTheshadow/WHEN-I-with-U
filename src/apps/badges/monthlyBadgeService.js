@@ -11,7 +11,8 @@
 //     翻篇（比如从十月进入十一月），之前解锁过的图标依然能继续戴着，
 //     不会因为 monthlyBadgeUnlocks 那一行"属于上个月"而受影响。
 //
-// 三类条件的判定：
+// 条件的判定（thanks_card_triggered：本赛季月份内有文字消息命中感恩节
+// 「谢谢」彩蛋关键词，见 hasThanksInSeason）：
 //   messages_total  —— 跟 Almanac 的 'messages' 里程碑完全同一套算法：
 //     这个聊天窗口里全部消息（不分谁发的）的总条数。
 //   trick_triggered —— 本赛季月份内，这个聊天窗口有没有出现过
@@ -28,6 +29,7 @@ import {
   MONTHLY_BADGE_SEASONS,
 } from './monthlyBadgeCatalog';
 import { addBackgroundUpdate } from '../hub/newThingsService';
+import { matchThanksKeyword } from '../../services/festivalService';
 
 const toMs = (value) => {
   const ms = new Date(value).getTime();
@@ -80,6 +82,23 @@ const getMessagesTotal = async (chatId) => db.messages.where('chatId').equals(ch
 const hasTrickInSeason = async (chatId, seasonKey) => {
   const rows = await db.messages.where('chatId').equals(chatId).toArray();
   return rows.some((row) => row?.type === 'trick' && isInSeasonMonth(row.timestamp, seasonKey));
+};
+
+/**
+ * 本赛季月份内，是否出现过一次感恩节「谢谢」彩蛋。
+ * 彩蛋卡片本身不写入消息记录，所以这里扫描本赛季月份内的文字消息
+ * （用户和角色说的都算），只要有一条命中 matchThanksKeyword 就算达成——
+ * 跟卡片的触发条件一致，也不需要新增任何存储字段。
+ */
+const hasThanksInSeason = async (chatId, seasonKey) => {
+  const rows = await db.messages.where('chatId').equals(chatId).toArray();
+  return rows.some((row) => {
+    if (row?.type !== 'text') return false;
+    if (!isInSeasonMonth(row.timestamp, seasonKey)) return false;
+    const ms = toMs(row.timestamp);
+    if (ms === null) return false;
+    return matchThanksKeyword(row.content, new Date(ms));
+  });
 };
 
 /** 本赛季月份内，用户发的表情包条数。 */
@@ -142,6 +161,9 @@ export const evaluateSeasonConditions = async ({ chatId, seasonKey, seasonDef, u
     } else if (condition.type === 'trick_triggered') {
       // eslint-disable-next-line no-await-in-loop
       results[condition.id] = await hasTrickInSeason(chatId, seasonKey);
+    } else if (condition.type === 'thanks_card_triggered') {
+      // eslint-disable-next-line no-await-in-loop
+      results[condition.id] = await hasThanksInSeason(chatId, seasonKey);
     } else if (condition.kind === 'ai') {
       if (!unlockRow?.aiCondition) {
         results[condition.id] = false;

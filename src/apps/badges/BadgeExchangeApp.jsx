@@ -273,7 +273,7 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
             <div className="badge-celebration-glow" aria-hidden="true" />
             <Medal size={28} strokeWidth={1.3} className="badge-celebration-icon" />
             <h3>整套图标已解锁</h3>
-            <p>这个月的 7 个限定图标现在都可以自由佩戴了。</p>
+            <p>这个月的 {activeSeason?.def?.badges?.length || ''} 个限定图标现在都可以自由佩戴了。</p>
             <button type="button" onClick={handleDismissCelebration}>
               好的
             </button>

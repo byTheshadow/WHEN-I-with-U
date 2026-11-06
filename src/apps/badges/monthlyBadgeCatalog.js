@@ -12,7 +12,10 @@
 // 一个就够。过了这个月，新用户无法再"达成条件来解锁"这套图标，但已经
 // 解锁过的，图标本身依然可以继续佩戴。
 //
-// 条件一共三类：
+// 条件一共四类（每个赛季用其中三条）：
+//   'thanks_card_triggered' —— 这个聊天窗口在本赛季月份内，有一条文字消息
+//     （用户或角色说的都算）命中感恩节「谢谢」彩蛋的关键词
+//     （festivalService.matchThanksKeyword），跟彩蛋卡片触发的条件一致。
 //   'messages_total' —— 这个聊天窗口累计消息数达到 threshold 条
 //     （跟 Almanac 的 'messages' 里程碑类型算法完全一致：按单个聊天窗口，
 //      不是全局、也不是"这个月里新增"的消息数）。
@@ -52,10 +55,17 @@ export const AI_CUSTOM_TEMPLATES = [
   },
 ];
 
+// 十一月图标还没放上真实图片时用的占位图（虚线圆圈）。
+const NOVEMBER_PLACEHOLDER_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="#f3e6d6" stroke="#c4502b" stroke-width="2" stroke-dasharray="4 4"/></svg>'
+)}`;
+
 export const MONTHLY_BADGE_SEASONS = {
   10: {
     month: 10,
     seasonId: 'halloween',
+    sceneEyebrow: 'HALLOWEEN / OCT',
+    sceneKind: 'halloween',
     seasonTitle: '万圣节限定',
     seasonSubtitle: '十月限定聊天成就图标',
     badges: [
@@ -119,6 +129,78 @@ export const MONTHLY_BADGE_SEASONS = {
         description: '本月在这个聊天窗口里，成功恶作剧了一次（无论是谁发起的）',
       },
            {
+        id: 'ai-custom',
+        kind: 'ai',
+        title: 'TA 自己定的小考验',
+        description: 'TA 这个月想到的一个小要求，三个条件要一起全部达成才能解锁',
+      },
+    ],
+  },
+
+  // 十一月：从枫叶到初雪。6 枚图标的 imageUrl 先用占位图，等图标生成好之后
+  // 把每个 imageUrl 换成真实链接即可，其余字段不用动。
+  11: {
+    month: 11,
+    seasonId: 'maple-to-snow',
+    seasonTitle: '十一月限定',
+    seasonSubtitle: '十一月限定聊天成就图标',
+    sceneEyebrow: 'AUTUMN / NOV',
+    sceneKind: 'november',
+    badges: [
+      {
+        id: 'november-maple-letter',
+        title: '枫叶信笺',
+        description: '一片枫叶夹着手写便签',
+        imageUrl: NOVEMBER_PLACEHOLDER_IMAGE,
+      },
+      {
+        id: 'november-hearth-party',
+        title: '暖炉派对',
+        description: '南瓜派配热茶',
+        imageUrl: NOVEMBER_PLACEHOLDER_IMAGE,
+      },
+      {
+        id: 'november-scarf-turkey',
+        title: '围巾小火鸡',
+        description: '戴着围巾的卡通火鸡',
+        imageUrl: NOVEMBER_PLACEHOLDER_IMAGE,
+      },
+      {
+        id: 'november-pinecone-hoard',
+        title: '松果储粮',
+        description: '松鼠抱着松果，囤聊天记录',
+        imageUrl: NOVEMBER_PLACEHOLDER_IMAGE,
+      },
+      {
+        id: 'november-frost-window',
+        title: '窗上霜花',
+        description: '起雾的窗户上有手指画的小爱心',
+        imageUrl: NOVEMBER_PLACEHOLDER_IMAGE,
+      },
+      {
+        id: 'november-first-snow-cabin',
+        title: '初雪小屋',
+        description: '亮灯的小屋和第一场雪',
+        imageUrl: NOVEMBER_PLACEHOLDER_IMAGE,
+      },
+    ],
+    conditions: [
+      {
+        id: 'messages-1111',
+        kind: 'fixed',
+        type: 'messages_total',
+        threshold: 1111,
+        title: '单聊满 1111 条',
+        description: '和 TA 在这个聊天窗口里，消息总数累计达到 1111 条',
+      },
+      {
+        id: 'thanks-egg',
+        kind: 'fixed',
+        type: 'thanks_card_triggered',
+        title: '触发一次感恩节彩蛋',
+        description: '本月在这个聊天窗口里，出现过一次感恩节「谢谢」彩蛋（无论是谁说的）',
+      },
+      {
         id: 'ai-custom',
         kind: 'ai',
         title: 'TA 自己定的小考验',
