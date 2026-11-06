@@ -1,0 +1,53 @@
+/* src/components/planet-scene-loader.css */
+/*
+ * "行星代码"系列常驻加载页（Planet Awaken / Planet Warp）共用样式。
+ * 固定的深空配色，不读取主题变量；外层深色背景由 Preloader.jsx 的
+ * LOADER_MAP[...].background 提供。
+ *
+ * 画布用 position:fixed 铺满整个视口，垫在 Preloader 共用的标题/引言/状态
+ * 文字后面（跟 PlanetCodeLoader 的远景星空是同一个思路）；占位框 slot 在
+ * 正常排版流里，只负责告诉画布"行星/星门的圆心在哪、能用多大"。
+ * 类名一律带 planet-scene 前缀，动画名带 ps- 前缀。
+ */
+
+.planet-scene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1.2rem;
+  margin-bottom: 1.4rem;
+}
+
+.planet-scene__canvas {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  animation: ps-canvas-in 0.9s ease-out 0.05s forwards;
+}
+
+.planet-scene__slot {
+  width: min(86vw, 22rem);
+  height: min(42dvh, 320px);
+  pointer-events: none;
+}
+
+@keyframes ps-canvas-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planet-scene__canvas {
+    animation-duration: 0.01s !important;
+    animation-delay: 0s !important;
+  }
+}

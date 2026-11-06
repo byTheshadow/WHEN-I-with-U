@@ -14,7 +14,9 @@ import {
   LockKeyhole,
   Mail,
    MoonStar,
-  Orbit,
+    Orbit,
+  Rocket,
+  ScanLine,
   Snowflake,
   Sparkles
 } from 'lucide-react';
@@ -42,7 +44,9 @@ const ICON_MAP = {
   'winter-mirror': Snowflake,
   'winter-window': Home,
   'first-snow': CloudSnow,
-  'planet-code': Orbit
+  'planet-code': Orbit,
+  'planet-awaken': ScanLine,
+  'planet-warp': Rocket
 };
 const readStoredAnimationId = () => {
   try {

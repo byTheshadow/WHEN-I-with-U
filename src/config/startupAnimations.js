@@ -110,6 +110,22 @@ export const STARTUP_ANIMATIONS = [
     archiveDescription: 'A private planet assembled from source',
     status: 'READY',
     isAvailable: true
+  },
+  {
+    id: 'planet-awaken',
+    title: 'Planet Awaken',
+    description: 'Dormant code gathers into a planet, then a scan ring wakes it from pole to pole.',
+    archiveDescription: 'A planet of code, woken one latitude at a time',
+    status: 'READY',
+    isAvailable: true
+  },
+  {
+    id: 'planet-warp',
+    title: 'Planet Warp',
+    description: 'Code assembles a gate, the jump tunnel opens, and a planet of code rises at the horizon.',
+    archiveDescription: 'A warp jump across a gate of code',
+    status: 'READY',
+    isAvailable: true
   }
 ];
 

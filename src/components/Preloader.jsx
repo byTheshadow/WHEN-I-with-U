@@ -14,6 +14,8 @@ import WinterMirrorLoader from './WinterMirrorLoader';
 import WinterWindowLoader from './WinterWindowLoader';
 import FirstSnowLoader from './FirstSnowLoader';
 import PlanetCodeLoader from './PlanetCodeLoader';
+import PlanetAwakenLoader from './PlanetAwakenLoader';
+import PlanetWarpLoader from './PlanetWarpLoader';
 import {
   getPreloaderQuote,
   getPreloaderQuoteSync,
@@ -110,6 +112,24 @@ const LOADER_MAP = {
     background: '#050816',
     fadeMs: 8200,
     finishMs: 8900
+  },
+  // 常驻选项。两款都是纯动画（没有自带文字），整段约 8 秒，淡出时间比默认的
+  // 3600 / 4300 长；画布铺满视口，所以背景色只是画布加载前的底色。
+  'planet-awaken': {
+    Component: PlanetAwakenLoader,
+    status: 'Waking a planet of code',
+    fullBleed: true,
+    background: '#04061a',
+    fadeMs: 7600,
+    finishMs: 8300
+  },
+  'planet-warp': {
+    Component: PlanetWarpLoader,
+    status: 'Jumping through the gate',
+    fullBleed: true,
+    background: '#02030a',
+    fadeMs: 7600,
+    finishMs: 8300
   }
 };
 export const Preloader = ({ onFinish }) => {
