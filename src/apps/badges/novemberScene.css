@@ -1,0 +1,498 @@
+/* src/apps/badges/novemberScene.css
+ *
+ * 十一月限定赛季场景（NovemberScene.jsx）的样式。
+ * 所有类名都带 nv- 前缀，关键帧也带 nv 前缀，不会跟别处的样式冲突。
+ * 场景自己是一幅"画"，天空配色固定，不跟随系统深浅色。
+ */
+
+.nv-scene {
+  --nv-sky-a: #f6c98a; /* 左：感恩节黄昏 */
+  --nv-sky-b: #d98a7a;
+  --nv-sky-c: #6d4a78;
+  --nv-sky-d: #2b2f5e; /* 右：冬至长夜 */
+  --nv-haze: rgba(255, 236, 214, 0.55);
+  --nv-gold: #f2b84b;
+  --nv-lantern: #ffcf6b;
+  --nv-h: 480px; /* 场景高度，要跟 NOVEMBER_SCENE_HEIGHT 一致 */
+  --nv-display: "ZCOOL XiaoWei", "Songti SC", "STSong", "Noto Serif SC", serif;
+  --nv-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 1200px;
+  perspective-origin: 50% 40%;
+  user-select: none;
+  line-height: 1.6;
+  font-family: var(--nv-body);
+}
+
+.nv-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.nv-scroller {
+  position: absolute;
+  inset: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.nv-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.nv-world {
+  --mx: 0;
+  --my: 0;
+  position: relative;
+  height: 100%;
+  width: max(100%, 1080px);
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--mx) * 4deg)) rotateX(calc(var(--my) * -2deg));
+}
+
+.nv-layer {
+  position: absolute;
+  inset: -4% -6%;
+  pointer-events: none;
+  transform: translate3d(
+    calc(var(--mx) * var(--d) * -1px),
+    calc(var(--my) * var(--d) * -0.35px),
+    0
+  );
+  will-change: transform;
+}
+
+.nv-layer > svg {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.nv-sky {
+  --d: 6;
+  background:
+    radial-gradient(ellipse 30% 40% at 12% 62%, rgba(255, 214, 150, 0.9), transparent 70%),
+    linear-gradient(
+      100deg,
+      var(--nv-sky-a) 0%,
+      var(--nv-sky-b) 30%,
+      var(--nv-sky-c) 62%,
+      var(--nv-sky-d) 100%
+    );
+}
+
+.nv-far { --d: 14; }
+.nv-mid { --d: 26; }
+.nv-route { --d: 40; }
+.nv-islands-layer { --d: 40; }
+.nv-fx { --d: 48; }
+.nv-fore { --d: 80; }
+
+/* ---------- 太阳、月亮、星星 ---------- */
+
+.nv-sun {
+  position: absolute;
+  left: 10%;
+  top: 52%;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 45%, #fff1c8, #f6b75c 60%, rgba(246, 183, 92, 0) 72%);
+  filter: blur(0.5px);
+}
+
+.nv-moon {
+  position: absolute;
+  right: 11%;
+  top: 13%;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: #f4f1e4;
+  box-shadow:
+    0 0 40px 12px rgba(230, 232, 255, 0.35),
+    0 0 120px 40px rgba(170, 180, 255, 0.18);
+}
+
+.nv-moon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 35%, rgba(0, 0, 0, 0.08) 0 8%, transparent 9%),
+    radial-gradient(circle at 62% 60%, rgba(0, 0, 0, 0.07) 0 11%, transparent 12%);
+}
+
+.nv-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.2;
+  animation: nvTwinkle var(--t, 3s) ease-in-out infinite var(--dl, 0s);
+}
+
+@keyframes nvTwinkle {
+  50% {
+    opacity: var(--o, 0.9);
+    transform: scale(1.3);
+  }
+}
+
+.nv-fog {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -2%;
+  height: 30%;
+  background: linear-gradient(to top, var(--nv-haze), transparent);
+  pointer-events: none;
+}
+
+/* ---------- 小岛地标 ---------- */
+
+.nv-spot {
+  --lift: 0px;
+  position: absolute;
+  width: clamp(160px, 15vw, 204px);
+  left: var(--x);
+  bottom: var(--y);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: center;
+  font: inherit;
+  color: inherit;
+  animation: nvBob 6s ease-in-out infinite var(--bd, 0s);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes nvBob {
+  50% { translate: 0 -7px; }
+}
+
+.nv-spot--decor {
+  pointer-events: none;
+  cursor: default;
+}
+
+.nv-spot-inner {
+  display: block;
+  transform: translateY(var(--lift));
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.2);
+}
+
+.nv-spot:hover,
+.nv-spot:focus-visible,
+.nv-spot--selected {
+  --lift: -14px;
+}
+
+.nv-spot--decor:hover {
+  --lift: 0px;
+}
+
+.nv-spot:focus-visible {
+  outline: none;
+}
+
+.nv-spot:focus-visible .nv-slot {
+  outline: 2px solid var(--nv-gold);
+  outline-offset: 5px;
+}
+
+.nv-art {
+  display: block;
+}
+
+.nv-landmark {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: saturate(0.55) brightness(0.9);
+  transition: filter 0.6s ease;
+}
+
+.nv-spot:hover .nv-landmark,
+.nv-spot--selected .nv-landmark {
+  filter: saturate(0.85) brightness(1);
+}
+
+.nv-spot--lit .nv-landmark {
+  filter: none;
+}
+
+/* 留空的徽章位：玻璃质感双环 */
+.nv-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto -14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 70%);
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.18), 0 6px 18px rgba(30, 15, 45, 0.25);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  color: rgba(255, 255, 255, 0.92);
+  transition: box-shadow 0.4s, border-color 0.4s, background 0.4s;
+  z-index: 3;
+}
+
+.nv-slot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 20px;
+  transform: translateX(-50%);
+  background: linear-gradient(rgba(255, 255, 255, 0.7), transparent);
+}
+
+.nv-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1.2px dashed rgba(255, 255, 255, 0.55);
+  animation: nvSpin 24s linear infinite;
+}
+
+.nv-ring::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #fff;
+}
+
+@keyframes nvSpin {
+  to { transform: rotate(360deg); }
+}
+
+.nv-slot-lock {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.nv-slot-lock svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nv-slot-label {
+  display: none;
+  position: relative;
+  font-family: var(--nv-display);
+  font-size: 14px;
+  color: #fff;
+}
+
+.nv-spot:hover .nv-slot,
+.nv-spot--selected .nv-slot {
+  border-color: #fff;
+  box-shadow: inset 0 0 14px rgba(255, 255, 255, 0.3), 0 0 26px rgba(255, 220, 160, 0.55);
+}
+
+/* 点亮后 */
+.nv-spot--lit .nv-slot {
+  border-color: var(--nv-lantern);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.5), transparent 45%),
+    radial-gradient(circle, rgba(255, 215, 130, 0.6), rgba(255, 180, 80, 0.15) 70%);
+  box-shadow: 0 0 30px rgba(255, 200, 110, 0.75);
+}
+
+.nv-spot--lit .nv-ring {
+  border-color: rgba(255, 236, 190, 0.9);
+  border-style: solid;
+}
+
+.nv-spot--lit .nv-slot-lock {
+  display: none;
+}
+
+.nv-spot--lit .nv-slot-label {
+  display: block;
+}
+
+/* 点亮时才出现的灯火、炊烟、热汤蒸汽 */
+.nv-lit,
+.nv-smoke,
+.nv-steam {
+  opacity: 0;
+  transition: opacity 0.8s;
+}
+
+.nv-spot--lit .nv-lit,
+.nv-spot--lit .nv-smoke,
+.nv-spot--lit .nv-steam {
+  opacity: 1;
+}
+
+.nv-smoke circle {
+  animation: nvRise 4.5s ease-in infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.nv-smoke circle:nth-child(2) { animation-delay: 1.5s; }
+.nv-smoke circle:nth-child(3) { animation-delay: 3s; }
+
+@keyframes nvRise {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  20% { opacity: 0.85; }
+  100% { transform: translate(12px, -40px) scale(1.9); opacity: 0; }
+}
+
+.nv-steam path {
+  animation: nvSteam 2.8s ease-in-out infinite;
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+}
+
+.nv-steam path:nth-child(2) { animation-delay: 0.9s; }
+.nv-steam path:nth-child(3) { animation-delay: 1.8s; }
+
+@keyframes nvSteam {
+  0% { stroke-dashoffset: 28; opacity: 0; }
+  40% { opacity: 0.9; }
+  100% { stroke-dashoffset: -28; opacity: 0; }
+}
+
+.nv-flame {
+  animation: nvFlicker 0.2s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+@keyframes nvFlicker {
+  to { transform: scaleY(0.8) scaleX(1.12); }
+}
+
+.nv-lantern-sway {
+  animation: nvSway 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+@keyframes nvSway {
+  50% { transform: rotate(6deg); }
+}
+
+.nv-tag {
+  display: inline-block;
+  margin-top: -6px;
+  font-family: var(--nv-display);
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(30, 15, 40, 0.55);
+}
+
+.nv-tag small {
+  display: block;
+  font-family: var(--nv-body);
+  font-size: 12px;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+/* ---------- 飘落的叶子和雪 ---------- */
+
+.nv-leaf {
+  position: absolute;
+  top: -6%;
+  width: 12px;
+  height: 12px;
+  background: var(--c);
+  border-radius: 0 80% 0 80%;
+  opacity: 0.9;
+  animation: nvFall var(--dur) linear infinite var(--delay);
+}
+
+.nv-flake {
+  position: absolute;
+  top: -4%;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.85;
+  animation: nvFall var(--dur) linear infinite var(--delay);
+}
+
+@keyframes nvFall {
+  0% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(calc(var(--sw) * 1px), calc(var(--nv-h) * 0.25)) rotate(120deg); }
+  50% { transform: translate(calc(var(--sw) * -0.6px), calc(var(--nv-h) * 0.5)) rotate(220deg); }
+  75% { transform: translate(calc(var(--sw) * 0.8px), calc(var(--nv-h) * 0.75)) rotate(320deg); }
+  100% { transform: translate(0, calc(var(--nv-h) * 1.08)) rotate(420deg); }
+}
+
+/* ---------- 关闭光效 / 系统要求减少动效：画面静止 ---------- */
+
+.nv-scene--still *,
+.nv-scene--still *::before,
+.nv-scene--still *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+.nv-scene--still .nv-leaf,
+.nv-scene--still .nv-flake {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-scene *,
+  .nv-scene *::before,
+  .nv-scene *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .nv-leaf,
+  .nv-flake {
+    display: none;
+  }
+}
+
+/* ---------- 板子上的 HUD 文字：十一月左上角是明亮的黄昏天空，用深色字 ---------- */
+
+.bdl-scene-wrap.bdl-scene-wrap--november {
+  background: #2b2f5e;
+}
+
+.bdl-scene-wrap.bdl-scene-wrap--november .bdl-hud-eyebrow {
+  color: rgba(58, 36, 51, 0.72);
+}
+
+.bdl-scene-wrap.bdl-scene-wrap--november .bdl-hud-h3 {
+  color: #3a2433;
+  text-shadow: 0 0 14px rgba(255, 236, 214, 0.8);
+}

@@ -9,7 +9,7 @@
 // 并用自己的语气写一句话呈现给用户，格式和 outfitAiService.js 的
 // "一次性、不进聊天记录"请求是同一个写法。
 //
-// 同一次调用里，还会让角色从本月 7 个图标里挑一个自己"想要"的（纯展示
+// 同一次调用里，还会让角色从本月的图标里挑一个自己"想要"的（纯展示
 // 用，兑换页会把它标成"TA 想要的"），不影响解锁判定本身。
 
 import db from '../../db';
@@ -57,6 +57,10 @@ const buildPrompt = ({ context, seasonDef }) => {
     (tpl, index) => `${index + 1}. ${tpl.templateId}｜${tpl.aiPrompt}`
   ).join('\n');
 
+  // 本月已经定好的固定条件（每个赛季不一样），从赛季数据里读，不写死。
+  const fixedConditions = seasonDef.conditions.filter((condition) => condition.kind === 'fixed');
+  const fixedConditionText = fixedConditions.map((condition) => condition.title).join(' / ');
+
   const badgeLines = seasonDef.badges
     .map((badge, index) => `${index + 1}. ${badge.id}｜${badge.title}｜${badge.description}`)
     .join('\n');
@@ -64,7 +68,7 @@ const buildPrompt = ({ context, seasonDef }) => {
   return `你正在扮演角色「${character.name}」。人设背景：${character.bio || '普通人'}。${worldBookText}${extraNotesText}
 你对用户的称呼是「${userName}」。
 
-现在是「${seasonDef.seasonTitle}」季限定聊天成就图标开放的月份。除了已经定好的另外两个解锁条件（累计聊满 520 条消息 / 本月触发一次恶作剧），你还可以自己给${userName}定一个小小的要求——三个条件要一起全部达成，才能解锁整套图标，所以这个要求不用太难，是三个里的其中一个而已。
+现在是「${seasonDef.seasonTitle}」聊天成就图标开放的月份。除了已经定好的另外${fixedConditions.length}个解锁条件（${fixedConditionText}），你还可以自己给${userName}定一个小小的要求——三个条件要一起全部达成，才能解锁整套图标，所以这个要求不用太难，是三个里的其中一个而已。
 
 你只能从下面这三种要求里选一种（不要自己编造新的要求类型）：
 ${templateLines}

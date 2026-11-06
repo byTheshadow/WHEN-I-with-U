@@ -1,6 +1,7 @@
 // src/apps/badges/BadgeDancingLineBoard.jsx
 //
-// "本月限定" tab 主视图：万圣节浮岛场景 + 节点快捷条 + 条件详情 + 图标网格。
+// "本月限定" tab 主视图：赛季场景（10 月万圣节浮岛 / 11 月秋收到长夜小路，
+// 按 seasonDef.sceneKind 选择）+ 节点快捷条 + 条件详情 + 图标网格。
 //
 // 逻辑改动摘要（相比旧版）：
 //   - 引入 HalloweenScene（全场景 SVG）替代原来的平面路径 + 散件 Marks
@@ -11,6 +12,12 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 
 import { HalloweenScene, NodeIcon, TRACK_H, TRACK_W } from './badgeDancingLineArt';
+import {
+  NovemberScene,
+  NovemberNodeIcon,
+  NOVEMBER_NODE_TYPES,
+  NOVEMBER_SCENE_HEIGHT,
+} from './NovemberScene';
 
 /* ─────────────────────────────────────────────
    常量
@@ -18,6 +25,32 @@ import { HalloweenScene, NodeIcon, TRACK_H, TRACK_W } from './badgeDancingLineAr
 const EFFECTS_KEY = 'badge-dancingline-effects';
 
 const CONDITION_TYPES = ['pumpkin', 'tomb', 'crystal'];  // 对应 NodeIcon 的 type
+
+/* 各赛季场景的终点文案（按 seasonDef.sceneKind 取，缺省按万圣节） */
+const SCENE_COPY = {
+  halloween: {
+    vaultShort: '终点宝箱',
+    vaultTitle: '终点宝箱',
+    vaultDesc: '三个节点全部点亮，宝箱就会打开，整套图标一次性全部解锁，随时切换佩戴。',
+    vaultOn: '宝箱已开',
+    vaultOff: '尚未开启',
+    chipOn: '已开启',
+    chipOff: '未开启',
+    hintLocked: '沿着这条路，三个节点都点亮，终点的宝箱才会开。点击节点可以查看详情。',
+    hintUnlocked: '整套图标已经解锁，藏宝箱已经打开。',
+  },
+  november: {
+    vaultShort: '圭表观星台',
+    vaultTitle: '圭表观星台',
+    vaultDesc: '前三处地标全部点亮，观星台就会亮起，整套图标一次性全部解锁，随时切换佩戴。',
+    vaultOn: '观星台已亮',
+    vaultOff: '尚未点亮',
+    chipOn: '已点亮',
+    chipOff: '未点亮',
+    hintLocked: '沿着小路，前三处地标都点亮，终点的观星台才会亮起。点击地标可以查看详情。',
+    hintUnlocked: '整套图标已经解锁，观星台已经亮起。',
+  },
+};
 
 /* effects 偏好读取（localStorage + prefers-reduced-motion） */
 const readEffectsPreference = () => {
@@ -96,12 +129,16 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
   };
 
   /* ── 节点元数据 ── */
-  const NODE_KEYS = [...CONDITION_TYPES, 'vault'];
+  const isNovember = seasonDef.sceneKind === 'november';
+  const copy = isNovember ? SCENE_COPY.november : SCENE_COPY.halloween;
+  const nodeTypes = isNovember ? NOVEMBER_NODE_TYPES : CONDITION_TYPES;
+  const vaultKey = isNovember ? 'gnomon' : 'vault';
+  const NodeIconComp = isNovember ? NovemberNodeIcon : NodeIcon;
 
   // 四个节点的文案；前三个来自 seasonDef.conditions，第四个固定
   const nodeData = [
     ...seasonDef.conditions.map((c, i) => ({
-      key: CONDITION_TYPES[i] || 'crystal',
+      key: nodeTypes[i] || nodeTypes[nodeTypes.length - 1],
       short: c.title,
       title: c.title,
       desc: c.kind === 'ai'
@@ -114,10 +151,10 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
       lit: condMet[i],
     })),
     {
-      key: 'vault',
-      short: '终点宝箱',
-      title: '终点宝箱',
-      desc: '三个节点全部点亮，宝箱就会打开，整套图标一次性全部解锁，随时切换佩戴。',
+      key: vaultKey,
+      short: copy.vaultShort,
+      title: copy.vaultTitle,
+      desc: copy.vaultDesc,
       note: null,
       progress: null,
       lit: allMet,
@@ -129,10 +166,14 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
   return (
     <section className="badge-season badge-season--current">
       {/* ── 卡头 ── */}
-      <div className="bdl-scene-wrap" ref={outerRef} style={{ height: TRACK_H * scale }}>
+      <div
+        className={`bdl-scene-wrap${isNovember ? ' bdl-scene-wrap--november' : ''}`}
+        ref={outerRef}
+        style={{ height: isNovember ? NOVEMBER_SCENE_HEIGHT : TRACK_H * scale }}
+      >
         {/* HUD 标题（叠在场景左上角） */}
         <div className="bdl-hud-title" aria-hidden="true">
-          <small className="bdl-hud-eyebrow">HALLOWEEN / OCT</small>
+          <small className="bdl-hud-eyebrow">{seasonDef.sceneEyebrow || ''}</small>
           <h3 className="bdl-hud-h3">{seasonDef.seasonTitle}</h3>
         </div>
         {/* 进度点（左下角） */}
@@ -154,31 +195,38 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
           {effects ? '关闭光效' : '开启光效'}
         </button>
 
-        {/* 场景 SVG */}
-        <div
-          className="bdl-stage"
-          style={{
-            width: TRACK_W,
-            height: TRACK_H,
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-          }}
-        >
-          <HalloweenScene
+        {/* 场景：十一月用自己的整幅场景，其余赛季沿用万圣节浮岛 */}
+        {isNovember ? (
+          <NovemberScene
             lit={lit}
             selectedIdx={selectedNodeIdx}
             fxEnabled={effects}
             onNodeClick={setSelectedNodeIdx}
           />
-        </div>
+        ) : (
+          <div
+            className="bdl-stage"
+            style={{
+              width: TRACK_W,
+              height: TRACK_H,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            <HalloweenScene
+              lit={lit}
+              selectedIdx={selectedNodeIdx}
+              fxEnabled={effects}
+              onNodeClick={setSelectedNodeIdx}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── 节点快捷条（chips）── */}
       <div className="bdl-body">
         <p className="bdl-hint">
-          {unlocked
-            ? '整套图标已经解锁，藏宝箱已经打开。'
-            : '沿着这条路，三个节点都点亮，终点的宝箱才会开。点击节点可以查看详情。'}
+          {unlocked ? copy.hintUnlocked : copy.hintLocked}
         </p>
 
         <div className="bdl-chips">
@@ -191,13 +239,13 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
               onClick={() => setSelectedNodeIdx(i)}
             >
               <span className="bdl-chip-ico">
-                <NodeIcon type={n.key} on={n.lit} size={22} />
+                <NodeIconComp type={n.key} on={n.lit} size={22} />
               </span>
               <span className="bdl-chip-text">
                 <b>{n.short}</b>
                 <span>
                   {i === 3
-                    ? (n.lit ? '已开启' : '未开启')
+                    ? (n.lit ? copy.chipOn : copy.chipOff)
                     : (n.lit ? '已点亮' : '未点亮')}
                 </span>
               </span>
@@ -211,13 +259,13 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
           key={selectedNodeIdx}
         >
           <span className="bdl-detail-icon">
-            <NodeIcon type={selNode.key} on={selNode.lit} size={28} />
+            <NodeIconComp type={selNode.key} on={selNode.lit} size={28} />
           </span>
           <div className="bdl-detail-body">
             <h4>{selNode.title}</h4>
             <span className={`bdl-tag ${selNode.lit ? 'bdl-tag--on' : ''}`}>
               {selectedNodeIdx === 3
-                ? (selNode.lit ? '宝箱已开' : '尚未开启')
+                ? (selNode.lit ? copy.vaultOn : copy.vaultOff)
                 : (selNode.lit ? '已点亮' : '未点亮')}
             </span>
             <p>{selNode.desc}</p>
