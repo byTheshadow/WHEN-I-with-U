@@ -19,6 +19,7 @@
 // 菜系和投诉角度也由代码随机抽（三案互不重复），避免模型每次都编出同一个
 // "等位太久的砂锅粥"。
 
+import db from '../../../db';
 import { getGenerationContext, requestAiText } from '../../messages/interactions/interactionAiService';
 
 const MAX_EVIDENCE = 3;
@@ -219,5 +220,173 @@ export const generateCaseSet = async ({ chatId, count = 3 }) => {
   } catch (error) {
     console.warn('[FoodJudge] 案件生成失败。', error);
     return { ok: false, reason: 'unavailable' };
+  }
+};
+
+// ===================== 角色点评（Slice B） =====================
+//
+// 角色在这局里是"一起坐在判官席上的搭档"，不是案件里的人。点评时角色看
+// 到的信息跟玩家完全一样：差评、老板回应、证据，外加玩家刚下的判决。
+// 代码里的"案件真相"和案件类型不会发给角色——否则角色会变成"知道标准
+// 答案的人"，点评就没有自己的立场了。
+//
+// 角色先给出自己的立场（维持/撤销），"跟玩家一致还是不一致"由代码拿
+// 立场去比对玩家的判决得出，不让模型自己宣布。
+
+const RECENT_MESSAGE_LIMIT = 40;
+const MAX_MESSAGE_SNIPPET_LENGTH = 60;
+
+const VERDICT_WORD = { keep: '维持差评', void: '撤销差评' };
+
+const getRecentChatSnippet = async (chatId) => {
+  try {
+    const rows = await db.messages
+      .where('chatId')
+      .equals(chatId)
+      .reverse()
+      .limit(RECENT_MESSAGE_LIMIT)
+      .toArray();
+
+    return rows
+      .reverse()
+      .filter(
+        (row) =>
+          row &&
+          row.type === 'text' &&
+          typeof row.content === 'string' &&
+          row.content.trim()
+      )
+      .map(
+        (row) =>
+          `${row.sender === 'user' ? '用户' : '你'}：${row.content
+            .trim()
+            .slice(0, MAX_MESSAGE_SNIPPET_LENGTH)}`
+      )
+      .join('\n');
+  } catch (error) {
+    console.warn('[FoodJudge] 读取最近聊天记录失败，只用角色设定。', error);
+    return '';
+  }
+};
+
+const loadCharacterContext = async (chatId) => {
+  try {
+    const context = await getGenerationContext(chatId);
+    if (!context) return null;
+
+    const chatSnippet = await getRecentChatSnippet(chatId);
+    return { ...context, chatSnippet };
+  } catch (error) {
+    console.warn('[FoodJudge] 取生成上下文失败。', error);
+    return null;
+  }
+};
+
+const buildIdentityBlock = ({ character, chatSnippet }) => `你正在扮演角色：${character.name}。
+
+角色设定：
+${character.bio || '无'}
+
+补充设定：
+${character.extraNotes || '无'}
+
+你和用户最近的聊天记录（可以作为你们相处方式的参考）：
+${chatSnippet || '（暂无聊天记录）'}`;
+
+const stanceFromText = (text) => (text.includes('撤') ? 'void' : text.includes('维') ? 'keep' : null);
+
+// 返回 { ok: true, caseView, stance: 'keep'|'void', reaction } 或 { ok: false }
+export const generateCommentary = async ({ chatId, caseItem, verdict }) => {
+  try {
+    const context = await loadCharacterContext(chatId);
+    if (!context) return { ok: false };
+
+    const { character, apiConfig, chatSnippet } = context;
+
+    const evidenceText =
+      caseItem.evidence.map((item) => `${item.name}：${item.value}`).join('；') || '（无）';
+
+    const systemPrompt = `${buildIdentityBlock({ character, chatSnippet })}
+
+你和用户正在玩"美食判官"：你们坐在同一张判官席上，一起审一条店铺收到的差评，用户来下判决，决定这条差评该"维持"（继续展示）还是"撤销"（不再展示）。案件里的店、顾客、老板都是虚构的，跟你没有关系。
+
+现在审的这一案：
+店铺：${caseItem.shop}
+顾客「${caseItem.cust}」给了${caseItem.stars}星差评：${caseItem.text}
+${caseItem.boss}的回应：${caseItem.reply}
+老板列出的证据：${evidenceText}
+
+用户的判决：${VERDICT_WORD[verdict]}。
+
+请你先不受用户判决影响，独立判断这一案；再回应用户的判决。
+
+要求：
+- 看法：你对这个案子本身的看法，第一人称，符合你的性格，不超过50个汉字；
+- 立场：你自己会怎么判，只能是"维持"或"撤销"；
+- 点评：对用户这个判决的反应。你的立场跟用户一样，就认同或调侃；不一样，就坦率说出你的不同看法，语气按你和用户的关系来，不要人身攻击。不超过50个汉字；
+- 不使用 Emoji，不提及 AI、系统、游戏组件、标准答案或"真相"；
+- 不要复述案件原文。
+
+严格按下面格式输出，不要输出任何其他内容：
+看法：<对案子的看法>
+立场：<维持 或 撤销>
+点评：<对用户判决的反应>`;
+
+    // 格式偶尔会跑偏，最多试两次。
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const content = (await requestAiText({ apiConfig, systemPrompt })) || '';
+
+      const caseView = readField(content, '看法').slice(0, 100);
+      const stance = stanceFromText(readField(content, '立场'));
+      const reaction = readField(content, '点评').slice(0, 100);
+
+      if (caseView && stance && reaction) {
+        return { ok: true, caseView, stance, reaction };
+      }
+    }
+
+    return { ok: false };
+  } catch (error) {
+    console.warn('[FoodJudge] 角色点评生成失败，不影响本局。', error);
+    return { ok: false };
+  }
+};
+
+// 三案判完后的收庭陈词，一句话。失败返回空字符串，调用方用固定文案兜底。
+export const generateClosing = async ({ chatId, cases, verdicts, stances }) => {
+  try {
+    const context = await loadCharacterContext(chatId);
+    if (!context) return '';
+
+    const { character, apiConfig, chatSnippet } = context;
+
+    const lines = cases.map((item, index) => {
+      const mine = stances[index];
+      const stanceText = mine ? `你的立场是${VERDICT_WORD[mine]}` : '你没来得及表态';
+      return `第${index + 1}案「${item.shop}」：用户判了${VERDICT_WORD[verdicts[index]]}，${stanceText}`;
+    });
+
+    const stanced = stances.filter(Boolean).length;
+    const agreed = stances.filter((item, index) => item && item === verdicts[index]).length;
+
+    const systemPrompt = `${buildIdentityBlock({ character, chatSnippet })}
+
+你和用户刚在"美食判官"里一起审完了三条虚构店铺的差评：
+${lines.join('\n')}
+${stanced > 0 ? `你们在${stanced}案里有${agreed}案看法一致。` : ''}
+
+请以角色第一人称，对这一局说一句自然、符合人设的收尾，可以聊聊你们的判法有什么不同，或者约下次换你当出题人。
+
+严格要求：
+- 只输出一条可直接发送的聊天消息；
+- 长度控制在 20 到 70 个汉字之间；
+- 不使用 Emoji；
+- 不要输出标题、Markdown、括号说明或额外前言；
+- 不要提及 AI、系统、游戏组件、标准答案或技术实现。`;
+
+    return ((await requestAiText({ apiConfig, systemPrompt })) || '').trim();
+  } catch (error) {
+    console.warn('[FoodJudge] 收庭陈词生成失败，不影响本局。', error);
+    return '';
   }
 };

@@ -4,17 +4,21 @@
 // 两个真话一个假话相同，见 TextGameHallApp.jsx 的 GAME_COMPONENTS）。
 //
 // 流程：选角色 -> 生成三个案件 -> 每案：案卷（差评 + 老板回应）-> 用户判决
-// （维持差评 / 撤销差评）-> 盖章 + 店铺评分变化 + 案件真相 -> 下一案 ->
-// 三案结案。
+// （维持差评 / 撤销差评）-> 盖章 + 店铺评分变化 + 案件真相 -> 角色点评
+// （对案子的看法 + 对你判决的看法）-> 下一案 -> 三案结案（跟 TA 看法一致
+// 几案 + 收庭陈词）-> 写战绩 + 往聊天里回传结果。
 //
-// 这是 Slice A：角色在这一版里只是头像和名字，还不会点评案件或判决，
-// 战绩也不落库、不往聊天里写消息——这两样是 Slice B。对局状态只放在
-// React state 里，中途退出/刷新就是放弃这一局。
+// 角色点评在用户下完判决的那一刻就开始后台生成，用户看盖章和真相的时候
+// 请求已经在跑，点"听听 TA 怎么说"时通常已经好了。
+//
+// 对局状态只放在 React state 里，中途退出/刷新就是放弃这一局；只有三案
+// 全部判完进入结案页时才落库、回传聊天。
 
 import React, { useEffect, useRef, useState } from 'react';
 
 import { getChatIdForCharacter, listCharactersForPicker } from '../textGameSharedService';
-import { generateCaseSet } from './foodJudgeAiService';
+import { generateCaseSet, generateClosing, generateCommentary } from './foodJudgeAiService';
+import { countAgreement, recordFoodJudgeMatch } from './foodJudgeService';
 import '../textGameShared.css';
 import './foodJudge.css';
 
@@ -50,6 +54,7 @@ const PHASE = {
   ERROR: 'error',
   FILE: 'file', // 案卷：用户阅读并判决
   VERDICT: 'verdict', // 盖章 + 真相
+  COMMENT: 'comment', // 角色点评
   SUMMARY: 'summary', // 三案结案
 };
 
@@ -69,6 +74,25 @@ const describeOutcome = (caseItem, verdict) => {
   if (caseItem.truthVerdict === 'gray') return { label: '这案有争议', tone: 'gray' };
   if (caseItem.truthVerdict === verdict) return { label: '判得准', tone: 'ok' };
   return { label: '这案另有隐情', tone: 'off' };
+};
+
+// 角色在每案的立场：点评成功才有，失败/还没出来都是 null。
+const getStances = (commentaries) =>
+  Array.from({ length: TOTAL_CASES }, (_, index) =>
+    commentaries[index]?.status === 'done' ? commentaries[index].stance : null
+  );
+
+const getViews = (commentaries) =>
+  Array.from({ length: TOTAL_CASES }, (_, index) =>
+    commentaries[index]?.status === 'done' ? commentaries[index].caseView : ''
+  );
+
+// 收庭陈词请求失败时的兜底文案。
+const fallbackClosing = (agreed, stanced) => {
+  if (stanced === 0) return '这三案断完了，下次换我来当判官，看你的差评过不过得了我这关。';
+  if (agreed === stanced) return '三案的看法全对上了，看来我们对“该不该给差评”挺合拍。';
+  if (agreed === 0) return '一个都没对上，我们的口味差得真远，下次再来分个高下。';
+  return '有几案我们想法不一样，这才好玩，下次接着审。';
 };
 
 const ReviewCard = ({ caseItem }) => (
@@ -135,6 +159,11 @@ const FoodJudgeGame = ({ onExitToHall }) => {
   const [caseIndex, setCaseIndex] = useState(0);
   const [verdicts, setVerdicts] = useState([]); // ('keep' | 'void')[]
 
+  // commentaries[i]: { status: 'loading' | 'done' | 'failed', caseView, stance, reaction }
+  const [commentaries, setCommentaries] = useState([]);
+  const [closing, setClosing] = useState({ status: 'idle', text: '' });
+
+  const hasRecordedRef = useRef(false);
   // 每次重置一局就 +1：异步请求回来之后比对一下，对不上就说明用户已经
   // 退出/重开了，这次回来的结果直接丢掉，不去改新一局的状态。
   const roundTokenRef = useRef(0);
@@ -162,6 +191,9 @@ const FoodJudgeGame = ({ onExitToHall }) => {
     setCases([]);
     setCaseIndex(0);
     setVerdicts([]);
+    setCommentaries([]);
+    setClosing({ status: 'idle', text: '' });
+    hasRecordedRef.current = false;
   };
 
   const beginRound = async (id) => {
@@ -189,14 +221,80 @@ const FoodJudgeGame = ({ onExitToHall }) => {
     await beginRound(id);
   };
 
+  const updateCommentary = (index, value) => {
+    setCommentaries((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  // 用户下完判决就开始后台生成这一案的点评，不等用户点"听听 TA 怎么说"。
+  const startCommentary = async (index, verdict, caseItem) => {
+    const token = roundTokenRef.current;
+    updateCommentary(index, { status: 'loading' });
+
+    const outcome = await generateCommentary({ chatId, caseItem, verdict });
+    if (token !== roundTokenRef.current) return;
+
+    updateCommentary(
+      index,
+      outcome.ok
+        ? {
+            status: 'done',
+            caseView: outcome.caseView,
+            stance: outcome.stance,
+            reaction: outcome.reaction,
+          }
+        : { status: 'failed' }
+    );
+  };
+
   const handleVerdict = (verdict) => {
     if (phase !== PHASE.FILE) return;
+
+    const index = caseIndex;
     setVerdicts((prev) => {
       const next = [...prev];
-      next[caseIndex] = verdict;
+      next[index] = verdict;
       return next;
     });
     setPhase(PHASE.VERDICT);
+    startCommentary(index, verdict, cases[index]);
+  };
+
+  // 三案判完：进结案页，写战绩 + 回传聊天，同时生成收庭陈词。
+  // 点评按钮在生成中是禁用的，所以走到这里时每案的点评都已经出结果。
+  const finishRound = async () => {
+    setPhase(PHASE.SUMMARY);
+
+    if (hasRecordedRef.current || !selectedCharacter) return;
+    hasRecordedRef.current = true;
+
+    const token = roundTokenRef.current;
+    const stances = getStances(commentaries);
+    const views = getViews(commentaries);
+    const { agreed, stanced } = countAgreement(verdicts, stances);
+
+    setClosing({ status: 'loading', text: '' });
+    const closingPromise = generateClosing({ chatId, cases, verdicts, stances });
+
+    try {
+      await recordFoodJudgeMatch({
+        characterId: selectedCharacter.id,
+        cases,
+        verdicts,
+        stances,
+        views,
+      });
+    } catch (error) {
+      console.warn('[FoodJudge] 战绩写回失败。', error);
+    }
+
+    const text = await closingPromise;
+    if (token !== roundTokenRef.current) return;
+
+    setClosing({ status: 'done', text: text || fallbackClosing(agreed, stanced) });
   };
 
   const handleNext = () => {
@@ -205,7 +303,7 @@ const FoodJudgeGame = ({ onExitToHall }) => {
       setPhase(PHASE.FILE);
       return;
     }
-    setPhase(PHASE.SUMMARY);
+    finishRound();
   };
 
   const handlePlayAgain = () => {
@@ -220,6 +318,8 @@ const FoodJudgeGame = ({ onExitToHall }) => {
   };
 
   // ================= 渲染 =================
+
+  const characterName = selectedCharacter?.name || 'TA';
 
   const renderBackButton = (onClick) => (
     <button type="button" className="tgh-back-btn-light" aria-label="返回" onClick={onClick}>
@@ -244,6 +344,17 @@ const FoodJudgeGame = ({ onExitToHall }) => {
           return <span key={index} className={className} />;
         })}
       </div>
+    </div>
+  );
+
+  const renderBubble = (tagText, text, extra) => (
+    <div className="tgf-bub">
+      <div className="tgf-bub-who">
+        <AvatarBubble character={selectedCharacter} className="tgf-bub-av" />
+        <span className="tgf-bub-tag">{tagText}</span>
+      </div>
+      <p>{text}</p>
+      {extra}
     </div>
   );
 
@@ -365,7 +476,6 @@ const FoodJudgeGame = ({ onExitToHall }) => {
     const verdict = verdicts[caseIndex];
     const outcome = describeOutcome(caseItem, verdict);
     const after = ratingAfterVerdict(caseItem, verdict);
-    const isLast = caseIndex === TOTAL_CASES - 1;
 
     return (
       <div className="tgh-shared-screen tgf-screen">
@@ -401,7 +511,60 @@ const FoodJudgeGame = ({ onExitToHall }) => {
           </div>
 
           <div className="tgf-actions">
-            <button type="button" className="tgf-btn tgf-btn-solid" onClick={handleNext}>
+            <button
+              type="button"
+              className="tgf-btn tgf-btn-solid"
+              onClick={() => setPhase(PHASE.COMMENT)}
+            >
+              听听 {characterName} 怎么说
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === PHASE.COMMENT && caseItem) {
+    const verdict = verdicts[caseIndex];
+    const commentary = commentaries[caseIndex];
+    const isLoading = !commentary || commentary.status === 'loading';
+    const isLast = caseIndex === TOTAL_CASES - 1;
+    const agree = commentary?.status === 'done' && commentary.stance === verdict;
+
+    return (
+      <div className="tgh-shared-screen tgf-screen">
+        {renderBackButton(handleBackToPicker)}
+        {renderMasthead(`第 ${caseIndex + 1} / ${TOTAL_CASES} 案`)}
+
+        <div className="tgf-body">
+          <div className="tgf-label">角色点评</div>
+
+          {isLoading && <p className="tgf-wait">{characterName}正在翻案卷……</p>}
+
+          {!isLoading && commentary.status === 'failed' && (
+            <p className="tgf-wait">{characterName}这次没想好怎么说，直接看下一案吧。</p>
+          )}
+
+          {!isLoading && commentary.status === 'done' && (
+            <div className="tgf-chat">
+              {renderBubble('对这个案子', commentary.caseView)}
+              {renderBubble(
+                '对你的判决',
+                commentary.reaction,
+                <span className={agree ? 'tgf-agree tgf-agree-yes' : 'tgf-agree tgf-agree-no'}>
+                  {agree ? `与 ${characterName} 想法一致` : `与 ${characterName} 想法不同`}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="tgf-actions">
+            <button
+              type="button"
+              className="tgf-btn tgf-btn-solid"
+              onClick={handleNext}
+              disabled={isLoading}
+            >
               {isLast ? '查看本局结案' : '下一案'}
             </button>
           </div>
@@ -411,6 +574,8 @@ const FoodJudgeGame = ({ onExitToHall }) => {
   }
 
   // PHASE.SUMMARY
+  const stances = getStances(commentaries);
+  const { agreed, stanced } = countAgreement(verdicts, stances);
   const keepCount = verdicts.filter((item) => item === 'keep').length;
   const voidCount = verdicts.filter((item) => item === 'void').length;
 
@@ -422,14 +587,26 @@ const FoodJudgeGame = ({ onExitToHall }) => {
       <div className="tgf-body">
         <div className="tgf-label">三案结案</div>
 
-        <div className="tgf-summary-count">
-          维持 {keepCount}<span> · </span>撤销 {voidCount}
+        {stanced > 0 ? (
+          <div className="tgf-summary-count">
+            {agreed} / {stanced}
+            <span> 与 {characterName} 看法一致</span>
+          </div>
+        ) : (
+          <div className="tgf-summary-count">
+            {TOTAL_CASES}
+            <span> 案已审结</span>
+          </div>
+        )}
+        <div className="tgf-summary-sub">
+          维持 {keepCount} · 撤销 {voidCount}
         </div>
 
         <div className="tgf-rows">
           {cases.map((item, index) => {
             const verdict = verdicts[index] || 'keep';
             const outcome = describeOutcome(item, verdict);
+            const stance = stances[index];
 
             return (
               <div className="tgf-row" key={item.no}>
@@ -443,12 +620,34 @@ const FoodJudgeGame = ({ onExitToHall }) => {
                     {item.cust} · {item.stars} 星
                   </span>
                   <span className={`tgf-truth-tag tgf-truth-${outcome.tone}`}>{outcome.label}</span>
+                  {stance && (
+                    <span
+                      className={
+                        stance === verdict
+                          ? 'tgf-truth-tag tgf-truth-ok'
+                          : 'tgf-truth-tag tgf-truth-off'
+                      }
+                    >
+                      {stance === verdict ? `与 ${characterName} 一致` : `与 ${characterName} 不同`}
+                    </span>
+                  )}
                 </div>
                 <p className="tgf-row-truth">{item.truth}</p>
               </div>
             );
           })}
         </div>
+
+        {closing.status === 'loading' && (
+          <p className="tgf-wait">{characterName}正在整理收庭陈词……</p>
+        )}
+        {closing.status === 'done' && (
+          <div className="tgf-chat">{renderBubble('收庭陈词', closing.text)}</div>
+        )}
+
+        {closing.status === 'done' && (
+          <p className="tgf-footnote">这一局的结果已经让TA知道了，下次聊天可能会提起。</p>
+        )}
 
         <div className="tgh-shared-actions">
           <button
