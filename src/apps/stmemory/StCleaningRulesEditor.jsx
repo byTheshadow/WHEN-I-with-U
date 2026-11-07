@@ -2,14 +2,13 @@
 //
 // 清洗规则编辑器：导入前决定"哪些内容要从消息里清掉"。
 //   - 标签：写 <is></is> 就把所有 <is> ... </is> 包着的内容连标签一起清掉（一次可以写多个）
-//   - 一键配方：常见写法的现成规则（思维链、OOC、HTML 注释、状态栏），要不要用你自己点
+//   - 聊天里出现的标签：试跑时从这份聊天里扫出来的成对标签，按出现次数列出，点一下加进规则
 //   - 高级：自己写正则（查找 / 标志 / 替换成）
 // 规则列表由父组件持有并保存，这里只负责编辑。
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import {
-  CLEANING_RECIPES,
   makeRegexRule,
   makeTagRule,
   parseTagNames,
@@ -22,7 +21,7 @@ const fieldStyle = {
   color: 'var(--text-main)',
 };
 
-const StCleaningRulesEditor = ({ rules, onChange }) => {
+const StCleaningRulesEditor = ({ rules, onChange, tagStats = [] }) => {
   const [tagInput, setTagInput] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [regexFind, setRegexFind] = useState('');
@@ -124,26 +123,32 @@ const StCleaningRulesEditor = ({ rules, onChange }) => {
         </button>
       </div>
 
-      <div className="space-y-1">
-        <span className="font-semibold">一键配方</span>
-        <div className="flex flex-wrap gap-1.5">
-          {CLEANING_RECIPES.map((recipe) => (
-            <button
-              key={recipe.id}
-              type="button"
-              title={recipe.hint}
-              onClick={() => addRules(recipe.build())}
-              className="rounded-full border px-2.5 py-1"
-              style={fieldStyle}
-            >
-              {recipe.label}
-            </button>
-          ))}
+      {tagStats.length > 0 && (
+        <div className="space-y-1">
+          <span className="font-semibold">这份聊天里出现的标签</span>
+          <p className="text-[10px] opacity-50">
+            按出现次数从多到少列出，只统计成对的 {'<名字> ... </名字>'}。点一下把它加进清洗规则（会连标签带内容一起删），加完用"重新统计"看前后对比。
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {tagStats.slice(0, 30).map((item) => {
+              const added = rules.some((rule) => rule.id === `tag:${item.tag}`);
+              return (
+                <button
+                  key={item.tag}
+                  type="button"
+                  disabled={added}
+                  title={`出现在 ${item.messageCount} 条消息里，共约 ${item.chars} 字`}
+                  onClick={() => addRules([makeTagRule(item.tag)])}
+                  className="rounded-full border px-2.5 py-1 font-mono text-[11px] disabled:opacity-40"
+                  style={fieldStyle}
+                >
+                  {`<${item.tag}>`} x{item.count}{added ? ' 已加' : ''}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <p className="text-[10px] opacity-50">
-          配方只是常见写法的猜测，加进来之后用"重新统计"的前后对比核对，再自己增删。
-        </p>
-      </div>
+      )}
 
       <button
         type="button"

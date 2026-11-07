@@ -256,7 +256,11 @@ const StJsonlImportModal = ({ file, onClose, onImported }) => {
         {rulesLoaded && (
           <div className="space-y-2 rounded-2xl border p-3" style={fieldStyle}>
             <h4 className="font-semibold">清洗规则</h4>
-            <StCleaningRulesEditor rules={rules} onChange={handleRulesChange} />
+            <StCleaningRulesEditor
+              rules={rules}
+              onChange={handleRulesChange}
+              tagStats={preview?.tagStats || []}
+            />
           </div>
         )}
 

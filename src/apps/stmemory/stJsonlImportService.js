@@ -19,7 +19,12 @@ import {
   makeImportId,
   writeStreamToPack,
 } from './stPackService';
-import { cleanMessageText, compileRules } from './stCleaning';
+import {
+  cleanMessageText,
+  compileRules,
+  scanPairedTags,
+  summarizeTagScan,
+} from './stCleaning';
 import {
   formatMessageLine,
   hashMessage,
@@ -72,6 +77,7 @@ export const previewStJsonl = async (file, rules) => {
 
   const charNames = new Map();
   const userNames = new Map();
+  const tagScan = new Map();
   const samples = [];
   const stats = {
     totalKept: 0,
@@ -102,6 +108,9 @@ export const previewStJsonl = async (file, rules) => {
       if (previous && index === previousCount - 1) {
         lastHashMatched = running === previous.lastHash;
       }
+
+      // 标签扫描看的是清洗前的原文，已经加进规则的标签也照常列出。
+      scanPairedTags(message.raw, tagScan);
 
       const cleaned = cleanMessageText(message.raw, compiled);
       const isTail = !previous || index >= previousCount;
@@ -147,6 +156,7 @@ export const previewStJsonl = async (file, rules) => {
     stats,
     samples,
     skippedLines,
+    tagStats: summarizeTagScan(tagScan),
     // 说话人：群聊（角色一方不止一个名字）第一版不支持。
     charName: topKey(charNames) || header?.charName || '',
     charNames: [...charNames.keys()],

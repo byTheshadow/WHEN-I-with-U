@@ -69,36 +69,36 @@ export const makeRegexRule = ({ findRegex, flags = 'gi', replaceString = '' }) =
   };
 };
 
-/** 一键配方。注意：这些只是常见写法的猜测，要拿你真实的聊天记录核对、再调。 */
-export const CLEANING_RECIPES = [
-  {
-    id: 'thinking',
-    label: '思维链标签',
-    hint: 'think / thinking / thought / reasoning / 思考 / 思维链',
-    build: () => ['think', 'thinking', 'thought', 'reasoning', '思考', '思维链'].map(makeTagRule),
-  },
-  {
-    id: 'ooc',
-    label: 'OOC 括号',
-    hint: '(OOC: ...) 和 [OOC: ...]',
-    build: () => [makeRegexRule({
-      findRegex: '[\\(（\\[]\\s*OOC\\s*[:：][^\\)）\\]]*[\\)）\\]]',
-      flags: 'gi',
-    })],
-  },
-  {
-    id: 'comment',
-    label: 'HTML 注释',
-    hint: '<!-- ... -->',
-    build: () => [makeRegexRule({ findRegex: '<!--[\\s\\S]*?-->', flags: 'g' })],
-  },
-  {
-    id: 'status',
-    label: '状态栏（常见写法）',
-    hint: 'status / statusbar / StatusBlock / 状态栏 标签',
-    build: () => ['status', 'statusbar', 'status_bar', 'StatusBlock', '状态栏'].map(makeTagRule),
-  },
-];
+/**
+ * 扫描一条消息里实际出现的成对标签（<名字> ... </名字>），累加进 acc（Map）。
+ * 不预设任何标签名：有什么就统计什么，由用户在界面上自己挑要清的。
+ * acc: Map<标签名, { tag, count, messageCount, chars }>
+ */
+export const scanPairedTags = (text, acc) => {
+  const source = String(text || '');
+  const pattern = /<([^\s<>/=,!?]+)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/g;
+  const seenInMessage = new Set();
+  let match = pattern.exec(source);
+  while (match) {
+    const tag = match[1];
+    const entry = acc.get(tag) || {
+      tag, count: 0, messageCount: 0, chars: 0,
+    };
+    entry.count += 1;
+    entry.chars += match[0].length;
+    if (!seenInMessage.has(tag)) {
+      seenInMessage.add(tag);
+      entry.messageCount += 1;
+    }
+    acc.set(tag, entry);
+    match = pattern.exec(source);
+  }
+};
+
+/** 把扫描结果整理成按出现次数从多到少的数组。 */
+export const summarizeTagScan = (acc) => (
+  [...acc.values()].sort((a, b) => (b.count - a.count) || (b.chars - a.chars))
+);
 
 /** 把规则列表编译成可以反复使用的 [{ re, replacement }]；写错的正则会被跳过。 */
 export const compileRules = (rules) => (
