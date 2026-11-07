@@ -13,7 +13,7 @@ export const DEFAULT_FRAMING = FRAMING_BACKGROUND;
 
 export const FRAMING_OPTIONS = [
   {
-    id: FRAMING_BACKGROUND,
+    id: FRAMING_BACKGROUND
     label: '背景故事',
     hint: '当作你们真实经历过的事',
   },

@@ -223,7 +223,7 @@ export const importTextAsPack = async (source, options = {}) => {
     const { chunks: lastChunks } = takeChunks(buffer, true);
     for (const chunk of lastChunks) {
       await pushChunk(chunk);
-    }
+    
     await flush();
 
     if (chunkTokens.length === 0) {

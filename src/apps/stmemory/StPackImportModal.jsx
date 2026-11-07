@@ -128,7 +128,6 @@ const StPackImportModal = ({ onClose, onImported }) => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={isImporting}
-        />
 
         <div className="grid grid-cols-2 gap-2">
           <input

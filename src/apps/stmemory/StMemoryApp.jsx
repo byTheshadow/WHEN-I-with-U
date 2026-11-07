@@ -11,14 +11,20 @@ import { ArrowLeft, Library, Plus, Trash2, X } from 'lucide-react';
 import ConfirmModal from '../../components/ConfirmModal';
 import { triggerGlobalToast } from '../../components/NotificationToast';
 import StPackImportModal from './StPackImportModal';
-import { deletePack, getAllPacks, updatePackMeta } from './stPackService';
+import StJsonlImportModal from './StJsonlImportModal';
+import {
+  deletePack,
+  getAllPacks,
+  undoLastImport,
+  updatePackMeta,
+} from './stPackService';
 
 const formatDate = (iso) => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
 };
 
-const PackDetailModal = ({ pack, onClose, onSaved }) => {
+const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
   const [title, setTitle] = useState(pack.title || '');
   const [overview, setOverview] = useState(pack.overview || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -92,6 +98,25 @@ const PackDetailModal = ({ pack, onClose, onSaved }) => {
           </p>
         </div>
 
+        {Array.isArray(pack.imports) && pack.imports.length > 1 && (
+          <div className="space-y-1.5 rounded-xl border px-3 py-2.5" style={fieldStyle}>
+            <p className="font-semibold">导入记录（{pack.imports.length} 次）</p>
+            {pack.imports.map((record) => (
+              <p key={record.importId} className="opacity-65">
+                {record.label} / {record.chunkCount} 块 / {formatDate(record.createdAt)}
+              </p>
+            ))}
+            <button
+              type="button"
+              onClick={() => onRequestUndo(pack)}
+              className="mt-1 w-full rounded-lg border py-1.5 font-semibold"
+              style={fieldStyle}
+            >
+              撤销最近一次导入
+            </button>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleSave}
@@ -112,6 +137,8 @@ const StMemoryApp = ({ onBackHub }) => {
   const [showImport, setShowImport] = useState(false);
   const [detailPack, setDetailPack] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [undoTarget, setUndoTarget] = useState(null);
+  const [jsonlFile, setJsonlFile] = useState(null);
 
   const loadPacks = useCallback(async () => {
     setPacks(await getAllPacks());
@@ -133,6 +160,21 @@ const StMemoryApp = ({ onBackHub }) => {
     } catch (error) {
       console.error('[stmemory] 删除失败：', error);
       triggerGlobalToast({ title: '删除失败', content: '请稍后再试。' });
+    }
+  };
+
+  const handleConfirmUndo = async () => {
+    const target = undoTarget;
+    setUndoTarget(null);
+    if (!target) return;
+
+    try {
+      await undoLastImport(target.id);
+      await loadPacks();
+      triggerGlobalToast({ title: '已撤销', content: '最近一次导入已经撤销。' });
+    } catch (error) {
+      console.error('[stmemory] 撤销失败：', error);
+      triggerGlobalToast({ title: '撤销失败', content: error?.message || '请稍后再试。' });
     }
   };
 
@@ -196,7 +238,8 @@ const StMemoryApp = ({ onBackHub }) => {
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-sm font-semibold">{pack.title}</h3>
                 <p className="mt-0.5 text-[11px] opacity-55">
-                  {pack.chunkCount} 块 / 估算 {(pack.tokenEstimate || 0).toLocaleString()} token
+                  {pack.sourceType === 'st-jsonl' ? 'ST 聊天' : '文本'} / {pack.chunkCount} 块 / 估算{' '}
+                  {(pack.tokenEstimate || 0).toLocaleString()} token
                   {formatDate(pack.createdAt) ? ` / ${formatDate(pack.createdAt)}` : ''}
                 </p>
               </div>
@@ -220,6 +263,18 @@ const StMemoryApp = ({ onBackHub }) => {
         <StPackImportModal
           onClose={() => setShowImport(false)}
           onImported={() => void loadPacks()}
+          onPickJsonl={(picked) => {
+            setShowImport(false);
+            setJsonlFile(picked);
+          }}
+        />
+      )}
+
+      {jsonlFile && (
+        <StJsonlImportModal
+          file={jsonlFile}
+          onClose={() => setJsonlFile(null)}
+          onImported={() => void loadPacks()}
         />
       )}
 
@@ -228,8 +283,20 @@ const StMemoryApp = ({ onBackHub }) => {
           pack={detailPack}
           onClose={() => setDetailPack(null)}
           onSaved={() => void loadPacks()}
+          onRequestUndo={(target) => {
+            setDetailPack(null);
+            setUndoTarget(target);
+          }}
         />
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(undoTarget)}
+        title="撤销最近一次导入"
+        message="确定撤销最近一次导入吗？这一次导入的内容会从记忆包里移除，之前的内容不受影响。此操作不可恢复。"
+        onConfirm={handleConfirmUndo}
+        onCancel={() => setUndoTarget(null)}
+      />
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
