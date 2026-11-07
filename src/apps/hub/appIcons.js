@@ -25,6 +25,7 @@ import {
   Heart,
   Hourglass,
   Leaf,
+   Library,
   Map as MapIcon,
   Medal,
   MailOpen,

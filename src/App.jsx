@@ -129,7 +129,8 @@ const PebblingApp = lazyWithRetry(() => import('./apps/pebbling/PebblingApp'), '
 const ImaginariumApp = lazyWithRetry(() => import('./apps/imaginarium/ImaginariumApp'), 'ImaginariumApp');
 const BubbleApp = lazyWithRetry(() => import('./apps/bubble/BubbleApp'), 'BubbleApp');
 const RpApp = lazyWithRetry(() => import('./apps/rp/RpApp'), 'RpApp');
-  const GreetingApp = lazyWithRetry(() => import('./apps/greeting/GreetingApp'), 'GreetingApp');
+ const StMemoryApp = lazyWithRetry(() => import('./apps/stmemory/StMemoryApp'), 'StMemoryApp');
+const GreetingApp = lazyWithRetry(() => import('./apps/greeting/GreetingApp'), 'GreetingApp');
 const ImageStudioApp = lazyWithRetry(() => import('./apps/imagestudio/ImageStudioApp'), 'ImageStudioApp');
 const LayoutStudioApp = lazyWithRetry(() => import('./apps/layoutstudio/LayoutStudioApp'), 'LayoutStudioApp');
 const HabitatApp = lazyWithRetry(() => import('./apps/habitat/HabitatApp'), 'HabitatApp');
@@ -228,6 +229,7 @@ const REGISTERED_APPS = [
   'bubble',
   'habitat',
      'rp',
+     'stmemory',
      'greeting',
     'imagestudio',
     'layoutstudio',
@@ -1314,6 +1316,14 @@ const isFictionApp = currentApp === 'fiction';
                   setIsInsideChatRoom
                 }
               />
+            </React.Suspense>
+          </ErrorBoundary>
+        )}
+        
+                {currentApp === 'stmemory' && (
+          <ErrorBoundary>
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <StMemoryApp onBackHub={() => openApp('hub')} />
             </React.Suspense>
           </ErrorBoundary>
         )}

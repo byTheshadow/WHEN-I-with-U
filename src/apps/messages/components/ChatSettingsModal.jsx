@@ -14,7 +14,8 @@ import {
   EyeOff,
     Type,
   Palette,
-  Download
+  Download,
+  Library
 } from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
 import ColorSettingRow from './ColorSettingRow';
@@ -40,6 +41,13 @@ import { BUILTIN_WORLD_BOOK_METAS } from '../builtinWorldBook';
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 import { clearChatRealVoiceMedia, clearChatRealPhotoMedia } from '../chatMediaCleanupService';
 import ChatExportModal from '../export/ChatExportModal';
+import { lazyWithRetry } from '../../../utils/lazyWithRetry';
+
+// 剧情记忆包的管理面板是独立的新界面,点开才加载,不增加聊天设置本身的体积。
+const StPackChatPanel = lazyWithRetry(
+  () => import('../../stmemory/StPackChatPanel'),
+  'StPackChatPanel',
+);
 import { releasePhotoObjectUrl } from './cards/PhotoCard';
 import { getLocationSettings, setLocationEnabled } from '../../../apps/location/placeService';
 
@@ -73,6 +81,7 @@ export const ChatSettingsModal = ({
   const [showPhotoMediaClearConfirm, setShowPhotoMediaClearConfirm] = useState(false);
    const [isClearingPhotoMedia, setIsClearingPhotoMedia] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+    const [showStPackPanel, setShowStPackPanel] = useState(false);
 
   const handleClearVoiceMedia = async () => {
     if (!chat?.id) return;
@@ -987,6 +996,43 @@ const handleToggleLocation = async () => {
           chat={chat}
           onUpdated={onUpdatedUserPersona}
         />
+
+        
+        {/* 剧情记忆包(把别处导入的剧情带进这个聊天;具体操作在独立的新界面里) */}
+        <div
+          className="space-y-2.5 p-3.5 rounded-2xl border w-full"
+          style={{
+            background: 'var(--control-soft-bg)',
+            borderColor: 'var(--card-border)',
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-bold">
+              <Library className="w-3.5 h-3.5" />
+              <span>剧情记忆包</span>
+            </div>
+            <span className="font-mono text-[9px] opacity-45">
+              STORY PACKS
+            </span>
+          </div>
+          <p className="text-[10px] leading-relaxed opacity-60">
+            把导入的剧情记录挂到这个聊天,让角色知道这些事。
+            {Array.isArray(chat?.stPackLinks) && chat.stPackLinks.length > 0
+              ? `目前挂了 ${chat.stPackLinks.length} 个,其中 ${chat.stPackLinks.filter((link) => link.enabled).length} 个开启。`
+              : '目前还没有挂载。'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowStPackPanel(true)}
+            className="w-full py-2 rounded-xl border text-xs font-semibold"
+            style={{
+              background: 'var(--card-bg)',
+              borderColor: 'var(--card-border)',
+            }}
+          >
+            打开记忆包面板
+          </button>
+        </div>
 
         {/* 自定义总提示词控制区 - 独立区块，宽度撑满 */}
         <div
@@ -2201,6 +2247,15 @@ const handleToggleLocation = async () => {
         </div>
       </div>
 
+      {showStPackPanel && (
+        <React.Suspense fallback={null}>
+          <StPackChatPanel
+            chat={chat}
+            onClose={() => setShowStPackPanel(false)}
+            onUpdated={onUpdatedUserPersona}
+          />
+        </React.Suspense>
+      )}
            {showExportModal && (
         <ChatExportModal
           chatId={chat?.id}

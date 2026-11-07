@@ -34,6 +34,7 @@ import {
   Globe,
   Hourglass,
   ScrollText,
+   Library,
   Shell,
   Medal,
   Heart,
@@ -323,6 +324,35 @@ export const buildAppGridItems = ({
           <AppTitle en="RP" zh="长文" ko="장문 롤플레이" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
             Immersive Roleplay
+          </p>
+        </div>
+      </GlassCard>
+    ),
+  },
+
+    {
+    id: 'stmemory',
+    colSpan: 1,
+    content: (
+      <GlassCard
+        blur={false}
+        onClick={() => onOpenApp('stmemory')}
+        className="group flex h-full cursor-pointer flex-col justify-between p-4 text-left"
+      >
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: 'var(--control-soft-bg)' }}
+        >
+          <Library
+            className="h-5 w-5 opacity-90"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+
+        <div>
+          <AppTitle en="Memory Packs" zh="记忆包" ko="기억 꾸러미" mode={nameMode} />
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
+            Story Import
           </p>
         </div>
       </GlassCard>

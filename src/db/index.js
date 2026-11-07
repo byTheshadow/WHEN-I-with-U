@@ -5156,4 +5156,12 @@ db.version(109).stores({
   longDiaries: '++id, chatId, characterId, createdAt',
 });
 
+// ST 记忆桥(src/apps/stmemory/):导入的剧情记录做成"记忆包",原文切块存成独立的行,
+// 不放进包记录的大数组字段里。聊天侧只在 chats 上加无索引字段 stPackLinks,不需要新表。
+// importId 先建好索引,给以后"整批撤销"和增量导入用,避免再升一次版本。
+db.version(110).stores({
+  stMemoryPacks: '++id, createdAt, updatedAt',
+  stPackChunks: '++id, packId, importId, [packId+index]',
+});
+
 export default db;

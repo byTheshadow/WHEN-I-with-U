@@ -18,6 +18,7 @@ import {
   scheduleMemoryProcessing,
 } from './memoryProvider';
 import { markCharacterInteraction } from '../apps/memory/memoryCharacterState';
+import { getStPackPromptContext } from '../apps/stmemory/stPackInjectionService';
 import { checkAbsenceEmotionSignal } from '../apps/memory/characterAbsenceService';
 import {
   forceUpdateDiyArea,
@@ -1252,14 +1253,15 @@ const saveAiErrorMessage = async (chatId, character, result) => {
 };
 
 
-
 const getSafeChatMemoryContext = async ({
   chatId,
   userText = '',
   recentMessages = [],
 }) => {
+  let memoryContext = '';
+
   try {
-    return await getChatMemoryContext({
+    memoryContext = await getChatMemoryContext({
       chatId,
       userText,
       recentMessages,
@@ -1272,10 +1274,15 @@ const getSafeChatMemoryContext = async ({
 
     /*
      * 记忆检索异常不应阻断正常聊天、重生成或后台主动消息。
-     * 系统提示词拼接时需要字符串，因此安全降级为空字符串。
+     * 系统提示词拼接时需要字符串,因此安全降级为空字符串。
      */
-    return '';
+    memoryContext = '';
   }
+
+  // ST 记忆包:和"记忆来源开关"无关,挂着的包照常注入;内部自带异常降级。
+  const stPackContext = await getStPackPromptContext(chatId);
+
+  return `${memoryContext || ''}${stPackContext}`;
 };
 
 
