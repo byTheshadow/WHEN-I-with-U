@@ -327,5 +327,12 @@ export const undoLastImport = async (packId) => {
   };
   if (last.sourceBefore) patch.source = last.sourceBefore;
 
+  // 覆盖到被撤销内容的总结条目也要一起去掉（手写的总结没有覆盖范围，保留）。
+  if (Array.isArray(pack.summaryEntries) && pack.summaryEntries.length > 0) {
+    patch.summaryEntries = pack.summaryEntries.filter((entry) => (
+      !Number.isFinite(entry?.coveredChunkThrough) || entry.coveredChunkThrough < last.firstIndex
+    ));
+  }
+
   await db.stMemoryPacks.update(packId, patch);
 };

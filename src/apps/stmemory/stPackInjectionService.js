@@ -14,6 +14,8 @@ import {
 } from './stPackConstants';
 import {
   getFramingText,
+  getSummaryEntries,
+  hasSummaryEntries,
   normalizeRange,
   planStPackInjection,
 } from './stPackBudget';
@@ -28,16 +30,28 @@ const replacePlaceholders = (text, charName, userName) => (
 
 const buildPackBlock = async (item) => {
   const { pack, link } = item;
-  const range = normalizeRange(link.range, pack.chunkCount);
-  const chunks = range ? await getChunksInRange(pack.id, range.from, range.to) : [];
-  const body = chunks.map((chunk) => chunk.text).join('');
+  const useSummary = hasSummaryEntries(pack);
+
+  let body = '';
+  if (useSummary) {
+    // 总结条目优先：有总结就只注入总结（按条目范围），不读原文块。
+    const entries = getSummaryEntries(pack);
+    const range = normalizeRange(link.entryRange, entries.length);
+    body = range
+      ? entries.slice(range.from, range.to + 1).map((entry) => String(entry.text || '').trim()).filter(Boolean).join('\n\n')
+      : '';
+  } else {
+    const range = normalizeRange(link.range, pack.chunkCount);
+    const chunks = range ? await getChunksInRange(pack.id, range.from, range.to) : [];
+    body = chunks.map((chunk) => chunk.text).join('');
+  }
 
   const parts = [`【记忆包：${pack.title}】`, getFramingText(link)];
 
   const overview = String(pack.overview || '').trim();
   if (overview) parts.push(`【概览】\n${overview}`);
 
-  if (body.trim()) parts.push(`【内容】\n${body.trim()}`);
+  if (body.trim()) parts.push(`${useSummary ? '【剧情总结】' : '【内容】'}\n${body.trim()}`);
 
   return parts.join('\n');
 };

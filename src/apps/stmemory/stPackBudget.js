@@ -45,6 +45,29 @@ export const getRangeTokens = (pack, range) => {
   return sum;
 };
 
+// 总结条目：存在包记录的 summaryEntries 上（[{ id, text, tokenEstimate, ... }]）。
+// 包里只要有总结条目，注入和预算就只算总结条目（总结条目优先）；没有才用原文块。
+export const getSummaryEntries = (pack) => (
+  Array.isArray(pack?.summaryEntries) ? pack.summaryEntries : []
+);
+
+export const hasSummaryEntries = (pack) => getSummaryEntries(pack).length > 0;
+
+export const getEntryRangeTokens = (pack, range) => {
+  const entries = getSummaryEntries(pack);
+  const normalized = normalizeRange(range, entries.length);
+  if (!normalized) return 0;
+
+  let sum = 0;
+  for (let i = normalized.from; i <= normalized.to; i += 1) {
+    const entry = entries[i];
+    sum += Number.isFinite(entry?.tokenEstimate)
+      ? entry.tokenEstimate
+      : estimateTokens(entry?.text || '');
+  }
+  return sum;
+};
+
 export const getFramingText = (link) => {
   const preset = FRAMING_TEXTS[link?.framing] || FRAMING_TEXTS[DEFAULT_FRAMING];
   const extra = String(link?.framingText || '').trim();
@@ -55,7 +78,9 @@ export const getFramingText = (link) => {
 const BLOCK_OVERHEAD_TOKENS = 30;
 
 export const getLinkTokens = (pack, link) => (
-  getRangeTokens(pack, link?.range)
+  (hasSummaryEntries(pack)
+    ? getEntryRangeTokens(pack, link?.entryRange)
+    : getRangeTokens(pack, link?.range))
   + estimateTokens(pack?.overview || '')
   + estimateTokens(getFramingText(link))
   + BLOCK_OVERHEAD_TOKENS

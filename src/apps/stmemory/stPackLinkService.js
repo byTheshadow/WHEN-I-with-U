@@ -5,6 +5,8 @@
 //   chat.stPackBudgetTokens 这个聊天的记忆包总预算（估算 token）
 //
 // range 为 null 表示整包；否则是 { from, to }（块下标，含两端）。
+// entryRange 同样的形状，但下标是总结条目：包里有总结条目时用它，没有才用 range。
+// 旧的连接没有 entryRange 字段，读出来是 undefined，按"全部"处理。
 // 范围存在连接上，不存在包上——同一个包挂到不同聊天可以选不同范围。
 import db from '../../db';
 import { DEFAULT_BUDGET_TOKENS, DEFAULT_FRAMING } from './stPackConstants';
@@ -25,6 +27,7 @@ export const makeLink = (packId, order) => ({
   enabled: true,
   order,
   range: null,
+  entryRange: null,
 });
 
 export const saveChatLinks = async (chatId, links) => {

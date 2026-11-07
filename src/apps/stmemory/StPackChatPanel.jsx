@@ -12,7 +12,12 @@ import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Library, Plus, Trash2, X } from 'lucide-react';
 
 import { FRAMING_OPTIONS } from './stPackConstants';
-import { normalizeRange, planStPackInjection } from './stPackBudget';
+import {
+  getSummaryEntries,
+  hasSummaryEntries,
+  normalizeRange,
+  planStPackInjection,
+} from './stPackBudget';
 import {
   getChatBudget,
   getChatLinks,
@@ -92,10 +97,13 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
     return commitLinks(next);
   };
 
+  // 包里有总结条目时，范围按条目选（存 entryRange）；否则按原文块选（存 range）。
   const handleRangeCommit = (link, pack, rawFrom, rawTo) => {
+    const useSummary = hasSummaryEntries(pack);
+    const count = useSummary ? getSummaryEntries(pack).length : pack.chunkCount;
     const from = Number.parseInt(rawFrom, 10);
     const to = Number.parseInt(rawTo, 10);
-    const last = pack.chunkCount - 1;
+    const last = count - 1;
 
     // 界面上是从 1 开始数的，库里存的是 0 开始的下标。
     const normalized = normalizeRange(
@@ -103,11 +111,11 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
         from: Number.isFinite(from) ? from - 1 : 0,
         to: Number.isFinite(to) ? to - 1 : last,
       },
-      pack.chunkCount,
+      count,
     );
 
     const isWhole = !normalized || (normalized.from === 0 && normalized.to === last);
-    return patchLink(link.packId, { range: isWhole ? null : normalized });
+    return patchLink(link.packId, { [useSummary ? 'entryRange' : 'range']: isWhole ? null : normalized });
   };
 
   const handleBudgetCommit = async (input) => {
@@ -185,7 +193,11 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
         ) : (
           plan.items.map((item, index) => {
             const { link, pack, tokens, status } = item;
-            const range = pack ? normalizeRange(link.range, pack.chunkCount) : null;
+            const useSummary = pack ? hasSummaryEntries(pack) : false;
+            const unitCount = pack ? (useSummary ? getSummaryEntries(pack).length : pack.chunkCount) : 0;
+            const unitName = useSummary ? '条' : '块';
+            const rawRange = useSummary ? link.entryRange : link.range;
+            const range = pack ? normalizeRange(rawRange, unitCount) : null;
 
             return (
               <div
@@ -296,9 +308,16 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                     </div>
 
                     <div className="space-y-1">
-                      <span className="font-semibold">范围（共 {pack.chunkCount} 块）</span>
+                      <span className="font-semibold">
+                        范围（共 {unitCount} {unitName}{useSummary ? '总结' : ''}）
+                      </span>
+                      {useSummary && (
+                        <p className="text-[10px] opacity-50">
+                          这个包有总结条目，注入的是总结，不是原文。
+                        </p>
+                      )}
                       <div
-                        key={`range-${link.packId}-${range?.from}-${range?.to}`}
+                        key={`range-${link.packId}-${useSummary}-${range?.from}-${range?.to}`}
                         className="flex items-center gap-1.5"
                       >
                         <span className="opacity-60">第</span>
@@ -306,7 +325,7 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                           id={`st-range-from-${link.packId}`}
                           type="number"
                           min="1"
-                          max={pack.chunkCount}
+                          max={unitCount}
                           defaultValue={range ? range.from + 1 : 1}
                           onBlur={(e) => {
                             const toEl = document.getElementById(`st-range-to-${link.packId}`);
@@ -315,13 +334,13 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                           className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
                           style={fieldStyle}
                         />
-                        <span className="opacity-60">块 到 第</span>
+                        <span className="opacity-60">{unitName} 到 第</span>
                         <input
                           id={`st-range-to-${link.packId}`}
                           type="number"
                           min="1"
-                          max={pack.chunkCount}
-                          defaultValue={range ? range.to + 1 : pack.chunkCount}
+                          max={unitCount}
+                          defaultValue={range ? range.to + 1 : unitCount}
                           onBlur={(e) => {
                             const fromEl = document.getElementById(`st-range-from-${link.packId}`);
                             void handleRangeCommit(link, pack, fromEl?.value, e.target.value);
@@ -329,11 +348,11 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                           className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
                           style={fieldStyle}
                         />
-                        <span className="opacity-60">块</span>
-                        {link.range && (
+                        <span className="opacity-60">{unitName}</span>
+                        {rawRange && (
                           <button
                             type="button"
-                            onClick={() => void patchLink(link.packId, { range: null })}
+                            onClick={() => void patchLink(link.packId, { [useSummary ? 'entryRange' : 'range']: null })}
                             className="ml-auto rounded-lg border px-2 py-1"
                             style={fieldStyle}
                           >

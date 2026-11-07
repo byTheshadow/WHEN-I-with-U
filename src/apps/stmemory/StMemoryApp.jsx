@@ -12,6 +12,8 @@ import ConfirmModal from '../../components/ConfirmModal';
 import { triggerGlobalToast } from '../../components/NotificationToast';
 import StPackImportModal from './StPackImportModal';
 import StJsonlImportModal from './StJsonlImportModal';
+import StSummaryEntriesEditor from './StSummaryEntriesEditor';
+import StSummaryGenerator from './StSummaryGenerator';
 import {
   deletePack,
   getAllPacks,
@@ -28,6 +30,9 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
   const [title, setTitle] = useState(pack.title || '');
   const [overview, setOverview] = useState(pack.overview || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [summaryEntries, setSummaryEntries] = useState(
+    Array.isArray(pack.summaryEntries) ? pack.summaryEntries : [],
+  );
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -97,6 +102,26 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
             概览会占用上下文，所以也计入这个包的 token 估算。
           </p>
         </div>
+
+        {pack.sourceType === 'st-jsonl' && (
+          <StSummaryGenerator
+            pack={pack}
+            entries={summaryEntries}
+            onEntriesChange={(next) => {
+              setSummaryEntries(next);
+              onSaved();
+            }}
+          />
+        )}
+
+        <StSummaryEntriesEditor
+          packId={pack.id}
+          entries={summaryEntries}
+          onEntriesChange={(next) => {
+            setSummaryEntries(next);
+            onSaved();
+          }}
+        />
 
         {Array.isArray(pack.imports) && pack.imports.length > 1 && (
           <div className="space-y-1.5 rounded-xl border px-3 py-2.5" style={fieldStyle}>
