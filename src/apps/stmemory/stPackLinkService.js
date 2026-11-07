@@ -9,7 +9,7 @@
 // 旧的连接没有 entryRange 字段，读出来是 undefined，按"全部"处理。
 // 范围存在连接上，不存在包上——同一个包挂到不同聊天可以选不同范围。
 import db from '../../db';
-import { DEFAULT_BUDGET_TOKENS, DEFAULT_FRAMING } from './stPackConstants';
+import { DEFAULT_BUDGET_TOKENS, DEFAULT_FRAMING, INJECT_MODE_FULL } from './stPackConstants';
 
 export const getChatLinks = (chat) => (
   Array.isArray(chat?.stPackLinks) ? chat.stPackLinks : []
@@ -20,7 +20,11 @@ export const getChatBudget = (chat) => {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : DEFAULT_BUDGET_TOKENS;
 };
 
-export const makeLink = (packId, order) => ({
+// injectMode / pinnedRange 是 M2 加的无索引字段(不用升数据库版本):
+//   injectMode  'full' | 'overview',缺省按 'full'(旧连接保持 M1 行为)
+//   pinnedRange 概览模式下钉住的原文块范围 { from, to }(块下标,含两端),null 表示没钉
+// 新挂载时的默认模式由调用方按包的情况传入(见 stPackBudget.getDefaultInjectMode)。
+export const makeLink = (packId, order, injectMode = INJECT_MODE_FULL) => ({
   packId,
   framing: DEFAULT_FRAMING,
   framingText: '',
@@ -28,6 +32,8 @@ export const makeLink = (packId, order) => ({
   order,
   range: null,
   entryRange: null,
+  injectMode,
+  pinnedRange: null,
 });
 
 export const saveChatLinks = async (chatId, links) => {

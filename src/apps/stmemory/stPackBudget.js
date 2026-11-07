@@ -7,7 +7,14 @@
 // token 估算沿用项目里已有的粗略算法（secretCodeTokenEstimate.js），
 // 界面上凡是用到这些数字的地方都必须写明"估算"。
 import { estimateTokens } from '../messages/secretCode/secretCodeTokenEstimate';
-import { DEFAULT_FRAMING, FRAMING_TEXTS } from './stPackConstants';
+import {
+  DEFAULT_FRAMING,
+  FRAMING_TEXTS,
+  INJECT_MODE_FULL,
+  INJECT_MODE_OVERVIEW,
+  OVERVIEW_MODE_NOTE,
+  PINNED_MAX_TOKENS,
+} from './stPackConstants';
 
 export { estimateTokens };
 
@@ -74,17 +81,77 @@ export const getFramingText = (link) => {
   return extra ? `${preset}\n${extra}` : preset;
 };
 
+// 连接的注入模式。旧连接没有这个字段，按 full 处理。
+export const getInjectMode = (link) => (
+  link?.injectMode === INJECT_MODE_OVERVIEW ? INJECT_MODE_OVERVIEW : INJECT_MODE_FULL
+);
+
+export const isOverviewMode = (link) => getInjectMode(link) === INJECT_MODE_OVERVIEW;
+
+/**
+ * 新挂载一个包时的默认模式：有总结条目默认只带概览，没有就沿用原文。
+ * （没有总结的包概览通常是空的，默认只带概览等于挂上去什么都不注入。）
+ */
+export const getDefaultInjectMode = (pack) => (
+  hasSummaryEntries(pack) ? INJECT_MODE_OVERVIEW : INJECT_MODE_FULL
+);
+
+/**
+ * 钉住范围的校验（块下标，含两端）。返回 { range, tokens, ok, reason }。
+ * 面板和注入共用：超过 PINNED_MAX_TOKENS 的钉住既不允许保存，也不会被注入。
+ */
+export const inspectPinnedRange = (pack, pinnedRange) => {
+  const chunkCount = Number(pack?.chunkCount) || 0;
+  if (!pinnedRange || chunkCount <= 0) {
+    return { range: null, tokens: 0, ok: false, reason: 'none' };
+  }
+
+  const range = normalizeRange(pinnedRange, chunkCount);
+  const tokens = getRangeTokens(pack, range);
+  if (tokens > PINNED_MAX_TOKENS) {
+    return { range, tokens, ok: false, reason: 'too_big' };
+  }
+  return { range, tokens, ok: true, reason: '' };
+};
+
+/**
+ * 当前真正会被注入的钉住范围；没有、超上限、或不在概览模式下都返回 null。
+ * （full 模式下已经在注入总结或原文，再钉原文会重复，所以只在概览模式生效。）
+ */
+export const getActivePinnedRange = (pack, link) => {
+  if (!isOverviewMode(link)) return null;
+  const info = inspectPinnedRange(pack, link?.pinnedRange);
+  return info.ok ? info.range : null;
+};
+
+// 概览模式下，概览为空又没有钉住原文：这个连接没有任何实际内容可注入。
+export const isOverviewLinkEmpty = (pack, link) => (
+  isOverviewMode(link)
+  && !String(pack?.overview || '').trim()
+  && !getActivePinnedRange(pack, link)
+);
+
 // 一个连接注入时的总 token（正文范围 + 概览 + 定位说明 + 标题等固定开销）。
 const BLOCK_OVERHEAD_TOKENS = 30;
 
-export const getLinkTokens = (pack, link) => (
-  (hasSummaryEntries(pack)
+export const getLinkTokens = (pack, link) => {
+  if (isOverviewLinkEmpty(pack, link)) return 0;
+
+  const base = estimateTokens(pack?.overview || '')
+    + estimateTokens(getFramingText(link))
+    + BLOCK_OVERHEAD_TOKENS;
+
+  if (isOverviewMode(link)) {
+    const pinned = getActivePinnedRange(pack, link);
+    return base
+      + estimateTokens(OVERVIEW_MODE_NOTE)
+      + (pinned ? getRangeTokens(pack, pinned) : 0);
+  }
+
+  return base + (hasSummaryEntries(pack)
     ? getEntryRangeTokens(pack, link?.entryRange)
-    : getRangeTokens(pack, link?.range))
-  + estimateTokens(pack?.overview || '')
-  + estimateTokens(getFramingText(link))
-  + BLOCK_OVERHEAD_TOKENS
-);
+    : getRangeTokens(pack, link?.range));
+};
 
 export const sortLinks = (links) => (
   [...(Array.isArray(links) ? links : [])]

@@ -9,13 +9,17 @@
 // 注意：这个文件不要 import aiService，避免循环引用。
 import db from '../../db';
 import {
+  OVERVIEW_MODE_NOTE,
   PLACEHOLDER_CHAR,
   PLACEHOLDER_USER,
 } from './stPackConstants';
 import {
+  getActivePinnedRange,
   getFramingText,
   getSummaryEntries,
   hasSummaryEntries,
+  isOverviewLinkEmpty,
+  isOverviewMode,
   normalizeRange,
   planStPackInjection,
 } from './stPackBudget';
@@ -28,8 +32,37 @@ const replacePlaceholders = (text, charName, userName) => (
     .split(PLACEHOLDER_USER).join(userName)
 );
 
+// 概览模式：只带概览 + 一段说明，外加用户手动钉住的那段原文（如果有）。
+// 概览为空又没钉住原文时返回空串（整块跳过，不注入一个空壳）。
+const buildOverviewBlock = async (item) => {
+  const { pack, link } = item;
+  if (isOverviewLinkEmpty(pack, link)) return '';
+
+  const parts = [`【记忆包：${pack.title}】`, getFramingText(link)];
+
+  const overview = String(pack.overview || '').trim();
+  if (overview) parts.push(`【概览】\n${overview}`);
+
+  parts.push(`【说明】\n${OVERVIEW_MODE_NOTE}`);
+
+  const pinned = getActivePinnedRange(pack, link);
+  if (pinned) {
+    const chunks = await getChunksInRange(pack.id, pinned.from, pinned.to);
+    const text = chunks.map((chunk) => chunk.text).join('').trim();
+    if (text) {
+      parts.push(
+        `【正在翻阅的原文（第 ${pinned.from + 1} 到 ${pinned.to + 1} 块，每条消息以 ${PLACEHOLDER_USER}: 或 ${PLACEHOLDER_CHAR}: 开头）】\n${text}`,
+      );
+    }
+  }
+
+  return parts.join('\n');
+};
+
 const buildPackBlock = async (item) => {
   const { pack, link } = item;
+  if (isOverviewMode(link)) return buildOverviewBlock(item);
+
   const useSummary = hasSummaryEntries(pack);
 
   let body = '';
@@ -76,8 +109,10 @@ export const getStPackPromptContext = async (chatId) => {
 
     const blocks = [];
     for (const item of included) {
-      blocks.push(await buildPackBlock(item));
+      const block = await buildPackBlock(item);
+      if (block) blocks.push(block);
     }
+    if (blocks.length === 0) return '';
 
     const character = chat.characterId ? await db.characters.get(chat.characterId) : null;
     const charName = String(character?.name || '').trim() || '角色';

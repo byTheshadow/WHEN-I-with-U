@@ -11,10 +11,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Library, Plus, Trash2, X } from 'lucide-react';
 
-import { FRAMING_OPTIONS } from './stPackConstants';
 import {
+  FRAMING_OPTIONS,
+  INJECT_MODE_FULL,
+  INJECT_MODE_OVERVIEW,
+  PINNED_MAX_TOKENS,
+} from './stPackConstants';
+import {
+  getDefaultInjectMode,
+  getInjectMode,
   getSummaryEntries,
   hasSummaryEntries,
+  inspectPinnedRange,
+  isOverviewLinkEmpty,
   normalizeRange,
   planStPackInjection,
 } from './stPackBudget';
@@ -39,6 +48,110 @@ const fieldStyle = {
   background: 'var(--control-soft-bg)',
   borderColor: 'var(--card-border)',
   color: 'var(--text-main)',
+};
+
+// 概览模式下的"翻阅原文"：钉住一段原文块，之后每条消息都会带上，直到取消。
+// 块下标在界面上从 1 开始数，库里存 0 开始的下标。
+const PinnedRangeEditor = ({ pack, link, onSave }) => {
+  const chunkCount = Number(pack.chunkCount) || 0;
+  const saved = link.pinnedRange ? inspectPinnedRange(pack, link.pinnedRange) : null;
+
+  const [fromText, setFromText] = useState(saved?.range ? String(saved.range.from + 1) : '');
+  const [toText, setToText] = useState(saved?.range ? String(saved.range.to + 1) : '');
+
+  if (chunkCount <= 0) {
+    return <p className="text-[10px] opacity-50">这个包没有原文块，无法翻阅原文。</p>;
+  }
+
+  const from = Number.parseInt(fromText, 10);
+  const to = Number.parseInt(toText, 10);
+  const validNumbers = Number.isFinite(from) && Number.isFinite(to)
+    && from >= 1 && to >= 1 && from <= chunkCount && to <= chunkCount && from <= to;
+  const draft = validNumbers ? inspectPinnedRange(pack, { from: from - 1, to: to - 1 }) : null;
+
+  let message = '';
+  if (fromText || toText) {
+    if (!validNumbers) message = `请填 1 到 ${chunkCount} 之间的块号，起点不能大于终点。`;
+    else if (!draft.ok) message = `这一段估算 ${draft.tokens.toLocaleString()} token，超过上限 ${PINNED_MAX_TOKENS.toLocaleString()}，请缩小范围。`;
+    else message = `这一段估算 ${draft.tokens.toLocaleString()} token（上限 ${PINNED_MAX_TOKENS.toLocaleString()}）。`;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <span className="font-semibold">翻阅原文（共 {chunkCount} 块）</span>
+      <p className="text-[10px] opacity-50">
+        钉住一段原文后，角色在之后每条回复里都能看到它，直到你取消翻阅。注入的是原文，不是总结。
+      </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="opacity-60">第</span>
+        <input
+          type="number"
+          min="1"
+          max={chunkCount}
+          value={fromText}
+          onChange={(e) => setFromText(e.target.value)}
+          className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
+          style={fieldStyle}
+        />
+        <span className="opacity-60">块 到 第</span>
+        <input
+          type="number"
+          min="1"
+          max={chunkCount}
+          value={toText}
+          onChange={(e) => setToText(e.target.value)}
+          className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
+          style={fieldStyle}
+        />
+        <span className="opacity-60">块</span>
+        <button
+          type="button"
+          disabled={!draft?.ok}
+          onClick={() => onSave({ from: from - 1, to: to - 1 })}
+          className="ml-auto rounded-lg px-3 py-1 font-semibold disabled:opacity-30"
+          style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+        >
+          钉住
+        </button>
+      </div>
+      {message && (
+        <p
+          className="text-[10px]"
+          style={{ color: validNumbers && draft?.ok ? undefined : '#f43f5e', opacity: validNumbers && draft?.ok ? 0.6 : 1 }}
+        >
+          {message}
+        </p>
+      )}
+      {link.pinnedRange && (
+        <div
+          className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2"
+          style={fieldStyle}
+        >
+          {saved?.ok ? (
+            <span>
+              正在翻阅第 {saved.range.from + 1} 到 {saved.range.to + 1} 块（估算 {saved.tokens.toLocaleString()} token）
+            </span>
+          ) : (
+            <span style={{ color: '#f43f5e' }}>
+              之前钉住的范围已超出上限或失效，目前不会注入。
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setFromText('');
+              setToText('');
+              onSave(null);
+            }}
+            className="shrink-0 rounded-lg border px-2 py-1"
+            style={{ borderColor: 'var(--card-border)' }}
+          >
+            取消翻阅
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
@@ -83,7 +196,11 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
     commitLinks(links.map((link) => (link.packId === packId ? { ...link, ...patch } : link)))
   );
 
-  const handleMount = (packId) => commitLinks([...links, makeLink(packId, links.length)]);
+  // 新挂载的默认模式：有总结条目的包默认只带概览，没有就沿用原文。
+  const handleMount = (packId) => commitLinks([
+    ...links,
+    makeLink(packId, links.length, getDefaultInjectMode(packsById[packId])),
+  ]);
 
   const handleRemove = (packId) => commitLinks(links.filter((link) => link.packId !== packId));
 
@@ -198,6 +315,8 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
             const unitName = useSummary ? '条' : '块';
             const rawRange = useSummary ? link.entryRange : link.range;
             const range = pack ? normalizeRange(rawRange, unitCount) : null;
+            const overviewMode = pack ? getInjectMode(link) === INJECT_MODE_OVERVIEW : false;
+            const overviewEmpty = pack ? isOverviewLinkEmpty(pack, link) : false;
 
             return (
               <div
@@ -271,6 +390,54 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                     </div>
 
                     <div className="space-y-1">
+                      <span className="font-semibold">注入内容</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          {
+                            id: INJECT_MODE_FULL,
+                            label: useSummary ? '总结全文' : '原文',
+                            hint: useSummary ? '带上选定范围的总结' : '带上选定范围的原文',
+                          },
+                          {
+                            id: INJECT_MODE_OVERVIEW,
+                            label: '只带概览',
+                            hint: '细节需要时你手动翻阅原文',
+                          },
+                        ].map((option) => {
+                          const active = getInjectMode(link) === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => {
+                                if (!active) void patchLink(link.packId, { injectMode: option.id });
+                              }}
+                              className="rounded-xl border px-2 py-2 text-left"
+                              style={{
+                                ...fieldStyle,
+                                borderColor: active ? 'var(--accent-color)' : 'var(--card-border)',
+                                outline: active ? '1px solid var(--accent-color)' : 'none',
+                              }}
+                            >
+                              <div className="font-semibold">{option.label}</div>
+                              <div className="text-[10px] opacity-60">{option.hint}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {overviewMode && (
+                        <p className="text-[10px] opacity-50">
+                          只带概览时，总结和原文都不会自动注入，角色只知道概览里写的脉络。概览可以在「记忆包」应用里编辑。
+                        </p>
+                      )}
+                      {overviewEmpty && (
+                        <p className="text-[10px] font-semibold text-rose-500">
+                          这个包的概览是空的，又没有钉住原文，目前不会注入任何内容。请先写一段概览，或钉住一段原文。
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
                       <span className="font-semibold">定位</span>
                       <div className="grid grid-cols-2 gap-2">
                         {FRAMING_OPTIONS.map((option) => {
@@ -307,6 +474,16 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                       />
                     </div>
 
+                    {overviewMode && (
+                      <PinnedRangeEditor
+                        key={`pin-${link.packId}`}
+                        pack={pack}
+                        link={link}
+                        onSave={(pinnedRange) => void patchLink(link.packId, { pinnedRange })}
+                      />
+                    )}
+
+                    {!overviewMode && (
                     <div className="space-y-1">
                       <span className="font-semibold">
                         范围（共 {unitCount} {unitName}{useSummary ? '总结' : ''}）
@@ -361,6 +538,7 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
                         )}
                       </div>
                     </div>
+                    )}
                   </>
                 )}
               </div>
