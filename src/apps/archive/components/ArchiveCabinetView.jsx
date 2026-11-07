@@ -25,6 +25,7 @@ import {
 } from '../archiveMediaCleanupService';
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 import ArchiveOrganizerModal from './ArchiveOrganizerModal';
+import ChatExportModal from '../../messages/export/ChatExportModal';
 import '../archive.css';
 import '../archive-cabinet-visual.css';
 
@@ -68,6 +69,7 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
   const [isClearingMedia, setIsClearingMedia] = useState(false);
   const [isDownloadingMedia, setIsDownloadingMedia] = useState(false);
   const [showOrganizer, setShowOrganizer] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const coverInputRef = useRef(null);
 
@@ -271,7 +273,17 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
           title="手动挑选还没归档的旧消息，提前收进档案柜"
         >
           <Archive className="h-3.5 w-3.5" />
-          <span>整理归档</span>
+                   <span>整理归档</span>
+        </button>
+
+        <button
+          type="button"
+          className="cabinet-action-btn"
+          onClick={() => setShowExport(true)}
+          title="把这个聊天存档室里的文字记录导出成 Markdown / JSON"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span>导出存档记录</span>
         </button>
 
         <button
@@ -531,6 +543,13 @@ const ArchiveCabinetView = ({ chatOverview, onBack, onStatsChanged }) => {
         <ArchiveOrganizerModal
           chatOverview={chatOverview}
           onClose={handleCloseOrganizer}
+        />
+      )}
+            {showExport && (
+        <ChatExportModal
+          chatId={chatId}
+          source="archived"
+          onClose={() => setShowExport(false)}
         />
       )}
     </div>

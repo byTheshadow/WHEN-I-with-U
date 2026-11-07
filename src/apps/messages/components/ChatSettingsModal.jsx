@@ -12,8 +12,9 @@ import {
 
   Eye,
   EyeOff,
-  Type,
-  Palette
+    Type,
+  Palette,
+  Download
 } from 'lucide-react';
 import ConfirmModal from '../../../components/ConfirmModal';
 import ColorSettingRow from './ColorSettingRow';
@@ -38,6 +39,7 @@ import { BUILTIN_WORLD_BOOK_METAS } from '../builtinWorldBook';
 
 import { triggerGlobalToast } from '../../../components/NotificationToast';
 import { clearChatRealVoiceMedia, clearChatRealPhotoMedia } from '../chatMediaCleanupService';
+import ChatExportModal from '../export/ChatExportModal';
 import { releasePhotoObjectUrl } from './cards/PhotoCard';
 import { getLocationSettings, setLocationEnabled } from '../../../apps/location/placeService';
 
@@ -69,7 +71,8 @@ export const ChatSettingsModal = ({
   const [showVoiceMediaClearConfirm, setShowVoiceMediaClearConfirm] = useState(false);
   const [isClearingVoiceMedia, setIsClearingVoiceMedia] = useState(false);
   const [showPhotoMediaClearConfirm, setShowPhotoMediaClearConfirm] = useState(false);
-  const [isClearingPhotoMedia, setIsClearingPhotoMedia] = useState(false);
+   const [isClearingPhotoMedia, setIsClearingPhotoMedia] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const handleClearVoiceMedia = async () => {
     if (!chat?.id) return;
@@ -2122,7 +2125,21 @@ const handleToggleLocation = async () => {
         )}
 
         {/* 危险区 */}
-        <div className="pt-2 space-y-2">
+                <div className="pt-2 space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowExportModal(true)}
+            className="w-full py-2 rounded-xl font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+            style={{
+              background: 'var(--control-soft-bg)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--card-border)'
+            }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>导出聊天记录</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowClearConfirm(true)}
@@ -2181,6 +2198,14 @@ const handleToggleLocation = async () => {
           </button>
         </div>
       </div>
+
+           {showExportModal && (
+        <ChatExportModal
+          chatId={chat?.id}
+          source="live"
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
 
       <ConfirmModal
         isOpen={showClearConfirm}
