@@ -80,11 +80,12 @@ export const ChatSettingsModal = ({
     setIsClearingVoiceMedia(true);
     try {
       const { clearedCount } = await clearChatRealVoiceMedia(chat.id);
-      triggerGlobalToast(
-        clearedCount > 0
+      triggerGlobalToast({
+        title: clearedCount > 0 ? '清理完成' : '没有可清理的内容',
+        content: clearedCount > 0
           ? `已清理 ${clearedCount} 条语音的音频本体，文字转写已保留。`
           : '这个聊天里暂时没有可以清理的语音本体。',
-      );
+      });
 
       if (clearedCount > 0) {
         window.dispatchEvent(
@@ -95,7 +96,7 @@ export const ChatSettingsModal = ({
       }
     } catch (error) {
       console.warn('[ChatSettingsModal] 清理语音缓存失败：', error);
-      triggerGlobalToast('清理失败，请稍后再试。');
+      triggerGlobalToast({ title: '清理失败', content: '请稍后再试。' });
     } finally {
       setIsClearingVoiceMedia(false);
       setShowVoiceMediaClearConfirm(false);
@@ -111,11 +112,12 @@ export const ChatSettingsModal = ({
     setIsClearingPhotoMedia(true);
     try {
       const { clearedCount, clearedMessageIds } = await clearChatRealPhotoMedia(chat.id);
-      triggerGlobalToast(
-        clearedCount > 0
+      triggerGlobalToast({
+        title: clearedCount > 0 ? '清理完成' : '没有可清理的内容',
+        content: clearedCount > 0
           ? `已清理 ${clearedCount} 张照片的图片本体，文字记录已保留。`
           : '这个聊天里暂时没有可以清理的图片本体。',
-      );
+      });
 
       if (clearedCount > 0) {
         // 释放 PhotoCard 缓存的 object URL，否则本体清了，内存里那份
@@ -130,7 +132,7 @@ export const ChatSettingsModal = ({
       }
     } catch (error) {
       console.warn('[ChatSettingsModal] 清理图片缓存失败：', error);
-      triggerGlobalToast('清理失败，请稍后再试。');
+      triggerGlobalToast({ title: '清理失败', content: '请稍后再试。' });
     } finally {
       setIsClearingPhotoMedia(false);
       setShowPhotoMediaClearConfirm(false);
