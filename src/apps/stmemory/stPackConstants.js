@@ -13,7 +13,7 @@ export const DEFAULT_FRAMING = FRAMING_BACKGROUND;
 
 export const FRAMING_OPTIONS = [
   {
-    id: FRAMING_BACKGROUND
+    id: FRAMING_BACKGROUND,
     label: '背景故事',
     hint: '当作你们真实经历过的事',
   },
@@ -50,3 +50,7 @@ export const PLACEHOLDER_CHAR = '{{char}}';
 export const PLACEHOLDER_USER = '{{user}}';
 
 export const SOURCE_TYPE_TEXT = 'text';
+export const SOURCE_TYPE_ST_JSONL = 'st-jsonl';
+
+// 清洗规则存在 db.settings 的这个 key 下（全局共用，导入哪个包都带着）。
+export const CLEANING_RULES_SETTING_KEY = 'stMemoryCleaningRules';

@@ -22,7 +22,7 @@ import { estimateTokens } from './stPackBudget';
 
 const WRITE_BATCH_SIZE = 40;
 
-const makeImportId = () => (
+export const makeImportId = () => (
   `imp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 );
 
@@ -76,12 +76,14 @@ const takeChunks = (buffer, final) => {
 };
 
 // 把角色名/用户名换成占位符。长名字先换，避免短名字是长名字的一部分。
-const buildNameReplacer = (charName, userName) => {
+export const buildNameReplacer = (charName, userName) => {
+  // userName 可以是一个名字，也可以是名字数组（用户换过 persona 名字的聊天）。
+  const userNames = Array.isArray(userName) ? userName : [userName];
   const pairs = [
     [String(charName || '').trim(), PLACEHOLDER_CHAR],
-    [String(userName || '').trim(), PLACEHOLDER_USER],
+    ...userNames.map((name) => [String(name || '').trim(), PLACEHOLDER_USER]),
   ]
-    .filter(([name]) => name.length > 0)
+    .filter(([name]) => name.length > 0 && name !== PLACEHOLDER_CHAR && name !== PLACEHOLDER_USER)
     .sort((a, b) => b[0].length - a[0].length);
 
   if (pairs.length === 0) return (text) => text;
@@ -161,6 +163,75 @@ export const estimateSource = async (source) => {
 };
 
 /**
+ * 把一路"吐文字"的来源切块写进某个包。纯文本导入和 ST 聊天导入共用这一份。
+ *
+ * produce(emit)：调用方把文字分段交给 emit(piece)；这里负责按段落边界切块、
+ * 换占位符、估算 token、分批 bulkAdd。块的下标从 startIndex 接着往后排。
+ * 返回 { chunkTokens, charCount }（只含这一次新写入的块）。
+ */
+export const writeStreamToPack = async ({
+  packId,
+  importId,
+  startIndex = 0,
+  produce,
+  replaceNames,
+  onProgress,
+}) => {
+  const chunkTokens = [];
+  let charCount = 0;
+  let pending = [];
+  let buffer = '';
+  let lastProgressAt = 0;
+
+  const flush = async () => {
+    if (pending.length === 0) return;
+    await db.stPackChunks.bulkAdd(pending);
+    pending = [];
+  };
+
+  const reportProgress = (force) => {
+    if (!onProgress) return;
+    const now = Date.now();
+    if (!force && now - lastProgressAt < 200) return;
+    lastProgressAt = now;
+    onProgress({ chunks: chunkTokens.length, chars: charCount });
+  };
+
+  const pushChunk = async (rawText) => {
+    const text = replaceNames(rawText);
+    const tokenEstimate = estimateTokens(text);
+    const index = startIndex + chunkTokens.length;
+
+    chunkTokens.push(tokenEstimate);
+    charCount += text.length;
+    pending.push({ packId, importId, index, text, tokenEstimate });
+
+    if (pending.length >= WRITE_BATCH_SIZE) await flush();
+  };
+
+  await produce(async (piece) => {
+    buffer += piece;
+    const { chunks, rest } = takeChunks(buffer, false);
+    buffer = rest;
+    for (const chunk of chunks) {
+      await pushChunk(chunk);
+    }
+    reportProgress(false);
+  });
+
+  const { chunks: lastChunks } = takeChunks(buffer, true);
+  for (const chunk of lastChunks) {
+    await pushChunk(chunk);
+  }
+  await flush();
+  reportProgress(true);
+
+  return { chunkTokens, charCount };
+};
+
+const sumTokens = (values) => values.reduce((sum, value) => sum + value, 0);
+
+/**
  * 把纯文本 / Markdown 导入成一个新的记忆包。
  *
  * source: { text } 或 { file }
@@ -187,55 +258,23 @@ export const importTextAsPack = async (source, options = {}) => {
   });
 
   try {
-    const chunkTokens = [];
-    let charCount = 0;
-    let pending = [];
-    let buffer = '';
-
-    const flush = async () => {
-      if (pending.length === 0) return;
-      await db.stPackChunks.bulkAdd(pending);
-      pending = [];
-    };
-
-    const pushChunk = async (rawText) => {
-      const text = replaceNames(rawText);
-      const tokenEstimate = estimateTokens(text);
-      const index = chunkTokens.length;
-
-      chunkTokens.push(tokenEstimate);
-      charCount += text.length;
-      pending.push({ packId, importId, index, text, tokenEstimate });
-
-      if (pending.length >= WRITE_BATCH_SIZE) await flush();
-    };
-
-    await readSourceInPieces(source, async (piece) => {
-      buffer += piece;
-      const { chunks, rest } = takeChunks(buffer, false);
-      buffer = rest;
-      for (const chunk of chunks) {
-        await pushChunk(chunk);
-      }
-      if (onProgress) onProgress({ chunks: chunkTokens.length, chars: charCount });
+    const { chunkTokens, charCount } = await writeStreamToPack({
+      packId,
+      importId,
+      startIndex: 0,
+      produce: (emit) => readSourceInPieces(source, emit),
+      replaceNames,
+      onProgress,
     });
-
-    const { chunks: lastChunks } = takeChunks(buffer, true);
-    for (const chunk of lastChunks) {
-      await pushChunk(chunk);
-    
-    await flush();
 
     if (chunkTokens.length === 0) {
       throw new Error('没有读到任何文字内容');
     }
 
-    const tokenEstimate = chunkTokens.reduce((sum, value) => sum + value, 0);
-
     await db.stMemoryPacks.update(packId, {
       chunkCount: chunkTokens.length,
       charCount,
-      tokenEstimate,
+      tokenEstimate: sumTokens(chunkTokens),
       chunkTokens,
       imports: [{
         importId,
@@ -243,11 +282,11 @@ export const importTextAsPack = async (source, options = {}) => {
         label: '纯文本',
         firstIndex: 0,
         chunkCount: chunkTokens.length,
+        charCount,
+        sourceBefore: null,
       }],
       updatedAt: new Date().toISOString(),
     });
-
-    if (onProgress) onProgress({ chunks: chunkTokens.length, chars: charCount });
 
     return packId;
   } catch (error) {
@@ -260,4 +299,33 @@ export const importTextAsPack = async (source, options = {}) => {
     }
     throw error;
   }
+};
+
+/**
+ * 撤销最近一次导入（整批撤销）。只允许撤销最后一次，这样块的下标仍然连续。
+ * 只有一次导入的包请直接删除整个包。
+ */
+export const undoLastImport = async (packId) => {
+  const pack = await db.stMemoryPacks.get(packId);
+  const imports = Array.isArray(pack?.imports) ? pack.imports : [];
+
+  if (imports.length < 2) {
+    throw new Error('这个包只有一次导入，想去掉请直接删除整个记忆包');
+  }
+
+  const last = imports[imports.length - 1];
+  await db.stPackChunks.where('importId').equals(last.importId).delete();
+
+  const chunkTokens = (pack.chunkTokens || []).slice(0, last.firstIndex);
+  const patch = {
+    chunkTokens,
+    chunkCount: chunkTokens.length,
+    tokenEstimate: sumTokens(chunkTokens),
+    charCount: Math.max(0, (pack.charCount || 0) - (last.charCount || 0)),
+    imports: imports.slice(0, -1),
+    updatedAt: new Date().toISOString(),
+  };
+  if (last.sourceBefore) patch.source = last.sourceBefore;
+
+  await db.stMemoryPacks.update(packId, patch);
 };

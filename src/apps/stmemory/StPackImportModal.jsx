@@ -1,8 +1,8 @@
 // src/apps/stmemory/StPackImportModal.jsx
 //
 // 导入纯文本 / Markdown 成记忆包。支持粘贴文字或选择文件；文件分块流式读，
-// 导入前先显示字数和 token 估算。ST 聊天记录（.jsonl）的解析是后面的切片，
-// 现在选到会明确提示，不会把它当普通文本误导入。
+// 导入前先显示字数和 token 估算。选到 ST 聊天记录（.jsonl）时不在这里处理，
+// 交给父组件打开专门的 ST 导入界面（onPickJsonl）。
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, Loader2, X } from 'lucide-react';
@@ -18,7 +18,7 @@ const inputStyle = {
   color: 'var(--text-main)',
 };
 
-const StPackImportModal = ({ onClose, onImported }) => {
+const StPackImportModal = ({ onClose, onImported, onPickJsonl }) => {
   const fileInputRef = useRef(null);
   const [title, setTitle] = useState('');
   const [charName, setCharName] = useState('');
@@ -30,11 +30,9 @@ const StPackImportModal = ({ onClose, onImported }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(null);
 
-  const isJsonl = Boolean(file && /\.jsonl$/i.test(file.name));
-
   const pastedTokens = useMemo(() => estimateTokens(pastedText), [pastedText]);
 
-  const hasSource = file ? !isJsonl : pastedText.trim().length > 0;
+  const hasSource = file ? true : pastedText.trim().length > 0;
   const stats = file
     ? fileStats
     : (pastedText ? { chars: pastedText.length, tokens: pastedTokens } : null);
@@ -44,11 +42,14 @@ const StPackImportModal = ({ onClose, onImported }) => {
     event.target.value = '';
     if (!picked) return;
 
+    if (/\.jsonl$/i.test(picked.name)) {
+      onPickJsonl?.(picked);
+      return;
+    }
+
     setFile(picked);
     setFileStats(null);
     if (!title.trim()) setTitle(picked.name.replace(/\.[^.]+$/, ''));
-    if (/\.jsonl$/i.test(picked.name)) return;
-
     setIsEstimating(true);
     try {
       setFileStats(await estimateSource({ file: picked }));
@@ -128,6 +129,7 @@ const StPackImportModal = ({ onClose, onImported }) => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={isImporting}
+        />
 
         <div className="grid grid-cols-2 gap-2">
           <input
@@ -172,7 +174,7 @@ const StPackImportModal = ({ onClose, onImported }) => {
             <textarea
               className={`${inputClass} min-h-[120px] resize-y`}
               style={inputStyle}
-              placeholder="把文字粘贴在这里，或者选择一个 .txt / .md 文件"
+              placeholder="把文字粘贴在这里，或者选择一个 .txt / .md 文件（SillyTavern 的 .jsonl 聊天记录也从这里选）"
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
               disabled={isImporting}
@@ -197,19 +199,13 @@ const StPackImportModal = ({ onClose, onImported }) => {
           onChange={handlePickFile}
         />
 
-        {isJsonl && (
-          <p className="rounded-xl border px-3 py-2 leading-relaxed" style={inputStyle}>
-            这是 SillyTavern 的聊天记录（.jsonl）。它的解析还没有做进来，下一步会加上，这里先不导入，避免被当成普通文字乱导。
-          </p>
-        )}
-
         {isEstimating && (
           <p className="flex items-center gap-1.5 opacity-60">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> 正在统计字数……
           </p>
         )}
 
-        {stats && !isEstimating && !isJsonl && (
+        {stats && !isEstimating && (
           <p className="opacity-70">
             约 {stats.chars.toLocaleString()} 字，估算 {stats.tokens.toLocaleString()} token
             （估算值，真实用量因模型而异）
