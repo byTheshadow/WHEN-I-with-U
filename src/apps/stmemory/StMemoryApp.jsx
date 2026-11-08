@@ -1,17 +1,23 @@
 // src/apps/stmemory/StMemoryApp.jsx
 //
-// ST 记忆桥子应用：记忆包库。列出所有导入的包，可以导入新包、改名和写概览、
-// 删除。包挂到哪个聊天，在那个聊天的「聊天设置 -> 剧情记忆包」里操作。
+// 前尘（ST 记忆桥）：往事库首页。列出所有导入的往事，可以导入新往事、改名和写概览、
+// 删除。往事挂到哪个聊天，在那个聊天的「聊天设置 -> 剧情记忆包」里操作。
 //
 // 这个应用从一开始就是懒加载的（见 App.jsx）。
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Library, Plus, Trash2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 import ConfirmModal from '../../components/ConfirmModal';
 import { triggerGlobalToast } from '../../components/NotificationToast';
-import StPackImportModal from './StPackImportModal';
+import QianchenBackdrop from './QianchenBackdrop';
+import Snowflake, { litArmsFor, pickArm } from './Snowflake';
+import StSourcePicker from './StSourcePicker';
+import StTextImport from './StTextImport';
 import StJsonlImportModal from './StJsonlImportModal';
+import { SOURCE_TYPE_ST_JSONL } from './stPackConstants';
+import { loadSummarySettings } from './stSummaryConfig';
+import { getSummaryCursor } from './stSummaryEngine';
 import StSummaryEntriesEditor from './StSummaryEntriesEditor';
 import StSummaryGenerator from './StSummaryGenerator';
 import {
@@ -26,7 +32,7 @@ const formatDate = (iso) => {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
 };
 
-const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
+const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo, onRequestDelete }) => {
   const [title, setTitle] = useState(pack.title || '');
   const [overview, setOverview] = useState(pack.overview || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -70,7 +76,7 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
         }}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-serif text-sm font-bold">记忆包详情</h3>
+          <h3 className="font-serif text-sm font-bold">往事详情</h3>
           <button type="button" onClick={onClose} className="opacity-60 hover:opacity-100">
             <X className="h-4 w-4" />
           </button>
@@ -81,7 +87,7 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
           style={fieldStyle}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="记忆包名称"
+          placeholder="往事名称"
         />
 
         <p className="opacity-60">
@@ -99,7 +105,7 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
             placeholder="用几句话写下这份记录讲了什么。填了之后，每次注入都会带上这段概览。"
           />
           <p className="text-[10px] leading-relaxed opacity-55">
-            概览会占用上下文，所以也计入这个包的 token 估算。
+            概览会占用上下文，所以也计入这条往事的 token 估算。
           </p>
         </div>
 
@@ -144,6 +150,15 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
 
         <button
           type="button"
+          onClick={() => onRequestDelete(pack)}
+          className="rounded-xl border py-2 text-xs font-semibold"
+          style={{ ...fieldStyle, color: 'var(--text-main)' }}
+        >
+          删除这片往事
+        </button>
+
+        <button
+          type="button"
           onClick={handleSave}
           disabled={isSaving}
           className="rounded-xl py-2.5 text-xs font-bold disabled:opacity-40"
@@ -157,16 +172,34 @@ const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo }) => {
   );
 };
 
+/** 总结进度：已总结几批 / 一共几批。只有 ST 聊天往事有；批大小取总结设置里的"每批条数"。 */
+const getSummaryProgress = (pack, batchMessages) => {
+  if (pack.sourceType !== SOURCE_TYPE_ST_JSONL) return null;
+  const totalMessages = pack.source?.messageCount || 0;
+  const total = batchMessages > 0 ? Math.ceil(totalMessages / batchMessages) : 0;
+  if (!total) return { done: 0, total: 0 };
+  const cursor = getSummaryCursor(pack.summaryEntries);
+  return { done: Math.min(total, Math.ceil(cursor / batchMessages)), total };
+};
+
+const BackIcon = () => (
+  <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
+);
+
 const StMemoryApp = ({ onBackHub }) => {
   const [packs, setPacks] = useState([]);
-  const [showImport, setShowImport] = useState(false);
+  const [batchMessages, setBatchMessages] = useState(0);
+  const [view, setView] = useState('home'); // 'home' | 'text'
+  const [showPicker, setShowPicker] = useState(false);
   const [detailPack, setDetailPack] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [undoTarget, setUndoTarget] = useState(null);
   const [jsonlFile, setJsonlFile] = useState(null);
 
   const loadPacks = useCallback(async () => {
-    setPacks(await getAllPacks());
+    const [list, settings] = await Promise.all([getAllPacks(), loadSummarySettings()]);
+    setBatchMessages(settings.batchMessages);
+    setPacks(list);
   }, []);
 
   useEffect(() => {
@@ -181,7 +214,7 @@ const StMemoryApp = ({ onBackHub }) => {
     try {
       await deletePack(target.id);
       await loadPacks();
-      triggerGlobalToast({ title: '已删除', content: '记忆包已经删除。' });
+      triggerGlobalToast({ title: '已删除', content: '这片往事已经删除。' });
     } catch (error) {
       console.error('[stmemory] 删除失败：', error);
       triggerGlobalToast({ title: '删除失败', content: '请稍后再试。' });
@@ -203,94 +236,145 @@ const StMemoryApp = ({ onBackHub }) => {
     }
   };
 
-  return (
-    <div className="animate-fade-in pb-16">
-      <div className="flex items-center justify-between pb-2 pt-1">
-        <button
-          type="button"
-          onClick={onBackHub}
-          className="flex items-center gap-1 text-xs font-semibold opacity-60 hover:opacity-100"
-          style={{ color: 'var(--text-main)' }}
-        >
-          <ArrowLeft className="h-4 w-4" /> 主页
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowImport(true)}
-          className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm"
-          style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-        >
-          <Plus className="h-3.5 w-3.5" /> 导入
-        </button>
-      </div>
+  const pickJsonl = (picked) => {
+    setShowPicker(false);
+    setView('home');
+    setJsonlFile(picked);
+  };
 
-      <div className="pb-5 pt-3 text-center">
-        <h1
-          className="text-2xl font-bold tracking-tight"
-          style={{
-            color: 'var(--text-main)',
-            fontFamily: 'Georgia, "Noto Serif SC", "Songti SC", serif',
-          }}
-        >
-          记忆包
-        </h1>
-        <p className="mt-1 text-[11px] opacity-50">
-          把别处的剧情记录带进聊天，让角色知道这些事
-        </p>
-      </div>
+  const hero = packs[0] || null;
+  const rest = packs.slice(1);
 
-      {packs.length === 0 ? (
-        <div
-          className="rounded-3xl border py-16 text-center opacity-60"
-          style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-        >
-          <Library className="mx-auto mb-2 h-8 w-8 opacity-40" />
-          <p className="text-xs">还没有记忆包，点击右上角导入</p>
+  const renderHero = (pack) => {
+    const progress = getSummaryProgress(pack, batchMessages);
+    const isJsonl = pack.sourceType === SOURCE_TYPE_ST_JSONL;
+    const lit = progress ? litArmsFor(progress.done, progress.total) : 0;
+    const hasProgress = Boolean(progress && progress.total > 0);
+    const finished = hasProgress && progress.done >= progress.total;
+    const caption = progress?.done === 0 ? '尚未总结' : finished ? '总结已完成' : '总结进行中';
+    const goText = !hasProgress ? '查看往事' : progress.done === 0 ? '开始总结' : finished ? '查看往事' : '继续总结';
+
+    return (
+      <div className="qc-hero">
+        <div className="bloom" aria-hidden="true" />
+        <Snowflake size={210} arm={isJsonl ? pickArm(pack.id) : 'c'} lit={lit} hero />
+        <h2 className="hname serif">{pack.title}</h2>
+        <div className="hmeta">
+          {isJsonl
+            ? `ST 聊天记录 · ${(pack.source?.messageCount || 0).toLocaleString()} 条`
+            : `文本 · ${pack.chunkCount} 块`}
         </div>
+        {hasProgress && (
+          <>
+            <div className="pcap">{caption}</div>
+            <div className="pnum"><b className="serif">{progress.done}</b><span>/ {progress.total} 批</span></div>
+            <div className="prog" role="img" aria-label={`总结进度 ${progress.done} / ${progress.total} 批`}>
+              <i style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
+            </div>
+          </>
+        )}
+        <div className="hgo">
+          <button type="button" className="btn-link" onClick={() => setDetailPack(pack)}>
+            {goText}
+            <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMini = (pack) => {
+    const progress = getSummaryProgress(pack, batchMessages);
+    const isJsonl = pack.sourceType === SOURCE_TYPE_ST_JSONL;
+    const entryCount = Array.isArray(pack.summaryEntries) ? pack.summaryEntries.length : 0;
+    const lit = progress ? litArmsFor(progress.done, progress.total) : 0;
+    const meta = isJsonl
+      ? (entryCount > 0 ? `已总结 ${entryCount} 条` : '尚未总结')
+      : `纯文本 · ${pack.chunkCount} 块`;
+
+    return (
+      <button
+        key={pack.id}
+        type="button"
+        className="mini"
+        aria-label={`${pack.title}，${meta}`}
+        onClick={() => setDetailPack(pack)}
+      >
+        <span className="fw">
+          <span className="ring" />
+          <Snowflake size={76} arm={isJsonl ? pickArm(pack.id) : 'c'} lit={lit} deep={!isJsonl} />
+        </span>
+        <span className="n serif">{pack.title}</span>
+        <span className="m">{meta}</span>
+      </button>
+    );
+  };
+
+  return (
+    <QianchenBackdrop label="前尘">
+      {view === 'text' ? (
+        <StTextImport
+          onBack={() => setView('home')}
+          onImported={() => {
+            setView('home');
+            void loadPacks();
+          }}
+          onPickJsonl={pickJsonl}
+        />
       ) : (
-        <div className="flex flex-col gap-3">
-          {packs.map((pack) => (
-            <div
-              key={pack.id}
-              onClick={() => setDetailPack(pack)}
-              className="flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 shadow-sm transition-transform active:scale-[0.98]"
-              style={{
-                backgroundColor: 'var(--card-bg)',
-                borderColor: 'var(--card-border)',
-                color: 'var(--text-main)',
-              }}
-            >
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-semibold">{pack.title}</h3>
-                <p className="mt-0.5 text-[11px] opacity-55">
-                  {pack.sourceType === 'st-jsonl' ? 'ST 聊天' : '文本'} / {pack.chunkCount} 块 / 估算{' '}
-                  {(pack.tokenEstimate || 0).toLocaleString()} token
-                  {formatDate(pack.createdAt) ? ` / ${formatDate(pack.createdAt)}` : ''}
-                </p>
-              </div>
+        <>
+          <div className="qc-scroll">
+            <div className="qc-col qc-main">
+              <button type="button" className="back" onClick={onBackHub}>
+                <BackIcon />主页
+              </button>
+              <h1 className="mark serif">前尘</h1>
+              <div className="tag serif">记忆塑造灵魂</div>
+              <div className="flow">导入　总结　挂载</div>
+
+              {hero ? (
+                <>
+                  {renderHero(hero)}
+                  {rest.length > 0 && (
+                    <>
+                      <div className="qc-cap">沉在冰下的其他往事</div>
+                      <div className="qc-row">{rest.map(renderMini)}</div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="qc-empty">
+                  <Snowflake size={110} arm="c" lit={0} deep />
+                  <p>冰面还很干净，导入第一段往事吧。</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="foot">
+            <div className="foot-in">
               <button
                 type="button"
-                aria-label="删除记忆包"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteTarget(pack);
-                }}
-                className="shrink-0 p-1.5 opacity-45 transition-opacity hover:opacity-100 active:opacity-100"
+                className="btn btn-pri btn-big"
+                onClick={() => setShowPicker(true)}
               >
-                <Trash2 className="h-4 w-4" />
+                导入往事
               </button>
+              <div className="mute" style={{ textAlign: 'center', fontSize: 12, marginTop: 10 }}>
+                SillyTavern 聊天记录 / 文本 / Markdown
+              </div>
             </div>
-          ))}
-        </div>
+          </div>
+        </>
       )}
 
-      {showImport && (
-        <StPackImportModal
-          onClose={() => setShowImport(false)}
-          onImported={() => void loadPacks()}
-          onPickJsonl={(picked) => {
-            setShowImport(false);
-            setJsonlFile(picked);
+      {showPicker && (
+        <StSourcePicker
+          onClose={() => setShowPicker(false)}
+          onPickJsonl={pickJsonl}
+          onPickText={() => {
+            setShowPicker(false);
+            setView('text');
           }}
         />
       )}
@@ -312,25 +396,29 @@ const StMemoryApp = ({ onBackHub }) => {
             setDetailPack(null);
             setUndoTarget(target);
           }}
+          onRequestDelete={(target) => {
+            setDetailPack(null);
+            setDeleteTarget(target);
+          }}
         />
       )}
 
       <ConfirmModal
         isOpen={Boolean(undoTarget)}
         title="撤销最近一次导入"
-        message="确定撤销最近一次导入吗？这一次导入的内容会从记忆包里移除，之前的内容不受影响。此操作不可恢复。"
+        message="确定撤销最近一次导入吗？这一次导入的内容会从这条往事里移除，之前的内容不受影响。此操作不可恢复。"
         onConfirm={handleConfirmUndo}
         onCancel={() => setUndoTarget(null)}
       />
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
-        title="删除记忆包"
+        title="删除往事"
         message={`确定删除「${deleteTarget?.title || ''}」吗？它的原文会被一并删除，所有挂着它的聊天也会取消挂载。此操作不可恢复。`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </QianchenBackdrop>
   );
 };
 
