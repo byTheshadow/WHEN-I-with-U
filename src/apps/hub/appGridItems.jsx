@@ -350,7 +350,7 @@ export const buildAppGridItems = ({
         </div>
 
         <div>
-          <AppTitle en="Memory Packs" zh="记忆包" ko="기억 꾸러미" mode={nameMode} />
+          <AppTitle en="Memory Packs" zh="前尘" ko="기억 꾸러미" mode={nameMode} />
           <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-50">
             Story Import
           </p>

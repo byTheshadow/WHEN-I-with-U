@@ -46,7 +46,7 @@ export const HUB_APPS = [
 
   // ---- 记忆与档案 ----
   { id: 'diaries', en: 'Diaries', zh: '日记', ko: '일기', sub: 'Sync Memories', icon: 'BookOpen', group: 'memory', badge: null, status: null },
-  { id: 'stmemory', en: 'Memory Packs', zh: '记忆包', ko: '기억 꾸러미', sub: 'Story Import', icon: 'Library', group: 'memory', badge: null, status: null },
+  { id: 'stmemory', en: 'Memory Packs', zh: '前尘', ko: '기억 꾸러미', sub: 'Story Import', icon: 'Library', group: 'memory', badge: null, status: null },
   { id: 'memory', en: 'Memory Room', zh: '记忆室', ko: '기억의 방', sub: 'Private Archive', icon: 'Archive', group: 'memory', badge: null, status: null },
   { id: 'archive', en: 'Archive Room', zh: '存档室', ko: '보관함', sub: 'Old Messages', icon: 'FolderArchive', group: 'memory', badge: null, status: null },
   { id: 'ephemera', en: 'Ephemera', zh: '时光票根', ko: '시간의 조각', sub: 'Time Tickets', icon: 'Ticket', group: 'memory', badge: null, status: null },
