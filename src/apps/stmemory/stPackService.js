@@ -121,7 +121,7 @@ export const getChunksInRange = async (packId, from, to) => (
 
 export const updatePackMeta = async (packId, fields) => {
   const patch = { updatedAt: new Date().toISOString() };
-  if (typeof fields.title === 'string') patch.title = fields.title.trim() || '未命名记忆包';
+  if (typeof fields.title === 'string') patch.title = fields.title.trim() || '未命名往事';
   if (typeof fields.overview === 'string') patch.overview = fields.overview;
   await db.stMemoryPacks.update(packId, patch);
 };
@@ -245,7 +245,7 @@ export const importTextAsPack = async (source, options = {}) => {
   const importId = makeImportId();
 
   const packId = await db.stMemoryPacks.add({
-    title: String(title || '').trim() || '未命名记忆包',
+    title: String(title || '').trim() || '未命名往事',
     sourceType: SOURCE_TYPE_TEXT,
     createdAt: now,
     updatedAt: now,

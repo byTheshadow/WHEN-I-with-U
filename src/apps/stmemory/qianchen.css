@@ -141,6 +141,97 @@
 .qc-file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qc-file button{min-width:44px;min-height:44px;background:none;border:0;color:var(--sub);display:flex;align-items:center;justify-content:center}
 
+/* ---------- ST 导入向导 ---------- */
+.qc .chip-ok{background:var(--okbg);color:var(--ok)}
+.qc .chip-warn{background:var(--warnbg);color:var(--warn)}
+.qc .chip-bad{background:var(--warnbg);color:var(--bad)}
+.qc .stepper{position:relative;display:flex;align-items:flex-start;padding:12px 44px 4px}
+.qc .step{display:flex;flex-direction:column;align-items:center;gap:4px;width:56px;font-size:11px;font-weight:600;color:var(--sub)}
+.qc .dot{width:26px;height:26px;border-radius:999px;border:1.5px solid var(--div);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--soft)}
+.qc .step-on{color:var(--ink)}
+.qc .step-on .dot{background:var(--acc);border-color:var(--acc);color:var(--accfg);box-shadow:0 0 14px var(--glow)}
+.qc .step-done .dot{border-color:var(--acc);color:var(--ink)}
+.qc .rail{flex:1;height:2px;background:var(--div);margin-top:12px}
+.qc .rail-on{background:var(--acc)}
+.qc .row{display:flex;justify-content:space-between;align-items:center;min-height:44px}
+.qc .num{font-size:30px;font-weight:300;letter-spacing:.01em;font-variant-numeric:tabular-nums;line-height:1.2}
+.qc .swb{min-width:48px;min-height:44px;background:none;border:0;padding:0;display:flex;align-items:center;justify-content:center}
+.qc .sw{width:42px;height:24px;border-radius:999px;background:var(--div);position:relative;flex:none}
+.qc .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:999px;background:var(--fl);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.qc .sw-on{background:var(--acc)}
+.qc .sw-on::after{left:21px;background:var(--accfg)}
+.qc .iconbtn{min-width:44px;min-height:44px;background:none;border:0;color:var(--sub);display:flex;align-items:center;justify-content:center}
+.qc .btn-underline{display:inline-flex;align-items:center;min-height:44px;padding:0;background:none;border:0;color:var(--sub);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.qc-wiz{padding:20px 20px 230px;display:flex;flex-direction:column;gap:24px}
+.qc-wiz-head{padding:16px 20px 0}
+.qc-wiz-head .hd{font-size:24px}
+.qc-warn{padding:12px 14px;border-radius:16px;border:1px solid var(--bad);color:var(--bad);background:var(--warnbg);line-height:1.6}
+
+/* 标签芯片：出现越多颜色越深（--p 由代码按次数相对最大值分档） */
+.qc .tag{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--acc) var(--p,0%),var(--gl));font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--ink)}
+.qc .tag b{font-family:-apple-system,"PingFang SC",sans-serif;font-weight:600;color:var(--sub);font-size:11px}
+.qc .tag.dark{color:var(--accfg);border-color:var(--acc)}
+.qc .tag.dark b{color:var(--accfg);opacity:.82}
+.qc .tag.tag-on{border-style:dashed;border-color:currentColor}
+.qc .tag:disabled{cursor:default}
+.qc .rule{display:flex;align-items:center;gap:8px;min-height:56px;padding:0 8px 0 10px;border-top:1px solid var(--div)}
+.qc .rule:first-child{border-top:0}
+.qc .rule code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.qc .del{background:var(--warnbg);color:var(--warn);text-decoration:line-through;border-radius:4px;padding:0 2px}
+.qc .mono-inp{font-family:ui-monospace,Menlo,Consolas,monospace}
+
+/* ---------- 封存页 ---------- */
+.qc-seal{position:relative;min-height:100%;padding-bottom:170px;display:flex;flex-direction:column;align-items:center}
+.qc-seal .stage{position:relative;width:240px;height:240px;margin-top:70px}
+.qc-seal .bloom{position:absolute;left:50%;top:-10px;width:400px;height:400px;margin-left:-200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(255,255,255,.55) 26%,rgba(255,255,255,.14) 50%,transparent 70%);animation:qc-breathe 9s ease-in-out infinite;pointer-events:none}
+.qc.t-mono .qc-seal .bloom{display:none}
+.qc-seal .rg{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:1px solid var(--fl);opacity:0;animation:qc-rg 3s ease-out 1 both}
+.qc-seal .rg.b{animation-delay:.5s}
+.qc-seal .rg.c{animation-delay:1s}
+.qc-seal .land{position:absolute;inset:0;animation:qc-land 1.4s cubic-bezier(.2,.7,.2,1) 1 both}
+.qc-seal .h{position:relative;margin:30px 0 0;text-align:center;font-size:42px;font-weight:300;letter-spacing:.5em;padding-left:.5em;text-shadow:0 0 22px var(--glow),0 0 60px var(--glow);outline:none}
+.qc-seal .d{position:relative;margin:18px 32px 0;text-align:center;font-size:14px;color:var(--sub);overflow-wrap:anywhere}
+.qc-seal .d b{color:var(--ink);font-weight:700}
+.qc-seal .nums{position:relative;align-self:stretch;margin:28px 32px 0;display:flex;align-items:stretch}
+.qc-seal .nums>div{flex:1;text-align:center}
+.qc-seal .nums>div+div{border-left:1px solid var(--div)}
+.qc-seal .nums .n{font-size:30px;font-weight:300;letter-spacing:.02em;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.2}
+.qc-seal .nums .l{font-size:12px;color:var(--sub)}
+.qc-seal .hint{position:relative;margin:22px 40px 0;text-align:center;font-size:12px;color:var(--sub)}
+@keyframes qc-rg{0%{transform:scale(.4);opacity:.9}100%{transform:scale(3.2);opacity:0}}
+@keyframes qc-land{0%{opacity:0;transform:translateY(-30px) scale(1.1)}100%{opacity:1;transform:none}}
+
+/* ---------- 往事详情 ---------- */
+.qc [hidden]{display:none!important}
+.qc .bar{height:10px;border-radius:999px;background:var(--track);overflow:hidden;display:flex}
+.qc .bar>i{display:block;height:100%;border-radius:999px;background:var(--acc)}
+.qc .tabs{position:relative;display:flex;border-bottom:1px solid var(--div);padding:0 20px}
+.qc .tabs button{flex:1;min-height:46px;display:flex;align-items:center;justify-content:center;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:600;color:var(--sub)}
+.qc .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--acc);font-weight:700}
+.qc .pill{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font-weight:600}
+.qc .pill[aria-pressed="true"]{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.qc .pill:disabled{opacity:.5;cursor:not-allowed}
+.qc-detail{padding:20px 20px 48px;display:flex;flex-direction:column;gap:24px}
+.qc-detail-head{padding:12px 20px 16px;display:flex;gap:14px;align-items:center}
+.qc-detail-head .hd{font-size:26px;overflow-wrap:anywhere}
+.qc .clamp3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.qc .btn-danger{color:var(--bad)}
+.qc .num-inp{width:88px;text-align:center;flex:none}
+
+/* ---------- 聊天挂载面板 ---------- */
+.qc .sec{padding:14px 0;border-top:1px solid var(--div)}
+.qc .mode{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.qc .mode>button{text-align:left;min-height:64px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--soft)}
+.qc .mode>button[aria-pressed="true"]{border:2px solid var(--acc);padding:9px 11px;background:var(--gl)}
+.qc .mode b{display:block;font-size:13px}
+.qc .mode span{font-size:11px;color:var(--sub)}
+.qc-budget{position:relative;padding:8px 24px 0}
+.qc-budget .bloom{position:absolute;left:50%;top:-10px;width:340px;height:260px;margin-left:-170px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.95),rgba(255,255,255,.4) 55%,transparent);pointer-events:none;animation:qc-breathe 9s ease-in-out infinite}
+.qc.t-mono .qc-budget .bloom{display:none}
+.qc-budget>*:not(.bloom){position:relative}
+.qc-panel{padding:24px 20px 56px;display:flex;flex-direction:column;gap:16px}
+.qc .blk-inp{display:inline-block;width:60px;min-height:44px;padding:0 8px;text-align:center}
+
 @media (prefers-reduced-motion:reduce){
   .qc *,.qc *::before,.qc *::after{animation:none!important;transition:none!important}
 }

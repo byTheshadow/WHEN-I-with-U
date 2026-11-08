@@ -5,8 +5,6 @@
 //
 // 这个应用从一开始就是懒加载的（见 App.jsx）。
 import React, { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 
 import ConfirmModal from '../../components/ConfirmModal';
 import { triggerGlobalToast } from '../../components/NotificationToast';
@@ -15,172 +13,16 @@ import Snowflake, { litArmsFor, pickArm } from './Snowflake';
 import StSourcePicker from './StSourcePicker';
 import StTextImport from './StTextImport';
 import StJsonlImportModal from './StJsonlImportModal';
+import StPackDetail from './StPackDetail';
 import { SOURCE_TYPE_ST_JSONL } from './stPackConstants';
+import { getSummaryProgress } from './stPackProgress';
 import { loadSummarySettings } from './stSummaryConfig';
-import { getSummaryCursor } from './stSummaryEngine';
-import StSummaryEntriesEditor from './StSummaryEntriesEditor';
-import StSummaryGenerator from './StSummaryGenerator';
 import {
   deletePack,
   getAllPacks,
+  getPack,
   undoLastImport,
-  updatePackMeta,
 } from './stPackService';
-
-const formatDate = (iso) => {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
-};
-
-const PackDetailModal = ({ pack, onClose, onSaved, onRequestUndo, onRequestDelete }) => {
-  const [title, setTitle] = useState(pack.title || '');
-  const [overview, setOverview] = useState(pack.overview || '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [summaryEntries, setSummaryEntries] = useState(
-    Array.isArray(pack.summaryEntries) ? pack.summaryEntries : [],
-  );
-
-  const handleSave = async () => {
-    if (isSaving) return;
-    setIsSaving(true);
-    try {
-      await updatePackMeta(pack.id, { title, overview });
-      onSaved();
-      onClose();
-    } catch (error) {
-      console.error('[stmemory] 保存失败：', error);
-      triggerGlobalToast({ title: '保存失败', content: '请稍后再试。' });
-      setIsSaving(false);
-    }
-  };
-
-  const fieldStyle = {
-    background: 'var(--control-soft-bg)',
-    borderColor: 'var(--card-border)',
-    color: 'var(--text-main)',
-  };
-
-  return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center">
-      <div
-        className="absolute inset-0 backdrop-blur-md"
-        style={{ background: 'rgba(0,0,0,0.25)' }}
-        onClick={onClose}
-      />
-      <div
-        className="relative z-10 flex max-h-[88dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-[2rem] border p-5 text-xs sm:rounded-[2rem]"
-        style={{
-          background: 'var(--card-bg-gradient)',
-          borderColor: 'var(--card-border)',
-          color: 'var(--text-main)',
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="font-serif text-sm font-bold">往事详情</h3>
-          <button type="button" onClick={onClose} className="opacity-60 hover:opacity-100">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <input
-          className="w-full rounded-xl border px-3 py-2 outline-none"
-          style={fieldStyle}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="往事名称"
-        />
-
-        <p className="opacity-60">
-          {pack.chunkCount} 块 / 约 {(pack.charCount || 0).toLocaleString()} 字 / 估算{' '}
-          {(pack.tokenEstimate || 0).toLocaleString()} token
-        </p>
-
-        <div className="space-y-1">
-          <label className="font-semibold">概览（可选）</label>
-          <textarea
-            className="min-h-[110px] w-full resize-y rounded-xl border px-3 py-2 outline-none"
-            style={fieldStyle}
-            value={overview}
-            onChange={(e) => setOverview(e.target.value)}
-            placeholder="用几句话写下这份记录讲了什么。填了之后，每次注入都会带上这段概览。"
-          />
-          <p className="text-[10px] leading-relaxed opacity-55">
-            概览会占用上下文，所以也计入这条往事的 token 估算。
-          </p>
-        </div>
-
-        {pack.sourceType === 'st-jsonl' && (
-          <StSummaryGenerator
-            pack={pack}
-            entries={summaryEntries}
-            onEntriesChange={(next) => {
-              setSummaryEntries(next);
-              onSaved();
-            }}
-          />
-        )}
-
-        <StSummaryEntriesEditor
-          packId={pack.id}
-          entries={summaryEntries}
-          onEntriesChange={(next) => {
-            setSummaryEntries(next);
-            onSaved();
-          }}
-        />
-
-        {Array.isArray(pack.imports) && pack.imports.length > 1 && (
-          <div className="space-y-1.5 rounded-xl border px-3 py-2.5" style={fieldStyle}>
-            <p className="font-semibold">导入记录（{pack.imports.length} 次）</p>
-            {pack.imports.map((record) => (
-              <p key={record.importId} className="opacity-65">
-                {record.label} / {record.chunkCount} 块 / {formatDate(record.createdAt)}
-              </p>
-            ))}
-            <button
-              type="button"
-              onClick={() => onRequestUndo(pack)}
-              className="mt-1 w-full rounded-lg border py-1.5 font-semibold"
-              style={fieldStyle}
-            >
-              撤销最近一次导入
-            </button>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => onRequestDelete(pack)}
-          className="rounded-xl border py-2 text-xs font-semibold"
-          style={{ ...fieldStyle, color: 'var(--text-main)' }}
-        >
-          删除这片往事
-        </button>
-
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isSaving}
-          className="rounded-xl py-2.5 text-xs font-bold disabled:opacity-40"
-          style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-        >
-          保存
-        </button>
-      </div>
-    </div>,
-    document.body,
-  );
-};
-
-/** 总结进度：已总结几批 / 一共几批。只有 ST 聊天往事有；批大小取总结设置里的"每批条数"。 */
-const getSummaryProgress = (pack, batchMessages) => {
-  if (pack.sourceType !== SOURCE_TYPE_ST_JSONL) return null;
-  const totalMessages = pack.source?.messageCount || 0;
-  const total = batchMessages > 0 ? Math.ceil(totalMessages / batchMessages) : 0;
-  if (!total) return { done: 0, total: 0 };
-  const cursor = getSummaryCursor(pack.summaryEntries);
-  return { done: Math.min(total, Math.ceil(cursor / batchMessages)), total };
-};
 
 const BackIcon = () => (
   <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
@@ -191,7 +33,7 @@ const StMemoryApp = ({ onBackHub }) => {
   const [batchMessages, setBatchMessages] = useState(0);
   const [view, setView] = useState('home'); // 'home' | 'text'
   const [showPicker, setShowPicker] = useState(false);
-  const [detailPack, setDetailPack] = useState(null);
+  const [detail, setDetail] = useState(null); // { pack, tab }
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [undoTarget, setUndoTarget] = useState(null);
   const [jsonlFile, setJsonlFile] = useState(null);
@@ -242,6 +84,18 @@ const StMemoryApp = ({ onBackHub }) => {
     setJsonlFile(picked);
   };
 
+  // 封存页的"去生成总结"：关掉向导，打开这条往事的详情（里面有生成总结）。
+  const openSummaryFor = async (packId) => {
+    setJsonlFile(null);
+    try {
+      await loadPacks();
+      const pack = await getPack(packId);
+      if (pack) setDetail({ pack, tab: 'summary' });
+    } catch (error) {
+      console.warn('[stmemory] 打开往事失败：', error);
+    }
+  };
+
   const hero = packs[0] || null;
   const rest = packs.slice(1);
 
@@ -274,7 +128,7 @@ const StMemoryApp = ({ onBackHub }) => {
           </>
         )}
         <div className="hgo">
-          <button type="button" className="btn-link" onClick={() => setDetailPack(pack)}>
+          <button type="button" className="btn-link" onClick={() => setDetail({ pack, tab: hasProgress ? 'summary' : 'overview' })}>
             {goText}
             <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /></svg>
           </button>
@@ -298,7 +152,7 @@ const StMemoryApp = ({ onBackHub }) => {
         type="button"
         className="mini"
         aria-label={`${pack.title}，${meta}`}
-        onClick={() => setDetailPack(pack)}
+        onClick={() => setDetail({ pack, tab: 'overview' })}
       >
         <span className="fw">
           <span className="ring" />
@@ -312,7 +166,30 @@ const StMemoryApp = ({ onBackHub }) => {
 
   return (
     <QianchenBackdrop label="前尘">
-      {view === 'text' ? (
+      {jsonlFile ? (
+        <StJsonlImportModal
+          file={jsonlFile}
+          onClose={() => setJsonlFile(null)}
+          onImported={() => void loadPacks()}
+          onOpenSummary={openSummaryFor}
+        />
+      ) : detail ? (
+        <StPackDetail
+          key={detail.pack.id}
+          pack={detail.pack}
+          initialTab={detail.tab}
+          onClose={() => setDetail(null)}
+          onSaved={() => void loadPacks()}
+          onRequestUndo={(target) => {
+            setDetail(null);
+            setUndoTarget(target);
+          }}
+          onRequestDelete={(target) => {
+            setDetail(null);
+            setDeleteTarget(target);
+          }}
+        />
+      ) : view === 'text' ? (
         <StTextImport
           onBack={() => setView('home')}
           onImported={() => {
@@ -375,30 +252,6 @@ const StMemoryApp = ({ onBackHub }) => {
           onPickText={() => {
             setShowPicker(false);
             setView('text');
-          }}
-        />
-      )}
-
-      {jsonlFile && (
-        <StJsonlImportModal
-          file={jsonlFile}
-          onClose={() => setJsonlFile(null)}
-          onImported={() => void loadPacks()}
-        />
-      )}
-
-      {detailPack && (
-        <PackDetailModal
-          pack={detailPack}
-          onClose={() => setDetailPack(null)}
-          onSaved={() => void loadPacks()}
-          onRequestUndo={(target) => {
-            setDetailPack(null);
-            setUndoTarget(target);
-          }}
-          onRequestDelete={(target) => {
-            setDetailPack(null);
-            setDeleteTarget(target);
           }}
         />
       )}

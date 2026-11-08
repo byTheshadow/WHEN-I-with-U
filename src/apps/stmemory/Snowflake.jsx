@@ -80,6 +80,7 @@ const Snowflake = ({
   arm = 'b',
   lit = ARM_COUNT,
   hero = false,
+  ringLit = false, // 封存页：只有中心那圈六边形环亮着
   deep = false,
   className = '',
 }) => {
@@ -98,7 +99,7 @@ const Snowflake = ({
 
   return (
     <span className={wrapClass} style={{ width: size, height: size }} aria-hidden="true">
-      {hero && litCount > 0 && (
+      {hero && (litCount > 0 || ringLit) && (
         <svg
           className="flk flk-gl"
           width={size}
@@ -126,7 +127,7 @@ const Snowflake = ({
         {dimIdx.length > 0 && (
           <g className="dm">
             <Arms arm={arm} indexes={dimIdx} />
-            {ring && litCount === 0 && <polygon points={ring} />}
+            {ring && litCount === 0 && !ringLit && <polygon points={ring} />}
           </g>
         )}
         {litIdx.length > 0 && (
@@ -134,6 +135,9 @@ const Snowflake = ({
             <Arms arm={arm} indexes={litIdx} />
             {ring && <polygon points={ring} />}
           </g>
+        )}
+        {ring && litIdx.length === 0 && ringLit && (
+          <g className="lt"><polygon points={ring} /></g>
         )}
         <polygon className="co" points={hexPoints(CORE_RADIUS[arm] || CORE_RADIUS.b)} />
       </svg>

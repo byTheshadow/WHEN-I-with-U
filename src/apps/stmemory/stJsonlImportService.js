@@ -86,7 +86,10 @@ export const previewStJsonl = async (file, rules) => {
     droppedEmpty: 0,
     cleanedChars: 0,
     cleanedTokens: 0,
+    rawTokens: 0,
     tailMessages: 0,
+    tailUserMessages: 0,
+    tailCharMessages: 0,
     tailChars: 0,
     tailTokens: 0,
   };
@@ -113,6 +116,8 @@ export const previewStJsonl = async (file, rules) => {
       scanPairedTags(message.raw, tagScan);
 
       const cleaned = cleanMessageText(message.raw, compiled);
+      const baseline = cleanMessageText(message.raw, []);
+      if (baseline) stats.rawTokens += estimateTokens(formatMessageLine(message, baseline));
       const isTail = !previous || index >= previousCount;
 
       if (!cleaned) {
@@ -130,12 +135,14 @@ export const previewStJsonl = async (file, rules) => {
 
       if (previous && isTail) {
         stats.tailMessages += 1;
+        if (message.isUser) stats.tailUserMessages += 1;
+        else stats.tailCharMessages += 1;
         stats.tailChars += line.length;
         stats.tailTokens += tokens;
       }
 
       // 和不套任何规则时的整理结果比较，只有规则真的改动了的消息才拿来做示例。
-      if (cleaned !== cleanMessageText(message.raw, []) && samples.length < SAMPLE_LIMIT) {
+      if (cleaned !== baseline && samples.length < SAMPLE_LIMIT) {
         samples.push({ before: shorten(message.raw), after: shorten(cleaned) });
       }
       return true;

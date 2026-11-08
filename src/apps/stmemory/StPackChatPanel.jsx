@@ -1,25 +1,31 @@
 // src/apps/stmemory/StPackChatPanel.jsx
 //
-// 聊天里的"剧情记忆包"管理面板（从聊天设置里的一个按钮打开，全屏）。
-// 在这里把记忆包挂到当前聊天、选定位、开关、排顺序、选范围，并且能一眼看到
-// 这些包一共占用多少上下文。超预算的包不会被注入，也不会被悄悄截断，
-// 这里会明确标出来，由用户自己缩小范围或调高预算。
+// 聊天里的"前尘"挂载面板（从聊天设置里的一个按钮打开，全屏）。
+// 在这里把往事挂到当前聊天、选定位、开关、排顺序、选范围，并且能一眼看到
+// 这些往事一共占用多少上下文。超预算的往事不会被注入，也不会被悄悄截断，
+// 这里会明确标出来，由用户自己改成只带概览、缩小范围或调高预算。
 //
 // 本聊天的挂载数据存在 chats.stPackLinks / chats.stPackBudgetTokens（无索引字段）。
 // 面板内部自己持有一份 links 状态，改完立刻写库，再通知外层重新拉取 chat。
+//
+// 这一版只换了外观和文案（冰下），逻辑全部沿用：概览注入模式（injectMode）、钉住原文
+// （pinnedRange，上限 PINNED_MAX_TOKENS）、按总结条目或原文块选范围、预算计划都没有改。
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDown, ArrowUp, Library, Plus, Trash2, X } from 'lucide-react';
 
+import QianchenBackdrop from './QianchenBackdrop';
+import Snowflake, { litArmsFor, pickArm } from './Snowflake';
 import {
   FRAMING_OPTIONS,
   INJECT_MODE_FULL,
   INJECT_MODE_OVERVIEW,
   PINNED_MAX_TOKENS,
+  SOURCE_TYPE_ST_JSONL,
 } from './stPackConstants';
 import {
   getDefaultInjectMode,
   getInjectMode,
+  getLinkTokens,
   getSummaryEntries,
   hasSummaryEntries,
   inspectPinnedRange,
@@ -35,20 +41,27 @@ import {
   saveChatBudget,
   saveChatLinks,
 } from './stPackLinkService';
+import { getSummaryProgress } from './stPackProgress';
 import { getAllPacks } from './stPackService';
+import { loadSummarySettings } from './stSummaryConfig';
 
 const STATUS_LABELS = {
   included: '会被注入',
   disabled: '已关闭',
   over_budget: '超出预算，不会注入',
-  missing: '记忆包已不存在',
+  missing: '往事已不存在',
 };
 
-const fieldStyle = {
-  background: 'var(--control-soft-bg)',
-  borderColor: 'var(--card-border)',
-  color: 'var(--text-main)',
-};
+const ChevronDown = ({ open }) => (
+  <svg
+    className="ico mute"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    style={open ? { transform: 'rotate(180deg)' } : undefined}
+  >
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
 
 // 概览模式下的"翻阅原文"：钉住一段原文块，之后每条消息都会带上，直到取消。
 // 块下标在界面上从 1 开始数，库里存 0 开始的下标。
@@ -60,7 +73,7 @@ const PinnedRangeEditor = ({ pack, link, onSave }) => {
   const [toText, setToText] = useState(saved?.range ? String(saved.range.to + 1) : '');
 
   if (chunkCount <= 0) {
-    return <p className="text-[10px] opacity-50">这个包没有原文块，无法翻阅原文。</p>;
+    return <p className="mute" style={{ margin: 0, fontSize: 11 }}>这片往事没有原文块，无法翻阅原文。</p>;
   }
 
   const from = Number.parseInt(fromText, 10);
@@ -75,76 +88,106 @@ const PinnedRangeEditor = ({ pack, link, onSave }) => {
     else if (!draft.ok) message = `这一段估算 ${draft.tokens.toLocaleString()} token，超过上限 ${PINNED_MAX_TOKENS.toLocaleString()}，请缩小范围。`;
     else message = `这一段估算 ${draft.tokens.toLocaleString()} token（上限 ${PINNED_MAX_TOKENS.toLocaleString()}）。`;
   }
+  const messageIsError = Boolean(message) && !(validNumbers && draft?.ok);
+
+  // 预览条：优先显示正在输入的这一段，没有就显示已钉住的
+  const previewTokens = draft?.ok ? draft.tokens : (saved?.ok ? saved.tokens : 0);
+  const previewPercent = Math.min(100, Math.round((previewTokens / PINNED_MAX_TOKENS) * 100));
 
   return (
-    <div className="space-y-1.5">
-      <span className="font-semibold">翻阅原文（共 {chunkCount} 块）</span>
-      <p className="text-[10px] opacity-50">
-        钉住一段原文后，角色在之后每条回复里都能看到它，直到你取消翻阅。注入的是原文，不是总结。
+    <div>
+      <div className="lbl" style={{ marginBottom: 4 }}>翻阅原文（共 {chunkCount} 块）</div>
+      <p className="mute" style={{ margin: '0 0 10px', fontSize: 12 }}>
+        需要某段细节时，钉住那一段原文，角色之后每条回复都能看到它，直到你取消翻阅。注入的是原文，不是总结。
       </p>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="opacity-60">第</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className="mute">第</span>
+        <label className="vh" htmlFor={`st-pin-from-${link.packId}`}>起始块</label>
         <input
+          id={`st-pin-from-${link.packId}`}
+          className="inp blk-inp"
           type="number"
           min="1"
           max={chunkCount}
           value={fromText}
           onChange={(e) => setFromText(e.target.value)}
-          className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
-          style={fieldStyle}
         />
-        <span className="opacity-60">块 到 第</span>
+        <span className="mute">块 到 第</span>
+        <label className="vh" htmlFor={`st-pin-to-${link.packId}`}>结束块</label>
         <input
+          id={`st-pin-to-${link.packId}`}
+          className="inp blk-inp"
           type="number"
           min="1"
           max={chunkCount}
           value={toText}
           onChange={(e) => setToText(e.target.value)}
-          className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
-          style={fieldStyle}
         />
-        <span className="opacity-60">块</span>
+        <span className="mute">块</span>
         <button
           type="button"
+          className="btn btn-pri"
+          style={{ marginLeft: 'auto', flex: 'none' }}
           disabled={!draft?.ok}
           onClick={() => onSave({ from: from - 1, to: to - 1 })}
-          className="ml-auto rounded-lg px-3 py-1 font-semibold disabled:opacity-30"
-          style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
         >
           钉住
         </button>
       </div>
+
+      <div style={{ marginTop: 12 }}>
+        <div
+          className="bar"
+          role="img"
+          aria-label={`钉住的原文 ${previewTokens.toLocaleString()}，上限 ${PINNED_MAX_TOKENS.toLocaleString()}`}
+        >
+          <i style={{ width: `${previewPercent}%` }} />
+        </div>
+        <div className="mute" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
+          <span>这一段估算 {previewTokens.toLocaleString()} token</span>
+          <span>上限 {PINNED_MAX_TOKENS.toLocaleString()}</span>
+        </div>
+      </div>
+
       {message && (
         <p
-          className="text-[10px]"
-          style={{ color: validNumbers && draft?.ok ? undefined : '#f43f5e', opacity: validNumbers && draft?.ok ? 0.6 : 1 }}
+          role={messageIsError ? 'alert' : undefined}
+          style={{ margin: '8px 0 0', fontSize: 11, color: messageIsError ? 'var(--bad)' : 'var(--sub)', fontWeight: messageIsError ? 700 : 400 }}
         >
           {message}
         </p>
       )}
+
       {link.pinnedRange && (
         <div
-          className="flex items-center justify-between gap-2 rounded-xl border px-3 py-2"
-          style={fieldStyle}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 14,
+            background: saved?.ok ? 'var(--okbg)' : 'var(--warnbg)',
+            color: saved?.ok ? 'var(--ok)' : 'var(--bad)',
+          }}
         >
-          {saved?.ok ? (
-            <span>
-              正在翻阅第 {saved.range.from + 1} 到 {saved.range.to + 1} 块（估算 {saved.tokens.toLocaleString()} token）
-            </span>
-          ) : (
-            <span style={{ color: '#f43f5e' }}>
-              之前钉住的范围已超出上限或失效，目前不会注入。
-            </span>
-          )}
+          <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 17v5" />
+            <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+          </svg>
+          <span style={{ flex: 1, fontWeight: 700 }}>
+            {saved?.ok
+              ? `正在翻阅第 ${saved.range.from + 1}–${saved.range.to + 1} 块`
+              : '之前钉住的范围已超出上限或失效，目前不会注入。'}
+          </span>
           <button
             type="button"
+            style={{ minHeight: 44, padding: '0 12px', borderRadius: 10, border: '1px solid currentColor', background: 'none', fontWeight: 700, color: 'inherit', flex: 'none' }}
             onClick={() => {
               setFromText('');
               setToText('');
               onSave(null);
             }}
-            className="shrink-0 rounded-lg border px-2 py-1"
-            style={{ borderColor: 'var(--card-border)' }}
           >
             取消翻阅
           </button>
@@ -158,11 +201,17 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
   const [packs, setPacks] = useState([]);
   const [links, setLinks] = useState(() => renumberLinks(getChatLinks(chat)));
   const [budget, setBudget] = useState(() => getChatBudget(chat));
+  const [batchMessages, setBatchMessages] = useState(0); // 只用来算雪花亮几条臂
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [framingOpen, setFramingOpen] = useState(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
     getAllPacks().then((rows) => {
       if (!cancelled) setPacks(rows);
+    });
+    loadSummarySettings().then((settings) => {
+      if (!cancelled) setBatchMessages(settings.batchMessages);
     });
     return () => {
       cancelled = true;
@@ -196,7 +245,7 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
     commitLinks(links.map((link) => (link.packId === packId ? { ...link, ...patch } : link)))
   );
 
-  // 新挂载的默认模式：有总结条目的包默认只带概览，没有就沿用原文。
+  // 新挂载的默认模式：有总结条目的往事默认只带概览，没有就沿用原文。
   const handleMount = (packId) => commitLinks([
     ...links,
     makeLink(packId, links.length, getDefaultInjectMode(packsById[packId])),
@@ -214,7 +263,7 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
     return commitLinks(next);
   };
 
-  // 包里有总结条目时，范围按条目选（存 entryRange）；否则按原文块选（存 range）。
+  // 往事里有总结条目时，范围按条目选（存 entryRange）；否则按原文块选（存 range）。
   const handleRangeCommit = (link, pack, rawFrom, rawTo) => {
     const useSummary = hasSummaryEntries(pack);
     const count = useSummary ? getSummaryEntries(pack).length : pack.chunkCount;
@@ -247,343 +296,493 @@ const StPackChatPanel = ({ chat, onClose, onUpdated }) => {
     onUpdated?.({ stPackBudgetTokens: value });
   };
 
+  const toggleFraming = (packId) => {
+    setFramingOpen((current) => {
+      const next = new Set(current);
+      if (next.has(packId)) next.delete(packId);
+      else next.add(packId);
+      return next;
+    });
+  };
+
+  // "缩小总结范围"：范围输入框就在这张卡片里，直接带到那里。
+  const focusRange = (packId) => {
+    const el = document.getElementById(`st-range-from-${packId}`);
+    el?.scrollIntoView({ block: 'center' });
+    el?.focus();
+  };
+
   const usedPercent = Math.min(100, Math.round((plan.usedTokens / Math.max(budget, 1)) * 100));
+  const remaining = Math.max(0, budget - plan.usedTokens);
+  const includedItems = plan.items.filter((item) => item.status === 'included');
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[90] flex flex-col overflow-hidden"
-      style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
-    >
-      <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
-        <h2 className="font-serif text-base font-bold">剧情记忆包</h2>
-        <button type="button" onClick={onClose} className="p-1 opacity-60 hover:opacity-100">
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-16 text-xs">
-        <p className="leading-relaxed opacity-60">
-          把导入的剧情记录挂到这个聊天里，角色就会知道这些事。每个包可以单独设定位、开关、顺序和范围；关掉的包从下一条消息起就不再注入。
-        </p>
-
-        {/* 总占用与预算 */}
-        <div
-          className="space-y-2 rounded-2xl border p-3.5"
-          style={{ background: 'var(--control-soft-bg)', borderColor: 'var(--card-border)' }}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold">
-              已占用 {plan.usedTokens.toLocaleString()} / {budget.toLocaleString()} token（估算）
-            </span>
-            <label className="flex items-center gap-1.5">
-              <span className="opacity-60">预算</span>
-              <input
-                key={budget}
-                type="number"
-                min="1"
-                defaultValue={budget}
-                onBlur={(e) => void handleBudgetCommit(e.target)}
-                className="w-20 rounded-lg border px-2 py-1 text-right outline-none"
-                style={fieldStyle}
-              />
-            </label>
+    <QianchenBackdrop label="前尘 · 挂载" zIndex={90}>
+      <div className="qc-scroll">
+        <div className="qc-col">
+          <div className="top">
+            <h1
+              className="serif"
+              style={{ margin: 0, paddingLeft: 8, fontSize: 28, fontWeight: 300, letterSpacing: '.36em', textShadow: '0 0 18px var(--glow)' }}
+            >
+              前尘
+            </h1>
+            <button
+              type="button"
+              className="iconbtn"
+              aria-label="关闭"
+              onClick={onClose}
+            >
+              <svg className="ico" style={{ width: 20, height: 20 }} viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 6 6 18" /><path d="M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--divider)' }}>
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${usedPercent}%`, background: 'var(--accent-color)' }}
-            />
-          </div>
-          {plan.overBudgetCount > 0 && (
-            <p className="font-semibold text-rose-500">
-              有 {plan.overBudgetCount} 个包超出预算，目前不会被注入。请缩小它的范围，或调高预算。
-            </p>
-          )}
-          <p className="text-[10px] opacity-50">
-            token 是粗略估算，不同模型的分词不一样，只用来判断大概的量级。这个占用只算记忆包，不含聊天本身和其他提示词。
+          <p className="mute" style={{ margin: '0 20px 18px', position: 'relative' }}>
+            把导入的往事挂到这个聊天，角色就会知道这些事。
           </p>
-        </div>
 
-        {/* 已挂载 */}
-        {plan.items.length === 0 ? (
-          <p className="py-6 text-center opacity-50">这个聊天还没有挂载记忆包</p>
-        ) : (
-          plan.items.map((item, index) => {
-            const { link, pack, tokens, status } = item;
-            const useSummary = pack ? hasSummaryEntries(pack) : false;
-            const unitCount = pack ? (useSummary ? getSummaryEntries(pack).length : pack.chunkCount) : 0;
-            const unitName = useSummary ? '条' : '块';
-            const rawRange = useSummary ? link.entryRange : link.range;
-            const range = pack ? normalizeRange(rawRange, unitCount) : null;
-            const overviewMode = pack ? getInjectMode(link) === INJECT_MODE_OVERVIEW : false;
-            const overviewEmpty = pack ? isOverviewLinkEmpty(pack, link) : false;
-
-            return (
-              <div
-                key={link.packId}
-                className="space-y-2.5 rounded-2xl border p-3.5"
-                style={{
-                  background: 'var(--card-bg)',
-                  borderColor: status === 'over_budget' ? '#f43f5e' : 'var(--card-border)',
-                  opacity: status === 'disabled' ? 0.65 : 1,
-                }}
+          {/* 主角：预算 */}
+          <section className="qc-budget" aria-label="预算">
+            <div className="bloom" aria-hidden="true" />
+            <div className="mute" style={{ fontSize: 12 }}>这个聊天里前尘占用（估算）</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+                <span
+                  className="serif"
+                  style={{ fontSize: 64, fontWeight: 300, lineHeight: 1.1, letterSpacing: '-.01em', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 24px var(--glow)' }}
+                >
+                  {plan.usedTokens.toLocaleString()}
+                </span>
+                <span className="mute" style={{ fontSize: 14 }}>/ {budget.toLocaleString()} token</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-out"
+                style={{ fontSize: 12, marginBottom: 8, flex: 'none' }}
+                aria-expanded={editingBudget}
+                onClick={() => setEditingBudget((value) => !value)}
               >
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-semibold">
-                      {pack ? pack.title : '（已删除的记忆包）'}
-                    </h3>
-                    <p
-                      className="mt-0.5 text-[11px]"
-                      style={{ color: status === 'over_budget' ? '#f43f5e' : undefined, opacity: status === 'over_budget' ? 1 : 0.6 }}
-                    >
-                      {STATUS_LABELS[status]}
-                      {pack ? ` / 估算 ${tokens.toLocaleString()} token` : ''}
-                    </p>
-                  </div>
+                调预算
+              </button>
+            </div>
 
-                  <button
-                    type="button"
-                    aria-label="上移"
-                    disabled={index === 0}
-                    onClick={() => void handleMove(link.packId, -1)}
-                    className="p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="下移"
-                    disabled={index === plan.items.length - 1}
-                    onClick={() => void handleMove(link.packId, 1)}
-                    className="p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="取消挂载"
-                    onClick={() => void handleRemove(link.packId)}
-                    className="p-1 opacity-50 hover:opacity-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+            {editingBudget && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <label htmlFor="st-budget-input" className="mute">预算（估算 token）</label>
+                <input
+                  id="st-budget-input"
+                  key={budget}
+                  className="inp"
+                  style={{ width: 120, textAlign: 'right' }}
+                  type="number"
+                  min="1"
+                  defaultValue={budget}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  onBlur={(e) => {
+                    void handleBudgetCommit(e.target);
+                    setEditingBudget(false);
+                  }}
+                />
+              </div>
+            )}
 
-                {pack && (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">注入到这个聊天</span>
+            <div
+              className="bar"
+              style={{ margin: '10px 0 8px' }}
+              role="img"
+              aria-label={`已占用 ${usedPercent}%`}
+            >
+              <i style={{ width: `${usedPercent}%` }} />
+            </div>
+            <div className="mute" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12 }}>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {includedItems.length > 0
+                  ? includedItems.map((item) => `${item.pack.title}　${item.tokens.toLocaleString()}`).join(' · ')
+                  : '还没有往事被注入'}
+              </span>
+              <span style={{ flex: 'none' }}>还剩 {remaining.toLocaleString()}</span>
+            </div>
+
+            {plan.overBudgetCount > 0 && (
+              <div
+                role="alert"
+                style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, padding: '10px 12px', borderRadius: 14, background: 'var(--warnbg)', color: 'var(--bad)', fontWeight: 700, fontSize: 12 }}
+              >
+                <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" />
+                </svg>
+                有 {plan.overBudgetCount} 片往事超出预算，目前不会注入
+              </div>
+            )}
+            <p className="mute" style={{ margin: '8px 0 0', fontSize: 11 }}>
+              只统计前尘，不含聊天本身和其他提示词。token 是粗略估算，不同模型的分词不一样，只用来判断大概的量级。
+            </p>
+          </section>
+
+          <div className="qc-panel">
+            {/* 已挂载 */}
+            {plan.items.length === 0 && (
+              <p className="mute" style={{ margin: 0, padding: '12px 0', textAlign: 'center' }}>
+                这个聊天还没有挂载往事
+              </p>
+            )}
+
+            {plan.items.map((item, index) => {
+              const { link, pack, tokens, status } = item;
+              const useSummary = pack ? hasSummaryEntries(pack) : false;
+              const unitCount = pack ? (useSummary ? getSummaryEntries(pack).length : pack.chunkCount) : 0;
+              const unitName = useSummary ? '条' : '块';
+              const rawRange = useSummary ? link.entryRange : link.range;
+              const range = pack ? normalizeRange(rawRange, unitCount) : null;
+              const overviewMode = pack ? getInjectMode(link) === INJECT_MODE_OVERVIEW : false;
+              const overviewEmpty = pack ? isOverviewLinkEmpty(pack, link) : false;
+              const framingIsOpen = framingOpen.has(link.packId);
+              const framingLabel = FRAMING_OPTIONS.find((option) => option.id === link.framing)?.label || '';
+              const title = pack ? pack.title : '（已删除的往事）';
+
+              const isJsonl = pack?.sourceType === SOURCE_TYPE_ST_JSONL;
+              const progress = pack && isJsonl && batchMessages > 0
+                ? getSummaryProgress(pack, batchMessages)
+                : null;
+              const lit = progress ? litArmsFor(progress.done, progress.total) : 0;
+
+              // 两种带法各自要多少（估算），写在选项的说明里
+              const fullTokens = pack ? getLinkTokens(pack, { ...link, injectMode: INJECT_MODE_FULL }) : 0;
+              const overviewTokens = pack ? getLinkTokens(pack, { ...link, injectMode: INJECT_MODE_OVERVIEW }) : 0;
+              const selectedCount = range ? range.to - range.from + 1 : 0;
+
+              const chipClass = status === 'included'
+                ? 'chip chip-ok'
+                : status === 'disabled' ? 'chip' : 'chip chip-bad';
+
+              return (
+                <section
+                  key={link.packId}
+                  className="glass"
+                  style={{
+                    padding: '16px 16px 16px',
+                    borderColor: status === 'over_budget' ? 'var(--bad)' : undefined,
+                    opacity: status === 'disabled' ? 0.75 : 1,
+                  }}
+                  aria-label={title}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Snowflake
+                      size={64}
+                      arm={pack && isJsonl ? pickArm(pack.id) : 'c'}
+                      lit={lit}
+                      deep={!pack || !isJsonl}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="serif" style={{ fontSize: 20, fontWeight: 400, letterSpacing: '.06em', overflowWrap: 'anywhere' }}>
+                        {title}
+                      </div>
+                      <span className={chipClass} style={{ marginTop: 4 }}>
+                        {STATUS_LABELS[status]}
+                        {pack ? ` · 估算 ${tokens.toLocaleString()}` : ''}
+                      </span>
+                    </div>
+                    {pack && (
                       <button
                         type="button"
+                        className="swb"
                         role="switch"
                         aria-checked={link.enabled}
+                        aria-label={`${title} ${link.enabled ? '已开启' : '已关闭'}`}
                         onClick={() => void patchLink(link.packId, { enabled: !link.enabled })}
-                        className="relative h-5 w-9 rounded-full transition-colors"
-                        style={{ background: link.enabled ? 'var(--accent-color)' : 'var(--divider)' }}
                       >
-                        <span
-                          className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all"
-                          style={{ left: link.enabled ? '18px' : '2px' }}
-                        />
+                        <span className={`sw${link.enabled ? ' sw-on' : ''}`} />
                       </button>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="font-semibold">注入内容</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          {
-                            id: INJECT_MODE_FULL,
-                            label: useSummary ? '总结全文' : '原文',
-                            hint: useSummary ? '带上选定范围的总结' : '带上选定范围的原文',
-                          },
-                          {
-                            id: INJECT_MODE_OVERVIEW,
-                            label: '只带概览',
-                            hint: '细节需要时你手动翻阅原文',
-                          },
-                        ].map((option) => {
-                          const active = getInjectMode(link) === option.id;
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => {
-                                if (!active) void patchLink(link.packId, { injectMode: option.id });
-                              }}
-                              className="rounded-xl border px-2 py-2 text-left"
-                              style={{
-                                ...fieldStyle,
-                                borderColor: active ? 'var(--accent-color)' : 'var(--card-border)',
-                                outline: active ? '1px solid var(--accent-color)' : 'none',
-                              }}
-                            >
-                              <div className="font-semibold">{option.label}</div>
-                              <div className="text-[10px] opacity-60">{option.hint}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {overviewMode && (
-                        <p className="text-[10px] opacity-50">
-                          只带概览时，总结和原文都不会自动注入，角色只知道概览里写的脉络。概览可以在「记忆包」应用里编辑。
-                        </p>
-                      )}
-                      {overviewEmpty && (
-                        <p className="text-[10px] font-semibold text-rose-500">
-                          这个包的概览是空的，又没有钉住原文，目前不会注入任何内容。请先写一段概览，或钉住一段原文。
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="font-semibold">定位</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {FRAMING_OPTIONS.map((option) => {
-                          const active = link.framing === option.id;
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => void patchLink(link.packId, { framing: option.id })}
-                              className="rounded-xl border px-2 py-2 text-left"
-                              style={{
-                                ...fieldStyle,
-                                borderColor: active ? 'var(--accent-color)' : 'var(--card-border)',
-                                outline: active ? '1px solid var(--accent-color)' : 'none',
-                              }}
-                            >
-                              <div className="font-semibold">{option.label}</div>
-                              <div className="text-[10px] opacity-60">{option.hint}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <textarea
-                        key={`note-${link.packId}`}
-                        defaultValue={link.framingText || ''}
-                        onBlur={(e) => {
-                          if (e.target.value !== (link.framingText || '')) {
-                            void patchLink(link.packId, { framingText: e.target.value });
-                          }
-                        }}
-                        placeholder="这次挂载的补充说明（可选），会接在定位说明后面"
-                        className="min-h-[52px] w-full resize-y rounded-xl border px-3 py-2 outline-none"
-                        style={fieldStyle}
-                      />
-                    </div>
-
-                    {overviewMode && (
-                      <PinnedRangeEditor
-                        key={`pin-${link.packId}`}
-                        pack={pack}
-                        link={link}
-                        onSave={(pinnedRange) => void patchLink(link.packId, { pinnedRange })}
-                      />
                     )}
+                  </div>
 
-                    {!overviewMode && (
-                    <div className="space-y-1">
-                      <span className="font-semibold">
-                        范围（共 {unitCount} {unitName}{useSummary ? '总结' : ''}）
-                      </span>
-                      {useSummary && (
-                        <p className="text-[10px] opacity-50">
-                          这个包有总结条目，注入的是总结，不是原文。
-                        </p>
-                      )}
-                      <div
-                        key={`range-${link.packId}-${useSummary}-${range?.from}-${range?.to}`}
-                        className="flex items-center gap-1.5"
-                      >
-                        <span className="opacity-60">第</span>
-                        <input
-                          id={`st-range-from-${link.packId}`}
-                          type="number"
-                          min="1"
-                          max={unitCount}
-                          defaultValue={range ? range.from + 1 : 1}
-                          onBlur={(e) => {
-                            const toEl = document.getElementById(`st-range-to-${link.packId}`);
-                            void handleRangeCommit(link, pack, e.target.value, toEl?.value);
-                          }}
-                          className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
-                          style={fieldStyle}
-                        />
-                        <span className="opacity-60">{unitName} 到 第</span>
-                        <input
-                          id={`st-range-to-${link.packId}`}
-                          type="number"
-                          min="1"
-                          max={unitCount}
-                          defaultValue={range ? range.to + 1 : unitCount}
-                          onBlur={(e) => {
-                            const fromEl = document.getElementById(`st-range-from-${link.packId}`);
-                            void handleRangeCommit(link, pack, fromEl?.value, e.target.value);
-                          }}
-                          className="w-16 rounded-lg border px-2 py-1 text-center outline-none"
-                          style={fieldStyle}
-                        />
-                        <span className="opacity-60">{unitName}</span>
-                        {rawRange && (
+                  {pack && status === 'over_budget' && (
+                    <div style={{ marginTop: 12 }}>
+                      <p className="mute" style={{ margin: '0 0 8px', fontSize: 12 }}>
+                        加上它会超出 {budget.toLocaleString()}。可以这样处理：
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {!overviewMode && (
                           <button
                             type="button"
-                            onClick={() => void patchLink(link.packId, { [useSummary ? 'entryRange' : 'range']: null })}
-                            className="ml-auto rounded-lg border px-2 py-1"
-                            style={fieldStyle}
+                            className="btn btn-pri"
+                            style={{ justifyContent: 'space-between' }}
+                            onClick={() => void patchLink(link.packId, { injectMode: INJECT_MODE_OVERVIEW })}
                           >
-                            用全部
+                            <span>改成「只带概览」</span>
+                            <span style={{ fontWeight: 500, opacity: 0.85 }}>约 {overviewTokens.toLocaleString()}</span>
                           </button>
+                        )}
+                        {!overviewMode && (
+                          <button
+                            type="button"
+                            className="btn btn-out"
+                            style={{ justifyContent: 'space-between' }}
+                            onClick={() => focusRange(link.packId)}
+                          >
+                            <span>缩小{useSummary ? '总结' : '原文'}范围</span>
+                            <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+                          </button>
+                        )}
+                        {overviewMode && (
+                          <p style={{ margin: 0, fontSize: 12, color: 'var(--bad)', fontWeight: 700 }}>
+                            概览加上钉住的原文已经超出预算。可以取消翻阅，或在上面调高预算。
+                          </p>
                         )}
                       </div>
                     </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })
-        )}
+                  )}
 
-        {/* 可挂载的包 */}
-        <div className="space-y-2">
-          <h3 className="flex items-center gap-1.5 font-semibold">
-            <Library className="h-3.5 w-3.5" /> 记忆包库
-          </h3>
-          {packs.length === 0 ? (
-            <p className="opacity-55">
-              库里还没有记忆包。先到首页的「记忆包」应用导入一份。
-            </p>
-          ) : availablePacks.length === 0 ? (
-            <p className="opacity-55">库里的包都已经挂在这个聊天上了。</p>
-          ) : (
-            availablePacks.map((pack) => (
-              <div
-                key={pack.id}
-                className="flex items-center gap-2 rounded-2xl border px-3.5 py-2.5"
-                style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{pack.title}</div>
-                  <div className="text-[11px] opacity-55">
-                    {pack.chunkCount} 块 / 估算 {(pack.tokenEstimate || 0).toLocaleString()} token
+                  {pack && (
+                    <>
+                      <div className="sec" style={{ marginTop: 14 }}>
+                        <div className="lbl" style={{ marginBottom: 8 }}>注入内容</div>
+                        <div className="mode">
+                          {[
+                            {
+                              id: INJECT_MODE_FULL,
+                              label: useSummary ? '总结全文' : '原文',
+                              hint: useSummary
+                                ? `带上 ${selectedCount} 条总结，约 ${fullTokens.toLocaleString()}`
+                                : `带上 ${selectedCount} 块原文，约 ${fullTokens.toLocaleString()}`,
+                            },
+                            {
+                              id: INJECT_MODE_OVERVIEW,
+                              label: '只带概览',
+                              hint: `只带概览和说明，约 ${overviewTokens.toLocaleString()}`,
+                            },
+                          ].map((option) => {
+                            const active = getInjectMode(link) === option.id;
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => {
+                                  if (!active) void patchLink(link.packId, { injectMode: option.id });
+                                }}
+                              >
+                                <b>{option.label}</b>
+                                <span>{option.hint}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {overviewMode && (
+                          <p className="mute" style={{ margin: '8px 0 0', fontSize: 11 }}>
+                            只带概览时，总结和原文都不会自动注入，角色只知道概览里写的脉络。概览可以在「前尘」里编辑。
+                          </p>
+                        )}
+                        {overviewEmpty && (
+                          <p role="alert" style={{ margin: '8px 0 0', fontSize: 11, fontWeight: 700, color: 'var(--bad)' }}>
+                            这片往事的概览是空的，又没有钉住原文，目前不会注入任何内容。请先写一段概览，或钉住一段原文。
+                          </p>
+                        )}
+                      </div>
+
+                      {overviewMode ? (
+                        <div className="sec">
+                          <PinnedRangeEditor
+                            key={`pin-${link.packId}`}
+                            pack={pack}
+                            link={link}
+                            onSave={(pinnedRange) => void patchLink(link.packId, { pinnedRange })}
+                          />
+                        </div>
+                      ) : (
+                        <div className="sec">
+                          <div className="lbl" style={{ marginBottom: 4 }}>
+                            范围（共 {unitCount} {unitName}{useSummary ? '总结' : ''}）
+                          </div>
+                          {useSummary && (
+                            <p className="mute" style={{ margin: '0 0 8px', fontSize: 11 }}>
+                              这片往事有总结条目，注入的是总结，不是原文。
+                            </p>
+                          )}
+                          <div
+                            key={`range-${link.packId}-${useSummary}-${range?.from}-${range?.to}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+                          >
+                            <span className="mute">第</span>
+                            <label className="vh" htmlFor={`st-range-from-${link.packId}`}>起始</label>
+                            <input
+                              id={`st-range-from-${link.packId}`}
+                              className="inp blk-inp"
+                              type="number"
+                              min="1"
+                              max={unitCount}
+                              defaultValue={range ? range.from + 1 : 1}
+                              onBlur={(e) => {
+                                const toEl = document.getElementById(`st-range-to-${link.packId}`);
+                                void handleRangeCommit(link, pack, e.target.value, toEl?.value);
+                              }}
+                            />
+                            <span className="mute">{unitName} 到 第</span>
+                            <label className="vh" htmlFor={`st-range-to-${link.packId}`}>结束</label>
+                            <input
+                              id={`st-range-to-${link.packId}`}
+                              className="inp blk-inp"
+                              type="number"
+                              min="1"
+                              max={unitCount}
+                              defaultValue={range ? range.to + 1 : unitCount}
+                              onBlur={(e) => {
+                                const fromEl = document.getElementById(`st-range-from-${link.packId}`);
+                                void handleRangeCommit(link, pack, fromEl?.value, e.target.value);
+                              }}
+                            />
+                            <span className="mute">{unitName}</span>
+                            {rawRange && (
+                              <button
+                                type="button"
+                                className="btn btn-out"
+                                style={{ marginLeft: 'auto', fontSize: 12 }}
+                                onClick={() => void patchLink(link.packId, { [useSummary ? 'entryRange' : 'range']: null })}
+                              >
+                                用全部
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="sec">
+                        <button
+                          type="button"
+                          style={{ width: '100%', minHeight: 44, display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 0, padding: 0, textAlign: 'left' }}
+                          aria-expanded={framingIsOpen}
+                          aria-controls={`st-framing-${link.packId}`}
+                          onClick={() => toggleFraming(link.packId)}
+                        >
+                          <span style={{ flex: 1 }}>
+                            <b>定位与补充说明</b>　<span className="mute">{framingLabel}</span>
+                          </span>
+                          <ChevronDown open={framingIsOpen} />
+                        </button>
+                        {framingIsOpen && (
+                          <div id={`st-framing-${link.packId}`} style={{ marginTop: 8 }}>
+                            <div className="mode">
+                              {FRAMING_OPTIONS.map((option) => (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  aria-pressed={link.framing === option.id}
+                                  onClick={() => void patchLink(link.packId, { framing: option.id })}
+                                >
+                                  <b>{option.label}</b>
+                                  <span>{option.hint}</span>
+                                </button>
+                              ))}
+                            </div>
+                            <label className="vh" htmlFor={`st-note-${link.packId}`}>这次挂载的补充说明</label>
+                            <textarea
+                              id={`st-note-${link.packId}`}
+                              key={`note-${link.packId}`}
+                              className="ta"
+                              style={{ minHeight: 72, marginTop: 8 }}
+                              defaultValue={link.framingText || ''}
+                              onBlur={(e) => {
+                                if (e.target.value !== (link.framingText || '')) {
+                                  void patchLink(link.packId, { framingText: e.target.value });
+                                }
+                              }}
+                              placeholder="这次挂载的补充说明（可选），会接在定位说明后面"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  <div className="sec" style={{ display: 'flex', gap: 8, paddingBottom: 0 }}>
+                    <button
+                      type="button"
+                      className="btn btn-out"
+                      style={{ flex: 1, fontSize: 12 }}
+                      disabled={index === 0}
+                      onClick={() => void handleMove(link.packId, -1)}
+                    >
+                      上移
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-out"
+                      style={{ flex: 1, fontSize: 12 }}
+                      disabled={index === plan.items.length - 1}
+                      onClick={() => void handleMove(link.packId, 1)}
+                    >
+                      下移
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-out btn-danger"
+                      style={{ flex: 1, fontSize: 12 }}
+                      onClick={() => void handleRemove(link.packId)}
+                    >
+                      移除挂载
+                    </button>
                   </div>
+                </section>
+              );
+            })}
+
+            {/* 往事库：可以挂载的 */}
+            <section style={{ marginTop: 4 }}>
+              <div className="lbl" style={{ margin: '0 4px 10px' }}>往事库</div>
+              {packs.length === 0 ? (
+                <p className="mute" style={{ margin: '0 4px' }}>
+                  库里还没有往事。先到首页的「前尘」导入一份。
+                </p>
+              ) : availablePacks.length === 0 ? (
+                <p className="mute" style={{ margin: '0 4px' }}>库里的往事都已经挂在这个聊天上了。</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {availablePacks.map((pack) => {
+                    const isJsonl = pack.sourceType === SOURCE_TYPE_ST_JSONL;
+                    const progress = isJsonl && batchMessages > 0 ? getSummaryProgress(pack, batchMessages) : null;
+                    return (
+                      <div
+                        key={pack.id}
+                        className="glass"
+                        style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'none' }}
+                      >
+                        <Snowflake
+                          size={44}
+                          arm={isJsonl ? pickArm(pack.id) : 'c'}
+                          lit={progress ? litArmsFor(progress.done, progress.total) : 0}
+                          deep={!isJsonl}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{pack.title}</div>
+                          <div className="mute" style={{ fontSize: 12 }}>
+                            {isJsonl ? 'ST 聊天' : '文本'} · {pack.chunkCount} 块 · 估算 {(pack.tokenEstimate || 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-out"
+                          style={{ gap: 6, flex: 'none' }}
+                          onClick={() => void handleMount(pack.id)}
+                        >
+                          <svg className="ico" style={{ width: 14, height: 14 }} viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 5v14" /><path d="M5 12h14" />
+                          </svg>
+                          挂载
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleMount(pack.id)}
-                  className="flex items-center gap-1 rounded-full px-3 py-1.5 font-semibold"
-                  style={{ backgroundColor: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
-                >
-                  <Plus className="h-3.5 w-3.5" /> 挂载
-                </button>
-              </div>
-            ))
-          )}
+              )}
+            </section>
+          </div>
         </div>
       </div>
-    </div>,
+    </QianchenBackdrop>,
     document.body,
   );
 };

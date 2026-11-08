@@ -10,11 +10,16 @@ import './qianchen.css';
 import { SnowflakeDefs } from './Snowflake';
 import { useQianchenTheme } from './qianchenTheme';
 
-const QianchenBackdrop = ({ children, label }) => {
+const QianchenBackdrop = ({ children, label, zIndex }) => {
   const themeClass = useQianchenTheme();
 
   return (
-    <div className={`qc ${themeClass}`} role="region" aria-label={label}>
+    <div
+      className={`qc ${themeClass}`}
+      role="region"
+      aria-label={label}
+      style={zIndex ? { zIndex } : undefined}
+    >
       <div className="qc-bg" aria-hidden="true">
         <div className="haze"><i className="h1" /><i className="h2" /><i className="h3" /><i className="h4" /></div>
         <div className="shaft" /><div className="shaft b" />
