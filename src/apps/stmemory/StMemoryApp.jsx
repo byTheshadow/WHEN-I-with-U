@@ -206,7 +206,7 @@ const StMemoryApp = ({ onBackHub }) => {
                 <BackIcon />主页
               </button>
               <h1 className="mark serif">前尘</h1>
-              <div className="tag serif">记忆塑造灵魂</div>
+            <div className="slogan serif">记忆塑造灵魂</div>
               <div className="flow">导入　总结　挂载</div>
 
               {hero ? (
