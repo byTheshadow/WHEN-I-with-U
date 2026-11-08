@@ -95,7 +95,7 @@
 
 /* ---------- 库首页 ---------- */
 .qc-main{position:relative;padding-bottom:176px}
-.qc-main .back{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:4px;min-height:44px;padding:0 8px;background:none;border:0;color:var(--sub);font-weight:600}
+.qc-main .back{position:absolute;z-index:2;left:12px;top:12px;display:flex;align-items:center;gap:4px;min-height:44px;padding:0 8px;background:none;border:0;color:var(--sub);font-weight:600}
 .qc-main .mark{position:absolute;left:28px;top:74px;margin:0;writing-mode:vertical-rl;font-size:40px;font-weight:300;letter-spacing:.42em;line-height:1.1;text-shadow:0 0 20px var(--glow),0 0 50px var(--glow)}
 .qc-main .tag{position:absolute;right:24px;top:74px;font-size:12px;letter-spacing:.34em;padding-left:.34em;color:var(--sub);font-weight:400}
 .qc-main .flow{position:absolute;right:24px;top:98px;font-size:11px;letter-spacing:.06em;color:var(--sub);opacity:.85}
