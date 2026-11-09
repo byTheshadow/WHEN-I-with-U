@@ -31,7 +31,7 @@ const isEditable = (item) =>
   item.kind === 'row' ||
   (item.kind === 'sticker' && item.sticker === 'glyph');
 
-const LayoutTweakPanel = ({ spec, disabled, onChange, onReroll }) => {
+const LayoutTweakPanel = ({ spec, disabled, onChange, onReroll, defaultOpen = false }) => {
   const tpl = getTemplate(spec.templateId);
   if (!tpl) return null;
 
@@ -77,7 +77,7 @@ const LayoutTweakPanel = ({ spec, disabled, onChange, onReroll }) => {
   };
 
   return (
-    <details className="ls-card ls-tweak">
+   <details className="ls-card ls-tweak" open={defaultOpen}>
       <summary>
         微调文字和排布 <span>可选</span>
       </summary>
