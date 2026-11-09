@@ -18,6 +18,7 @@ import { MAX_ITEMS, STICKER_KINDS, TEXT_ALIGNS, TEXT_FONTS, DEFAULT_GLYPHS } fro
 import { createRng } from './layoutDraw';
 import { TEMPLATES, getTemplate } from './templates';
 import { toChoice, toColor, toInt, toNumber, toText } from './layoutSpecUtils';
+import { cleanExtraItem } from './layoutSpecExtra';
 
 export const SPEC_VERSION = 1;
 
@@ -123,11 +124,12 @@ const cleanItem = (raw, index, photoCount) => {
       mode: toChoice(raw.mode, ['duo', 'solid'], 'solid'),
     };
   }
-  return null;
+    return cleanExtraItem(raw, { id, x, y });
 };
 
 /**
- * 清洗任意输入为合法 spec。模板 id 无效时返回 null（调用方应回退到默认版面）。
+ * 清洗任意输入为合法 spec。
+模板 id 无效时返回 null（调用方应回退到默认版面）。
  * photoCount 用来把元素里引用的"第几张照片"限制在有效范围内。
  */
 export const sanitizeSpec = (raw, photoCount = 1) => {

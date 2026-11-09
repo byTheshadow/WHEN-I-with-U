@@ -17,6 +17,9 @@ import bigTypeTemplate from './bigTypeTemplate';
 import scatterTemplate from './scatterTemplate';
 import stickerTemplate from './stickerTemplate';
 import filmTemplate from './filmTemplate';
+import playerTemplate from './playerTemplate';
+import capsuleTemplate from './capsuleTemplate';
+import stripsTemplate from './stripsTemplate';
 
 export const TEMPLATES = [
   bracketTemplate,
@@ -24,6 +27,9 @@ export const TEMPLATES = [
   scatterTemplate,
   stickerTemplate,
   filmTemplate,
+  playerTemplate,
+  capsuleTemplate,
+  stripsTemplate,
 ];
 
 export const getTemplate = (id) => TEMPLATES.find((tpl) => tpl.id === id) || null;

@@ -22,6 +22,14 @@ const itemLabel = (item, counters) => {
     counters.glyph += 1;
     return `字形 ${counters.glyph}`;
   }
+  if (item.kind === 'pill') {
+    counters.pill += 1;
+    return `图标 ${counters.pill}`;
+  }
+  if (item.kind === 'spread') {
+    counters.spread += 1;
+    return `文字块 ${counters.spread}`;
+  }
   counters.text += 1;
   return `文字 ${counters.text}`;
 };
@@ -29,13 +37,15 @@ const itemLabel = (item, counters) => {
 const isEditable = (item) =>
   item.kind === 'text' ||
   item.kind === 'row' ||
+  item.kind === 'pill' ||
+  item.kind === 'spread' ||
   (item.kind === 'sticker' && item.sticker === 'glyph');
 
 const LayoutTweakPanel = ({ spec, disabled, onChange, onReroll, defaultOpen = false }) => {
   const tpl = getTemplate(spec.templateId);
   if (!tpl) return null;
 
-  const counters = { row: 0, text: 0, glyph: 0 };
+  const counters = { row: 0, text: 0, glyph: 0, pill: 0, spread: 0 };
   const rows = spec.items
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => isEditable(item))

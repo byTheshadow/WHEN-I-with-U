@@ -12,6 +12,7 @@ import {
   fontCss,
   shapePath,
 } from './layoutDraw';
+import { drawExtraItem } from './layoutItemsExtra';
 
 const pickPhoto = (photos, index) =>
   photos[((index % photos.length) + photos.length) % photos.length];
@@ -165,4 +166,5 @@ export const drawItem = (ctx, item, env) => {
   else if (item.kind === 'row') drawRowItem(ctx, item, env);
   else if (item.kind === 'shape') drawShapeItem(ctx, item, env);
   else if (item.kind === 'sticker') drawStickerItem(ctx, item, env);
+  else drawExtraItem(ctx, item);
 };
