@@ -25,6 +25,10 @@ import {
   callMcpToolRuntime,
 } from './mcp/mcpRuntimeService';
 import { extractMcpCard } from './mcp/mcpCardRegistry';
+import {
+  ST_RECALL_TOOL_NAME,
+  createStRecallSession,
+} from '../apps/stmemory/stRecallTool';
 
 /*
  * 不再限制一次角色回复能经历多少轮 MCP 调用。
@@ -508,10 +512,16 @@ export const runAiToolOrchestrator = async ({
   // 完全走原有普通请求"时必须把它也算进"有没有可用工具"，不能只看
   // MCP 工具数量（这也顺带修了一个既有小问题：原来 savedInfoTool 同样
   // 被这个判断挡住了，没接 MCP 的用户即使保存过常用信息也用不上）。
-  const webSearchTool = await buildWebSearchToolDefinition();
+   const webSearchTool = await buildWebSearchToolDefinition();
+
+  // 前尘召回：让角色拿不准细节时自己去查往事原文。只在聊天里挂了"只带概览"
+  // 且有总结的往事时才有；线下模式不注入往事概览，所以不注册。
+  const stRecall = source === 'offline'
+    ? null
+    : await createStRecallSession(chatId);
 
   // 没有任何已启用工具时，完全沿用原有普通 AI 请求。
-  if (tools.length === 0 && !savedInfoTool && !webSearchTool) {
+  if (tools.length === 0 && !savedInfoTool && !webSearchTool && !stRecall) {
     return requestAiCompletion({
       systemPrompt,
       messages: historyContext,
@@ -524,13 +534,18 @@ export const runAiToolOrchestrator = async ({
     tools.push(savedInfoTool);
   }
 
-  if (webSearchTool) {
+   if (webSearchTool) {
     tools.push(webSearchTool);
+  }
+
+  if (stRecall) {
+    tools.push(stRecall.definition);
   }
 
   const extraPromptNotes = [
     savedInfoTool ? SAVED_INFO_PROMPT_RULE : '',
     webSearchTool ? WEB_SEARCH_PROMPT_RULE : '',
+    stRecall ? stRecall.promptRule : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -639,6 +654,19 @@ export const runAiToolOrchestrator = async ({
         continue;
       }
 
+
+      // 前尘召回：次数和去重由 stRecall 会话自己管，超限只返回一句话让模型
+      // 继续回答，不中断本次回复；内部已经 try/catch，失败也只是一段文字。
+      if (stRecall && toolCall?.function?.name === ST_RECALL_TOOL_NAME) {
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall?.id || '',
+          content: await stRecall.run(toolCall?.function?.arguments),
+        });
+
+        continue;
+      }
+      
       // 联网搜索：不走 executeMcpToolCall 那一整套 MCP 审批/连接/频率
       // 保护（跟常用信息查阅一样，本来就不是 MCP 工具），也不设调用
       // 次数上限——用户明确要求"先不设限"，跟戳一戳/换气泡同一套"相信

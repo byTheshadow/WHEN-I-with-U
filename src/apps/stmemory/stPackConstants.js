@@ -53,6 +53,16 @@ export const OVERVIEW_MODE_NOTE =
   + '遇到拿不准的具体细节（谁说过什么、事情的先后、某个具体场景），'
   + '不要凭印象编造；可以坦率地说记不清了，或者向{{user}}确认。';
 
+// 召回（M2 切片 2）：角色自己去查往事原文的限制。
+//   RECALL_MAX_TOKENS          每次召回最多给角色看多少估算 token 的原文（超过的部分分页）
+//   RECALL_MAX_PER_RESPONSE    一次回复里最多取几次原文
+//   RECALL_MAX_SEARCHES_PER_RESPONSE  一次回复里最多按关键词搜几次条目
+//   RECALL_CATALOG_MAX         条目目录最多列几条；超过就只列最近的这么多，其余靠关键词搜
+export const RECALL_MAX_TOKENS = 4000;
+export const RECALL_MAX_PER_RESPONSE = 3;
+export const RECALL_MAX_SEARCHES_PER_RESPONSE = 3;
+export const RECALL_CATALOG_MAX = 30;
+
 // 每个聊天默认的记忆包总预算（估算 token）。存在 chat.stPackBudgetTokens 上，用户可改。
 export const DEFAULT_BUDGET_TOKENS = 8000;
 

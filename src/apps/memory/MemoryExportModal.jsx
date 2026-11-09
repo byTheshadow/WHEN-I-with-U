@@ -7,11 +7,21 @@ import {
 } from './memoryImportExport';
 import { downloadObsidianMarkdownExport } from './obsidianImport/obsidianMarkdownExporter';
 import { downloadOperitArchive } from './operitImport/operitExportService';
+import {
+  ST_EXPORT_DEFAULT_TYPE_IDS,
+  ST_EXPORT_SUMMARY_DEFAULT_COUNT,
+  ST_EXPORT_SUMMARY_MAX_COUNT,
+  ST_EXPORT_TYPE_OPTIONS,
+  copyStPlainText,
+  downloadStLorebook
+} from './stExport/stLorebookExport';
 
 const EXPORT_FORMATS = {
   JSON: 'json',
   OBSIDIAN_MARKDOWN: 'obsidian_markdown',
-  OPERIT_JSON: 'operit_json'
+  OPERIT_JSON: 'operit_json',
+  ST_LOREBOOK: 'st_lorebook',
+  ST_TEXT: 'st_text'
 };
 
 const formatDate = (value) => {
@@ -41,6 +51,12 @@ export const MemoryExportModal = ({
   const [format, setFormat] = useState(EXPORT_FORMATS.JSON);
   const [isExporting, setIsExporting] = useState(false);
   const [preview, setPreview] = useState(null);
+  // 导出到 ST：前情总结取最近几条（0 = 不要）、要带的记忆类型。
+  const [stSummaryCount, setStSummaryCount] = useState(ST_EXPORT_SUMMARY_DEFAULT_COUNT);
+  const [stTypes, setStTypes] = useState(ST_EXPORT_DEFAULT_TYPE_IDS);
+
+  const isStFormat = format === EXPORT_FORMATS.ST_LOREBOOK
+    || format === EXPORT_FORMATS.ST_TEXT;
 
   const handlePreview = async () => {
     try {
@@ -63,7 +79,7 @@ export const MemoryExportModal = ({
   };
 
   const handleExport = async () => {
-    if (scope === 'current_chat' && !currentChat?.id) {
+    if ((scope === 'current_chat' || isStFormat) && !currentChat?.id) {
       onError?.('请先选择一个消息框。');
       return;
     }
@@ -75,7 +91,25 @@ export const MemoryExportModal = ({
         ? { type: 'chat', chatId: currentChat.id }
         : { type: 'all' };
 
-      if (format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN) {
+      if (format === EXPORT_FORMATS.ST_LOREBOOK) {
+        const result = await downloadStLorebook(currentChat.id, {
+          summaryCount: stSummaryCount,
+          types: stTypes
+        });
+
+        onCompleted?.(
+          `已导出“${currentChat.title || '当前消息框'}”的 ${result.sectionCount} 条常驻条目（共 ${result.itemCount} 项内容）为 ST 世界书。`
+        );
+      } else if (format === EXPORT_FORMATS.ST_TEXT) {
+        const result = await copyStPlainText(currentChat.id, {
+          summaryCount: stSummaryCount,
+          types: stTypes
+        });
+
+        onCompleted?.(
+          `已复制 ${result.itemCount} 项内容（约 ${result.charCount} 字）到剪贴板。`
+        );
+      } else if (format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN) {
         const result = await downloadObsidianMarkdownExport(exportScope);
 
         onCompleted?.(
@@ -134,7 +168,24 @@ export const MemoryExportModal = ({
         </div>
 
         <div className="memory-export-copy">
-          {format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN ? (
+          {format === EXPORT_FORMATS.ST_LOREBOOK ? (
+            <>
+              <p>
+                导出为 SillyTavern 能导入的世界书（.json）：前情总结和每一类记忆
+                各是一条常驻条目，放在角色定义之后，可以在 ST 里单独关闭或改字。
+              </p>
+              <p>
+                只导出生效中的记忆，名字保持原样，不带聊天原文。只支持单个消息框。
+              </p>
+            </>
+          ) : format === EXPORT_FORMATS.ST_TEXT ? (
+            <>
+              <p>
+                把同样的内容复制成一段纯文本，可以直接贴进 ST 的角色备注、
+                作者注释或任何你想放的地方。只支持单个消息框。
+              </p>
+            </>
+          ) : format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN ? (
             <>
               <p>
                 导出为 Obsidian 可用的 .md 文件：每个消息框一个文件，每条
@@ -221,6 +272,44 @@ export const MemoryExportModal = ({
               <small>用于导入到 Operit，不能再导回本项目。</small>
             </span>
           </label>
+
+          <label className="memory-choice-item">
+            <input
+              type="radio"
+              name="memoryExportFormat"
+              value={EXPORT_FORMATS.ST_LOREBOOK}
+              checked={format === EXPORT_FORMATS.ST_LOREBOOK}
+              onChange={() => {
+                setFormat(EXPORT_FORMATS.ST_LOREBOOK);
+                setScope('current_chat');
+                setPreview(null);
+              }}
+              disabled={!currentChat}
+            />
+            <span>
+              <strong>ST 世界书（.json）</strong>
+              <small>前情总结和稳定记忆，做成 SillyTavern 的常驻条目。</small>
+            </span>
+          </label>
+
+          <label className="memory-choice-item">
+            <input
+              type="radio"
+              name="memoryExportFormat"
+              value={EXPORT_FORMATS.ST_TEXT}
+              checked={format === EXPORT_FORMATS.ST_TEXT}
+              onChange={() => {
+                setFormat(EXPORT_FORMATS.ST_TEXT);
+                setScope('current_chat');
+                setPreview(null);
+              }}
+              disabled={!currentChat}
+            />
+            <span>
+              <strong>复制为纯文本</strong>
+              <small>同样的内容，复制到剪贴板，不生成文件。</small>
+            </span>
+          </label>
         </div>
 
         <div className="memory-choice-list">
@@ -256,17 +345,85 @@ export const MemoryExportModal = ({
                 setScope('all');
                 setPreview(null);
               }}
+              disabled={isStFormat}
             />
             <span>
               <strong>导出全部记忆</strong>
               <small>
-                {format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN
+                {isStFormat
+                  ? 'ST 世界书只支持单个消息框。'
+                  : format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN
                   ? '每个消息框导出一个 .md 文件，打包成一个 zip。'
                   : '导出所有消息框中已保存的记忆档案。'}
               </small>
             </span>
           </label>
         </div>
+
+        {isStFormat && (
+          <div className="memory-choice-list">
+            <label className="memory-choice-item">
+              <input
+                type="checkbox"
+                checked={stSummaryCount > 0}
+                onChange={(event) => setStSummaryCount(
+                  event.target.checked ? ST_EXPORT_SUMMARY_DEFAULT_COUNT : 0
+                )}
+              />
+              <span>
+                <strong>前情总结</strong>
+                <small>带上最近的几条阶段性总结。</small>
+              </span>
+            </label>
+
+            {stSummaryCount > 0 && (
+              <label className="memory-choice-item">
+                <span>
+                  <strong>前情总结条数</strong>
+                  <small>
+                    最近
+                    {' '}
+                    <input
+                      type="number"
+                      min="1"
+                      max={ST_EXPORT_SUMMARY_MAX_COUNT}
+                      value={stSummaryCount}
+                      style={{ width: '4.5rem' }}
+                      onChange={(event) => {
+                        const next = Math.floor(Number(event.target.value));
+                        if (Number.isFinite(next)) {
+                          setStSummaryCount(
+                            Math.min(Math.max(next, 1), ST_EXPORT_SUMMARY_MAX_COUNT)
+                          );
+                        }
+                      }}
+                    />
+                    {' '}
+                    条
+                  </small>
+                </span>
+              </label>
+            )}
+
+            {ST_EXPORT_TYPE_OPTIONS.map((option) => (
+              <label className="memory-choice-item" key={option.id}>
+                <input
+                  type="checkbox"
+                  checked={stTypes.includes(option.id)}
+                  onChange={(event) => setStTypes((previous) => (
+                    event.target.checked
+                      ? [...previous, option.id]
+                      : previous.filter((id) => id !== option.id)
+                  ))}
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <small>只带生效中的记忆。</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
 
         {format === EXPORT_FORMATS.JSON && (
           <button
@@ -319,6 +476,10 @@ export const MemoryExportModal = ({
             <Download className="memory-action-icon" />
             {isExporting
               ? '正在导出'
+              : format === EXPORT_FORMATS.ST_LOREBOOK
+                ? '导出 ST 世界书'
+              : format === EXPORT_FORMATS.ST_TEXT
+                ? '复制纯文本'
               : format === EXPORT_FORMATS.OBSIDIAN_MARKDOWN
                 ? '导出 Markdown'
                 : format === EXPORT_FORMATS.OPERIT_JSON
