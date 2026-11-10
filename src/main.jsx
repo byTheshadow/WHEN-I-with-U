@@ -4,7 +4,9 @@ import App from './App.jsx';
 import OnboardingGate from './components/OnboardingGate.jsx';
 import OnboardingIntro from './components/OnboardingIntro.jsx';
 import { requestPersistentStorage } from './db/storageUtils.js';
+import './services/accessibilityService.js';
 import './index.css';
+import './styles/accessibility.css';
 
 // 2026-10：启动时悄悄申请一次"持久化存储"，降低浏览器在设备存储紧张时
 // 静默驱逐 IndexedDB 数据的概率（见 storageUtils.js 内注释）。不阻塞渲染，

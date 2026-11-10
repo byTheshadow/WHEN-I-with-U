@@ -1,0 +1,161 @@
+/*
+ * 无障碍（低视力）样式：高对比度主题、文字大小覆盖、更明显的焦点框。
+ *
+ * 必须在 index.css 之后导入（见 main.jsx），因为下面的文字大小覆盖和
+ * Tailwind 生成的工具类同样要靠"后写的、选择器更具体的"来取胜。
+ *
+ * 三部分彼此独立，默认状态下都不生效：
+ *   1. 高对比度主题：只在 <html data-theme="high-contrast"> 时生效；
+ *   2. 文字大小：只在 <html data-a11y-font-scale="..."> 存在时生效；
+ *   3. 焦点框：只在 <html data-a11y-focus-ring="on"> 或高对比度主题下生效。
+ * 属性由 src/services/accessibilityService.js 负责挂 / 摘。
+ */
+
+/* ------------------------------------------------------------------ */
+/* 1. 高对比度主题（白底黑字）                                          */
+/*    变量名与 themes.css 里每套主题完全一致，其他模块（竖琴画布、      */
+/*    各 App 的样式）只要读这些变量就会自动跟随，不需要逐个适配。       */
+/*    正文 / 次要 / 辅助文字对比度都在 7:1 以上（WCAG AAA）。            */
+/* ------------------------------------------------------------------ */
+
+:root[data-theme="high-contrast"] {
+  --bg-main: #ffffff;
+  --bg-surface: #f2f2f2;
+  --bg-surface-strong: #e0e0e0;
+
+  --bg-blob-1: #f0f0f0;
+  --bg-blob-2: #f7f7f7;
+  --bg-blob-3: #e6e6e6;
+
+  --card-bg: #ffffff;
+  --card-bg-gradient: linear-gradient(145deg, #ffffff 0%, #ffffff 100%);
+  --card-border: #000000;
+  --card-shadow: none;
+
+  --modal-bg: #ffffff;
+  --modal-border: #000000;
+  --modal-overlay: rgba(0, 0, 0, 0.72);
+  --modal-shadow: none;
+
+  --ink-card-bg: linear-gradient(145deg, #000000 0%, #000000 100%);
+  --ink-card-border: #000000;
+  --ink-card-shadow: none;
+  --ink-a: #000000;
+  --ink-b: #000000;
+
+  --text-main: #000000;
+  --text-sub: #262626;
+  --text-muted: #4d4d4d;
+  --text-on-ink: #ffffff;
+  --text-on-ink-muted: #e0e0e0;
+
+  --accent-color: #000000;
+  --accent-foreground: #ffffff;
+  --control-soft-bg: #ebebeb;
+  --control-soft-hover: #d6d6d6;
+  --divider: #595959;
+
+  --dice-face: #ffffff;
+  --dice-face-edge: #000000;
+  --dice-ink: #000000;
+  --star-color: #4d4d4d;
+  --star-bright: #ffffff;
+  --dice-shadow-color: rgba(0, 0, 0, 0.35);
+
+  /* 首页如果设置了背景图，遮罩加重一些，保证图上的文字依然清晰。 */
+  --hub-background-overlay-top: rgba(255, 255, 255, 0.55);
+  --hub-background-overlay-bottom: rgba(255, 255, 255, 0.82);
+
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. 文字大小                                                          */
+/*    项目里大量文字是写死像素的（text-[10px] 等），调根字号改不动，    */
+/*    所以这里按类名逐个覆盖成"原值 x 倍数"。只覆盖 20px 及以下的       */
+/*    正文 / 说明文字范围；更大的标题字号本来就够大，放大它们只会更容    */
+/*    易撑破布局，所以保持不动。                                         */
+/*    不修改根字号，所以间距、图标、按钮尺寸这些 rem 单位的东西不变。    */
+/*    不覆盖的：写在 CSS 文件里的字号、以及行内 style 的 fontSize。      */
+/* ------------------------------------------------------------------ */
+
+/* 没有任何字号类的元素（含表单控件，它们继承 body）也要跟着变，
+   否则大字号下会出现"标签比正文还大"的倒挂。 */
+:root[data-a11y-font-scale] body {
+  font-size: calc(16px * var(--a11y-fs, 1));
+}
+
+/* Tailwind 命名字号：字号和行高要一起放大，否则多行文字会挤在一起。
+   显式写了 leading-* 的元素保留它自己的行高。 */
+:root[data-a11y-font-scale] .text-xs {
+  font-size: calc(0.75rem * var(--a11y-fs, 1));
+}
+:root[data-a11y-font-scale] .text-xs:not([class*="leading-"]) {
+  line-height: calc(1rem * var(--a11y-fs, 1));
+}
+
+:root[data-a11y-font-scale] .text-sm {
+  font-size: calc(0.875rem * var(--a11y-fs, 1));
+}
+:root[data-a11y-font-scale] .text-sm:not([class*="leading-"]) {
+  line-height: calc(1.25rem * var(--a11y-fs, 1));
+}
+
+:root[data-a11y-font-scale] .text-base {
+  font-size: calc(1rem * var(--a11y-fs, 1));
+}
+:root[data-a11y-font-scale] .text-base:not([class*="leading-"]) {
+  line-height: calc(1.5rem * var(--a11y-fs, 1));
+}
+
+:root[data-a11y-font-scale] .text-lg {
+  font-size: calc(1.125rem * var(--a11y-fs, 1));
+}
+:root[data-a11y-font-scale] .text-lg:not([class*="leading-"]) {
+  line-height: calc(1.75rem * var(--a11y-fs, 1));
+}
+
+:root[data-a11y-font-scale] .text-xl {
+  font-size: calc(1.25rem * var(--a11y-fs, 1));
+}
+:root[data-a11y-font-scale] .text-xl:not([class*="leading-"]) {
+  line-height: calc(1.75rem * var(--a11y-fs, 1));
+}
+
+/* 写死像素的字号（按代码里实际出现过的取值逐个列出）。 */
+:root[data-a11y-font-scale] .text-\[7px\] { font-size: calc(7px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[8px\] { font-size: calc(8px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[8\.5px\] { font-size: calc(8.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[9px\] { font-size: calc(9px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[9\.5px\] { font-size: calc(9.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[10px\] { font-size: calc(10px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[10\.5px\] { font-size: calc(10.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[11px\] { font-size: calc(11px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[11\.5px\] { font-size: calc(11.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[12px\] { font-size: calc(12px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[12\.5px\] { font-size: calc(12.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[13px\] { font-size: calc(13px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[13\.5px\] { font-size: calc(13.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[14px\] { font-size: calc(14px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[14\.5px\] { font-size: calc(14.5px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[15px\] { font-size: calc(15px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[16px\] { font-size: calc(16px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[17px\] { font-size: calc(17px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[18px\] { font-size: calc(18px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[19px\] { font-size: calc(19px * var(--a11y-fs, 1)); }
+:root[data-a11y-font-scale] .text-\[20px\] { font-size: calc(20px * var(--a11y-fs, 1)); }
+
+/* ------------------------------------------------------------------ */
+/* 3. 更明显的焦点框                                                    */
+/*    :focus-visible 只在键盘 / 外接设备操作时出现，触屏点按不会触发，   */
+/*    所以开启后不会改变手机上的日常观感。                               */
+/*    蓝色外圈加白色内隙的双层结构，深色、浅色背景上都能看清。           */
+/*    用 !important 是因为项目里不少元素写了 focus:outline-none。        */
+/* ------------------------------------------------------------------ */
+
+:root[data-a11y-focus-ring="on"] :focus-visible,
+:root[data-theme="high-contrast"] :focus-visible {
+  outline: 3px solid #1a5fd6 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px #ffffff !important;
+}

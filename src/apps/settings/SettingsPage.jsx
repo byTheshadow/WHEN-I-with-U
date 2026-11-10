@@ -33,6 +33,7 @@ import HubBackgroundSettings from '../../components/HubBackgroundSettings';
 import PwaIconSettings from '../../components/PwaIconSettings';
 import { applyPwaIcon } from '../../services/pwaIconService';
 import AppNameDisplaySettings from './AppNameDisplaySettings';
+import AccessibilitySettings from './AccessibilitySettings';
 import { APP_NAME_DISPLAY_EN } from '../hub/useAppNameDisplayMode';
 import HubHeaderLayoutSettings from './HubHeaderLayoutSettings';
 import HubHomeStyleSettings from './HubHomeStyleSettings';
@@ -1272,6 +1273,7 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 { id: 'obsidian-dark', name: 'Obsidian (曜石黑)' },
 { id: 'cyber-velvet', name: 'Cyber Velvet (赛博紫)' },
 { id: 'rose-quartz', name: 'Quartz (暮色粉)' },
+{ id: 'high-contrast', name: 'High Contrast (高对比度)' },
               ].map((theme) => (
                 <button
                   key={theme.id}
@@ -1340,6 +1342,15 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
             </button>
           </div>
         </div>
+      </GlassCard>
+
+      <GlassCard className="space-y-4 text-left">
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <Palette className="h-4 w-4" />
+          <span>无障碍 (Accessibility)</span>
+        </div>
+
+        <AccessibilitySettings />
       </GlassCard>
 
             <GlassCard className="space-y-4 text-left">
