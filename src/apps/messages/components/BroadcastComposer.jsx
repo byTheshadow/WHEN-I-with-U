@@ -212,6 +212,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
             onClick={onClose}
             disabled={isSending}
             className="btn-close"
+            aria-label="收起寻迹信标"
             title="收起"
           >
             <X className="h-3.5 w-3.5" />
@@ -262,6 +263,7 @@ const BroadcastComposer = ({ targets, onClose, onSent }) => {
                     type="button"
                     onClick={() => handleRemoveDraft(index)}
                     className="sheet-delete-btn p-1 text-[#a1a1aa] hover:text-red-500 transition-colors"
+                    aria-label={`撕除第 ${index + 1} 张`}
                     title="撕除这一张"
                   >
                     <Trash2 className="h-3 w-3" />

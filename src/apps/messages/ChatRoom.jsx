@@ -2426,6 +2426,7 @@ const handleCancelAiResponse = () => {
                     border: '1px solid var(--card-border)',
                     background: 'var(--control-soft-bg)',
                   }}
+                  aria-label="翻阅平行轨迹"
                   title="翻阅平行轨迹"
                 >
                   <BookOpen className="h-4 w-4" />
@@ -3267,6 +3268,7 @@ if (type === 'interaction_coupon') {
                 background: 'var(--control-soft-bg)',
                 color: 'var(--text-main)',
               }}
+              aria-label="发送消息"
               title="发送记录"
             >
               <SendIcon

@@ -182,6 +182,8 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
           background: isOpen ? 'var(--accent-color)' : 'var(--control-soft-bg)',
           color: isOpen ? 'var(--accent-foreground)' : 'var(--text-main)',
         }}
+        aria-label="心意互动菜单"
+        aria-expanded={isOpen}
         title="心意互动菜单"
       >
         <Sparkles className="h-4 w-4" />
@@ -203,7 +205,7 @@ export const InteractiveMenuPopover = ({ onSelectAction }) => {
             className="flex items-center justify-between px-1 py-1 mb-1 text-[10px] font-semibold opacity-60"
           >
             <span>心意互动</span>
-            <button type="button" onClick={() => setIsOpen(false)}>
+            <button type="button" aria-label="关闭心意互动菜单" onClick={() => setIsOpen(false)}>
               <X className="w-3 h-3" />
             </button>
           </div>

@@ -756,6 +756,7 @@ const handleToggleLocation = async () => {
           <span className="font-bold text-sm">对话空间设置</span>
           <button
             type="button"
+            aria-label="关闭对话空间设置"
             onClick={onClose}
             className="p-1 rounded-full opacity-60 hover:opacity-100"
           >
@@ -790,6 +791,7 @@ const handleToggleLocation = async () => {
                 background: 'var(--bg-main)',
                 borderColor: 'var(--divider)'
               }}
+              aria-label="上传你的头像"
               title="上传你的头像"
             >
               {userAvatar ? (
@@ -1108,6 +1110,7 @@ const handleToggleLocation = async () => {
               type="button"
               role="switch"
               aria-checked={characterAnalysisEnabled}
+              aria-label="人格分析 / 角色反应指导"
               onClick={() => {
                 const nextEnabled = !characterAnalysisEnabled;
 
@@ -1230,6 +1233,7 @@ const handleToggleLocation = async () => {
   type="button"
   role="switch"
   aria-checked={locationEnabled}
+  aria-label="位置感知（地点归类）"
   onClick={handleToggleLocation}
   className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
   style={{
@@ -1270,6 +1274,7 @@ const handleToggleLocation = async () => {
             type="button"
             role="switch"
             aria-checked={rhythmEnabled}
+            aria-label="Rhythm 主动寄语"
             onClick={handleToggleRhythmEnabled}
             className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
             style={{
@@ -1309,6 +1314,7 @@ const handleToggleLocation = async () => {
             type="button"
             role="switch"
             aria-checked={diyAutoDecorateEnabled}
+            aria-label="角色自主布置DIY小屋"
             onClick={handleToggleDiyAutoDecorate}
             className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
             style={{
@@ -1350,6 +1356,7 @@ const handleToggleLocation = async () => {
               type="button"
               role="switch"
               aria-checked={worldBookEnabled}
+              aria-label="内置世界书"
               onClick={handleToggleWorldBookEnabled}
               className="relative h-5 w-10 shrink-0 overflow-hidden rounded-full transition-colors"
               style={{
@@ -1395,6 +1402,7 @@ const handleToggleLocation = async () => {
                       type="button"
                       role="switch"
                       aria-checked={isOn}
+                      aria-label={meta.name}
                       onClick={() => handleToggleBookEnabled(meta.id)}
                       className="relative h-4 w-8 shrink-0 overflow-hidden rounded-full transition-colors"
                       style={{
@@ -1506,6 +1514,7 @@ const handleToggleLocation = async () => {
                           onClick={() => handleSaveEdit(item.id)}
                           className="hover:opacity-100"
                           style={{ color: 'var(--accent-color)' }}
+                          aria-label="保存修改"
                           title="保存"
                         >
                           <Check className="w-3 h-3" />
@@ -1515,6 +1524,7 @@ const handleToggleLocation = async () => {
                           type="button"
                           onClick={() => handleStartEdit(item)}
                           className="opacity-60 hover:opacity-100"
+                          aria-label="修改这条阶段性总结"
                           title="修改"
                         >
                           <Edit2 className="w-3 h-3" />
@@ -1526,6 +1536,7 @@ const handleToggleLocation = async () => {
                         onClick={() => handleDeleteEntry(item.id)}
                         className="opacity-60 hover:opacity-100"
                         style={{ color: 'var(--text-muted)' }}
+                        aria-label="删除这条阶段性总结"
                         title="删除"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -1639,6 +1650,7 @@ const handleToggleLocation = async () => {
                   style={{
                     borderColor: 'var(--divider)'
                   }}
+                  aria-label="删除背景图"
                   title="删除背景图"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -1760,6 +1772,7 @@ const handleToggleLocation = async () => {
                       type="button"
                       onClick={() => handleDeleteGalleryBackground(item.id)}
                       className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 shrink-0"
+                      aria-label="删除这张背景图"
                       title="删除这张"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

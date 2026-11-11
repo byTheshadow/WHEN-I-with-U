@@ -764,7 +764,7 @@ const MessageRow = ({
             />
           )}
 
-          {/*  Apple 日历专属卡片 */}
+          {/*  Apple 日历专属卡片 */}
           {!isUser && messageOrderCard?.kind === 'apple_calendar' && (
             <AppleCalendarCard
               card={messageOrderCard}
@@ -811,6 +811,7 @@ const MessageRow = ({
               onClick={() => onReroll(msg.id)}
               disabled={isAiTyping}
               className="p-1 opacity-50 hover:opacity-100 disabled:opacity-20"
+              aria-label="重新生成这条回复"
               title="重 roll 此回复"
             >
               <RotateCw className="h-3 w-3" />
@@ -822,6 +823,7 @@ const MessageRow = ({
               type="button"
               onClick={() => onClearPhotoMedia?.(msg.id)}
               className="p-1 opacity-50 hover:opacity-100"
+              aria-label="清除这张原图（保留文字记录）"
               title="清除原图（保留文字记录，释放内存）"
             >
               <ImageOff className="h-3 w-3" />
@@ -832,6 +834,7 @@ const MessageRow = ({
             type="button"
             onClick={() => onQuote(msg)}
             className="p-1 opacity-50 hover:opacity-100"
+            aria-label="引用这条消息"
             title="引用"
           >
             <Quote className="h-3 w-3" />
@@ -841,6 +844,7 @@ const MessageRow = ({
             type="button"
             onClick={() => onDelete(msg.id)}
             className="p-1 opacity-50 hover:opacity-100"
+            aria-label="抹去这条消息"
             title="抹去"
           >
             <Trash2 className="h-3 w-3" />
@@ -866,6 +870,7 @@ const MessageRow = ({
               onClick={() => onSwitchVersion(msg, 'prev')}
               disabled={versionIndex === 0}
               className="p-0.5 hover:opacity-100 disabled:opacity-20"
+              aria-label="上一版本"
               title="上一版本"
             >
               <ChevronLeft className="h-3 w-3" />
@@ -880,6 +885,7 @@ const MessageRow = ({
               onClick={() => onSwitchVersion(msg, 'next')}
               disabled={versionIndex === versions.length - 1}
               className="p-0.5 hover:opacity-100 disabled:opacity-20"
+              aria-label="下一版本"
               title="下一版本"
             >
               <ChevronRight className="h-3 w-3" />
