@@ -59,6 +59,7 @@ import { runScreenEffectSession } from '../apps/messages/screenEffects/screenEff
 import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
 import { buildGreetingPromptNote, applyGreetingDirective } from '../apps/greeting/greetingDirective';
 import { buildBookPromptNote, applyBookDirective } from '../apps/greeting/popupBookDirective';
+import { buildToyPromptNote, applyToyDirective } from '../apps/messages/toys/toyDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
 import { CONFIRM_CARD_PROMPT_NOTE, applyConfirmCardDirective } from '../apps/messages/confirmCardDirective';
 import { getAvatarHistorySwitchNote, applyAvatarHistorySwitchDirective } from '../apps/messages/avatarHistoryDirective';
@@ -776,10 +777,13 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
     if (toyStatus === 'deleted') {
       return `[你之前给用户做过一个小玩具「${toyTitle}」，后来被用户删除了]`;
     }
+    const toyIdea = String(msg.metadata?.request || '').trim();
+    const toyIdeaText = toyIdea ? `（想做的是：${toyIdea}）` : '';
+
     if (toyStatus === 'failed') {
-      return '[你想给用户做一个小玩具，但这次没做成]';
+      return `[你想给用户做一个小玩具${toyIdeaText}，但这次没做成]`;
     }
-    return '[你正在给用户做一个小玩具，还没做好]';
+    return `[你正在给用户做一个小玩具${toyIdeaText || '（做什么由你自己定）'}，还没做好；用户不用干等，可以继续正常聊天]`;
   }
 
     if (msg.type === 'harp_melody') {
@@ -2758,6 +2762,12 @@ const bookNote = options.ignoreAway
   ? ''
   : await buildBookPromptNote({ characterId: character.id });
 
+  // 角色自己决定做小玩具（或用户在聊天里明确提出时）：只有开关开着、不在冷却、抽中概率，
+// 或用户明确点名时才带说明，其余时候一个字都不加。详见 toys/toyDirective.js。
+const toyOffer = options.ignoreAway
+  ? { note: '', offered: false, explicit: false }
+  : buildToyPromptNote({ chat, userTexts: collectPendingUserTexts(recentMsgs) });
+
 // 分享地方：跟气泡风格同一套"不设限制"的约定，角色任何一次回复都能
 // 自主决定分享一个地方，只在 ignoreAway 时跟其它"可选行为"一样收起。
 const characterPlaceNote = options.ignoreAway ? '' : buildCharacterPlacePromptNote();
@@ -2829,6 +2839,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   greetingNote ? `\n\n${greetingNote}` : ''
 }${
   bookNote ? `\n\n${bookNote}` : ''
+}${
+  toyOffer.note ? `\n\n${toyOffer.note}` : ''
 }${
   characterPlaceNote ? `\n\n${characterPlaceNote}` : ''
 }${
@@ -3024,8 +3036,13 @@ const {
 // 取出角色的 [SHARE_PLACE...] 标签（一律从正文去掉）；跟气泡风格同一套
 // "不设限制"的约定，只负责摘标签并告诉调用方"角色想分享一个地方"，
 // 真正的挑选/写入在回复落库之后由 runCharacterPlaceSession 单独完成。
-const { content: contentAfterCharacterPlace, wantsShare: wantsCharacterPlace } = applyCharacterPlaceDirective({
+// 取出角色的 [TOY_WANT...] 标签（一律从正文去掉），回复写入之后再单独做小玩具。
+const { content: contentAfterToy, wantsToy, idea: toyIdea } = applyToyDirective({
   content: contentAfterBook,
+});
+
+const { content: contentAfterCharacterPlace, wantsShare: wantsCharacterPlace } = applyCharacterPlaceDirective({
+  content: contentAfterToy,
 });
 
 // 取出角色的 [SWITCH_BACKGROUND: ...] 标签（一律从正文去掉）；标签里写的
@@ -3435,7 +3452,15 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           .catch((error) => console.warn('[PopupBookSession] 加载失败:', error));
       }
 
-      // 角色想分享一个地方：回复已经写入后，再单独补一次调用去挑选/落库，
+      // 角色想做一个小玩具：回复已经写入后，再单独补一次生成，不等待结果，
+      // 失败也不影响已经保存的回复。只有这次真的把选项交给过角色，才认它的标签。
+      if (wantsToy && toyOffer.offered && messageIds.length > 0) {
+        void import('../apps/messages/toys/toySession')
+          .then(({ runToySession }) => runToySession({
+            chatId, character, idea: toyIdea, explicit: toyOffer.explicit,
+          }))
+          .catch((error) => console.warn('[ToySession] 加载失败：', error));
+      }
       // 跟气泡风格同一套做法，不等待结果，失败也不影响已经保存的回复。
       if (wantsCharacterPlace && messageIds.length > 0) {
         void runCharacterPlaceSession({

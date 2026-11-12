@@ -13,17 +13,25 @@
 import db from '../../../db';
 import { generateToy } from './toyAiService';
 import { TOY_LIMITS, TOY_MESSAGE_TYPE, TOY_STATUS } from './toyConstants';
+import { isToyMakingInChat, markToyMaking, unmarkToyMaking } from './toyInflight';
 
-// 正在制作的聊天 id。只存在内存里：应用重启后丢失，
-// 所以重启后还停在 making 的消息一定是中断了的（见 reconcileInterruptedToy）。
-const inflightChats = new Set();
+// 转出去，ChatRoom 等已有的导入写法不用改。
+export { isToyMakingInChat };
+
+// 制作的来源，记在消息和玩具记录上：
+//   user      用户点菜单按钮
+//   character 角色自己决定做（toyDirective.js 的 [TOY_WANT] 标签）
+//   user_ask  用户在聊天里直接说想要，角色接住后做
+export const TOY_SOURCE = {
+  USER: 'user',
+  CHARACTER: 'character',
+  USER_ASK: 'user_ask',
+};
 
 const notifyChat = (chatId) => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('new-local-message-inserted', { detail: { chatId } }));
 };
-
-export const isToyMakingInChat = (chatId) => inflightChats.has(String(chatId));
 
 const patchMessage = async (messageId, { content, metadata }) => {
   const current = await db.messages.get(messageId);
@@ -36,7 +44,7 @@ const patchMessage = async (messageId, { content, metadata }) => {
   return { ...current, ...patch };
 };
 
-const runMaking = async ({ messageId, chatId, character, request }) => {
+const runMaking = async ({ messageId, chatId, character, request, source }) => {
   try {
     const toy = await generateToy({ character, chatId, request });
 
@@ -47,6 +55,7 @@ const runMaking = async ({ messageId, chatId, character, request }) => {
       rules: toy.rules,
       html: toy.html,
       request,
+      source,
       createdAt: Date.now(),
     });
 
@@ -71,7 +80,7 @@ const runMaking = async ({ messageId, chatId, character, request }) => {
       },
     }).catch(() => {});
   } finally {
-    inflightChats.delete(String(chatId));
+    unmarkToyMaking(chatId);
     notifyChat(chatId);
   }
 };
@@ -80,12 +89,16 @@ const runMaking = async ({ messageId, chatId, character, request }) => {
  * 开始制作一个小玩具：立刻往聊天里写一条"制作中"的卡片，真正的生成在后台跑。
  * 返回 { started: true, messageId } 或 { started: false, reason: 'busy' | 'invalid' }。
  */
-export const startToyMaking = async ({ chatId, character, request = '' }) => {
+export const startToyMaking = async ({
+  chatId,
+  character,
+  request = '',
+  source = TOY_SOURCE.USER,
+}) => {
   if (!chatId || !character?.id) return { started: false, reason: 'invalid' };
 
-  const key = String(chatId);
-  if (inflightChats.has(key)) return { started: false, reason: 'busy' };
-  inflightChats.add(key);
+  if (isToyMakingInChat(chatId)) return { started: false, reason: 'busy' };
+  markToyMaking(chatId);
 
   const cleanRequest = String(request || '').trim().slice(0, TOY_LIMITS.requestChars);
   const stamp = new Date().toISOString();
@@ -101,6 +114,7 @@ export const startToyMaking = async ({ chatId, character, request = '' }) => {
       metadata: {
         status: TOY_STATUS.MAKING,
         request: cleanRequest,
+        source,
         startedAt: Date.now(),
       },
       isRead: false,
@@ -110,11 +124,11 @@ export const startToyMaking = async ({ chatId, character, request = '' }) => {
     await db.chats.update(chatId, { updatedAt: stamp });
     notifyChat(chatId);
   } catch (error) {
-    inflightChats.delete(key);
+    unmarkToyMaking(chatId);
     throw error;
   }
 
-  void runMaking({ messageId, chatId, character, request: cleanRequest });
+  void runMaking({ messageId, chatId, character, request: cleanRequest, source });
 
   return { started: true, messageId };
 };
@@ -125,13 +139,12 @@ export const retryToyMaking = async ({ messageId }) => {
   if (!message || message.type !== TOY_MESSAGE_TYPE) return { started: false, reason: 'invalid' };
 
   const chatId = message.chatId;
-  const key = String(chatId);
-  if (inflightChats.has(key)) return { started: false, reason: 'busy' };
+  if (isToyMakingInChat(chatId)) return { started: false, reason: 'busy' };
 
   const character = await db.characters.get(message.characterId);
   if (!character) return { started: false, reason: 'invalid' };
 
-  inflightChats.add(key);
+  markToyMaking(chatId);
 
   try {
     await patchMessage(messageId, {
@@ -140,7 +153,7 @@ export const retryToyMaking = async ({ messageId }) => {
     });
     notifyChat(chatId);
   } catch (error) {
-    inflightChats.delete(key);
+    unmarkToyMaking(chatId);
     throw error;
   }
 
@@ -149,6 +162,7 @@ export const retryToyMaking = async ({ messageId }) => {
     chatId,
     character,
     request: String(message.metadata?.request || ''),
+    source: message.metadata?.source || TOY_SOURCE.USER,
   });
 
   return { started: true, messageId };
@@ -162,7 +176,7 @@ export const retryToyMaking = async ({ messageId }) => {
 export const reconcileInterruptedToy = async (message) => {
   if (!message || message.type !== TOY_MESSAGE_TYPE) return false;
   if (message.metadata?.status !== TOY_STATUS.MAKING) return false;
-  if (inflightChats.has(String(message.chatId))) return false;
+  if (isToyMakingInChat(message.chatId)) return false;
 
   await patchMessage(message.id, {
     content: '这次没做成小玩具',

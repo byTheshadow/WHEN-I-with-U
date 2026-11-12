@@ -23,6 +23,7 @@ import ButtonDecorationRow from './ButtonDecorationRow';
 import { DECORATION_FIELDS, DECORATION_FIELD_LABELS } from '../chatButtonDecorations';
 import SavedInfoSection from './SavedInfoSection';
 import AwaySettingsSection from '../away/AwaySettingsSection';
+import ToySettingsSection from '../toys/ToySettingsSection';
 import LearningModeSettingsSection from '../learningMode/LearningModeSettingsSection';
 import SecretCodeSettingsSection from '../secretCode/SecretCodeSettingsSection';
 import ChatReplyLanguageSettingsSection from '../replyLanguage/ChatReplyLanguageSettingsSection';
@@ -1427,6 +1428,13 @@ const handleToggleLocation = async () => {
 
         {/* 暂时不在线（每个聊天窗单独设置） */}
         <AwaySettingsSection
+          chat={chat}
+          character={character}
+          onUpdated={onUpdatedUserPersona}
+        />
+
+                {/* 允许角色自己做小玩具（每个聊天窗单独设置） */}
+        <ToySettingsSection
           chat={chat}
           character={character}
           onUpdated={onUpdatedUserPersona}

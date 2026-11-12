@@ -24,5 +24,13 @@ export const TOY_LIMITS = {
   dryRunMs: 1800,
 };
 
+// 角色自己决定做小玩具（toyDirective.js）：
+//   - 同一个聊天主动做完一个之后，冷却这么久才会再把"可以做"的说明交给角色；
+//   - 冷却之外，每次回复按这个概率把说明交给角色（用户明确点名时不受这两项限制）。
+export const TOY_AUTO = {
+  cooldownMs: 6 * 60 * 60 * 1000,
+  offerProbability: 0.3,
+};
+
 // "想玩什么"小卡里的快捷词。点一下填进输入框；不选、不填就是让角色自己决定。
 export const TOY_QUICK_PICKS = ['打地鼠', '记忆翻牌', '贪吃蛇', '反应力测试'];
