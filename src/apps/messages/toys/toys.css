@@ -1,0 +1,453 @@
+/* src/apps/messages/toys/toys.css
+ * 小玩具：聊天卡片、"想玩什么"小卡、全屏试玩弹层。
+ * 颜色全部走全局主题变量（src/styles/themes.css），四套主题自动适配。
+ * 小玩具自己的画面（iframe 里）由 AI 生成，不跟随主题。 */
+
+/* ---------- 聊天里的卡片（骨架同 .chat-interaction） ---------- */
+.toy-card {
+  width: min(100%, 258px);
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 20px 20px 18px 8px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--card-bg) 92%, var(--bg-surface-strong)),
+    var(--card-bg)
+  );
+  box-shadow: var(--card-shadow);
+  color: var(--text-main);
+}
+
+.toy-card--deleted {
+  opacity: 0.6;
+}
+
+.toy-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px 6px;
+}
+
+.toy-card__kicker {
+  color: var(--text-muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.toy-card__state {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.toy-card__title {
+  padding: 0 15px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+
+.toy-card__rules {
+  display: -webkit-box;
+  overflow: hidden;
+  padding: 6px 15px 0;
+  color: var(--text-sub);
+  font-size: 11.5px;
+  line-height: 1.6;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.toy-card__sub {
+  padding: 8px 15px 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.toy-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 15px 14px;
+}
+
+.toy-card__meta {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.toy-card__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.toy-card__btn--soft {
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+}
+
+.toy-card__btn:active {
+  transform: scale(0.97);
+}
+
+.toy-card__progress {
+  height: 4px;
+  margin: 10px 15px 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--control-soft-bg);
+}
+
+.toy-card__progress i {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent-color);
+  animation: toyCardProgressSlide 1.6s ease-in-out infinite;
+}
+
+@keyframes toyCardProgressSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(280%); }
+}
+
+/* ---------- "想玩什么"小卡 ---------- */
+.toy-ask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: var(--modal-overlay);
+}
+
+.toy-ask__dialog {
+  width: 100%;
+  max-width: 320px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--modal-border);
+  border-radius: 22px;
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
+  color: var(--text-main);
+}
+
+.toy-ask__title {
+  margin: 8px 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.toy-ask__desc {
+  margin: 0 0 12px;
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.toy-ask__input {
+  display: block;
+  width: 100%;
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.toy-ask__input::placeholder {
+  color: var(--text-muted);
+}
+
+.toy-ask__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.toy-ask__chip {
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.toy-ask__chip--on {
+  border-color: var(--accent-color);
+}
+
+.toy-ask__hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 10px 0 14px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.toy-ask__hint svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.toy-ask__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toy-ask__button {
+  flex: 1;
+  height: 38px;
+  border: 1px solid var(--card-border);
+  border-radius: 19px;
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toy-ask__button--primary {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.toy-ask__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- 全屏试玩弹层 ---------- */
+.toy-player {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+.toy-player__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 54px;
+  flex: none;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--card-border);
+  background: color-mix(in srgb, var(--card-bg) 82%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.toy-player__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.toy-player__icon:active,
+.toy-player__icon--on {
+  background: var(--control-soft-bg);
+}
+
+.toy-player__titles {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.toy-player__titles b {
+  display: block;
+  overflow: hidden;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toy-player__titles span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.toy-player__stage {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 12px 0;
+}
+
+.toy-player__frame {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--card-shadow);
+}
+
+.toy-player__frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.toy-player__message {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.toy-player__foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  flex: none;
+  padding-bottom: env(safe-area-inset-bottom);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.toy-player__menu {
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  z-index: 3;
+  width: 156px;
+  padding: 6px;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+}
+
+.toy-player__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toy-player__menu-item:active {
+  background: var(--control-soft-bg);
+}
+
+.toy-player__menu-item--danger {
+  color: #c0392b;
+}
+
+.toy-player__sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
+  padding: 10px 20px calc(22px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--modal-border);
+  border-radius: 24px 24px 0 0;
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
+  transform: translateY(105%);
+  transition: transform 0.28s ease;
+}
+
+.toy-player__sheet--open {
+  transform: none;
+}
+
+.toy-player__grab {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 2px;
+  background: var(--card-border);
+}
+
+.toy-player__sheet h4 {
+  margin: 6px 0 8px;
+  font-size: 15px;
+}
+
+.toy-player__sheet p {
+  margin: 0 0 14px;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toy-card__progress i {
+    animation: none;
+    transform: none;
+    width: 100%;
+  }
+
+  .toy-player__sheet {
+    transition: none;
+  }
+}
