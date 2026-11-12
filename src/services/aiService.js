@@ -765,6 +765,23 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
   return `[${how}${thing}送给用户，已经放在聊天里和收藏夹里，${seen}]`;
 }
 
+  if (msg.type === 'chat_toy') {
+    // 小玩具的代码存在 db.chatToys 里，这里只读消息自带的标题和规则，代码不会进上下文。
+    const toyStatus = msg.metadata?.status;
+    const toyTitle = msg.metadata?.title || '';
+
+    if (toyStatus === 'ready') {
+      return `[你亲手给用户做了一个能在手机上玩的小玩具「${toyTitle}」，玩法：${msg.metadata?.rules || ''}]`;
+    }
+    if (toyStatus === 'deleted') {
+      return `[你之前给用户做过一个小玩具「${toyTitle}」，后来被用户删除了]`;
+    }
+    if (toyStatus === 'failed') {
+      return '[你想给用户做一个小玩具，但这次没做成]';
+    }
+    return '[你正在给用户做一个小玩具，还没做好]';
+  }
+
     if (msg.type === 'harp_melody') {
     return describeMelodyForPrompt(msg);
   }

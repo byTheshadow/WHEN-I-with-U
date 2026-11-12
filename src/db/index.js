@@ -5164,4 +5164,10 @@ db.version(110).stores({
   stPackChunks: '++id, packId, importId, [packId+index]',
 });
 
+// 聊天里的小玩具（src/apps/messages/toys/）：角色做的小游戏代码单独存一行，
+// 聊天消息里只留标题和规则，这样代码不会出现在消息列表数据里，也不会进入任何 AI 上下文。
+db.version(111).stores({
+  chatToys: '++id, chatId, characterId, createdAt, [chatId+createdAt]',
+});
+
 export default db;

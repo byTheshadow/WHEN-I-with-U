@@ -21,6 +21,7 @@ import ChallengeCompletionNotice from '../../challenges/ChallengeCompletionNotic
 import HarpMelodyNotice from '../../harp/HarpMelodyNotice';
 import PixelDollGiftNotice from '../../pixelDoll/PixelDollGiftNotice';
 import GreetingGiftNotice from '../../greeting/GreetingGiftNotice';
+import ChatToyMessage from '../toys/ChatToyMessage';
 import TextGameResultNotice from '../../textgames/TextGameResultNotice';
 import ChatParcelArrivedNotice from '../parcel/ChatParcelArrivedNotice';
 import ChatParallelOrbitNotice from './ChatParallelOrbitNotice';
@@ -537,6 +538,8 @@ const MessageRow = ({
               character={character}
               onResolved={onResolvedInteraction}
             />
+          ) : msg.type === 'chat_toy' ? (
+            <ChatToyMessage message={msg} character={character} />
           ) : msg.type === 'offline_invite' ? (
             <OfflineInviteCard
               message={msg}

@@ -98,6 +98,8 @@ import CouponWalletPanel from './coupon/CouponWalletPanel';
 import { createDivinationMessage } from './interactions/divination/divinationService';
 import DrawGuessCanvasModal from './interactions/drawGuess/DrawGuessCanvasModal';
 import { createDrawGuessMessage } from './interactions/drawGuess/drawGuessService';
+import ToyAskDialog from './toys/ToyAskDialog';
+import { isToyMakingInChat, startToyMaking } from './toys/toyService';
 import {
   createPokeMessage,
   ensurePokeReplies,
@@ -298,6 +300,7 @@ export const ChatRoom = ({
   const [showOrderModal, setShowOrderModal] = useState(false);
    const [showDivinationModal, setShowDivinationModal] = useState(false);
   const [showDrawGuessModal, setShowDrawGuessModal] = useState(false);
+    const [showToyAsk, setShowToyAsk] = useState(false);
   const [checkInDelivery, setCheckInDelivery] = useState(null);
   const [pendingMcpApproval, setPendingMcpApproval] = useState(null);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
@@ -979,6 +982,23 @@ forceScrollMessageIdRef.current = stickerMsgId;
       await loadChatData();
     } catch (error) {
       console.error('[ChatRoom] 创建你画我猜失败：', error);
+    }
+  };
+
+  // 让TA做个小玩具：弹窗里点"开始制作"后，聊天里立刻出现"制作中"的卡片，
+  // 真正的生成在 toyService 里后台跑，做好后卡片自己变成可玩的样子。
+  const handleCreateToy = async (request) => {
+    if (!chat?.id || !character?.id) return;
+
+    try {
+      const result = await startToyMaking({ chatId: chat.id, character, request });
+
+      if (result.started) {
+        setShowToyAsk(false);
+        await loadChatData();
+      }
+    } catch (error) {
+      console.error('[ChatRoom] 创建小玩具失败：', error);
     }
   };
 
@@ -3100,6 +3120,12 @@ const handleCancelAiResponse = () => {
                   return;
                 }
 
+                                if (type === 'interaction_toy') {
+                  inputRef.current?.blur();
+                  setShowToyAsk(true);
+                  return;
+                }
+
               if (type === 'interaction_divination') {
   inputRef.current?.blur();
    setShowDivinationModal(true);
@@ -3447,6 +3473,14 @@ if (type === 'interaction_coupon') {
         isOpen={showDrawGuessModal}
         onClose={() => setShowDrawGuessModal(false)}
         onSubmit={handleCreateDrawGuess}
+      />
+
+            <ToyAskDialog
+        isOpen={showToyAsk}
+        characterName={character?.name || '对方'}
+        isBusy={isToyMakingInChat(chat?.id)}
+        onClose={() => setShowToyAsk(false)}
+        onSubmit={handleCreateToy}
       />
 
       <CouponWalletPanel

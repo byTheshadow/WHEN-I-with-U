@@ -677,6 +677,7 @@ const handleToggleLocation = async () => {
   const handleDeleteEntireChat = async () => {
     await db.chats.delete(chat.id);
     await db.messages.where('chatId').equals(chat.id).delete();
+        await db.chatToys.where('chatId').equals(chat.id).delete();
     setShowDeleteConfirm(false);
     onClose();
     if (onDeletedChat) onDeletedChat();
