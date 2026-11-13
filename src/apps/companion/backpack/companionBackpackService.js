@@ -11,6 +11,7 @@
 import db from '../../../db';
 import { findShopItem, FOOD_TIERS } from '../companionShopData';
 import { recordTaskEvent } from '../tasks/companionTaskService';
+import { pickWokenUpPrefix, wakeCompanionIfSleeping } from '../companionSleepService';
 
 const clamp100 = (value) => Math.max(0, Math.min(100, Math.round(value)));
 
@@ -76,8 +77,9 @@ export const useBackpackItem = async (companionId, itemId) => {
 
   const item = findShopItem(itemId);
   if (!item) throw new Error('这件道具的数据不见了，没法使用。');
-
+  const wasWoken = await wakeCompanionIfSleeping(companionId);
   const companion = await db.companions.get(companionId);
+
   if (!companion) throw new Error('小伙伴不存在');
 
   const effects = item.effects || {};
@@ -118,7 +120,8 @@ export const useBackpackItem = async (companionId, itemId) => {
       ? `用「${item.name}」打理了一下，干净多了。`
       : `玩了一会儿「${item.name}」，很开心。`;
 
-  const feedbackText = item.useLine || defaultLine;
+    const baseFeedbackText = item.useLine || defaultLine;
+  const feedbackText = wasWoken ? `${pickWokenUpPrefix()}${baseFeedbackText}` : baseFeedbackText;
 
   await db.companionLogs.add({
     companionId,

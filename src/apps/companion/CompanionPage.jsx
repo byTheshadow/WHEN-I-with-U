@@ -87,6 +87,13 @@ import CompanionFriendIcon from './friends/CompanionFriendIcon';
   import CompanionChatIcon from './chat/CompanionChatIcon';
 import { getFriendDockBadgeCount, getCompanionSnapshot } from './friends/companionFriendService';
 import './companionPage.css';
+import './companionSleep.css';
+import {
+  SLEEPING_STATUS_LINE,
+  SLEEP_WAKE_CONFIRM_LINE,
+  isCompanionSleeping,
+  takePendingWakeTip,
+} from './companionSleepService';
 /*
  * 把用户上传的图片压到一个头像该有的尺寸、保留透明通道、输出 PNG。
  *
@@ -360,6 +367,15 @@ const CompanionPage = ({ chatId, character, onBack }) => {
   const zoneFxTimerRef = useRef(null);
   const claimTimerRef = useRef(null);
 
+  // 睡觉：页面开着的时候跨过睡觉/起床时间点也要自己切换，所以每分钟刷新一次。
+  // wakeConfirmRef 记录"睡觉时点了喂食/清洁/玩耍的第一下"，5 秒内再点同一个才真的叫醒它。
+  const [sleepTick, setSleepTick] = useState(0);
+  const wakeConfirmRef = useRef({ action: null, at: 0 });
+  useEffect(() => {
+    const timerId = window.setInterval(() => setSleepTick((n) => n + 1), 60000);
+    return () => window.clearInterval(timerId);
+  }, []);
+
   // 抽屉拖拽用
   const rootRef = useRef(null);
   const sheetRef = useRef(null);
@@ -388,6 +404,12 @@ const CompanionPage = ({ chatId, character, onBack }) => {
       try {
         const pendingLetter = await takePendingCustodyLetter(found.id);
         if (pendingLetter) setCustodyLetter(pendingLetter);
+      } catch (_) { /* 静默失败，不影响页面加载 */ }
+
+      // 睡醒后的早安小提示：取走即清空，用气泡显示一次。
+      try {
+        const wakeTip = await takePendingWakeTip(found.id);
+        if (wakeTip) showFeedback(wakeTip);
       } catch (_) { /* 静默失败，不影响页面加载 */ }
 
             // 蹭饭期间攒下的"蹭饭"信，跟贴心照顾信一样用户回来时弹一次。
@@ -640,6 +662,19 @@ const CompanionPage = ({ chatId, character, onBack }) => {
 
   const handleFreeAction = async (actionType) => {
     if (!companion || isActing) return;
+
+    // 睡觉时：第一下只提示"再点一次会叫醒它"，5 秒内再点同一个才真的执行。
+    if (isSleeping) {
+      const pending = wakeConfirmRef.current;
+      const confirmed = pending.action === actionType && Date.now() - pending.at < 5000;
+      if (!confirmed) {
+        wakeConfirmRef.current = { action: actionType, at: Date.now() };
+        showFeedback(SLEEP_WAKE_CONFIRM_LINE);
+        return;
+      }
+      wakeConfirmRef.current = { action: null, at: 0 };
+    }
+
     setIsActing(true);
     const before = companion;
 
@@ -669,7 +704,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     if (pokeTimerRef.current) window.clearTimeout(pokeTimerRef.current);
     pokeTimerRef.current = window.setTimeout(() => setIsPoking(false), 500);
     spawnParticles('ripple', 1, 0);
-    spawnParticles('heart-p', 1, 0);
+    if (!isSleeping) spawnParticles('heart-p', 1, 0); // 睡觉时被戳是被嫌弃，不冒爱心
 
     try {
       const result = await pokeCompanion(companion.id);
@@ -844,13 +879,20 @@ const CompanionPage = ({ chatId, character, onBack }) => {
     findScene(companion?.background) || getAllSceneOptions()[0]
   ), [companion?.background]);
 
+  const isSleeping = useMemo(
+    () => isCompanionSleeping(companion),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [companion, sleepTick],
+  );
+
   const statusLine = useMemo(() => {
     if (!companion) return '';
+    if (isSleeping) return SLEEPING_STATUS_LINE;
     if (companion.satiety < 30) return '好像有点饿了呀……';
     if (companion.mood < 30) return '看起来不太开心，需要陪陪它。';
     if ((companion.cleanliness ?? 100) < 30) return '身上有点脏了，该清洁一下啦。';
     return '状态很不错，暖暖的。';
-  }, [companion]);
+  }, [companion, isSleeping]);
 
   // ---- 底部抽屉：点一下 / 拖一下展开收起 ----
   const getPeekOffset = () => {
@@ -1145,7 +1187,7 @@ const CompanionPage = ({ chatId, character, onBack }) => {
             <button
               type="button"
               onClick={handlePoke}
-              className={`cp-pet ${hasPoked ? '' : 'hint'} ${isPoking ? 'is-jelly' : ''}`}
+              className={`cp-pet ${hasPoked ? '' : 'hint'} ${isPoking ? 'is-jelly' : ''} ${isSleeping ? 'is-sleeping' : ''}`}
               title="戳一戳"
               aria-label="戳一戳"
             >
@@ -1160,6 +1202,10 @@ const CompanionPage = ({ chatId, character, onBack }) => {
                 <span className="cp-outfit-tag">{companion.equippedOutfit}</span>
               )}
             </button>
+
+            {isSleeping && (
+              <span className="cp-zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></span>
+            )}
 
             <button
               type="button"

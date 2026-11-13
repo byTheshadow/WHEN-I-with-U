@@ -13,6 +13,16 @@ import { findShopItem, FOOD_TIERS } from './companionShopData';
 import { checkCompanionEvents, getActiveEvents } from './companionEventService';
 import { addToBackpack } from './backpack/companionBackpackService';
 import { recordTaskEvent } from './tasks/companionTaskService';
+import {
+  SLEEP_MOOD_GAIN_PER_HOUR,
+  SLEEP_POKE_REPLIES,
+  SLEEP_SATIETY_DECAY_FACTOR,
+  buildSleepBookkeepingPatch,
+  computeSleepHours,
+  isCompanionSleeping,
+  pickWokenUpPrefix,
+  wakeCompanionIfSleeping,
+} from './companionSleepService';
 
 // ---- 数值状态衰减（参照 habitatService.js 的 applyTimeDecay）----
 const DECAY_PER_HOUR = { satiety: 4, mood: 2, cleanliness: 1 };
@@ -103,6 +113,12 @@ export const pokeCompanion = async (companionId) => {
   if (!companion) return null;
 
   const now = Date.now();
+    // 睡觉时被戳：不会吵醒，但会被嫌弃（心情小幅下降）。
+  if (isCompanionSleeping(companion, now)) {
+    const grumpy = { ...companion, mood: clamp100(companion.mood - 2), updatedAt: now };
+    await db.companions.put(grumpy);
+    return { companion: grumpy, line: pickRandom(SLEEP_POKE_REPLIES), sleeping: true };
+  }
   const updated = {
     ...companion,
     mood: clamp100(companion.mood + 2),
@@ -339,12 +355,24 @@ export const applyTimeDecay = async (companion) => {
     return companion;
   }
 
+  const sleepHours = Math.min(hoursElapsed, computeSleepHours(companion, lastDecayed, now));
+  const awakeHours = hoursElapsed - sleepHours;
+
   const updated = {
     ...companion,
-    satiety: clamp100(companion.satiety - hoursElapsed * DECAY_PER_HOUR.satiety),
-    mood: clamp100(companion.mood - hoursElapsed * DECAY_PER_HOUR.mood),
+    satiety: clamp100(
+      companion.satiety
+      - awakeHours * DECAY_PER_HOUR.satiety
+      - sleepHours * DECAY_PER_HOUR.satiety * SLEEP_SATIETY_DECAY_FACTOR
+    ),
+    mood: clamp100(
+      companion.mood
+      - awakeHours * DECAY_PER_HOUR.mood
+      + sleepHours * SLEEP_MOOD_GAIN_PER_HOUR
+    ),
     cleanliness: clamp100((companion.cleanliness ?? 100) - hoursElapsed * DECAY_PER_HOUR.cleanliness),
     lastDecayedAt: now,
+    ...buildSleepBookkeepingPatch(companion, sleepHours, now),
   };
 
   await db.companions.put(updated);
@@ -379,6 +407,12 @@ export const performFreeAction = async (companionId, actionType) => {
 
   const newDailyProgress = { ...dailyProgress, [actionType]: (dailyProgress[actionType] || 0) + 1 };
 
+  
+  const wasWoken = await wakeCompanionIfSleeping(companionId);
+  if (wasWoken) {
+    companion = { ...companion, sleepWokenAt: Date.now(), sleepAccumHours: 0, pendingWakeTip: null };
+  }
+
   const now = Date.now();
   const newMood = clamp100(companion.mood + effect.mood);
   const updated = {
@@ -399,7 +433,8 @@ export const performFreeAction = async (companionId, actionType) => {
 
   await db.companions.put(updated);
 
-  const feedbackText = pickRandom(FREE_ACTION_FALLBACKS[actionType] || FEED_FALLBACKS);
+  const baseFeedback = pickRandom(FREE_ACTION_FALLBACKS[actionType] || FEED_FALLBACKS);
+  const feedbackText = wasWoken ? `${pickWokenUpPrefix()}${baseFeedback}` : baseFeedback;
 
   await db.companionLogs.add({
     companionId,
@@ -489,6 +524,7 @@ export const triggerCompanionAutonomousCare = async (companionId) => {
   const companion = await db.companions.get(companionId);
   if (!companion) return;
 
+    if (isCompanionSleeping(companion)) return;
   const chat = await db.chats.get(companion.chatId);
   const character = chat ? await db.characters.get(chat.characterId) : null;
   if (!chat || !character) return;
@@ -539,6 +575,7 @@ export const checkCompanionsForNeglect = async () => {
     const now = Date.now();
 
     for (const companion of companions) {
+            if (isCompanionSleeping(companion, now)) continue;
       if (hoursSince(companion.lastInteractionAt, now) < AUTO_CARE_NEGLECT_HOURS) continue;
       if (hoursSince(companion.lastAutoCareRollAt, now) < AUTO_CARE_ROLL_COOLDOWN_HOURS) continue;
       if (hoursSince(companion.lastAutoCareAt, now) < AUTO_CARE_MIN_GAP_HOURS) continue;

@@ -19,6 +19,7 @@
 
 import db from '../../db';
 import { getCompanionByChat } from './companionService';
+import { isCompanionSleeping } from './companionSleepService';
 
 const LOW_THRESHOLD = 20;
 const ALERT_COOLDOWN_HOURS = 12;
@@ -48,6 +49,7 @@ const processChat = async (chat) => {
   // 上次打开页面时的旧值。
   const companion = await getCompanionByChat(chat.id);
   if (!companion) return; // 没养小伙伴，跳过
+    if (isCompanionSleeping(companion)) return;
 
   if (hoursSince(companion.lastStatusAlertAt) < ALERT_COOLDOWN_HOURS) return; // 还在冷却
 

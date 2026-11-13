@@ -21,6 +21,7 @@
  */
 
 import db from '../../db';
+import { describeSleepForPrompt } from './companionSleepService';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const getTodayDateStr = () => {
@@ -120,7 +121,9 @@ export const buildCompanionStatusPromptBlock = async (chatId) => {
       console.warn('[CompanionStatus] 拉取每日问答失败：', error);
     }
 
-    return `\n【你们共同养的小伙伴"${companion.name}"目前的状态（这次恰好想到/感知到了，不是每次都要提，用户问起它、聊天里自然聊到它、或者你单纯想随口提一句都可以，不要生硬地汇报数值，也别刻意为了提而提）】：\n${moodText}，${satietyText}${idleText}。${recentLogText}${recentDiaryText}${dailyQaText}\n`;
+        const sleepText = describeSleepForPrompt(companion, now);
+    const sleepLine = sleepText ? `\n${sleepText}` : '';
+    return `\n【你们共同养的小伙伴"${companion.name}"目前的状态（这次恰好想到/感知到了，不是每次都要提，用户问起它、聊天里自然聊到它、或者你单纯想随口提一句都可以，不要生硬地汇报数值，也别刻意为了提而提）】：\n${moodText}，${satietyText}${idleText}。${sleepLine}${recentLogText}${recentDiaryText}${dailyQaText}\n`;
   } catch (error) {
     console.warn('[CompanionStatus] 生成小伙伴状态提示词失败：', error);
     return '';
