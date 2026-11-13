@@ -119,7 +119,8 @@
 
 .ld-range {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 两列放得下就并排，放不下自动上下叠放，不再互相重叠 */
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   gap: 0.8rem;
 }
 
@@ -139,9 +140,14 @@
 }
 
 .ld-range input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+  min-height: 2.4rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--divider);
   border-radius: 0.5rem;
@@ -149,6 +155,11 @@
   color: var(--text-main);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.75rem;
+}
+
+.ld-range input::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
 }
 
 .ld-range input:focus-visible,
