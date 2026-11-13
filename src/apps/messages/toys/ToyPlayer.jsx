@@ -10,6 +10,7 @@ import { ListChecks, MoreHorizontal, RotateCcw, ShieldCheck, Trash2, X } from 'l
 
 import ConfirmModal from '../../../components/ConfirmModal';
 import { buildToyDocument } from './toySandbox';
+import { recordToyPlay } from './toyCollectionService';
 import { deleteToy, getToy } from './toyService';
 import './toys.css';
 
@@ -31,6 +32,8 @@ const ToyPlayer = ({ message, characterName = '对方', onClose }) => {
         if (cancelled) return;
         setToy(row);
         setLoadState(row ? 'ready' : 'missing');
+                // 记一次玩过（收藏页用）。失败不影响试玩。
+        if (row) recordToyPlay(row.id).catch((error) => console.warn('记录玩过次数失败：', error));
       })
       .catch((error) => {
         console.warn('读取小玩具失败：', error);

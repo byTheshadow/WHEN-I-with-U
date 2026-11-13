@@ -1,0 +1,767 @@
+/* src/apps/messages/toys/toyCollection.css
+ * 小玩具收藏页（ToyCollectionPage.jsx，视觉方向 B「墨色便当」）。
+ * 颜色全部走全局主题变量（src/styles/themes.css）：背景用和首页一样的三团大色团，
+ * 卡片是和 GlassCard 同一种半透明玻璃，大卡片用主题自带的"墨色卡片"（深浅主题自动反色）。
+ * 只有玩具自己的小图（糖果色渐变）用固定色，由组件通过 --orb-hi / --orb-mid / --orb-lo 传进来。 */
+
+.toybox {
+  /* 玻璃：底色是主题卡片色的半透明，边缘一圈高光，深色主题里把高光收一点。 */
+  --tb-glass: color-mix(in srgb, var(--card-bg) 58%, transparent);
+  --tb-glass-strong: color-mix(in srgb, var(--card-bg) 74%, transparent);
+  --tb-edge-top: rgba(255, 255, 255, 0.5);
+  --tb-edge-bottom: rgba(0, 0, 0, 0.08);
+  --tb-blur: blur(36px) saturate(180%);
+
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  overflow: hidden;
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: inherit;
+  animation: toyboxIn 0.22s ease-out both;
+}
+
+:root[data-theme="obsidian-dark"] .toybox,
+:root[data-theme="cyber-velvet"] .toybox {
+  --tb-glass: color-mix(in srgb, var(--card-bg) 55%, transparent);
+  --tb-glass-strong: color-mix(in srgb, var(--card-bg) 78%, transparent);
+  --tb-edge-top: rgba(255, 255, 255, 0.2);
+  --tb-edge-bottom: rgba(0, 0, 0, 0.35);
+}
+
+/* 高对比主题：玻璃不透明，保证文字对比度。 */
+:root[data-theme="high-contrast"] .toybox {
+  --tb-glass: var(--card-bg);
+  --tb-glass-strong: var(--card-bg);
+  --tb-blur: none;
+}
+
+.toybox button {
+  font-family: inherit;
+}
+
+@keyframes toyboxIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- 背景色团（同 App.jsx 里首页那三团） ---------- */
+.toybox__blobs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.toybox__blobs i {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.toybox__blobs i:nth-child(1) {
+  left: -128px;
+  top: -128px;
+  width: 400px;
+  height: 400px;
+  background: var(--bg-blob-1);
+  filter: blur(115px);
+}
+
+.toybox__blobs i:nth-child(2) {
+  right: -160px;
+  top: 28%;
+  width: 448px;
+  height: 448px;
+  background: var(--bg-blob-2);
+  filter: blur(130px);
+}
+
+.toybox__blobs i:nth-child(3) {
+  left: 10%;
+  bottom: -192px;
+  width: 400px;
+  height: 400px;
+  background: var(--bg-blob-3);
+  filter: blur(135px);
+}
+
+/* ---------- 玻璃 ---------- */
+.toybox-glass {
+  border: 1px solid var(--card-border);
+  background: var(--tb-glass);
+  -webkit-backdrop-filter: var(--tb-blur);
+  backdrop-filter: var(--tb-blur);
+  box-shadow:
+    var(--card-shadow),
+    inset 0 1px 0 var(--tb-edge-top),
+    inset 0 -1px 0 var(--tb-edge-bottom);
+  color: var(--text-main);
+}
+
+.toybox-glass--strong {
+  background: var(--tb-glass-strong);
+}
+
+/* ---------- 滚动区 ---------- */
+.toybox__scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 28px)
+    20px
+    calc(124px + env(safe-area-inset-bottom, 0px));
+}
+
+.toybox__inner {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ---------- 页头 ---------- */
+.toybox__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toybox__top-spacer {
+  width: 40px;
+}
+
+.toybox__kicker {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+}
+
+.toybox-round {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.toybox-round svg {
+  width: 18px;
+  height: 18px;
+}
+
+.toybox__title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 22px;
+}
+
+.toybox__title {
+  margin: 0;
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.toybox__count {
+  color: var(--text-muted);
+  font-size: 46px;
+  font-weight: 200;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.toybox-note {
+  padding: 40px 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---------- 墨色大卡片 ---------- */
+.toybox-hero {
+  position: relative;
+  min-height: 172px;
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid var(--ink-card-border);
+  border-radius: 32px;
+  background: var(--ink-card-bg);
+  box-shadow: var(--ink-card-shadow, 0 16px 34px rgba(0, 0, 0, 0.18));
+  color: var(--text-on-ink);
+  animation: toyboxPop 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+
+.toybox-hero__orb {
+  position: absolute;
+  right: -18px;
+  bottom: -22px;
+  display: flex;
+}
+
+.toybox-hero__spark {
+  position: absolute;
+  right: 22px;
+  top: 20px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-on-ink-muted);
+}
+
+.toybox-hero__body {
+  position: relative;
+  max-width: calc(100% - 112px);
+  padding: 22px 0 22px 22px;
+}
+
+.toybox-hero__kicker {
+  color: var(--text-on-ink-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+}
+
+.toybox-hero__title {
+  display: -webkit-box;
+  margin: 8px 0 0;
+  overflow: hidden;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.toybox-hero__sub {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--text-on-ink-muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toybox-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  margin-top: 18px;
+  padding: 0 20px 0 16px;
+  border: 0;
+  border-radius: 21px;
+  background: var(--text-on-ink);
+  color: var(--ink-a, #111);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toybox-hero__cta svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.toybox-hero__cta:active {
+  transform: scale(0.97);
+}
+
+/* ---------- 便当格 ---------- */
+.toybox__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+.toybox__section h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.toybox__section-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 0 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toybox__section-sort svg {
+  width: 13px;
+  height: 13px;
+}
+
+.toybox-bento {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toybox-cell {
+  min-width: 0;
+  animation: toyboxPop 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+  animation-delay: var(--toy-delay, 0ms);
+}
+
+.toybox-cell--wide {
+  grid-column: 1 / -1;
+}
+
+@keyframes toyboxPop {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 入场动画期间不开 backdrop-filter（同 GlassCard 的做法），落定之后再开，低端手机不卡。 */
+.toybox-cell .toybox-glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: toyboxGlassOn 0.01s linear both;
+  animation-delay: calc(var(--toy-delay, 0ms) + 0.5s);
+}
+
+@keyframes toyboxGlassOn {
+  to {
+    -webkit-backdrop-filter: var(--tb-blur);
+    backdrop-filter: var(--tb-blur);
+  }
+}
+
+.toybox-tile {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border-radius: 28px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+
+.toybox-tile:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .toybox-tile:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.toybox-tile:focus-visible,
+.toybox-hero__cta:focus-visible,
+.toybox-dock button:focus-visible,
+.toybox-round:focus-visible {
+  outline: 3px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.toybox-tile--wide {
+  align-items: center;
+  gap: 14px;
+}
+
+.toybox-tile--small {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.toybox-tile__main {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.toybox-tile__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.toybox-tile__title {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.toybox-tile--wide .toybox-tile__title {
+  font-size: 16.5px;
+}
+
+.toybox-tile--small .toybox-tile__title {
+  margin-top: 14px;
+}
+
+.toybox-tile__rules {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.toybox-tile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.toybox-tile--small .toybox-tile__meta {
+  margin-top: 7px;
+}
+
+.toybox-tile__meta b {
+  color: var(--text-sub);
+  font-weight: 600;
+}
+
+.toybox-tile__meta i {
+  font-style: normal;
+}
+
+.toybox-pill {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 9px;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.toybox-tile--small .toybox-pill {
+  margin-top: 6px;
+}
+
+.toybox-badge {
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.toybox-badge--new {
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+.toybox-play {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.toybox-play svg {
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  fill: currentColor;
+}
+
+/* ---------- 头像 ---------- */
+.toybox-avatar {
+  display: inline-block;
+  flex: none;
+  width: var(--av, 24px);
+  height: var(--av, 24px);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.toybox-avatar--letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: calc(var(--av, 24px) * 0.42);
+  font-weight: 700;
+}
+
+/* ---------- 玩具的彩色小图（圆角方块 / 糖果球） ---------- */
+.toybox-art {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--art);
+  height: var(--art);
+  overflow: hidden;
+  border-radius: var(--art-r);
+  background: radial-gradient(
+    120% 120% at 25% 15%,
+    var(--orb-hi) 0%,
+    var(--orb-mid) 55%,
+    var(--orb-lo) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -10px 20px color-mix(in srgb, var(--orb-lo) 33%, transparent);
+}
+
+.toybox-art__shine {
+  position: absolute;
+  left: -20%;
+  top: -40%;
+  width: 90%;
+  height: 80%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  filter: blur(14px);
+}
+
+.toybox-art svg {
+  position: relative;
+  width: var(--art-icon);
+  height: var(--art-icon);
+  color: #fff;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--orb-lo) 67%, transparent));
+}
+
+.toybox-art__dot {
+  position: absolute;
+  right: 9px;
+  top: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
+}
+
+.toybox-sphere {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 32% 26%,
+    var(--orb-hi) 0%,
+    var(--orb-mid) 48%,
+    var(--orb-lo) 100%
+  );
+  box-shadow:
+    0 calc(var(--d) * 0.16) calc(var(--d) * 0.3) color-mix(in srgb, var(--orb-lo) 40%, transparent),
+    inset 0 calc(var(--d) * -0.08) calc(var(--d) * 0.16) color-mix(in srgb, var(--orb-lo) 53%, transparent),
+    inset 0 calc(var(--d) * 0.03) calc(var(--d) * 0.06) rgba(255, 255, 255, 0.85);
+}
+
+.toybox-sphere__shine {
+  position: absolute;
+  left: calc(var(--d) * 0.17);
+  top: calc(var(--d) * 0.1);
+  width: calc(var(--d) * 0.4);
+  height: calc(var(--d) * 0.2);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  filter: blur(calc(var(--d) * 0.03));
+  transform: rotate(-24deg);
+}
+
+.toybox-sphere svg {
+  position: relative;
+  width: calc(var(--d) * 0.34);
+  height: calc(var(--d) * 0.34);
+  color: #fff;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--orb-lo) 67%, transparent));
+}
+
+/* ---------- 底部悬浮 dock ---------- */
+.toybox-dock {
+  position: absolute;
+  left: 50%;
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(calc(100% - 40px), 440px);
+  height: 66px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: 33px;
+  transform: translateX(-50%);
+}
+
+.toybox-dock button {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.toybox-dock .toybox-dock__all {
+  gap: 6px;
+  padding: 0 18px;
+  border-radius: 23px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.toybox-dock__all span {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.toybox-dock__all[aria-pressed='true'],
+.toybox-dock__person[aria-pressed='true'] {
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+
+.toybox-dock__people {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.toybox-dock__people::-webkit-scrollbar {
+  display: none;
+}
+
+.toybox-dock__person {
+  justify-content: center;
+  min-width: 46px;
+  border-radius: 23px;
+}
+
+.toybox-dock .toybox-dock__person[aria-pressed='true'] {
+  gap: 8px;
+  padding: 0 16px 0 5px;
+}
+
+.toybox-dock__name {
+  max-width: 7em;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toybox-dock .toybox-dock__sort {
+  justify-content: center;
+  width: 46px;
+  border-radius: 50%;
+  background: var(--control-soft-bg);
+}
+
+/* ---------- 空状态 ---------- */
+.toybox-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 22px;
+  padding: 32px 28px 30px;
+  border-radius: 32px;
+  text-align: center;
+}
+
+.toybox-empty__art {
+  width: 180px;
+  height: auto;
+  color: var(--text-main);
+}
+
+.toybox-empty h2 {
+  margin: 16px 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.toybox-empty p {
+  max-width: 280px;
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.toybox-empty__bulb {
+  animation: toyboxTwinkle 1.8s ease-in-out infinite;
+}
+
+.toybox-empty__spark {
+  animation: toyboxTwinkle 2.4s ease-in-out infinite;
+  animation-delay: 0.4s;
+}
+
+@keyframes toyboxTwinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* ---------- 减少动态效果 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .toybox,
+  .toybox-hero,
+  .toybox-cell,
+  .toybox-empty__bulb,
+  .toybox-empty__spark {
+    animation: none;
+  }
+
+  .toybox-cell .toybox-glass {
+    animation: none;
+    -webkit-backdrop-filter: var(--tb-blur);
+    backdrop-filter: var(--tb-blur);
+  }
+
+  .toybox-tile {
+    transition: none;
+  }
+}
