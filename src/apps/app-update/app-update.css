@@ -267,3 +267,67 @@
     animation: none;
   }
 }
+
+/*
+ * 2026-11：点击更新后的"正在载入"状态。
+ */
+.app-update-applying {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.app-update-note-center {
+  text-align: center;
+}
+
+.app-update-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 1.1rem;
+  border: 2px solid var(--app-update-border);
+  border-top-color: var(--app-update-accent);
+  border-radius: 9999px;
+  animation: app-update-spin 900ms linear infinite;
+}
+
+.app-update-progress {
+  width: 100%;
+  height: 3px;
+  margin-top: 1.1rem;
+  overflow: hidden;
+  background: var(--app-update-border);
+}
+
+.app-update-progress-bar {
+  width: 35%;
+  height: 100%;
+  background: var(--app-update-accent);
+  box-shadow: 0 0 0.6rem var(--app-update-accent);
+  animation: app-update-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes app-update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes app-update-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-update-spinner,
+  .app-update-progress-bar {
+    animation-duration: 3s;
+  }
+}
