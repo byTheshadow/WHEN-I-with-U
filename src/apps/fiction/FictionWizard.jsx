@@ -2,6 +2,12 @@
 //
 // 新建向导的容器：三步、进度条、保存草稿、退出确认。
 // 不用 position: fixed，返回按钮、底栏、抽屉都相对 .fic-col 定位。
+//
+// 编辑模式（editSaveId 有值）：对一份已经创建好的存档重新打开这三步表单。
+//   - 玩法形式锁定，不能改（WizardStepPremise 的 lockMode）
+//   - 没有「保存为草稿」（那会把正式存档变回草稿）；最后一步「完成 · 保存设定」，
+//     用 saveWizardEdits 写回，已玩过的剧情原样保留
+//   - 退出时只有「放弃修改」和「继续编辑」
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
@@ -14,17 +20,21 @@ import {
   WIZARD_STEP_COUNT,
   buildDefaultWizardForm,
   loadWizardForm,
+  saveWizardEdits,
   saveWizardForm,
   validateWizardStep,
 } from './fictionWizardService';
 import './fictionWizard.css';
 import './fictionWizardCast.css';
 
-const FictionWizard = ({ draftId = null, onExit }) => {
+const FictionWizard = ({ draftId = null, editSaveId = null, onExit }) => {
+  const isEdit = editSaveId != null;
+  const loadId = isEdit ? editSaveId : draftId;
+
   const [form, setForm] = useState(buildDefaultWizardForm);
   const [step, setStep] = useState(0);
   const [saveId, setSaveId] = useState(draftId);
-  const [loading, setLoading] = useState(Boolean(draftId));
+  const [loading, setLoading] = useState(Boolean(loadId));
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -44,28 +54,33 @@ const FictionWizard = ({ draftId = null, onExit }) => {
     toastTimerRef.current = setTimeout(() => setToast(''), 2200);
   }, []);
 
-  // 打开已有草稿
+  // 打开已有草稿，或（编辑模式）读出正式存档的设定
   useEffect(() => {
-    if (!draftId) return undefined;
+    if (!loadId) return undefined;
 
     let cancelled = false;
 
     (async () => {
       try {
-        const loaded = await loadWizardForm(draftId);
+        const loaded = await loadWizardForm(loadId);
 
         if (cancelled) return;
 
         if (!loaded) {
-          onExit?.({ message: '这份草稿找不到了' });
+          onExit?.({ message: isEdit ? '这份存档找不到了' : '这份草稿找不到了' });
+          return;
+        }
+
+        if (isEdit && loaded.isDraft) {
+          onExit?.({ message: '这份存档还没有完成创建' });
           return;
         }
 
         setForm(loaded.form);
-        setStep(Math.min(loaded.step, WIZARD_STEP_COUNT - 1));
+        setStep(isEdit ? 0 : Math.min(loaded.step, WIZARD_STEP_COUNT - 1));
       } catch (error) {
         console.warn('[Fiction] 读取草稿失败：', error);
-        if (!cancelled) onExit?.({ message: '读取草稿失败' });
+        if (!cancelled) onExit?.({ message: isEdit ? '读取设定失败' : '读取草稿失败' });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -76,7 +91,7 @@ const FictionWizard = ({ draftId = null, onExit }) => {
     };
     // onExit 来自父组件，换引用不应该重新读草稿
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftId]);
+  }, [loadId]);
 
   // 换步骤时回到顶部
   useEffect(() => {
@@ -131,15 +146,20 @@ const FictionWizard = ({ draftId = null, onExit }) => {
     setBusy(true);
 
     try {
-      await saveWizardForm({ saveId, form, step, finish: true });
-      onExit?.({ created: true, message: '存档已创建' });
+      if (isEdit) {
+        await saveWizardEdits({ saveId: editSaveId, form });
+        onExit?.({ edited: true, message: '设定已保存' });
+      } else {
+        await saveWizardForm({ saveId, form, step, finish: true });
+        onExit?.({ created: true, message: '存档已创建' });
+      }
     } catch (error) {
       if (error && typeof error.step === 'number') {
         setStep(error.step);
         showToast(error.message);
       } else {
         console.warn('[Fiction] 创建存档失败：', error);
-        showToast('创建失败，请再试一次');
+        showToast(isEdit ? '保存失败，请再试一次' : '创建失败，请再试一次');
       }
 
       setBusy(false);
@@ -175,11 +195,14 @@ const FictionWizard = ({ draftId = null, onExit }) => {
 
   const current = WIZARD_STEPS[step];
   const isLast = step === WIZARD_STEP_COUNT - 1;
-  const nextLabel = isLast ? '完成 · 创建存档' : `下一步 · ${WIZARD_STEPS[step + 1].zh}`;
+  const nextLabel = isLast
+    ? (isEdit ? '完成 · 保存设定' : '完成 · 创建存档')
+    : `下一步 · ${WIZARD_STEPS[step + 1].zh}`;
+  const flowLabel = isEdit ? '编辑设定' : '新建';
 
   const renderStep = () => {
     if (step === 0) {
-      return <WizardStepPremise form={form} onChange={patchForm} onToast={showToast} />;
+      return <WizardStepPremise form={form} onChange={patchForm} onToast={showToast} lockMode={isEdit} />;
     }
 
     if (step === 1) {
@@ -194,7 +217,7 @@ const FictionWizard = ({ draftId = null, onExit }) => {
       <button
         type="button"
         className="fic-btn-reset fic-round-btn fic-back"
-        aria-label="退出新建"
+        aria-label={isEdit ? '退出编辑' : '退出新建'}
         onClick={handleBack}
       >
         <ArrowLeft size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -216,7 +239,7 @@ const FictionWizard = ({ draftId = null, onExit }) => {
             <span key={item.id} className={`fic-w-seg ${index <= step ? 'is-on' : ''}`} />
           ))}
         </div>
-        <div className="fic-w-progress-label">新建 {step + 1}/{WIZARD_STEP_COUNT} · {current.zh}</div>
+        <div className="fic-w-progress-label">{flowLabel} {step + 1}/{WIZARD_STEP_COUNT} · {current.zh}</div>
 
         {loading ? <div className="fic-w-loading">正在读取草稿…</div> : renderStep()}
       </div>
@@ -242,14 +265,16 @@ const FictionWizard = ({ draftId = null, onExit }) => {
                 上一步
               </button>
             )}
-            <button
-              type="button"
-              className="fic-btn-reset fic-w-sub-btn"
-              disabled={busy || loading}
-              onClick={handleSaveDraft}
-            >
-              保存为草稿
-            </button>
+            {!isEdit && (
+              <button
+                type="button"
+                className="fic-btn-reset fic-w-sub-btn"
+                disabled={busy || loading}
+                onClick={handleSaveDraft}
+              >
+                保存为草稿
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -262,26 +287,30 @@ const FictionWizard = ({ draftId = null, onExit }) => {
             aria-label="关闭"
             onClick={() => !busy && setLeaveOpen(false)}
           />
-          <div className="fic-sheet" role="dialog" aria-label="退出新建">
+          <div className="fic-sheet" role="dialog" aria-label={isEdit ? '退出编辑' : '退出新建'}>
             <div className="fic-sheet-grab" />
-            <div className="fic-sheet-name">要退出新建吗？</div>
-            <div className="fic-sheet-meta">已填写的内容还没有保存</div>
+            <div className="fic-sheet-name">{isEdit ? '要放弃这次修改吗？' : '要退出新建吗？'}</div>
+            <div className="fic-sheet-meta">
+              {isEdit ? '改过的设定还没有保存，退出后会恢复成原来的' : '已填写的内容还没有保存'}
+            </div>
             <div className="fic-sheet-actions">
-              <button
-                type="button"
-                className="fic-btn-reset fic-sheet-btn"
-                disabled={busy}
-                onClick={handleSaveAndLeave}
-              >
-                {busy ? '正在保存' : '保存草稿并退出'}
-              </button>
+              {!isEdit && (
+                <button
+                  type="button"
+                  className="fic-btn-reset fic-sheet-btn"
+                  disabled={busy}
+                  onClick={handleSaveAndLeave}
+                >
+                  {busy ? '正在保存' : '保存草稿并退出'}
+                </button>
+              )}
               <button
                 type="button"
                 className="fic-btn-reset fic-sheet-btn is-danger"
                 disabled={busy}
                 onClick={() => onExit?.({})}
               >
-                不保存，直接退出
+                {isEdit ? '放弃修改，直接退出' : '不保存，直接退出'}
               </button>
               <button
                 type="button"

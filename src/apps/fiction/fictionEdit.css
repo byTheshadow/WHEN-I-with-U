@@ -1,0 +1,87 @@
+/* src/apps/fiction/fictionEdit.css
+ *
+ * 手动编辑已生成正文：每一段末尾的「编辑这一段」入口，和编辑抽屉里的文本框。
+ * 抽屉本身复用 fiction.css / fictionWizardCast.css 里的 .fic-sheet / .fic-w-sheet。
+ */
+
+.fic-root .fic-p-seg-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.fic-root .fic-p-edit-link {
+  min-height: 32px;
+  padding: 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-p-edit-link:disabled {
+  opacity: 0.4;
+}
+
+.fic-root .fic-te-textarea {
+  display: block;
+  width: 100%;
+  min-height: 260px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--fic-line);
+  background: var(--fic-soft);
+  color: var(--fic-ink);
+  font-family: var(--fic-serif);
+  font-size: 14px;
+  line-height: 1.9;
+  resize: none;
+  outline: none;
+}
+
+.fic-root .fic-te-textarea:focus {
+  border-color: var(--fic-ink);
+}
+
+.fic-root .fic-te-count {
+  margin-top: 6px;
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-te-error {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--fic-wine) 12%, transparent);
+  color: var(--fic-wine-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* 游玩页左上角「编辑设定」：叠在返回按钮正下面，和右边的总结入口同一高度 */
+.fic-root .fic-p-settings-btn {
+  position: absolute;
+  left: 20px;
+  top: calc(22px + 38px + 8px + env(safe-area-inset-top, 0px));
+  z-index: 20;
+}
+
+/* 编辑设定时，向导第一步的「形式」锁定：没选中的灰掉，选中的保持原样，整体不可点 */
+.fic-root .fic-w-mode-lock {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-w-mode.is-locked {
+  cursor: default;
+}
+
+.fic-root .fic-w-mode.is-locked:not(.is-on) {
+  opacity: 0.45;
+}

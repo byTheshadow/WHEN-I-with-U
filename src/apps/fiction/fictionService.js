@@ -23,6 +23,7 @@
 
 import db from '../../db';
 import { collectSummaryBatches, findPendingSummaryBatch } from './fictionPromptAssembler';
+import { PARSE_WARNING } from './fictionParser';
 
 export const FICTION_MODES = {
   CHOICE: 'choice',
@@ -135,6 +136,30 @@ export const createNode = async (saveId, data) => {
 export const getNode = (nodeId) => db.fictionNodes.get(nodeId);
 
 export const updateNode = (nodeId, patch) => db.fictionNodes.update(nodeId, patch);
+
+// 手动改某一段的正文：只改 text，选项、数值快照、总结、分支关系都不动，也不重新生成。
+// 打上 userEdited / editedAt 标记（新增的非索引字段，不用动 db 版本号）。
+// 如果这一段之前被判定为「输出被截断」，手动改过就不再提示截断。
+// 返回更新后的完整节点，调用方直接拿去替换界面里的旧节点。
+export const updateNodeText = async (nodeId, text) => {
+  const clean = String(text || '').replace(/\r\n/g, '\n').trim();
+
+  if (!clean) throw new Error('正文不能为空');
+
+  const node = await db.fictionNodes.get(nodeId);
+
+  if (!node) throw new Error('这一段找不到了');
+
+  const patch = { text: clean, userEdited: true, editedAt: now() };
+
+  if (Array.isArray(node.parseWarnings)) {
+    patch.parseWarnings = node.parseWarnings.filter((warning) => warning?.code !== PARSE_WARNING.TRUNCATED);
+  }
+
+  await db.fictionNodes.update(nodeId, patch);
+
+  return { ...node, ...patch };
+};
 
 export const listNodesBySave = (saveId) => db.fictionNodes.where('saveId').equals(saveId).toArray();
 
@@ -368,6 +393,7 @@ export default {
   createNode,
   getNode,
   updateNode,
+  updateNodeText,
   listNodesBySave,
   listChildren,
   hasChildren,

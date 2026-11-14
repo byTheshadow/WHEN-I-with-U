@@ -3,6 +3,8 @@
 // 互动文游。书架页：空状态、存档列表、「最近游玩」大卡、更多操作（删除，带二次确认）。
 // 第 2 轮：「新建存档」进入新建向导；草稿存档点开后回到向导继续填。
 // 第 3 轮：正式存档点开进入游玩页（选择式）；纯小说式的游玩页第 6 轮再做。
+// 编辑设定：书架里存档的「更多操作」抽屉和游玩页左上角都能打开，复用新建向导
+// （wizard.editSaveId）；从游玩页进去的，保存或放弃后回到游玩页，不是书架。
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, MoreHorizontal, Plus } from 'lucide-react';
@@ -16,7 +18,9 @@ import {
 import { WIZARD_STEP_COUNT } from './fictionWizardService';
 import FictionWizard from './FictionWizard';
 import FictionPlayRoom from './FictionPlayRoom';
+import useFictionViewportHeight from './useFictionViewportHeight';
 import './fiction.css';
+import './fictionSheetScroll.css';
 
 const FILTERS = {
   ALL: 'all',
@@ -82,6 +86,9 @@ const buildTags = (save) => {
 };
 
 const FictionApp = ({ onBackHub }) => {
+  // 键盘弹出时按可视区域定高，底部抽屉和底栏才不会被键盘盖住（见该文件注释）
+  useFictionViewportHeight();
+
   const [saves, setSaves] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState(FILTERS.ALL);
@@ -89,7 +96,8 @@ const FictionApp = ({ onBackHub }) => {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
-  // null = 书架；{ draftId } = 新建向导（draftId 为 null 表示全新开始）
+  // null = 书架；{ draftId } = 新建向导（draftId 为 null 表示全新开始）；
+  // { editSaveId, returnToPlay } = 编辑已有存档的设定（returnToPlay：结束后回游玩页）
   const [wizard, setWizard] = useState(null);
   // null = 不在游玩页；{ saveId } = 正在玩这份存档
   const [play, setPlay] = useState(null);
@@ -157,7 +165,10 @@ const FictionApp = ({ onBackHub }) => {
   };
 
   const handleWizardExit = async (result = {}) => {
+    const backToPlayId = wizard?.returnToPlay && wizard?.editSaveId != null ? wizard.editSaveId : null;
+
     setWizard(null);
+    if (backToPlayId != null) setPlay({ saveId: backToPlayId });
     await reload();
 
     if (result.message) showToast(result.message);
@@ -168,6 +179,23 @@ const FictionApp = ({ onBackHub }) => {
     await reload();
 
     if (result.message) showToast(result.message);
+  };
+
+  // 游玩页左上角：离开游玩页，打开设定向导，结束后回到这份存档的游玩页。
+  const handleEditSettingsFromPlay = (saveId) => {
+    setPlay(null);
+    setWizard({ draftId: null, editSaveId: saveId, returnToPlay: true });
+  };
+
+  // 书架「更多操作」抽屉：编辑设定，结束后回书架。
+  const handleEditSettingsFromMenu = () => {
+    if (!menuSave || busy) return;
+
+    const targetId = menuSave.id;
+
+    setMenuSave(null);
+    setConfirming(false);
+    setWizard({ draftId: null, editSaveId: targetId, returnToPlay: false });
   };
 
   const closeMenu = () => {
@@ -205,7 +233,11 @@ const FictionApp = ({ onBackHub }) => {
   if (wizard) {
     return (
       <div className="fic-root">
-        <FictionWizard draftId={wizard.draftId} onExit={handleWizardExit} />
+        <FictionWizard
+          draftId={wizard.draftId}
+          editSaveId={wizard.editSaveId ?? null}
+          onExit={handleWizardExit}
+        />
       </div>
     );
   }
@@ -213,7 +245,12 @@ const FictionApp = ({ onBackHub }) => {
   if (play) {
     return (
       <div className="fic-root">
-        <FictionPlayRoom saveId={play.saveId} onExit={handlePlayExit} />
+        <FictionPlayRoom
+          saveId={play.saveId}
+          onExit={handlePlayExit}
+          onEditSettings={handleEditSettingsFromPlay}
+        />
+        {toast && <div className="fic-toast" role="status">{toast}</div>}
       </div>
     );
   }
@@ -356,6 +393,15 @@ const FictionApp = ({ onBackHub }) => {
 
               {!confirming && (
                 <div className="fic-sheet-actions">
+                  {!menuSave.isDraft && (
+                    <button
+                      type="button"
+                      className="fic-btn-reset fic-sheet-btn"
+                      onClick={handleEditSettingsFromMenu}
+                    >
+                      编辑设定
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="fic-btn-reset fic-sheet-btn is-danger"

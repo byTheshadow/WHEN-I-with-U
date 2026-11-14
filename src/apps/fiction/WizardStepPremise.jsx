@@ -29,7 +29,7 @@ const FieldLabel = ({ children, required = false }) => (
   </div>
 );
 
-const WizardStepPremise = ({ form, onChange, onToast }) => {
+const WizardStepPremise = ({ form, onChange, onToast, lockMode = false }) => {
   const [customOpen, setCustomOpen] = useState(Boolean(form.style?.custom));
   const fileInputRef = useRef(null);
 
@@ -90,6 +90,9 @@ const WizardStepPremise = ({ form, onChange, onToast }) => {
 
       <section className="fic-w-field">
         <FieldLabel required>形式</FieldLabel>
+        {lockMode && (
+          <p className="fic-w-mode-lock">已经开始的存档不能改形式，其他设定都可以改。</p>
+        )}
         <div className="fic-w-modes" role="radiogroup" aria-label="故事形式">
           {MODE_OPTIONS.map((item) => (
             <button
@@ -97,8 +100,10 @@ const WizardStepPremise = ({ form, onChange, onToast }) => {
               type="button"
               role="radio"
               aria-checked={form.mode === item.id}
-              className={`fic-btn-reset fic-w-mode ${form.mode === item.id ? 'is-on' : ''}`}
-              onClick={() => onChange({ mode: item.id })}
+              aria-disabled={lockMode || undefined}
+              disabled={lockMode}
+              className={`fic-btn-reset fic-w-mode ${form.mode === item.id ? 'is-on' : ''} ${lockMode ? 'is-locked' : ''}`}
+              onClick={() => { if (!lockMode) onChange({ mode: item.id }); }}
             >
               <span className="fic-w-mode-no">{item.no}</span>
               <span className="fic-w-mode-text">

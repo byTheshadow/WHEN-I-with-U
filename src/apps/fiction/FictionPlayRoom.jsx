@@ -17,6 +17,8 @@
 // 第 5A 轮：
 //   - 右上角（分支按钮下面）常驻一个「总结」入口；有满一批却还没总结的内容时
 //     带一个小红点。点开是总结总览页（FictionSummaryOverview），不影响游玩页本身。
+// 手动编辑：每一段末尾「编辑这一段」，改正文文字，不重新生成（FictionTextEditor）。
+// 设定：左上角返回按钮下面的「编辑设定」，交给 FictionApp 重新打开向导（onEditSettings）。
 // 配图在后面几轮。
 //
 // 生成函数都在 fictionAiService.js 里：写库发生在 AI 返回之后，
@@ -31,6 +33,7 @@ import {
   GitBranch,
   NotebookText,
   RotateCcw,
+  Settings2,
 } from 'lucide-react';
 
 import {
@@ -51,7 +54,9 @@ import { ACTION_TYPES, findPendingSummaryBatch } from './fictionPromptAssembler'
 import FictionStoryline from './FictionStoryline';
 import FictionReveal from './FictionReveal';
 import FictionSummaryOverview from './FictionSummaryOverview';
+import FictionTextEditor from './FictionTextEditor';
 import './fictionPlay.css';
+import './fictionEdit.css';
 
 const FREE_TEXT_MAX = 300;
 const BACKGROUND_PREVIEW_MAX = 220;
@@ -88,7 +93,7 @@ const GeneratingDots = () => (
   </span>
 );
 
-const FictionPlayRoom = ({ saveId, onExit }) => {
+const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   const [save, setSave] = useState(null);
   const [path, setPath] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -104,6 +109,8 @@ const FictionPlayRoom = ({ saveId, onExit }) => {
   const [reveal, setReveal] = useState(null); // { nodeId, chosenChildId, number }
   // 5A：总结总览页；是否有待总结的内容只影响入口按钮上的小红点，不影响能不能生成下一段。
   const [summaryOpen, setSummaryOpen] = useState(false);
+  // 手动编辑正文：{ nodeId, number }，null = 没有在编辑
+  const [editing, setEditing] = useState(null);
 
   const abortRef = useRef(null);
   const busyRef = useRef(null);
@@ -340,6 +347,12 @@ const FictionPlayRoom = ({ saveId, onExit }) => {
     }
   };
 
+  // 手动编辑完成：用写库后返回的节点替换界面里同 id 的旧节点，不重新生成、不动其他段。
+  const handleTextSaved = (updatedNode) => {
+    setPath((previous) => previous.map((item) => (item.id === updatedNode.id ? updatedNode : item)));
+    setEditing(null);
+  };
+
   const closeOverlays = () => {
     setStorylineOpen(false);
     setReveal(null);
@@ -439,6 +452,18 @@ const FictionPlayRoom = ({ saveId, onExit }) => {
           // eslint-disable-next-line react/no-array-index-key
           <p key={paragraphIndex} className="fic-p-para">{paragraph}</p>
         ))}
+        {!busy && (
+          <div className="fic-p-seg-foot">
+            <button
+              type="button"
+              className="fic-btn-reset fic-p-edit-link"
+              aria-label={`编辑第 ${index + 1} 段的文字`}
+              onClick={() => setEditing({ nodeId: node.id, number: index + 1 })}
+            >
+              编辑这一段
+            </button>
+          </div>
+        )}
       </section>
     );
   });
@@ -654,6 +679,21 @@ const FictionPlayRoom = ({ saveId, onExit }) => {
         <ArrowLeft size={18} strokeWidth={1.6} aria-hidden="true" />
       </button>
 
+      {loaded && save && onEditSettings && (
+        <button
+          type="button"
+          className="fic-btn-reset fic-round-btn fic-p-settings-btn"
+          aria-label="编辑设定"
+          disabled={Boolean(busy)}
+          onClick={() => {
+            if (abortRef.current) abortRef.current.abort();
+            onEditSettings(saveId);
+          }}
+        >
+          <Settings2 size={18} strokeWidth={1.6} aria-hidden="true" />
+        </button>
+      )}
+
       {loaded && save && current && (
         <button
           type="button"
@@ -726,6 +766,19 @@ const FictionPlayRoom = ({ saveId, onExit }) => {
           onClose={() => setSummaryOpen(false)}
         />
       )}
+
+      {editing && save && (() => {
+        const target = path.find((item) => item.id === editing.nodeId);
+
+        return target ? (
+          <FictionTextEditor
+            node={target}
+            number={editing.number}
+            onClose={() => setEditing(null)}
+            onSaved={handleTextSaved}
+          />
+        ) : null;
+      })()}
     </div>
   );
 };

@@ -31,8 +31,11 @@
   --fic-hand: 'Ma Shan Zheng', serif;
 
   position: relative;
+  top: var(--fic-vt, 0px);
   width: 100%;
-  height: 100dvh;
+  /* --fic-vh 由 useFictionViewportHeight 写入（键盘弹出时是键盘上面那一截的高度），
+   * 没有时退回 100dvh。 */
+  height: var(--fic-vh, 100dvh);
   overflow: hidden;
   background: var(--fic-paper);
   color: var(--fic-ink);

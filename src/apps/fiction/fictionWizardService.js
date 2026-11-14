@@ -460,6 +460,45 @@ export const saveWizardForm = async ({
   return createSave(patch);
 };
 
+// 编辑已经创建好的存档的设定（和「新建」共用同一套表单，但写回方式不同）。
+// 和 saveWizardForm({ finish: true }) 的区别：
+//   - 不碰 isDraft / draftStep / currentNodeId / segmentCount / branchCount /
+//     coverImageId，已经玩过的剧情、分支、存档点、总结都原样保留；
+//   - 玩法形式（mode）锁定，永远沿用存档自己的，表单里传什么都不会改它
+//     （选择式 ↔ 小说式会让已有的选项和数值整个对不上）；
+//   - 草稿不能走这里，草稿继续用 saveWizardForm。
+// 数值（stats）可以改：旧节点的数值快照里缺的数值，下一段生成时会用初始值补上，
+// 删掉的数值在旧快照里残留也无妨（见 fictionParser.applyDeltas）。
+// 校验失败时抛出带 step 字段的错误，和 saveWizardForm 一样，向导会跳回出问题的那一步。
+export const saveWizardEdits = async ({ saveId, form }) => {
+  const save = await getSave(saveId);
+
+  if (!save) throw new Error('这份存档找不到了');
+  if (save.isDraft) throw new Error('草稿请在新建流程里保存');
+
+  for (let index = 0; index < WIZARD_STEP_COUNT; index += 1) {
+    const message = validateWizardStep(index, { ...form, mode: save.mode });
+
+    if (message) {
+      const error = new Error(message);
+
+      error.step = index;
+      throw error;
+    }
+  }
+
+  const fields = pickFormFields({ ...form, mode: save.mode }, true);
+
+  delete fields.mode;
+
+  await updateSave(saveId, {
+    ...fields,
+    title: fields.title || save.title,
+  });
+
+  return saveId;
+};
+
 export default {
   WIZARD_STEPS,
   WIZARD_STEP_COUNT,
@@ -469,6 +508,7 @@ export default {
   validateWizardStep,
   loadWizardForm,
   saveWizardForm,
+  saveWizardEdits,
   importCharacterCopy,
   importCharactersByIds,
   listImportableCharacters,

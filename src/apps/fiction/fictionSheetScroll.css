@@ -1,0 +1,45 @@
+/* src/apps/fiction/fictionSheetScroll.css
+ *
+ * 底部抽屉「滑不动、按不到完成/保存」的修复，只加约束，不改任何既有的外观：
+ *
+ * 1. 所有抽屉（更多操作、退出新建、故事线节点、向导里的各个编辑抽屉）都有高度上限，
+ *    内容超出时抽屉自己能上下滑，不会把按钮挤到屏幕外面。
+ * 2. 向导里的带滚动区抽屉：中间的表单区先缩，标题和底部按钮始终在；
+ *    表单区最矮留 96px，再矮就整个抽屉一起滑。
+ * 3. 所有内部滚动区加 overscroll-behavior: contain / touch-action: pan-y，
+ *    手指在抽屉里滑动不会带着背后的页面一起动，也不会被背后的容器吃掉。
+ *
+ * 键盘弹出时的高度由 useFictionViewportHeight 写入 --fic-vh，
+ * 这里的 88% 是相对 .fic-col / .fic-root 的，会跟着缩。
+ * 这个文件要在其他 fiction*.css 之后引入。
+ */
+
+.fic-root .fic-sheet,
+.fic-root .fic-s-sheet {
+  max-height: 88%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
+}
+
+.fic-root .fic-sheet::-webkit-scrollbar,
+.fic-root .fic-s-sheet::-webkit-scrollbar {
+  display: none;
+}
+
+.fic-root .fic-w-sheet > .fic-w-sheet-scroll {
+  min-height: 96px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.fic-root .fic-p-sheet-body,
+.fic-root .fic-r-scroll,
+.fic-root .fic-sum-scroll,
+.fic-root .fic-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
