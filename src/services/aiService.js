@@ -46,6 +46,8 @@ import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { buildCompanionStatusPromptBlock } from '../apps/companion/companionStatusPrompt';
 import { buildBubbleStylePromptNote, applyBubbleStyleDirective } from '../apps/messages/bubbleStyleDirective';
+import { buildPrivateAreaPromptNote, applyPrivateAreaDirective } from '../apps/characterArea/privateAreaDirective';
+import { buildPrivateAreaInjectionBlock } from '../apps/characterArea/characterAreaInjection';
 import { buildCharacterPlacePromptNote, applyCharacterPlaceDirective } from '../apps/location/characterPlaceDirective';
 import { runCharacterPlaceSession } from '../apps/location/characterPlaceSession';
 import {
@@ -1702,7 +1704,8 @@ export const buildChatSystemPrompt = async (chatId, chat, character) => {
 【用户设定 (User Notes)】：
 - 用户称呼：${userName}
 - 用户专属人设背景：${userPersona}
-${companionStatusBlock}
+${companionStatusBlock}${await buildPrivateAreaInjectionBlock(chatId)}
+
 ${worldBooksText}
 ${keywordWorldBookText}
 ${summaryText}
@@ -2753,6 +2756,7 @@ const companionOfferNote = options.ignoreAway
 // #3 气泡风格：角色任何一次回复都能自主决定换配色+装饰，不设概率/冷却
 // 限制（跟小伙伴邀请不同），只在 ignoreAway 时跟其它"可选行为"一样收起。
 const bubbleStyleNote = options.ignoreAway ? '' : buildBubbleStylePromptNote();
+const privateAreaNote = options.ignoreAway ? '' : await buildPrivateAreaPromptNote(chatId);
 
 const greetingNote = options.ignoreAway
   ? ''
@@ -2834,7 +2838,9 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
 }${
   companionOfferNote ? `\n\n${companionOfferNote}` : ''
 }${
-  bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
+   bubbleStyleNote ? `\n\n${bubbleStyleNote}` : ''
+}${
+  privateAreaNote ? `\n\n${privateAreaNote}` : ''
 }${
   greetingNote ? `\n\n${greetingNote}` : ''
 }${
@@ -3026,12 +3032,17 @@ const {
   occasion: greetingOccasion,
 } = applyGreetingDirective({ content: contentAfterBubbleStyle });
 
+// 取出角色的 [PRIVATE_WANT] 标签（一律从正文去掉），回复写入之后再单独整理专属小本子。
+const { content: contentAfterPrivateArea, wantsPrivateArea } = applyPrivateAreaDirective({
+  content: contentAfterGreeting,
+});
+
 const {
   content: contentAfterBook,
   wantsBook,
   kind: bookKind,
    mode: bookMode,
-} = applyBookDirective({ content: contentAfterGreeting });
+} = applyBookDirective({ content: contentAfterPrivateArea });
 
 // 取出角色的 [SHARE_PLACE...] 标签（一律从正文去掉）；跟气泡风格同一套
 // "不设限制"的约定，只负责摘标签并告诉调用方"角色想分享一个地方"，
@@ -3433,7 +3444,11 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           triggerReply: safeParsedMessages.find((message) => message.type === 'text')?.content || '',
         });
       }
-
+      if (wantsPrivateArea && messageIds.length > 0) {
+        void import('../apps/characterArea/privateAreaSession')
+          .then(({ runPrivateAreaSession }) => runPrivateAreaSession({ chatId, character, source: 'tag' }))
+          .catch((error) => console.warn('[PrivateAreaSession] 加载失败：', error));
+      }
       if (wantsGreetingCard && messageIds.length > 0) {
         const greetingTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
         void import('../apps/greeting/greetingSession')

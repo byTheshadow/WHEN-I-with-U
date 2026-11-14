@@ -24,11 +24,11 @@ import {
   AUTO_ORGANIZE_NIGHTLY,
   getAreaForChat,
   getAutoOrganizeMode,
-  requestAreaCreation,
   setAutoOrganizeMode,
 } from './characterAreaService';
 import CharacterAreaEntryList from './CharacterAreaEntryList';
-
+import CharacterAreaOrganizeBar from './CharacterAreaOrganizeBar';
+import { runPrivateAreaSession } from './privateAreaSession';
 // ============================================================
 // 角色专属区域页（切片 A）：
 //   - 区域还没创建：显示一个锁住的占位，用户可以点"请 TA 整理一下"，让角色
@@ -113,7 +113,7 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
     setIsBusy(true);
     setNotice('');
 
-    const result = await requestAreaCreation({ chatId, character, allowSkip: true });
+       const result = await runPrivateAreaSession({ chatId, character, source: 'manual' });
 
     if (result.status === 'created' || result.status === 'exists') {
       setArea(result.area);
@@ -216,8 +216,9 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
               )}
             </section>
 
-                       {area ? <CharacterAreaEntryList chatId={chatId} area={area} /> : null}
-
+           
+            {area ? <CharacterAreaOrganizeBar chatId={chatId} character={character} /> : null}
+            {area ? <CharacterAreaEntryList chatId={chatId} area={area} /> : null}
             <section
               className="flex flex-col gap-3 rounded-3xl border px-5 py-5"
               style={{ background: 'var(--card-bg)', borderColor: softBorder }}

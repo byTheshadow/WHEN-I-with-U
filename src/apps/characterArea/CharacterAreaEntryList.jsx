@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { getAreaEntries, rollEntryAccess } from './characterAreaEntryService';
+import { AREA_UPDATED_EVENT } from './privateAreaSession';
 
 // ============================================================
 // 角色专属区域的条目列表（切片 B）。
@@ -25,6 +26,17 @@ export default function CharacterAreaEntryList({ chatId, area }) {
   const [isLoading, setIsLoading] = useState(true);
   const [openEntryId, setOpenEntryId] = useState(null);
   const [refusal, setRefusal] = useState({ entryId: null, line: '' });
+  const [reloadTick, setReloadTick] = useState(0);
+
+  // 角色整理写入新条目后，privateAreaSession.js 会发这个事件，列表自己重新读一次。
+  useEffect(() => {
+    const handleUpdated = (event) => {
+      if (event?.detail?.chatId === chatId) setReloadTick((tick) => tick + 1);
+    };
+
+    window.addEventListener(AREA_UPDATED_EVENT, handleUpdated);
+    return () => window.removeEventListener(AREA_UPDATED_EVENT, handleUpdated);
+  }, [chatId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +57,7 @@ export default function CharacterAreaEntryList({ chatId, area }) {
     return () => {
       cancelled = true;
     };
-  }, [chatId, area?.id]);
+   }, [chatId, area?.id, reloadTick]);
 
   const handleTapEntry = (entry) => {
     if (openEntryId === entry.id) {

@@ -40,6 +40,8 @@ import { runChallengeScheduler } from '../apps/challenges/challengeScheduler';
 import { checkCompanionMoods } from '../apps/companion/mood/companionMoodScheduler';
 import { checkCompanionStatusAlerts } from '../apps/companion/companionStatusAlertService';
 import { runPixelDollScheduler } from '../apps/pixelDoll/pixelDollScheduler';
+import { runPrivateAreaNightly } from '../apps/characterArea/privateAreaNightlyScheduler';
+
 
 const BASE_TICK_MS = 3 * 60 * 1000;
 
@@ -61,6 +63,7 @@ const REGISTRATIONS = [
   // 像素衣橱——角色自主判断要不要主动送一件礼物，没有冷却，跟 challenge
   // 同一个"不在启动瞬间自动扫描"处理，60 分钟一次。
   { name: 'pixelDoll', intervalMs: 60 * 60 * 1000, run: runPixelDollScheduler },
+  { name: 'privateAreaNightly', intervalMs: 3 * 60 * 1000, run: runPrivateAreaNightly },
 ];
 
 // 原本就不在启动瞬间立即检查一次的调度器，见文件顶部说明。
