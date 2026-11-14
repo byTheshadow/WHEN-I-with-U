@@ -35,6 +35,7 @@ Phone,
   Hand,
     Shirt,
   Music2,
+  Lock,
 } from 'lucide-react';
 
 import {
@@ -241,6 +242,7 @@ const MemoirPage = lazy(() => import('../memoir/MemoirPage'));
 // 角色的DIY小屋，同样只有用户点开 🐾 更多入口里的入口才加载
 const CharacterDiyPage = lazy(() => import('./diy/CharacterDiyPage'));
 const ChallengeBoardPage = lazy(() => import('../challenges/ChallengeBoardPage'));
+const CharacterAreaPage = lazy(() => import('../characterArea/CharacterAreaPage'));
 const HarpPage = lazy(() => import('../harp/HarpPage'));
 
 // 神秘快递页面，同样只有用户点开 🐾 更多入口里的入口、或者点了快递
@@ -368,6 +370,7 @@ const [showCompanionPage, setShowCompanionPage] = useState(false);
   const [showCharacterDiy, setShowCharacterDiy] = useState(false);
   const [showParcelPage, setShowParcelPage] = useState(false);
   const [showChallengeBoard, setShowChallengeBoard] = useState(false);
+    const [showCharacterArea, setShowCharacterArea] = useState(false);
   const [showHarp, setShowHarp] = useState(false);
   const [showPixelCloset, setShowPixelCloset] = useState(false);
   // 挂件要不要出现：只读 pixelDollProfiles.widgetEnabled 这一个字段（见下面
@@ -1419,7 +1422,8 @@ void openChatAndMarkMessagesAsRead();
   showMemoirPage,
   showCharacterDiy,
   showParcelPage,
-    showChallengeBoard,
+       showChallengeBoard,
+  showCharacterArea,
   showHarp,
   activeOfflineSessionId,
 ]);
@@ -2267,6 +2271,21 @@ const handleCancelAiResponse = () => {
   );
 }
 
+  if (showCharacterArea) {
+    return (
+      <Suspense fallback={null}>
+        <CharacterAreaPage
+          chatId={chatId}
+          character={character}
+          onBack={() => {
+            hasScrolledToLatestRef.current = false;
+            setShowCharacterArea(false);
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   if (showChallengeBoard) {
   return (
     <Suspense fallback={null}>
@@ -2603,6 +2622,19 @@ const handleCancelAiResponse = () => {
                       >
                                                 <Stamp className="h-4 w-4" />
                         <span>异地任务挑战</span>
+                      </button>
+
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTopMenu(false);
+                          setShowCharacterArea(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs opacity-85 transition-opacity hover:opacity-100"
+                      >
+                        <Lock className="h-4 w-4" />
+                        <span>TA 的小秘密</span>
                       </button>
 
                       <button

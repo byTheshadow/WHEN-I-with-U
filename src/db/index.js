@@ -5170,4 +5170,15 @@ db.version(111).stores({
   chatToys: '++id, chatId, characterId, createdAt, [chatId+createdAt]',
 });
 
+// 角色专属区域 + 角色自我任务（src/apps/characterArea/）：
+//   - characterAreas：每个聊天窗口最多一行（chatId 唯一索引），角色按人设发明的"小本子"。
+//   - characterAreaEntries：区域里的条目（标题 + 正文），按聊天和时间取最近几条。
+//   - characterTasks：角色给自己布置的定时任务，每个聊天最多同时 3 条未完成的。
+// "每晚自动整理/仅手动"的开关不在这里，存在 chats 表的无索引字段 privateAreaAutoOrganize 上。
+db.version(112).stores({
+  characterAreas: '++id, &chatId, characterId, createdAt',
+  characterAreaEntries: '++id, chatId, areaId, createdAt, [chatId+createdAt]',
+  characterTasks: '++id, chatId, characterId, status, createdAt, [chatId+status]',
+});
+
 export default db;
