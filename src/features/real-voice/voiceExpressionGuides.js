@@ -196,9 +196,9 @@ ${jsonExample}
 2. text 是专门给声音朗读创作的内容，通常为 1 至 3 句；不要机械复制或完整复述文字回复。
 3. text 应自然、短小、能独立被听见；不要写“用温柔的语气说”“轻声说”等解释性舞台说明。
 4. language 表示这一次真实声音实际朗读所使用的语言，只能填写：
-   auto、Chinese、English、Japanese、Korean、Spanish、French、German、Portuguese、Russian、Italian。
+   auto、Chinese、Chinese,Yue（粤语）、English、Japanese、Korean、Spanish、French、German、Portuguese、Russian、Italian。
 5. language 可以与正常文字回复的语言不同。
-   例如：正常文字使用中文，但 voice text 使用日文时，language 填 Japanese，
+   使用粤语时，language 填 Chinese,Yue，text 必须用粤语书面写法（例如“你食咗飯未”），不要用普通话字句。
    并且 text 本身必须确实使用日文。
 6. 如果没有明确的语言表达意图，使用角色声音配置中的默认语言；如果默认语言为自动识别，则填写 auto。
 7. 不要因为可见文字使用中文，就强制让声音也使用中文。

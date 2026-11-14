@@ -27,7 +27,12 @@ export const VOICE_LANGUAGE_OPTIONS = [
   },
   {
     value: 'Chinese',
-    label: '中文',
+
+      label: '中文',
+  },
+  {
+    value: 'Chinese,Yue',
+    label: '粤语',
   },
   {
     value: 'English',
