@@ -50,6 +50,7 @@ import BondConnection from './mcp/BondConnection';
 import { requestNotificationPermission } from '../../services/aiService';
 import { Send, Cloud, Radio } from 'lucide-react'; // 补上图标
 import { registerCloudPush } from '../../services/cloudPushService';
+import { syncApiConfigToCloud } from '../../services/cloudApiConfigSync';
 import soundService from '../../services/soundService';
 
 import VisionApiSettings from '../../components/settings/VisionApiSettings';
@@ -887,6 +888,10 @@ const handleDeletePreloaderQuote = (categoryId, quoteIndex) => {
         ]);
       });
 
+      // 配了云端、且 API 配置和上次同步的不一样时，把新配置同步给云端。
+      // 失败不影响本机保存，只在下面的保存提示里说一声（见 cloudApiConfigSync.js）。
+      const cloudApiSync = await syncApiConfigToCloud(apiConfig);
+
       await saveLockscreenQuotes(cleanQuotes);
       await savePreloaderQuoteConfig(cleanPreloaderQuoteConfig);
 setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
@@ -918,7 +923,13 @@ setPreloaderQuoteConfig(cleanPreloaderQuoteConfig);
   setInitialHubHeaderLayout(draftHubHeaderLayout);
 }
 
-      showSaveResult('success', '配置保存成功。');
+      if (cloudApiSync.status === 'failed') {
+        showSaveResult('error', `配置已保存到本机，但同步到云端失败：${cloudApiSync.message}`);
+      } else if (cloudApiSync.status === 'synced') {
+        showSaveResult('success', '配置保存成功，API 配置已同步到云端。');
+      } else {
+        showSaveResult('success', '配置保存成功。');
+      }
     } catch (error) {
       console.error('Unable to save all settings:', error);
       showSaveResult('error', '保存失败，请稍后重试。');
