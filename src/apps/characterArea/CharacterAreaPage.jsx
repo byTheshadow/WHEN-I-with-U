@@ -28,6 +28,14 @@ import {
 } from './characterAreaService';
 import CharacterAreaEntryList from './CharacterAreaEntryList';
 import CharacterAreaOrganizeBar from './CharacterAreaOrganizeBar';
+import {
+  CharacterAreaCover,
+  CharacterAreaStyleBar,
+  CharacterAreaThemeStyle,
+} from './CharacterAreaStyleParts';
+import { resolveAreaCover } from './characterAreaCoverSanitizer';
+import { AREA_STYLE_UPDATED_EVENT } from './characterAreaStyleSession';
+import { buildAreaThemeStyle } from './characterAreaTheme';
 import { runPrivateAreaSession } from './privateAreaSession';
 // ============================================================
 // 角色专属区域页（切片 A）：
@@ -107,6 +115,20 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
     };
   }, [chatId]);
 
+  // 角色重新设计外观后（用户点按钮，或角色整理时自己想换），重新读一次区域。
+  useEffect(() => {
+    const handleStyleUpdated = (event) => {
+      if (event?.detail?.chatId !== chatId) return;
+
+      void getAreaForChat(chatId).then((fresh) => {
+        if (fresh) setArea(fresh);
+      });
+    };
+
+    window.addEventListener(AREA_STYLE_UPDATED_EVENT, handleStyleUpdated);
+    return () => window.removeEventListener(AREA_STYLE_UPDATED_EVENT, handleStyleUpdated);
+  }, [chatId]);
+
   const handleRequestCreation = async () => {
     if (isBusy) return;
 
@@ -139,13 +161,16 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
   };
 
   const AreaIcon = area ? AREA_ICON_COMPONENTS[area.icon] || Book : Lock;
+  const themeStyle = buildAreaThemeStyle(area?.theme);
+  const cover = area ? resolveAreaCover(area) : { html: '', showsName: false };
   const activeModeHint = MODE_OPTIONS.find((option) => option.id === mode)?.hint || '';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden animate-fade-in-up"
-      style={{ background: 'var(--bg-main)', color: 'var(--text-main)' }}
+      className="char-area-root fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden animate-fade-in-up"
+      style={{ background: 'var(--bg-main)', color: 'var(--text-main)', ...themeStyle.rootStyle }}
     >
+     <CharacterAreaThemeStyle cssText={themeStyle.cssText} />
       <div className="relative flex-1 overflow-y-auto">
         <button
           type="button"
@@ -164,8 +189,13 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
 
         {isLoading ? null : (
           <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-12 pt-16">
+            {cover.html ? <CharacterAreaCover html={cover.html} /> : null}
             <section
-              className="flex flex-col items-center gap-3 rounded-3xl border px-6 py-8 text-center"
+              className={
+                cover.showsName
+                  ? 'hidden'
+                  : 'flex flex-col items-center gap-3 rounded-3xl border px-6 py-8 text-center'
+              }
               style={{ background: 'var(--card-bg)', borderColor: softBorder }}
             >
               <div
@@ -218,6 +248,7 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
 
            
             {area ? <CharacterAreaOrganizeBar chatId={chatId} character={character} /> : null}
+            {area ? <CharacterAreaStyleBar chatId={chatId} character={character} area={area} /> : null}
             {area ? <CharacterAreaEntryList chatId={chatId} area={area} /> : null}
             <section
               className="flex flex-col gap-3 rounded-3xl border px-5 py-5"

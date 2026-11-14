@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { getAreaEntries, rollEntryAccess } from './characterAreaEntryService';
 import { AREA_UPDATED_EVENT } from './privateAreaSession';
+import { CharacterAreaEntryBody, CharacterAreaEntryMark } from './CharacterAreaEntryBody';
 
 // ============================================================
 // 角色专属区域的条目列表（切片 B）。
@@ -113,6 +114,7 @@ export default function CharacterAreaEntryList({ chatId, area }) {
               className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:scale-[0.99]"
               style={{ background: isOpen ? 'var(--bg-surface)' : 'transparent' }}
             >
+              <CharacterAreaEntryMark format={entry.format} />
               <span className="flex-1 truncate text-sm font-medium">{entry.title}</span>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {formatEntryDate(entry.createdAt)}
@@ -137,15 +139,15 @@ export default function CharacterAreaEntryList({ chatId, area }) {
 
             {isOpen ? (
               <div
-                className="animate-fade-in-up mx-1 mb-2 whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed"
-                style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}
+                className="animate-fade-in-up mx-1 mb-2"
+                style={{ color: 'var(--text-main)' }}
               >
                 {entry.aboutWho ? (
-                  <div className="mb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <div className="mb-1 px-2 text-xs" style={{ color: 'var(--text-muted)' }}>
                     关于：{entry.aboutWho}
                   </div>
                 ) : null}
-                {entry.content}
+                <CharacterAreaEntryBody entry={entry} />
               </div>
             ) : null}
           </div>

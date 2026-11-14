@@ -20,6 +20,8 @@
 //
 // 后面的切片 D 会往同一个输出格式里加"布置任务"的标签，这里先不处理。
 
+import { normalizeEntryFormat } from './characterAreaEntryFormats';
+
 const EMOJI_RE = /[\p{Extended_Pictographic}\u200d\ufe0f]/gu;
 
 export const MAX_ENTRIES_PER_ORGANIZE = 3;
@@ -76,6 +78,7 @@ const parseEntryBlock = (block) => {
   return {
     title,
     aboutWho: cleanLine(readField(block, '关于')).slice(0, MAX_ABOUT_LENGTH),
+    format: normalizeEntryFormat(readField(block, '版式')),
     keywords: parseKeywords(readField(block, '关键词')),
     content,
   };

@@ -21,6 +21,15 @@ import { getAreaForChat, requestAreaCreation } from './characterAreaService';
 import { getAreaEntries } from './characterAreaEntryService';
 import { parseOrganizeOutput, MAX_ENTRIES_PER_ORGANIZE } from './characterAreaOrganizeParse';
 import { buildTaskPromptSection, applyTaskOutput } from './characterTaskPlanner';
+import {
+  STYLE_SOURCE_INITIAL,
+  STYLE_SOURCE_SELF,
+  buildRestyleHint,
+  canSelfRestyle,
+  hasRestyleTag,
+  requestAreaStyle,
+} from './characterAreaStyleSession';
+import { buildEntryFormatPromptLine } from './characterAreaEntryFormats';
 
 export const AREA_UPDATED_EVENT = 'character-area-updated';
 
@@ -65,8 +74,9 @@ ${existingText}
 [ENTRY]
 标题：（不超过12个字，用户会直接看到这个标题）
 关于：（这条主要是关于谁或什么事，不超过8个字，可以留空）
+${buildEntryFormatPromptLine()}
 关键词：（2到4个词，用逗号隔开。以后聊天里出现这些词时，你会想起这一条）
-正文：（用第一人称，像真的随手记下来的一样，不超过150字，可以换行）
+正文：（用第一人称，像真的随手记下来的一样，不超过150字（信件可到200字），可以换行）
 [/ENTRY]
 
 要求：
@@ -91,7 +101,8 @@ const organizeArea = async ({ chatId, character, area }) => {
   } catch (error) {
     console.warn('[privateAreaSession] build task section failed', error);
   }
-  const prompt = `${buildOrganizePrompt({ character, area, historyText, existingTitles })}${taskSection}`;
+  const restyleHint = buildRestyleHint(area);
+  const prompt = `${buildOrganizePrompt({ character, area, historyText, existingTitles })}${taskSection}${restyleHint}`;
   const rawText = await callSingleCompletion(prompt, { temperature: 0.9 });
 
   if (!rawText) return { ok: false, entriesAdded: 0 };
@@ -104,9 +115,18 @@ const organizeArea = async ({ chatId, character, area }) => {
   } catch (error) {
     console.warn('[privateAreaSession] apply task output failed', error);
   }
-  if (parsed.kind === 'invalid' && taskResult.applied === 0) return { ok: false, entriesAdded: 0 };
+  const wantsRestyle = hasRestyleTag(rawText);
+  if (parsed.kind === 'invalid' && taskResult.applied === 0 && !wantsRestyle) {
+    return { ok: false, entriesAdded: 0 };
+  }
+
 
   await db.characterAreas.update(area.id, { lastOrganizedAt: nowIso() });
+
+  if (wantsRestyle && canSelfRestyle(area)) {
+    // 不等它：重新设计外观单独跑，做完会自己发事件，让区域页刷新。
+    void requestAreaStyle({ chatId, character, area, source: STYLE_SOURCE_SELF });
+  }
 
   if (parsed.kind !== 'entries') return { ok: true, entriesAdded: 0 };
 
@@ -120,7 +140,8 @@ const organizeArea = async ({ chatId, character, area }) => {
       areaId: area.id,
       title: entry.title,
       aboutWho: entry.aboutWho,
-      keywords: entry.keywords,
+       keywords: entry.keywords,
+      format: entry.format,
       content: entry.content,
       // 同一批里后写的略晚一点，保证"最新的在前"的排序稳定。
       createdAt: new Date(baseTime + index).toISOString(),
@@ -162,6 +183,12 @@ export const runPrivateAreaSession = async ({ chatId, character, source = 'manua
 
       area = creation.area;
       justCreated = creation.status === 'created';
+    }
+
+    if (justCreated) {
+      // 新建的区域先让角色设计一次外观；失败不影响区域本身，用户之后可以点按钮重试。
+      const styled = await requestAreaStyle({ chatId, character, area, source: STYLE_SOURCE_INITIAL });
+      if (styled.area) area = styled.area;
     }
 
     const organized = await organizeArea({ chatId, character, area });
