@@ -9,6 +9,7 @@ import { runCustodyTick } from '../companion/custody/companionCustodyService';
 import { runFriendTick } from '../companion/friends/companionFriendService';
 import { runFriendMealTick } from '../companion/friends/companionFriendMealService';
 import { hasAnyLiveCall } from '../../services/callService';
+import { runDueCharacterTasks } from '../characterArea/characterTaskRunner';
 
 
 const SCHEDULE_PATTERN =
@@ -1258,6 +1259,8 @@ export const checkAndSendDueScheduledMessages =
       void runCustodyTick();
       // 好友广场：到点了的好友申请，顺路在这里生成同意/婉拒的回复。
       void runFriendTick();
+            // 角色自己安排的任务（到点执行）
+      void runDueCharacterTasks();
     } catch (companionCheckError) {
       console.error('[Companion] 巡检调用失败:', companionCheckError);
     }

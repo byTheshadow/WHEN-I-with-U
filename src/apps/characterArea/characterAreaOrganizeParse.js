@@ -90,7 +90,7 @@ export const parseOrganizeOutput = (rawText) => {
   if (!text) return { kind: 'invalid' };
 
   const blocks = [];
-  const blockPattern = /\[ENTRY\]([\s\S]*?)(?=\[ENTRY\]|$)/gi;
+  const blockPattern = /\[ENTRY\]([\s\S]*?)(?=\[\/ENTRY\]|\[ENTRY\]|\[TASK|$)/gi;
   let match = blockPattern.exec(text);
 
   while (match) {

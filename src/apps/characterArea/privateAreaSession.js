@@ -20,6 +20,7 @@ import { callSingleCompletion, getRecentHistoryText } from '../challenges/challe
 import { getAreaForChat, requestAreaCreation } from './characterAreaService';
 import { getAreaEntries } from './characterAreaEntryService';
 import { parseOrganizeOutput, MAX_ENTRIES_PER_ORGANIZE } from './characterAreaOrganizeParse';
+import { buildTaskPromptSection, applyTaskOutput } from './characterTaskPlanner';
 
 export const AREA_UPDATED_EVENT = 'character-area-updated';
 
@@ -84,17 +85,30 @@ const organizeArea = async ({ chatId, character, area }) => {
   const existingEntries = await getAreaEntries(chatId);
   const existingTitles = existingEntries.slice(0, EXISTING_TITLES_FOR_PROMPT).map((e) => e.title);
 
-  const prompt = buildOrganizePrompt({ character, area, historyText, existingTitles });
+   let taskSection = '';
+  try {
+    taskSection = await buildTaskPromptSection({ chatId, character });
+  } catch (error) {
+    console.warn('[privateAreaSession] build task section failed', error);
+  }
+  const prompt = `${buildOrganizePrompt({ character, area, historyText, existingTitles })}${taskSection}`;
   const rawText = await callSingleCompletion(prompt, { temperature: 0.9 });
 
   if (!rawText) return { ok: false, entriesAdded: 0 };
 
   const parsed = parseOrganizeOutput(rawText);
-  if (parsed.kind === 'invalid') return { ok: false, entriesAdded: 0 };
+
+  let taskResult = { applied: 0 };
+  try {
+    taskResult = await applyTaskOutput({ chatId, character, rawText });
+  } catch (error) {
+    console.warn('[privateAreaSession] apply task output failed', error);
+  }
+  if (parsed.kind === 'invalid' && taskResult.applied === 0) return { ok: false, entriesAdded: 0 };
 
   await db.characterAreas.update(area.id, { lastOrganizedAt: nowIso() });
 
-  if (parsed.kind === 'none') return { ok: true, entriesAdded: 0 };
+  if (parsed.kind !== 'entries') return { ok: true, entriesAdded: 0 };
 
   const knownTitles = new Set(existingEntries.map((entry) => entry.title.trim().toLowerCase()));
   const baseTime = Date.now();

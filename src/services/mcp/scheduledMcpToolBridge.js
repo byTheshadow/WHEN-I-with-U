@@ -76,8 +76,11 @@ const executeToolCall = async (toolCall, toolMap) => {
 export const runChatCompletionWithMcpTools = async ({
   requestPayload,
   sendRequest,
+    filterTools = null,
 }) => {
-  const enabledTools = await getEnabledMcpTools();
+  const allEnabledTools = await getEnabledMcpTools();
+  // 任务执行时由调用方传入过滤器，只放行只读工具
+  const enabledTools = filterTools ? await filterTools(allEnabledTools) : allEnabledTools;
 
   if (enabledTools.length === 0) {
     return sendRequest(requestPayload);
