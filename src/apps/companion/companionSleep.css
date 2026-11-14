@@ -1,0 +1,56 @@
+/*
+ * 小伙伴睡觉时的视觉效果（配合 companionSleepService.js）。
+ * 只加新类名，不改 companionPage.css 里已有的规则。
+ */
+
+/* 睡觉时整只略微变暗，并缓慢"呼吸"。 */
+.cp-pet.is-sleeping .cp-pet-body img {
+  filter: brightness(0.82) saturate(0.85);
+  transition: filter 0.6s ease;
+}
+.cp-pet.is-sleeping .cp-pet-body {
+  animation: cp-sleep-breathe 3.6s ease-in-out infinite;
+}
+
+/* 飘出来的 z z Z，挂在 .cp-pet-wrap（position: relative）的右上角。 */
+.cp-zzz {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  width: 40px;
+  height: 56px;
+  pointer-events: none;
+  z-index: 3;
+}
+.cp-zzz i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--text-main, #444);
+  opacity: 0;
+  animation: cp-zzz-float 3.2s ease-in-out infinite;
+}
+.cp-zzz i:nth-child(1) { font-size: 12px; animation-delay: 0s; }
+.cp-zzz i:nth-child(2) { font-size: 16px; animation-delay: 1s; }
+.cp-zzz i:nth-child(3) { font-size: 20px; animation-delay: 2s; }
+
+@keyframes cp-sleep-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+@keyframes cp-zzz-float {
+  0% { opacity: 0; transform: translate(0, 0); }
+  20% { opacity: 0.85; }
+  100% { opacity: 0; transform: translate(14px, -34px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-pet.is-sleeping .cp-pet-body { animation: none; }
+  .cp-zzz i { animation: none; opacity: 0.7; }
+  .cp-zzz i:nth-child(1) { transform: translate(0, -2px); }
+  .cp-zzz i:nth-child(2) { transform: translate(8px, -18px); }
+  .cp-zzz i:nth-child(3) { transform: translate(16px, -34px); }
+}
