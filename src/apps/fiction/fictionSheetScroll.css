@@ -41,5 +41,4 @@
 .fic-root .fic-sum-scroll,
 .fic-root .fic-scroll {
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
