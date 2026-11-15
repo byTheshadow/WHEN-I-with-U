@@ -21,7 +21,7 @@
  */
 
 import db from '../../../db';
-import { buildChatSystemPrompt } from '../../../services/aiService';
+import { buildCompanionSystemPrompt as buildChatSystemPrompt } from '../../../services/companionSystemPrompt';
 import { findSubject } from './companionSchoolData';
 
 const getApiConfig = async () => {

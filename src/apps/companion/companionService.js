@@ -25,7 +25,9 @@ import {
 } from './companionSleepService';
 
 // ---- 数值状态衰减（参照 habitatService.js 的 applyTimeDecay）----
-const DECAY_PER_HOUR = { satiety: 4, mood: 2, cleanliness: 1 };
+const DECAY_PER_HOUR = { satiety: 2, mood: 2, cleanliness: 1 };
+// 久不互动时衰减最多把数值拉到这个保底值，不会掉到 0
+const DECAY_FLOOR = 10;
 const MIN_DECAY_HOURS = 0.25; // 不到 15 分钟不结算，省计算
 
 // ---- 直接互动（喂食/清洁/玩耍）的即时加成，含 ❤️ ----
@@ -357,6 +359,8 @@ export const applyTimeDecay = async (companion) => {
 
   const sleepHours = Math.min(hoursElapsed, computeSleepHours(companion, lastDecayed, now));
   const awakeHours = hoursElapsed - sleepHours;
+  // 衰减结算专用：数值夹在 [保底值, 100]。已经低于保底的，会在下次结算时被抬到保底
+  const clamp100 = (value) => Math.max(DECAY_FLOOR, Math.min(100, Math.round(value)));
 
   const updated = {
     ...companion,

@@ -20,7 +20,7 @@
  */
 
 import db from '../../db';
-import { buildChatSystemPrompt } from '../../services/aiService';
+import { buildCompanionSystemPrompt as buildChatSystemPrompt } from '../../services/companionSystemPrompt';
 
 const callCompanionAi = async ({ chatId, chat, character, guideText, userLine }) => {
   if (!chatId || !chat || !character) {

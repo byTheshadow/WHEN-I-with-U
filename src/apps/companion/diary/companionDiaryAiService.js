@@ -17,7 +17,7 @@
  */
 
 import db from '../../../db';
-import { buildChatSystemPrompt } from '../../../services/aiService';
+import { buildCompanionSystemPrompt as buildChatSystemPrompt } from '../../../services/companionSystemPrompt';
 
 export const generateDiaryText = async ({ chatId, chat, character, companion, triggerLabel, triggerDetail }) => {
   if (!chatId || !chat || !character || !companion) return null;

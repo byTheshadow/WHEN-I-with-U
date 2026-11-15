@@ -36,7 +36,7 @@
  */
 
 import db from '../../../db';
-import { buildChatSystemPrompt } from '../../../services/aiService';
+import { buildCompanionSystemPrompt as buildChatSystemPrompt } from '../../../services/companionSystemPrompt';
 
 // 跟 companionSchoolQuizService.js 里的 STEM_MAX / OPTION_MAX / EXPLAIN_MAX
 // 是同一套数字，这里只是本地抄一份用来在预览阶段先粗略裁一刀，真正说了

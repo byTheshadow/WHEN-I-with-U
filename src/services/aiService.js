@@ -1345,8 +1345,8 @@ const getSafeAlmanacPromptContext = async (chatId) => {
 
 
 
-export const buildChatSystemPrompt = async (chatId, chat, character) => {
-  character = withCharacterEntriesInWorldBook(character);
+export const buildChatSystemPrompt = async (chatId, chat, character, options = {}) => {
+  if (!options.skipCharacterEntries) character = withCharacterEntriesInWorldBook(character);
   const enabledWorldBooks = await db.worldBooks
     .where('isEnabled')
     .equals(1)

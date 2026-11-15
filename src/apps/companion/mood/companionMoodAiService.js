@@ -14,7 +14,7 @@
  */
 
 import db from '../../../db';
-import { buildChatSystemPrompt } from '../../../services/aiService';
+import { buildCompanionSystemPrompt as buildChatSystemPrompt } from '../../../services/companionSystemPrompt';
 
 const MOOD_KEY_LIST = ['happy', 'calm', 'sad', 'surprised', 'angry'];
 

@@ -16,7 +16,7 @@
  */
 
 import db from '../../../db';
-import { buildChatSystemPrompt } from '../../../services/aiService';
+import { buildCompanionSystemPrompt as buildChatSystemPrompt } from '../../../services/companionSystemPrompt';
 
 // 出题失败/没配置 API 时的固定题库兜底，一对一对地配好（一个问 char，
 // 一个问 user），风格尽量轻松、具体，避免抽象到不知道怎么答。
