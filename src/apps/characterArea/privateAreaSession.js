@@ -30,6 +30,13 @@ import {
   requestAreaStyle,
 } from './characterAreaStyleSession';
 import { buildEntryFormatPromptLine } from './characterAreaEntryFormats';
+import { applySectionOutput } from './characterAreaSectionApply';
+import {
+  buildSectionEntryPromptLine,
+  buildSectionHint,
+  hasSectionTag,
+  placeEntry,
+} from './characterAreaSections';
 
 export const AREA_UPDATED_EVENT = 'character-area-updated';
 
@@ -74,7 +81,7 @@ ${existingText}
 [ENTRY]
 标题：（不超过12个字，用户会直接看到这个标题）
 关于：（这条主要是关于谁或什么事，不超过8个字，可以留空）
-${buildEntryFormatPromptLine()}
+${buildEntryFormatPromptLine()}${buildSectionEntryPromptLine(area)}
 关键词：（2到4个词，用逗号隔开。以后聊天里出现这些词时，你会想起这一条）
 正文：（用第一人称，像真的随手记下来的一样，不超过150字（信件可到200字），可以换行）
 [/ENTRY]
@@ -102,7 +109,8 @@ const organizeArea = async ({ chatId, character, area }) => {
     console.warn('[privateAreaSession] build task section failed', error);
   }
   const restyleHint = buildRestyleHint(area);
-  const prompt = `${buildOrganizePrompt({ character, area, historyText, existingTitles })}${taskSection}${restyleHint}`;
+  const sectionHint = buildSectionHint(area);
+  const prompt = `${buildOrganizePrompt({ character, area, historyText, existingTitles })}${taskSection}${restyleHint}${sectionHint}`;
   const rawText = await callSingleCompletion(prompt, { temperature: 0.9 });
 
   if (!rawText) return { ok: false, entriesAdded: 0 };
@@ -116,12 +124,16 @@ const organizeArea = async ({ chatId, character, area }) => {
     console.warn('[privateAreaSession] apply task output failed', error);
   }
   const wantsRestyle = hasRestyleTag(rawText);
-  if (parsed.kind === 'invalid' && taskResult.applied === 0 && !wantsRestyle) {
+  if (parsed.kind === 'invalid' && taskResult.applied === 0 && !wantsRestyle && !hasSectionTag(rawText)) {
     return { ok: false, entriesAdded: 0 };
   }
 
 
   await db.characterAreas.update(area.id, { lastOrganizedAt: nowIso() });
+
+  // 角色这次想开新栏目的话先落库，这样同一次整理里写的条目可以直接归进去。
+  const sectionResult = await applySectionOutput({ chatId, area, rawText });
+  const currentSections = sectionResult.sections;
 
   if (wantsRestyle && canSelfRestyle(area)) {
     // 不等它：重新设计外观单独跑，做完会自己发事件，让区域页刷新。
@@ -141,7 +153,7 @@ const organizeArea = async ({ chatId, character, area }) => {
       title: entry.title,
       aboutWho: entry.aboutWho,
        keywords: entry.keywords,
-      format: entry.format,
+      ...placeEntry(currentSections, entry),
       content: entry.content,
       // 同一批里后写的略晚一点，保证"最新的在前"的排序稳定。
       createdAt: new Date(baseTime + index).toISOString(),

@@ -78,7 +78,9 @@ const parseEntryBlock = (block) => {
   return {
     title,
     aboutWho: cleanLine(readField(block, '关于')).slice(0, MAX_ABOUT_LENGTH),
-    format: normalizeEntryFormat(readField(block, '版式')),
+       // 没写版式就留空，落库时再用栏目的默认版式或 plain 补上。
+    format: readField(block, '版式') ? normalizeEntryFormat(readField(block, '版式')) : '',
+    sectionName: cleanLine(readField(block, '栏目')).slice(0, 8),
     keywords: parseKeywords(readField(block, '关键词')),
     content,
   };
@@ -93,7 +95,7 @@ export const parseOrganizeOutput = (rawText) => {
   if (!text) return { kind: 'invalid' };
 
   const blocks = [];
-  const blockPattern = /\[ENTRY\]([\s\S]*?)(?=\[\/ENTRY\]|\[ENTRY\]|\[TASK|$)/gi;
+  const blockPattern = /\[ENTRY\]([\s\S]*?)(?=\[\/ENTRY\]|\[ENTRY\]|\[TASK|\[SECTION_NEW\]|\[RESTYLE\]|$)/gi;
   let match = blockPattern.exec(text);
 
   while (match) {

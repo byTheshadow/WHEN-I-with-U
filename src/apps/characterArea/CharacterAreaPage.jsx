@@ -26,7 +26,7 @@ import {
   getAutoOrganizeMode,
   setAutoOrganizeMode,
 } from './characterAreaService';
-import CharacterAreaEntryList from './CharacterAreaEntryList';
+import CharacterAreaSectionedList from './CharacterAreaSectionedList';
 import CharacterAreaOrganizeBar from './CharacterAreaOrganizeBar';
 import {
   CharacterAreaCover,
@@ -249,7 +249,7 @@ export default function CharacterAreaPage({ chatId, character, onBack }) {
            
             {area ? <CharacterAreaOrganizeBar chatId={chatId} character={character} /> : null}
             {area ? <CharacterAreaStyleBar chatId={chatId} character={character} area={area} /> : null}
-            {area ? <CharacterAreaEntryList chatId={chatId} area={area} /> : null}
+            {area ? <CharacterAreaSectionedList chatId={chatId} area={area} /> : null}
             <section
               className="flex flex-col gap-3 rounded-3xl border px-5 py-5"
               style={{ background: 'var(--card-bg)', borderColor: softBorder }}
