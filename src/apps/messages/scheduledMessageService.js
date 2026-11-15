@@ -2,6 +2,7 @@ import Dexie from 'dexie';
 import db from '../../db';
 import { runChatCompletionWithMcpTools } from '../../services/mcp/scheduledMcpToolBridge';
 import { syncScheduledTaskToCloud } from '../../services/cloudPushService';
+import { reconcileCloudDeliveredScheduledMessages } from './scheduledCloudReconcile';
 import { AWAY_RETURN_TYPE } from './away/awayState';
 import { executeAwayReturn } from './away/awayService';
 import { checkCompanionsForNeglect } from '../companion/companionService';
@@ -412,7 +413,38 @@ try {
 /**
  * 用户重新发言后，取消该聊天中需要因用户回复而收回的预约。
  */
+// 云端代发的预约消息已经到了本地，就先把对应预约单标成已抵达，
+// 周期性提醒顺便排好下一次，和本地发送成功后的行为一致。
+const reconcileCloudDelivered = () => (
+  reconcileCloudDeliveredScheduledMessages({
+    onMarkedSent: async (record) => {
+      if (!record.recurringIntervalMinutes) {
+        return;
+      }
+
+      await createScheduledMessage({
+        chatId: record.chatId,
+        characterId: record.characterId,
+        delayMinutes: record.recurringIntervalMinutes,
+        intent: record.intent,
+        scheduleType: SCHEDULE_TYPES.REMINDER,
+        recurringIntervalMinutes: record.recurringIntervalMinutes
+      });
+    }
+  })
+);
+
 export const cancelPendingScheduledMessagesForChat = async (
+  chatId,
+  reason = 'user_returned_to_chat'
+) => {
+  // 用户回复前先对账，避免把云端已经发出的预约误标成已收回。
+  await reconcileCloudDelivered();
+
+  return cancelPendingScheduledMessagesCore(chatId, reason);
+};
+
+const cancelPendingScheduledMessagesCore = async (
   chatId,
   reason = 'user_returned_to_chat'
 ) => {
@@ -1270,6 +1302,9 @@ export const checkAndSendDueScheduledMessages =
        * 先恢复卡死记录，再查询 pending。
        */
       await recoverStaleProcessingScheduledMessages();
+
+      // 先对账云端已代发的预约，本地不再重复补发。
+      await reconcileCloudDelivered();
 
            const nowIso = getNowIso();
 
