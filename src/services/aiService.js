@@ -109,6 +109,7 @@ import {
 
 import { getSafeInnerWorldPasswordContext } from './innerworld/innerWorldPromptContext';
 import { scanBuiltinWorldBook } from '../apps/messages/builtinWorldBook';
+import { withCharacterEntriesInWorldBook } from './characterEntriesPrompt';
 
 
 
@@ -1345,6 +1346,7 @@ const getSafeAlmanacPromptContext = async (chatId) => {
 
 
 export const buildChatSystemPrompt = async (chatId, chat, character) => {
+  character = withCharacterEntriesInWorldBook(character);
   const enabledWorldBooks = await db.worldBooks
     .where('isEnabled')
     .equals(1)

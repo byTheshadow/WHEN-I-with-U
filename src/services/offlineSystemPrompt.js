@@ -1,4 +1,5 @@
 import db from '../db';
+import { withCharacterEntriesInWorldBook } from './characterEntriesPrompt';
 import { getSharedWorldPromptBlock } from '../apps/shared-world/sharedWorldService';
 
 const getFormattedRealTime = () => {
@@ -14,6 +15,7 @@ export const buildOfflineSystemPrompt = async ({
   chat,
   offlineSession,
 }) => {
+  character = withCharacterEntriesInWorldBook(character);
   const enabledWorldBooks = await db.worldBooks
     .where('isEnabled')
     .equals(1)
