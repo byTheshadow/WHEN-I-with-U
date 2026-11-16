@@ -10,6 +10,8 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Check, Plus } from 'lucide-react';
 
+import FictionSheetPortal from './FictionSheetPortal';
+
 import {
   MAX_IMPORTED,
   MAX_NPCS,
@@ -35,7 +37,13 @@ const FieldLabel = ({ children, tag = '可留空', required = false }) => (
   </div>
 );
 
-const SheetShell = ({ title, meta, onClose, footer, children }) => (
+const SheetShell = (props) => (
+  <FictionSheetPortal>
+    <SheetShellBase {...props} />
+  </FictionSheetPortal>
+);
+
+const SheetShellBase = ({ title, meta, onClose, footer, children }) => (
   <>
     <button type="button" className="fic-btn-reset fic-mask" aria-label="关闭" onClick={onClose} />
     <div className="fic-sheet fic-w-sheet" role="dialog" aria-label={title}>

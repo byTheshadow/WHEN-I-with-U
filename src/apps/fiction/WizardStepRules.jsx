@@ -8,6 +8,8 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Minus, Plus } from 'lucide-react';
 
+import FictionSheetPortal from './FictionSheetPortal';
+
 import { getAllRpWorldBooks } from '../rp/rpWorldBookService';
 import { FICTION_IMAGE_MODES, FICTION_MODES } from './fictionService';
 import {
@@ -39,7 +41,13 @@ const FieldLabel = ({ children, tag = '可留空' }) => (
   </div>
 );
 
-const SheetShell = ({ title, meta, onClose, footer, children }) => (
+const SheetShell = (props) => (
+  <FictionSheetPortal>
+    <SheetShellBase {...props} />
+  </FictionSheetPortal>
+);
+
+const SheetShellBase = ({ title, meta, onClose, footer, children }) => (
   <>
     <button type="button" className="fic-btn-reset fic-mask" aria-label="关闭" onClick={onClose} />
     <div className="fic-sheet fic-w-sheet" role="dialog" aria-label={title}>
