@@ -12,6 +12,7 @@
 
 import { buildInitialSnapshot, normalizeStatDefs } from './fictionParser';
 import { clampThinkingMaxTokens } from './fictionThinkingPresets';
+import { buildPerspectiveLines } from './fictionPerspective';
 // 当前路径最多带多少段原文（上限，防止总结一直没做、原文窗口无限变大）。
 export const FULL_TEXT_SEGMENTS = 50;
 
@@ -139,11 +140,11 @@ const buildCastBlock = (save) => {
   const blocks = [];
 
   if (cast.main) {
-    blocks.push(`## 主角色（故事的视角核心）\n${renderCharacter(cast.main)}`);
+    blocks.push(`## 重点角色（故事的重点，戏份可以更多）\n${renderCharacter(cast.main)}`);
   }
 
   if (cast.others.length > 0) {
-    blocks.push(`## 其他登场角色（以 NPC 身份登场）\n${cast.others.map(renderCharacter).join('\n\n')}`);
+    blocks.push(`## ${cast.main ? '其他登场角色' : '登场角色'}\n${cast.others.map(renderCharacter).join('\n\n')}`);
   }
 
   if (cast.npcs.length > 0) {
@@ -448,7 +449,7 @@ export const buildFictionRequest = ({
 
   const intro = [
     '你是一名互动小说的叙述者，正在和玩家一起写一个故事。',
-    '叙述以「主角色」为视角核心，使用第三人称；玩家扮演的角色在叙述和对白里用「你」来称呼。',
+    ...buildPerspectiveLines(save),
     mode === 'choice'
       ? '每一段都要把剧情推进到一个需要玩家做决定的时刻再停下，不要替玩家做决定，也不要替玩家说话或行动。'
       : '每一节都要把剧情自然往前推进，可以停在一个有余味的地方，不要替玩家做决定。',

@@ -4,13 +4,14 @@
 // 草稿就是 fictionSaves 里一条 isDraft: true 的记录，草稿和正式存档用同一张表，
 // 向导里填的字段名和存档字段名一一对应，保存时不用转换。
 //
-// 主角色的存法（第 3 轮组装提示词时按这个解析）：
+// 重点角色（字段名仍叫 mainCharacter，旧存档不用迁移；可以不选）的存法：
 //   { source: 'imported', importedId }  指向 importedCharacters 里某个副本的 localId
 //   { source: 'custom', name, bio, extraNotes }  存档里新建的角色
 // 这样导入的角色在「当主角」和「当 NPC」之间切换时，人设只有一份，不会各改各的。
 
 import db from '../../db';
 import { THINKING_MAX_TOKENS, clampThinkingMaxTokens } from './fictionThinkingPresets';
+import { normalizePersonaAddress } from './fictionPerspective';
 import {
   FICTION_IMAGE_MODES,
   FICTION_MODES,
@@ -343,12 +344,14 @@ const pickFormFields = (form, finish) => {
     name: str(persona.name),
     avatar: typeof persona.avatar === 'string' ? persona.avatar : '',
     identity: str(persona.identity),
-    extra: str(persona.extra),
+      extra: str(persona.extra),
+    address: normalizePersonaAddress(persona.address),
   };
   const personaEmpty = !personaClean.name
     && !personaClean.avatar
     && !personaClean.identity
-    && !personaClean.extra;
+    && !personaClean.extra
+    && personaClean.address === 'you';
 
   const style = form.style || {};
   const presetId = getStylePreset(style.presetId) ? style.presetId : '';
@@ -391,9 +394,9 @@ export const validateWizardStep = (stepIndex, form) => {
   }
 
   if (stepIndex === 1) {
-    const main = normalizeMain(form.mainCharacter, normalizeImported(form.importedCharacters));
+      // 重点角色是可选的，这一步没有必填项。
 
-    if (!main) return '主角色是必填的：导入一个已有角色，或新建一个';
+       // （原来的「主角色必填」校验已去掉）
   }
 
   return '';
