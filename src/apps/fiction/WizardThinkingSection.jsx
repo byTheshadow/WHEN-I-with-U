@@ -2,12 +2,15 @@
 //
 // 向导「规则与数值」步骤里的「思维链」区块（放在「文生图」上面）。
 //   - 开关：这份存档每次生成前，是否让模型先按思考预设想一遍再写正文
-//   - 打开后出现：正在用的思考预设（这一轮只有内置默认预设，自定义在下一轮）、
+//   - 打开后出现：正在用的思考预设（点开可以换预设、新建、编辑）、
 //     输出上限（max tokens，用户自己定）
 // 写回表单的字段：thinkingChain / thinkingPresetId / thinkingMaxTokens。
 
 import React, { useEffect, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 
+import ThinkingPresetSheet from './ThinkingPresetSheet';
+import { EMPTY_THINKING_LIBRARY, loadThinkingLibrary } from './fictionThinkingLibrary';
 import {
   THINKING_MAX_TOKENS,
   THINKING_MAX_TOKENS_CHOICES,
@@ -16,19 +19,35 @@ import {
   resolveThinkingPreset,
 } from './fictionThinkingPresets';
 import './fictionThinking.css';
+import './fictionThinkingEditor.css';
 
 const WizardThinkingSection = ({ form, onChange }) => {
   const enabled = Boolean(form.thinkingChain);
   const maxTokens = clampThinkingMaxTokens(form.thinkingMaxTokens);
   const [draft, setDraft] = useState(String(maxTokens));
+  const [library, setLibrary] = useState(EMPTY_THINKING_LIBRARY);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  // 读取用户自己的预设库（读不到就当没有，只用内置默认预设）。
+  useEffect(() => {
+    let alive = true;
+
+    loadThinkingLibrary().then((next) => {
+      if (alive) setLibrary(next);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // 点了下面的快捷数字、或者载入了别的存档时，输入框跟着变。
   useEffect(() => {
     setDraft(String(maxTokens));
   }, [maxTokens]);
 
-  // 这一轮还没有预设库的编辑入口，所以只会解析到内置默认预设。
-  const preset = resolveThinkingPreset(null, form.thinkingPresetId);
+  // 存档选的预设被删了（或还没选过）时，会解析到内置默认预设。
+  const preset = resolveThinkingPreset(library, form.thinkingPresetId);
   const entries = pickThinkingEntries(preset, form.mode);
 
   const commitDraft = () => {
@@ -61,14 +80,15 @@ const WizardThinkingSection = ({ form, onChange }) => {
 
       {enabled && (
         <div className="fic-w-think-more">
-          <div className="fic-w-pick is-static">
+          <button type="button" className="fic-btn-reset fic-th-entry" onClick={() => setSheetOpen(true)}>
             <span className="fic-w-pick-text">
               <span className="fic-w-pick-name">{preset.name}</span>
               <span className="fic-w-pick-sub">
                 {entries.length} 个条目 · {entries.map((entry) => entry.title).join(' · ')}
               </span>
             </span>
-          </div>
+            <ChevronRight size={18} className="fic-th-chev" aria-hidden="true" />
+          </button>
 
           <div className="fic-w-think-sub">输出上限（max tokens）</div>
           <input
@@ -105,6 +125,16 @@ const WizardThinkingSection = ({ form, onChange }) => {
       <div className="fic-w-hint">
         思考内容只存下来给你看，不会带进下一次的上下文。每次生成会更慢，也更费额度。
       </div>
+
+      {sheetOpen && (
+        <ThinkingPresetSheet
+          library={library}
+          selectedId={form.thinkingPresetId}
+          onSelect={(id) => onChange({ thinkingPresetId: id })}
+          onLibraryChange={setLibrary}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
     </section>
   );
 };
