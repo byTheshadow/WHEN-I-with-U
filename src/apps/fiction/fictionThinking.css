@@ -1,0 +1,133 @@
+/* src/apps/fiction/fictionThinking.css
+ *
+ * 思维链：游玩页的「思考过程」折叠块，以及向导里思维链区块的少量补充样式。
+ * 颜色全部用阅读主题的变量（--fic-ink / --fic-sub / --fic-border 等），
+ * 所以换阅读主题、夜间模式时会自动跟着变。
+ */
+
+/* ---------- 游玩页：折叠块 ---------- */
+
+.fic-root .fic-p-think {
+  margin-top: 12px;
+}
+
+.fic-root .fic-p-think-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 2px;
+  color: var(--fic-sub);
+  text-align: left;
+}
+
+.fic-root .fic-p-think-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fic-muted);
+  transition: background 0.3s ease, transform 0.45s var(--fic-ease);
+}
+
+.fic-root .fic-p-think.is-open .fic-p-think-dot {
+  background: var(--fic-quote, var(--fic-wine-text));
+  transform: scale(1.3);
+}
+
+.fic-root .fic-p-think-label {
+  font-family: var(--fic-display);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+}
+
+.fic-root .fic-p-think-count {
+  flex: 1;
+  font-size: 11px;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-p-think-arrow {
+  flex: none;
+  color: var(--fic-muted);
+  transition: transform 0.45s var(--fic-ease);
+}
+
+.fic-root .fic-p-think.is-open .fic-p-think-arrow {
+  transform: rotate(180deg);
+}
+
+/* 高度用 grid 行高 0fr -> 1fr 过渡，不用写死高度 */
+.fic-root .fic-p-think-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.45s var(--fic-ease),
+    opacity 0.3s ease,
+    visibility 0s linear 0.45s;
+}
+
+.fic-root .fic-p-think.is-open .fic-p-think-wrap {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.45s var(--fic-ease),
+    opacity 0.4s ease 0.08s,
+    visibility 0s;
+}
+
+.fic-root .fic-p-think-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fic-root .fic-p-think-body {
+  max-height: min(46vh, 360px);
+  margin: 2px 0 6px;
+  padding: 2px 14px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border-left: 1px solid var(--fic-border);
+  border-radius: 0 12px 12px 0;
+  background: var(--fic-soft);
+}
+
+/* 思考的字比正文小一点、淡一点，和正文拉开层次；仍然跟随字号和行距设置 */
+.fic-root .fic-p-think-body .fic-p-para {
+  margin-top: 10px;
+  font-size: calc(var(--fic-read-size, 14.5px) - 1.5px);
+  line-height: calc(var(--fic-read-lh, 1.95) - 0.15);
+  color: var(--fic-sub);
+}
+
+/* ---------- 向导：思维链区块 ---------- */
+
+.fic-root .fic-w-think-more {
+  margin-top: 14px;
+}
+
+.fic-root .fic-w-think-sub {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--fic-ink);
+}
+
+.fic-root .fic-w-think-number {
+  margin-top: 8px;
+}
+
+/* ---------- 减少动态效果 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .fic-root .fic-p-think-wrap,
+  .fic-root .fic-p-think.is-open .fic-p-think-wrap,
+  .fic-root .fic-p-think-arrow,
+  .fic-root .fic-p-think-dot {
+    transition: none;
+  }
+}

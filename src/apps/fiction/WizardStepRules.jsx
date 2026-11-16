@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { Check, Minus, Plus } from 'lucide-react';
 
 import FictionSheetPortal from './FictionSheetPortal';
+import WizardThinkingSection from './WizardThinkingSection';
 
 import { getAllRpWorldBooks } from '../rp/rpWorldBookService';
 import { FICTION_IMAGE_MODES, FICTION_MODES } from './fictionService';
@@ -574,6 +575,8 @@ const WizardStepRules = ({ form, onChange, onToast }) => {
           <div className="fic-w-hint">AI 只给每个选项的增减，结算交给程序，不会算错。</div>
         </section>
       )}
+      {/* ---------- 思维链 ---------- */}
+      <WizardThinkingSection form={form} onChange={onChange} />
 
       {/* ---------- 文生图 ---------- */}
       <section className="fic-w-field">

@@ -172,6 +172,59 @@ const cleanRaw = (raw) => String(raw || '')
   .replace(/\n\s*```\s*$/i, '')
   .trim();
 
+// ---------------- 思考 ----------------
+
+// 模型自带的思考：<think>…</think>（也认 <thinking>）。
+// 没写结束标签（输出被截断）时，从开始标签到末尾都算思考；
+// 只有结束标签（有的中转会吃掉开始标签）时，结束标签之前的都算思考。
+const splitNativeThink = (raw) => {
+  const pieces = [];
+
+  let rest = String(raw || '').replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, (_match, inner) => {
+    pieces.push(String(inner).trim());
+    return '';
+  });
+
+  const openIndex = rest.search(/<think(?:ing)?>/i);
+
+  if (openIndex !== -1) {
+    pieces.push(rest.slice(openIndex).replace(/^<think(?:ing)?>/i, '').trim());
+    rest = rest.slice(0, openIndex);
+  } else {
+    const closeMatch = rest.match(/<\/think(?:ing)?>/i);
+
+    if (closeMatch) {
+      pieces.push(rest.slice(0, closeMatch.index).trim());
+      rest = rest.slice(closeMatch.index + closeMatch[0].length);
+    }
+  }
+
+  return { rest, thinking: pieces.filter(Boolean).join('\n\n') };
+};
+
+// 我们自己约定的 [THINK]…[/THINK]：位置不限，写了几块就收几块。
+// 先把它从文本里整块拿掉，再去找 [STORY] 等标签，这样思考里的文字不会混进正文。
+// 没写结束标签时，取到下一个已知标签的开头或文本末尾。
+const splitThinkBlock = (text) => {
+  const pieces = [];
+  let rest = String(text || '');
+
+  for (let guard = 0; guard < 8; guard += 1) {
+    const open = findOpen(rest, 'THINK');
+
+    if (!open) break;
+
+    const block = extractBlock(rest, 'THINK') || '';
+    const closeIndex = rest.toUpperCase().indexOf('[/THINK]', open.end);
+    const end = closeIndex !== -1 ? closeIndex + '[/THINK]'.length : open.end + block.length;
+
+    pieces.push(block.trim());
+    rest = rest.slice(0, open.index) + rest.slice(end);
+  }
+
+  return { rest: rest.replace(/\[\/THINK\]/gi, ''), thinking: pieces.filter(Boolean).join('\n\n') };
+};
+
 // ---------------- 选项 ----------------
 
 const OPTION_LINE = /^\s*(?:[-*•]\s*)?(?:[A-Za-z]|\d{1,2})\s*(?:[|｜]|[.、)）:：]\s*)(.*)$/;
@@ -225,7 +278,9 @@ const parseOptions = (block, stats, warnings) => {
  *          story 为空字符串表示完全没解析出正文，调用方应当当作失败处理。
  */
 export const parseFictionReply = (raw, { mode = 'choice', stats = [], optionMin = 3 } = {}) => {
-  const text = cleanRaw(raw);
+  const native = splitNativeThink(raw);
+  const thought = splitThinkBlock(cleanRaw(native.rest));
+  const text = thought.rest.trim();
   const warnings = [];
 
   let story = extractBlock(text, 'STORY');
@@ -260,6 +315,8 @@ export const parseFictionReply = (raw, { mode = 'choice', stats = [], optionMin 
     options,
     freeDelta: parsedDelta.deltas,
     imagePrompt,
+    thinking: thought.thinking,
+    nativeThinking: native.thinking,
     warnings,
   };
 };

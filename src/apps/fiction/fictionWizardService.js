@@ -10,6 +10,7 @@
 // 这样导入的角色在「当主角」和「当 NPC」之间切换时，人设只有一份，不会各改各的。
 
 import db from '../../db';
+import { THINKING_MAX_TOKENS, clampThinkingMaxTokens } from './fictionThinkingPresets';
 import {
   FICTION_IMAGE_MODES,
   FICTION_MODES,
@@ -249,6 +250,9 @@ export const buildDefaultWizardForm = () => ({
   showDeltas: false,
   stats: [],
   imageMode: FICTION_IMAGE_MODES.OFF,
+  thinkingChain: false,
+  thinkingPresetId: '',
+  thinkingMaxTokens: THINKING_MAX_TOKENS.default,
 });
 
 const normalizeImported = (list) => (
@@ -366,7 +370,10 @@ const pickFormFields = (form, finish) => {
     wordMin: clampInt(form.wordMin, WORD_MIN_RANGE.min, WORD_MIN_RANGE.max, 2000),
     optionMin: clampInt(form.optionMin, OPTION_MIN_RANGE.min, OPTION_MIN_RANGE.max, 3),
     allowFreeInput: form.allowFreeInput !== false,
-    showDeltas: Boolean(form.showDeltas),
+      showDeltas: Boolean(form.showDeltas),
+    thinkingChain: Boolean(form.thinkingChain),
+    thinkingPresetId: str(form.thinkingPresetId),
+    thinkingMaxTokens: clampThinkingMaxTokens(form.thinkingMaxTokens),
     // 纯小说式没有选项，数值系统用不上。草稿里保留，正式创建时清掉，
     // 这样书架上不会给小说式存档标「有数值」。
     stats: finish && mode === FICTION_MODES.NOVEL ? [] : normalizeStats(form.stats),

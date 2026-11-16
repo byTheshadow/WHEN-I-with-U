@@ -33,6 +33,11 @@ import {
 } from './fictionService';
 import { getStylePreset } from './fictionWizardService';
 import {
+  THINKING_PRESETS_SETTING_KEY,
+  pickThinkingEntries,
+  resolveThinkingPreset,
+} from './fictionThinkingPresets';
+import {
   buildWorldBookScanText,
   matchWorldBookEntries,
   renderWorldBookBlock,
@@ -114,14 +119,25 @@ const attemptOnce = async ({ apiConfig, systemPrompt, userMessage, maxTokens, si
     const data = await response.json();
     const choice = data?.choices?.[0];
     const content = String(choice?.message?.content || '').trim();
+    // 推理型模型的原生思考：不同服务商放在 reasoning_content 或 reasoning 里
+    const reasoningRaw = choice?.message?.reasoning_content ?? choice?.message?.reasoning;
+    const reasoning = typeof reasoningRaw === 'string' ? reasoningRaw.trim() : '';
 
     if (!content) {
-      return { error: fail(FICTION_ERROR.EMPTY, 'AI 返回内容为空，请检查当前模型或 API 服务状态。') };
+           return {
+        error: fail(
+          FICTION_ERROR.EMPTY,
+          choice?.finish_reason === 'length'
+            ? '输出额度在思考阶段就用完了，正文没有写出来。可以在「编辑设定」里调高输出上限，或者直接重试。'
+            : 'AI 返回内容为空，请检查当前模型或 API 服务状态。',
+        ),
+      };
     }
 
     return {
       content,
-      finishReason: choice?.finish_reason || '',
+           finishReason: choice?.finish_reason || '',
+      reasoning,
       usage: data?.usage || null,
     };
   } catch (error) {
@@ -240,7 +256,8 @@ const loadWorldBookEntries = async (save) => {
 const logRequest = (label, request, result) => {
   // 项目之前出现过主聊天 token 暴涨，这里每次生成都留一行日志，方便排查。
   console.info('[Fiction]', label, {
-    systemChars: request.meta.systemChars,
+       systemChars: request.meta.systemChars,
+    thinkingEntries: request.meta.thinkingEntries,
     historySegments: request.meta.historySegments,
     historyOmitted: request.meta.historyOmitted,
     summaryBatches: request.meta.summaryBatches,
@@ -275,13 +292,31 @@ const runGeneration = async ({ save, parentNode, action, signal, label }) => {
     buildWorldBookScanText(pathNodes, action),
   );
 
+   // 思维链：存档开了才带。预设库读不到、或者选的预设已经不在了，就用内置默认预设。
+  let thinking = null;
+
+  if (save.thinkingChain) {
+    let library = null;
+
+    try {
+      library = (await db.settings.get(THINKING_PRESETS_SETTING_KEY))?.value || null;
+    } catch (presetError) {
+      console.warn('[Fiction] 读取思考预设失败，这一轮用内置默认预设：', presetError);
+    }
+
+    thinking = {
+      entries: pickThinkingEntries(resolveThinkingPreset(library, save.thinkingPresetId), save.mode),
+    };
+  }
+
   const request = buildFictionRequest({
     save,
     pathNodes,
     action,
     statsSnapshot: promptSnapshot,
     stylePrompt: buildStylePrompt(save),
-    worldBookText: renderWorldBookBlock(worldBook.picked),
+     worldBookText: renderWorldBookBlock(worldBook.picked),
+    thinking,
   });
 
   // 日志用：这一轮带了几条世界书（常驻几条、关键词命中几条、因上限没带几条）
@@ -309,7 +344,12 @@ const runGeneration = async ({ save, parentNode, action, signal, label }) => {
   });
 
   if (!parsed.story) {
-    throw fail(FICTION_ERROR.NO_STORY, 'AI 没有返回可用的正文，可以重新生成。');
+      throw fail(
+      FICTION_ERROR.NO_STORY,
+      result.finishReason === 'length'
+        ? '思考太长，输出额度用完了，正文没有写出来。可以在「编辑设定」里调高输出上限，或者直接重试。'
+        : 'AI 没有返回可用的正文，可以重新生成。',
+    );
   }
 
   const warnings = [...parsed.warnings];
@@ -329,7 +369,11 @@ const runGeneration = async ({ save, parentNode, action, signal, label }) => {
       options: parsed.options,
       statsSnapshot,
       imagePrompt: parsed.imagePrompt,
-      parseWarnings: warnings,
+          parseWarnings: warnings,
+      // 思考过程：模型原生思考在前，[THINK] 在后；内容完全相同的只留一份。只存不发。
+      thinkingText: [result.reasoning, parsed.nativeThinking, parsed.thinking]
+        .filter((piece, index, list) => piece && list.indexOf(piece) === index)
+        .join('\n\n'),
     },
     warnings,
   };

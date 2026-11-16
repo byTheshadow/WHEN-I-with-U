@@ -57,6 +57,7 @@ import { ACTION_TYPES, findPendingSummaryBatch } from './fictionPromptAssembler'
 import { deleteLeafVersion } from './fictionSaveOps';
 import FictionReadingPanel from './FictionReadingPanel';
 import FictionSegmentBody from './FictionSegmentBody';
+import FictionThinkingFold from './FictionThinkingFold';
 import useFictionReadingPrefs from './useFictionReadingPrefs';
 import FictionStoryline from './FictionStoryline';
 import FictionReveal from './FictionReveal';
@@ -495,7 +496,8 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
           <span className="fic-p-seg-peek">回看</span>
         </button>
         {note &&<div className="fic-p-act">{note}</div>}
-                <FictionSegmentBody text={node.text} highlightQuotes={readingPrefs.highlightQuotes} />
+               <FictionThinkingFold text={node.thinkingText} highlightQuotes={readingPrefs.highlightQuotes} />
+        <FictionSegmentBody text={node.text} highlightQuotes={readingPrefs.highlightQuotes} />
         {!busy && (
           <div className="fic-p-seg-foot">
             <button

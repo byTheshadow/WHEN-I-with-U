@@ -11,7 +11,7 @@
 // 拆开的话，assistant 那一侧只剩正文没有选项，模型会照着学，之后也不写选项了。
 
 import { buildInitialSnapshot, normalizeStatDefs } from './fictionParser';
-
+import { clampThinkingMaxTokens } from './fictionThinkingPresets';
 // 当前路径最多带多少段原文（上限，防止总结一直没做、原文窗口无限变大）。
 export const FULL_TEXT_SEGMENTS = 50;
 
@@ -339,6 +339,39 @@ const buildHistoryBlock = (pathNodes) => {
   return parts.join('\n\n');
 };
 
+// ---------------- 思维链 ----------------
+//
+// 存档开了思维链时：输出格式里在 [STORY] 前面多一块 [THINK]，系统提示词里多一块
+// 「思考预设」，把开着的条目按顺序列给模型。思考不限篇幅，字数要求只管正文。
+// 历史里不带以前的思考（buildHistoryBlock 只读 node.text），所以不会越滚越长。
+
+const THINK_FORMAT_LINES = [
+  '[THINK]',
+  '按「思考预设」逐条写下你的思考（篇幅不限，不计入正文字数）',
+  '[/THINK]',
+].join('\n');
+
+const withThinkingFormat = (formatRules) => formatRules.replace('[STORY]', `${THINK_FORMAT_LINES}\n[STORY]`);
+
+const buildThinkingBlock = (entries) => {
+  const head = [
+    '## 思考预设（动笔之前必须先完成）',
+    '写正文之前，先在 [THINK]…[/THINK] 里把下面的条目按顺序逐条想一遍：每一条都要写，不能跳过，每条以它的标题开头。思考时要对照上面「文风与字数」里的文风要求。',
+    '思考的篇幅不限，想清楚为止；字数要求只针对 [STORY] 里的正文。思考是写给你自己的草稿，不会出现在正文里，思考当中不要写 [STORY]、[OPTIONS] 这些格式标签。',
+    '全部条目想完、写下 [/THINK] 之后，再严格依照思考得出的结论写正文。',
+  ].join('\n');
+
+  if (entries.length === 0) {
+    return `${head}\n\n（没有指定条目：请自己梳理前文、在场人物的状态、这一段要推进什么，再动笔。）`;
+  }
+
+  const list = entries
+    .map((entry, index) => `${index + 1}. ${entry.title || `第 ${index + 1} 条`}\n${entry.content}`)
+    .join('\n\n');
+
+  return `${head}\n\n${list}`;
+};
+
 // ---------------- 对外 ----------------
 
 /**
@@ -396,6 +429,7 @@ export const buildFictionRequest = ({
   statsSnapshot = null,
   stylePrompt = '',
   worldBookText = '',
+  thinking = null,
 }) => {
   const stats = save.stats || [];
   const snapshot = statsSnapshot || buildInitialSnapshot(stats);
@@ -403,7 +437,14 @@ export const buildFictionRequest = ({
   const mode = save.mode === 'novel' ? 'novel' : 'choice';
   const wordMin = Number(save.wordMin) || 2000;
 
-  const formatRules = buildFormatRules({ save, stats, isFreeAction });
+  // thinking 不为空表示这份存档开了思维链，形如 { entries: [{ title, content }] }
+  const useThinking = Boolean(thinking);
+  const thinkingEntries = (Array.isArray(thinking?.entries) ? thinking.entries : [])
+    .map((entry) => ({ title: str(entry?.title), content: str(entry?.content) }))
+    .filter((entry) => entry.content);
+  const thinkingBlock = useThinking ? buildThinkingBlock(thinkingEntries) : '';
+  const baseFormatRules = buildFormatRules({ save, stats, isFreeAction });
+  const formatRules = useThinking ? withThinkingFormat(baseFormatRules) : baseFormatRules;
 
   const intro = [
     '你是一名互动小说的叙述者，正在和玩家一起写一个故事。',
@@ -428,6 +469,7 @@ export const buildFictionRequest = ({
     intro,
     `## 输出格式\n${formatRules}`,
     styleBlock,
+    thinkingBlock,
     `## 故事背景\n${clip(save.background, 4000)}`,
     outlineBlock,
     buildCastBlock(save),
@@ -440,7 +482,7 @@ export const buildFictionRequest = ({
   const systemPrompt = blocks.join('\n\n');
   const userMessage = buildUserMessage({
     action,
-    formatReminder: `（记得按格式输出：先 [STORY]…[/STORY]${mode === 'choice' ? '，再 [OPTIONS]…[/OPTIONS]' : ''}${isFreeAction && normalizeStatDefs(stats).length > 0 ? '，最后 [DELTA]…[/DELTA]' : ''}，正文不少于 ${wordMin} 字。）`,
+    formatReminder: `（记得按格式输出：${useThinking ? '先在 [THINK]…[/THINK] 里按思考预设逐条想完，再写 ' : '先 '}[STORY]…[/STORY]${mode === 'choice' ? '，再 [OPTIONS]…[/OPTIONS]' : ''}${isFreeAction && normalizeStatDefs(stats).length > 0 ? '，最后 [DELTA]…[/DELTA]' : ''}，正文不少于 ${wordMin} 字。）`,
   });
 
   const { batches, rawStart, omittedCount } = planHistoryWindow(pathNodes);
@@ -448,9 +490,12 @@ export const buildFictionRequest = ({
   return {
     systemPrompt,
     userMessage,
-    maxTokens: estimateMaxTokens(wordMin),
+    maxTokens: useThinking
+      ? Math.max(estimateMaxTokens(wordMin), clampThinkingMaxTokens(save.thinkingMaxTokens))
+      : estimateMaxTokens(wordMin),
     meta: {
-      systemChars: systemPrompt.length,
+        systemChars: systemPrompt.length,
+      thinkingEntries: useThinking ? thinkingEntries.length : -1,
       historySegments: Math.max(0, pathNodes.length - rawStart + 1),
       historyOmitted: omittedCount,
       summaryBatches: batches.length,
