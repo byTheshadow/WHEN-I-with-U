@@ -15,6 +15,7 @@ import {
   deleteSave,
   listSaveSummaries,
 } from './fictionService';
+import { DUPLICATE_MODES, duplicateSave } from './fictionSaveOps';
 import { WIZARD_STEP_COUNT } from './fictionWizardService';
 import FictionWizard from './FictionWizard';
 import FictionPlayRoom from './FictionPlayRoom';
@@ -94,6 +95,12 @@ const FictionApp = ({ onBackHub }) => {
   const [filter, setFilter] = useState(FILTERS.ALL);
   const [menuSave, setMenuSave] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [copying, setCopying] = useState(false);
+
+  // 抽屉关掉后，「复制存档」的选择页也要复位
+  useEffect(() => {
+    if (!menuSave) setCopying(false);
+  }, [menuSave]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
   // null = 书架；{ draftId } = 新建向导（draftId 为 null 表示全新开始）；
@@ -203,6 +210,25 @@ const FictionApp = ({ onBackHub }) => {
 
     setMenuSave(null);
     setConfirming(false);
+  };
+
+  const handleDuplicate = async (mode) => {
+    if (!menuSave || busy) return;
+
+    setBusy(true);
+
+    try {
+      await duplicateSave(menuSave.id, { mode });
+      setMenuSave(null);
+      setCopying(false);
+      await reload();
+      showToast('已复制存档');
+    } catch (error) {
+      console.warn('[Fiction] 复制存档失败：', error);
+      showToast('复制失败，请再试一次');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -391,7 +417,7 @@ const FictionApp = ({ onBackHub }) => {
               <div className="fic-sheet-name">{menuSave.title}</div>
               <div className="fic-sheet-meta">{buildMetaLine(menuSave)}</div>
 
-              {!confirming && (
+                   {!confirming && !copying && (
                 <div className="fic-sheet-actions">
                   {!menuSave.isDraft && (
                     <button
@@ -399,7 +425,16 @@ const FictionApp = ({ onBackHub }) => {
                       className="fic-btn-reset fic-sheet-btn"
                       onClick={handleEditSettingsFromMenu}
                     >
-                      编辑设定
+                                      编辑设定
+                    </button>
+                  )}
+                  {!menuSave.isDraft && (
+                    <button
+                      type="button"
+                      className="fic-btn-reset fic-sheet-btn"
+                      onClick={() => setCopying(true)}
+                    >
+                      复制存档
                     </button>
                   )}
                   <button
@@ -413,6 +448,42 @@ const FictionApp = ({ onBackHub }) => {
                     取消
                   </button>
                 </div>
+              )}
+
+                      {copying && (
+                <>
+                  <p className="fic-sheet-meta" style={{ marginTop: 16, lineHeight: 1.8 }}>
+                    完整复制：设定、全部剧情、分支和旧版本都带上，占用的空间会翻倍。
+                    只复制设定：背景、角色、规则带上，剧情从头开始。
+                    两种都不复制配图。
+                  </p>
+                  <div className="fic-sheet-actions">
+                    <button
+                      type="button"
+                      className="fic-btn-reset fic-sheet-btn is-solid"
+                      disabled={busy}
+                      onClick={() => handleDuplicate(DUPLICATE_MODES.FULL)}
+                    >
+                      {busy ? '正在复制' : '完整复制'}
+                    </button>
+                    <button
+                      type="button"
+                      className="fic-btn-reset fic-sheet-btn"
+                      disabled={busy}
+                      onClick={() => handleDuplicate(DUPLICATE_MODES.SETTINGS)}
+                    >
+                      只复制设定
+                    </button>
+                    <button
+                      type="button"
+                      className="fic-btn-reset fic-sheet-btn"
+                      disabled={busy}
+                      onClick={() => setCopying(false)}
+                    >
+                      返回
+                    </button>
+                  </div>
+                </>
               )}
 
               {confirming && (

@@ -30,10 +30,13 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GitBranch,
   NotebookText,
   RotateCcw,
   Settings2,
+  Trash2,
 } from 'lucide-react';
 
 import {
@@ -51,12 +54,17 @@ import {
 } from './fictionAiService';
 import { PARSE_WARNING, normalizeStatDefs } from './fictionParser';
 import { ACTION_TYPES, findPendingSummaryBatch } from './fictionPromptAssembler';
+import { deleteLeafVersion } from './fictionSaveOps';
+import FictionReadingPanel from './FictionReadingPanel';
+import FictionSegmentBody from './FictionSegmentBody';
+import useFictionReadingPrefs from './useFictionReadingPrefs';
 import FictionStoryline from './FictionStoryline';
 import FictionReveal from './FictionReveal';
 import FictionSummaryOverview from './FictionSummaryOverview';
 import FictionTextEditor from './FictionTextEditor';
 import './fictionPlay.css';
 import './fictionEdit.css';
+import './fictionReading.css';
 
 const FREE_TEXT_MAX = 300;
 const BACKGROUND_PREVIEW_MAX = 220;
@@ -111,6 +119,18 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   const [summaryOpen, setSummaryOpen] = useState(false);
   // 手动编辑正文：{ nodeId, number }，null = 没有在编辑
   const [editing, setEditing] = useState(null);
+  // 阅读设置（全局一份）、选项抽屉是否收成胶囊、阅读设置抽屉是否打开
+  const { prefs: readingPrefs, update: updateReading } = useFictionReadingPrefs();
+  const [sheetCollapsed, setSheetCollapsed] = useState(false);
+  const [readingOpen, setReadingOpen] = useState(false);
+
+  // 每出现新的一段（段数变了），选项抽屉自动展开
+  useEffect(() => {
+    setSheetCollapsed(false);
+  }, [path.length]);
+  // 删除当前版本：确认抽屉是否打开 / 是否正在删
+  const [deleteVersionOpen, setDeleteVersionOpen] = useState(false);
+  const [versionBusy, setVersionBusy] = useState(false);
 
   const abortRef = useRef(null);
   const busyRef = useRef(null);
@@ -173,6 +193,7 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   const stats = useMemo(() => normalizeStatDefs(save?.stats), [save]);
   const snapshot = current?.statsSnapshot || {};
   const showStats = save?.mode === 'choice' && stats.length > 0;
+  const dockCollapsed = sheetCollapsed && Boolean(current);
   const warnings = current?.parseWarnings || [];
   const options = current?.options || [];
   const noOptions = Boolean(current) && save?.mode === 'choice' && options.length === 0;
@@ -321,6 +342,32 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
     }
   };
 
+  // 删除当前这个版本（只能删没有后续的版本，至少留一个）。删完停在相邻的版本上。
+  const handleDeleteVersion = async () => {
+    if (!current || versionBusy || busyRef.current) return;
+
+    setVersionBusy(true);
+
+    try {
+      const next = await deleteLeafVersion(saveId, current.id);
+
+      if (mountedRef.current) {
+        setPath((previous) => [...previous.slice(0, -1), next]);
+        setError(null);
+        setDeleteVersionOpen(false);
+      }
+    } catch (deleteError) {
+      console.warn('[Fiction] 删除版本失败：', deleteError);
+
+      if (mountedRef.current) {
+        setDeleteVersionOpen(false);
+        setError({ message: deleteError?.message || '删除失败，请再试一次。', retry: null });
+      }
+    } finally {
+      if (mountedRef.current) setVersionBusy(false);
+    }
+  };
+
   // 另开分支 / 回到某一段：把当前位置挪到那个节点，回到游玩页。
   // 数值不用额外处理，每个节点自己存着数值快照。
   const jumpTo = async (nodeId) => {
@@ -448,10 +495,7 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
           <span className="fic-p-seg-peek">回看</span>
         </button>
         {note &&<div className="fic-p-act">{note}</div>}
-        {splitParagraphs(node.text).map((paragraph, paragraphIndex) => (
-          // eslint-disable-next-line react/no-array-index-key
-          <p key={paragraphIndex} className="fic-p-para">{paragraph}</p>
-        ))}
+                <FictionSegmentBody text={node.text} highlightQuotes={readingPrefs.highlightQuotes} />
         {!busy && (
           <div className="fic-p-seg-foot">
             <button
@@ -596,10 +640,36 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
 
     return (
       <div className="fic-p-sheet">
-        <div className="fic-p-sheet-grab" />
+        <button
+          type="button"
+          className="fic-btn-reset fic-p-grab-btn"
+          aria-label="收起选项"
+          onClick={() => setSheetCollapsed(true)}
+        >
+          <span className="fic-p-sheet-grab" />
+        </button>
         <div className="fic-p-sheet-head">
           <span className="fic-p-sheet-title">Your move</span>
           <div className="fic-p-sheet-tools">
+            <button
+              type="button"
+              className="fic-btn-reset fic-p-pager-btn"
+              aria-label="收起选项"
+              onClick={() => setSheetCollapsed(true)}
+            >
+              <ChevronDown size={18} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+                      {showPager && (
+              <button
+                type="button"
+                className="fic-btn-reset fic-p-pager-btn"
+                aria-label="删除当前这个版本"
+                disabled={Boolean(busy) || versionBusy}
+                onClick={() => setDeleteVersionOpen(true)}
+              >
+                <Trash2 size={16} strokeWidth={1.6} aria-hidden="true" />
+              </button>
+            )}
             {showPager && (
               <div className="fic-p-pager" role="group" aria-label="切换版本">
                 <button
@@ -669,7 +739,7 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   // ---------- 页面 ----------
 
   return (
-    <div className="fic-col fic-p-col">
+    <div className={`fic-col fic-p-col ${dockCollapsed ? 'is-dock-collapsed' : ''}`}>
       <button
         type="button"
         className="fic-btn-reset fic-round-btn fic-back"
@@ -723,7 +793,17 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
         <>
           <div className="fic-p-top">
             <div className="fic-p-title">{save.title}</div>
-            <div className="fic-p-sub">选择式</div>
+            <div className="fic-p-sub">
+              选择式
+              <button
+                type="button"
+                className="fic-btn-reset fic-p-read-chip"
+                aria-label="阅读设置"
+                onClick={() => setReadingOpen(true)}
+              >
+                Aa
+              </button>
+            </div>
           </div>
 
           {showStats && renderStats()}
@@ -733,8 +813,71 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
             {generating && current && renderPending()}
           </div>
 
-          {renderSheet()}
+          <div className={`fic-p-dock ${dockCollapsed ? 'is-collapsed' : ''}`}>
+            <div className="fic-p-dock-inner">{renderSheet()}</div>
+            {current && (
+              <button
+                type="button"
+                className="fic-btn-reset fic-p-capsule"
+                aria-label="展开选项"
+                tabIndex={dockCollapsed ? 0 : -1}
+                onClick={() => setSheetCollapsed(false)}
+              >
+                <span className="fic-p-capsule-name">Your move</span>
+                <span className="fic-p-capsule-dot" aria-hidden="true" />
+                <span>{options.length > 0 ? `${options.length} 个选项` : '展开'}</span>
+                <ChevronUp size={14} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </>
+      )}
+
+        {deleteVersionOpen && current && (
+        <>
+          <button
+            type="button"
+            className="fic-btn-reset fic-mask"
+            aria-label="关闭"
+            onClick={() => !versionBusy && setDeleteVersionOpen(false)}
+          />
+          <div className="fic-sheet" role="dialog" aria-label="删除这个版本">
+            <div className="fic-sheet-grab" />
+            <div className="fic-sheet-name">删除这个版本？</div>
+            <div className="fic-sheet-meta">当前是第 {versionIndex + 1} / {versions.length} 个版本</div>
+            <p className="fic-sheet-warn">
+              这个版本的正文会被删掉，删除后无法恢复，其他版本不受影响。
+              {current.summaryText ? '这一段上挂着一条总结，会一起删掉。' : ''}
+              {current.isSavePoint ? '这一段上的存档点标记也会一起删掉。' : ''}
+            </p>
+            <div className="fic-sheet-actions">
+              <button
+                type="button"
+                className="fic-btn-reset fic-sheet-btn is-danger-solid"
+                disabled={versionBusy}
+                onClick={handleDeleteVersion}
+              >
+                {versionBusy ? '正在删除' : '确认删除'}
+              </button>
+              <button
+                type="button"
+                className="fic-btn-reset fic-sheet-btn"
+                disabled={versionBusy}
+                onClick={() => setDeleteVersionOpen(false)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {readingOpen && (
+        <FictionReadingPanel
+          prefs={readingPrefs}
+          onChange={updateReading}
+          onClose={() => setReadingOpen(false)}
+        />
       )}
 
       {storylineOpen && save && current && (
