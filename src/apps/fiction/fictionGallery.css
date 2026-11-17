@@ -1,0 +1,205 @@
+/* src/apps/fiction/fictionGallery.css
+ *
+ * 「本存档的图片」页（fic-ig-）：整层的外壳复用 .fic-s-layer / .fic-s-head（fictionStory.css），
+ * 这里只补入口按钮、缩略图网格、多选底栏。
+ */
+
+/* 游玩页右上角第三个圆按钮：叠在故事线、总结按钮下面 */
+.fic-root .fic-p-gallery-btn {
+  position: absolute;
+  right: 20px;
+  top: calc(22px + 38px + 8px + 38px + 8px + env(safe-area-inset-top, 0px));
+  z-index: 20;
+}
+
+.fic-root .fic-ig-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 24px 8px;
+}
+
+.fic-root .fic-ig-count {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-ig-link {
+  min-height: 32px;
+  padding: 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--fic-ink);
+}
+
+.fic-root .fic-ig-link:disabled {
+  opacity: 0.4;
+}
+
+.fic-root .fic-ig-note {
+  flex: none;
+  margin: 0 24px 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--fic-soft);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fic-sub);
+}
+
+.fic-root .fic-ig-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 24px calc(28px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fic-line);
+  scrollbar-width: none;
+}
+
+.fic-root .fic-ig-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.fic-root .fic-ig-empty {
+  margin: 0;
+  padding: 40px 8px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-ig-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.fic-root .fic-ig-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--fic-border);
+  background: var(--fic-soft);
+}
+
+.fic-root .fic-ig-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fic-root .fic-ig-tile.is-ph {
+  border-style: dashed;
+}
+
+.fic-root .fic-ig-tile.is-error {
+  border-color: var(--fic-wine-text);
+}
+
+.fic-root .fic-ig-tile.is-selected {
+  outline: 2px solid var(--fic-ink);
+  outline-offset: -2px;
+}
+
+.fic-root .fic-ig-ph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-ig-tile.is-error .fic-ig-ph {
+  color: var(--fic-wine-text);
+}
+
+.fic-root .fic-ig-ph small {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.fic-root .fic-ig-tag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  max-width: calc(100% - 12px);
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #fff;
+}
+
+.fic-root .fic-ig-tag.is-branch {
+  background: rgba(120, 70, 0, 0.7);
+}
+
+.fic-root .fic-ig-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+}
+
+.fic-root .fic-ig-tile.is-selected .fic-ig-check {
+  background: var(--fic-ink);
+  color: var(--fic-paper);
+}
+
+.fic-root .fic-ig-more {
+  margin-top: 16px;
+}
+
+.fic-root .fic-ig-selbar {
+  flex: none;
+  display: flex;
+  gap: 10px;
+  padding: 10px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fic-line);
+  background: var(--fic-paper);
+}
+
+.fic-root .fic-ig-selbtn {
+  flex: 1;
+  height: 42px;
+  border-radius: 21px;
+  border: 1px solid var(--fic-ink);
+  font-size: 14px;
+  color: var(--fic-ink);
+}
+
+.fic-root .fic-ig-selbtn.is-danger {
+  border-color: var(--fic-wine-text);
+  color: var(--fic-wine-text);
+}
+
+.fic-root .fic-ig-selbtn:disabled {
+  opacity: 0.4;
+}

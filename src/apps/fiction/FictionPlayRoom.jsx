@@ -34,6 +34,7 @@ import {
   ChevronUp,
   GitBranch,
   NotebookText,
+  Images,
   RotateCcw,
   Settings2,
   Trash2,
@@ -65,6 +66,7 @@ import FictionSummaryOverview from './FictionSummaryOverview';
 import FictionTextEditor from './FictionTextEditor';
 import FictionSegmentFigures from './FictionSegmentFigures';
 import FictionImageViewer from './FictionImageViewer';
+import FictionImageGallery from './FictionImageGallery';
 import useFictionNodeImages from './useFictionNodeImages';
 import { deleteImage, retryImage } from './fictionImageService';
 import './fictionPlay.css';
@@ -196,7 +198,8 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
 
   const current = path.length > 0 ? path[path.length - 1] : null;
   const { imagesByNode, imagesById } = useFictionNodeImages(saveId, path);
-  const [viewerId, setViewerId] = useState(null);
+const [viewerId, setViewerId] = useState(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const stats = useMemo(() => normalizeStatDefs(save?.stats), [save]);
   const snapshot = current?.statsSnapshot || {};
   const showStats = save?.mode === 'choice' && stats.length > 0;
@@ -763,6 +766,17 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
         <ArrowLeft size={18} strokeWidth={1.6} aria-hidden="true" />
       </button>
 
+{loaded && save && current && ((save.imageMode && save.imageMode !== 'off') || imagesById.size > 0) && (
+        <button
+          type="button"
+          className="fic-btn-reset fic-round-btn fic-p-gallery-btn"
+          aria-label="本存档的图片"
+          onClick={() => setGalleryOpen(true)}
+        >
+          <Images size={18} strokeWidth={1.6} aria-hidden="true" />
+        </button>
+      )}
+
       {loaded && save && onEditSettings && (
         <button
           type="button"
@@ -884,6 +898,10 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
             </div>
           </div>
         </>
+      )}
+
+      {galleryOpen && save && (
+        <FictionImageGallery save={save} onClose={() => setGalleryOpen(false)} />
       )}
 
       {viewerId !== null && imagesById.get(viewerId) && (
