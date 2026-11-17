@@ -65,6 +65,7 @@ import FictionReveal from './FictionReveal';
 import FictionSummaryOverview from './FictionSummaryOverview';
 import FictionTextEditor from './FictionTextEditor';
 import FictionSegmentFigures from './FictionSegmentFigures';
+import FictionImageComposer from './FictionImageComposer';
 import FictionImageViewer from './FictionImageViewer';
 import FictionImageGallery from './FictionImageGallery';
 import useFictionNodeImages from './useFictionNodeImages';
@@ -521,8 +522,9 @@ const [viewerId, setViewerId] = useState(null);
               aria-label={`编辑第 ${index + 1} 段的文字`}
               onClick={() => setEditing({ nodeId: node.id, number: index + 1 })}
             >
-              编辑这一段
+                           编辑这一段
             </button>
+            <FictionImageComposer save={save} node={node} images={imagesByNode.get(node.id)} />
           </div>
         )}
       </section>

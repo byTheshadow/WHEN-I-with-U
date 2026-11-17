@@ -171,7 +171,7 @@ const isBackupWorthy = (error) => (
   || error.code === FICTION_ERROR.HTTP
 );
 
-const callFictionApi = async ({ systemPrompt, userMessage, maxTokens, signal }) => {
+export const callFictionApi = async ({ systemPrompt, userMessage, maxTokens, signal }) => {
   const primarySetting = await db.settings.get('apiConfig');
   const primary = await attemptWithTokenFallback({
     apiConfig: primarySetting?.value || {},

@@ -99,7 +99,7 @@
 }
 
 .fic-root .fic-ig-tile.is-ph {
-  border-style: dashed;
+   border-color: transparent;
 }
 
 .fic-root .fic-ig-tile.is-error {

@@ -38,8 +38,7 @@
   width: 100%;
   aspect-ratio: 3 / 2;
   border-radius: 18px;
-  border: 1px dashed var(--fic-border);
-  background: linear-gradient(110deg, var(--fic-soft) 30%, var(--fic-sheet) 50%, var(--fic-soft) 70%);
+ background: linear-gradient(110deg, var(--fic-soft) 30%, var(--fic-sheet) 50%, var(--fic-soft) 70%);
   background-size: 200% 100%;
   animation: fic-img-shimmer 1.6s linear infinite;
   font-size: 13px;
@@ -50,7 +49,6 @@
 .fic-root .fic-img.is-error {
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px dashed var(--fic-border);
   background: var(--fic-soft);
 }
 
