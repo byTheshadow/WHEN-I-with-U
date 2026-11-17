@@ -63,6 +63,10 @@ import FictionStoryline from './FictionStoryline';
 import FictionReveal from './FictionReveal';
 import FictionSummaryOverview from './FictionSummaryOverview';
 import FictionTextEditor from './FictionTextEditor';
+import FictionSegmentFigures from './FictionSegmentFigures';
+import FictionImageViewer from './FictionImageViewer';
+import useFictionNodeImages from './useFictionNodeImages';
+import { deleteImage, retryImage } from './fictionImageService';
 import './fictionPlay.css';
 import './fictionEdit.css';
 import './fictionReading.css';
@@ -191,6 +195,8 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   // ---------- 派生数据 ----------
 
   const current = path.length > 0 ? path[path.length - 1] : null;
+  const { imagesByNode, imagesById } = useFictionNodeImages(saveId, path);
+  const [viewerId, setViewerId] = useState(null);
   const stats = useMemo(() => normalizeStatDefs(save?.stats), [save]);
   const snapshot = current?.statsSnapshot || {};
   const showStats = save?.mode === 'choice' && stats.length > 0;
@@ -498,6 +504,12 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
         {note &&<div className="fic-p-act">{note}</div>}
                <FictionThinkingFold text={node.thinkingText} highlightQuotes={readingPrefs.highlightQuotes} />
         <FictionSegmentBody text={node.text} highlightQuotes={readingPrefs.highlightQuotes} />
+        <FictionSegmentFigures
+          images={imagesByNode.get(node.id)}
+          onOpen={(image) => setViewerId(image.id)}
+          onRetry={(image) => retryImage(image.id)}
+          onDelete={(image) => deleteImage(image.id)}
+        />
         {!busy && (
           <div className="fic-p-seg-foot">
             <button
@@ -872,6 +884,17 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
             </div>
           </div>
         </>
+      )}
+
+      {viewerId !== null && imagesById.get(viewerId) && (
+        <FictionImageViewer
+          image={imagesById.get(viewerId)}
+          onClose={() => setViewerId(null)}
+          onDelete={async (image) => {
+            await deleteImage(image.id);
+            setViewerId(null);
+          }}
+        />
       )}
 
       {readingOpen && (

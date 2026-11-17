@@ -1,0 +1,214 @@
+/* src/apps/fiction/fictionImages.css
+ *
+ * 游玩页的配图：每一段正文下面的图 / 生成中 / 失败卡片，以及点开后的全屏大图。
+ */
+
+/* ---------- 每一段下面的图 ---------- */
+
+.fic-root .fic-img-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 18px 0 6px;
+}
+
+.fic-root .fic-img {
+  margin: 0;
+}
+
+.fic-root .fic-img-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--fic-border);
+}
+
+.fic-root .fic-img-open img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fic-root .fic-img-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 18px;
+  border: 1px dashed var(--fic-border);
+  background: linear-gradient(110deg, var(--fic-soft) 30%, var(--fic-sheet) 50%, var(--fic-soft) 70%);
+  background-size: 200% 100%;
+  animation: fic-img-shimmer 1.6s linear infinite;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-img.is-error {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px dashed var(--fic-border);
+  background: var(--fic-soft);
+}
+
+.fic-root .fic-img-err {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fic-wine-text);
+  word-break: break-word;
+}
+
+.fic-root .fic-img-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fic-root .fic-img-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  border: 1px solid var(--fic-line);
+  font-size: 13px;
+  color: var(--fic-ink);
+}
+
+.fic-root .fic-img-btn.is-danger {
+  color: var(--fic-wine-text);
+}
+
+@keyframes fic-img-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* ---------- 全屏大图 ---------- */
+
+.fic-root .fic-iv {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.94);
+  color: #fff;
+}
+
+.fic-root .fic-iv-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(56px + env(safe-area-inset-top, 0px)) 12px 8px;
+}
+
+.fic-root .fic-iv-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.fic-root .fic-iv-close {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
+.fic-root .fic-iv-panel {
+  padding: 8px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+.fic-root .fic-iv-desc {
+  margin-bottom: 12px;
+}
+
+.fic-root .fic-iv-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fic-root .fic-iv-desc p {
+  margin: 0;
+  max-height: 5.4em;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.9);
+  word-break: break-word;
+}
+
+.fic-root .fic-iv-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.fic-root .fic-iv-warn {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.fic-root .fic-iv-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.fic-root .fic-iv-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  color: #fff;
+}
+
+.fic-root .fic-iv-btn.is-danger {
+  border-color: rgba(255, 140, 150, 0.7);
+  color: #ffb4bc;
+}
+
+.fic-root .fic-iv-btn.is-danger-solid {
+  border-color: #b3283b;
+  background: #b3283b;
+  color: #fff;
+}
+
+.fic-root .fic-iv-btn:disabled,
+.fic-root .fic-iv-close:disabled {
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fic-root .fic-img-ph {
+    animation: none;
+  }
+}
