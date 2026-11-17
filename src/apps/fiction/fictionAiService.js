@@ -32,6 +32,7 @@ import {
   setCurrentNode,
 } from './fictionService';
 import { getStylePreset } from './fictionWizardService';
+import { afterNodeCreated } from './fictionImageService';
 import {
   THINKING_PRESETS_SETTING_KEY,
   pickThinkingEntries,
@@ -390,7 +391,9 @@ const loadPlayableSave = async (saveId) => {
 
 // ---------------- 对外入口 ----------------
 
-export const generateOpening = async (saveId, { signal } = {}) => {
+export const generateOpening = async (...args) => afterNodeCreated(await generateOpeningBase(...args));
+
+const generateOpeningBase = async (saveId, { signal } = {}) => {
   const save = await loadPlayableSave(saveId);
 
   if (await getRootNode(saveId)) {
@@ -422,7 +425,9 @@ export const generateOpening = async (saveId, { signal } = {}) => {
  *       | { type: 'free', text }
  *       | { type: 'continue' } | { type: 'guide', text } | { type: 'nextChapter' }（后三种留给纯小说式）
  */
-export const generateNext = async (saveId, parentNodeId, action, { signal } = {}) => {
+export const generateNext = async (...args) => afterNodeCreated(await generateNextBase(...args));
+
+const generateNextBase = async (saveId, parentNodeId, action, { signal } = {}) => {
   const save = await loadPlayableSave(saveId);
   const parentNode = await getNode(parentNodeId);
 
@@ -479,7 +484,10 @@ export const generateNext = async (saveId, parentNodeId, action, { signal } = {}
  *
  * 版本不算分支：appendNode 看到 actionKey 相同，不会增加 branchCount。
  */
-export const rerollNode = async (saveId, nodeId, { signal } = {}) => {
+
+export const rerollNode = async (...args) => afterNodeCreated(await rerollNodeBase(...args));
+
+const rerollNodeBase = async (saveId, nodeId, { signal } = {}) => {
   const save = await loadPlayableSave(saveId);
   const node = await getNode(nodeId);
 

@@ -2,7 +2,7 @@ import db from '../db';
 
 const BACKUP_FORMAT = 'when-i-with-u-backup';
 const BACKUP_VERSION = 1;
-const BACKUP_EXCLUDED_TABLES = ['imageGenerationFiles'];
+const BACKUP_EXCLUDED_TABLES = ['imageGenerationFiles', 'fictionImageFiles'];
 
 const readBlobAsDataUrl = (blob) =>
   new Promise((resolve, reject) => {
