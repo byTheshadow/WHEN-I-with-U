@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { Check, Minus, Plus } from 'lucide-react';
 
 import FictionSheetPortal from './FictionSheetPortal';
+import WizardImagePromptsRow from './WizardImagePromptsRow';
 import WizardThinkingSection from './WizardThinkingSection';
 
 import { getAllRpWorldBooks } from '../rp/rpWorldBookService';
@@ -595,7 +596,8 @@ const WizardStepRules = ({ form, onChange, onToast }) => {
             </button>
           ))}
         </div>
-        <div className="fic-w-hint">图会插在剧情里，同时收进画廊。</div>
+        {form.imageMode !== FICTION_IMAGE_MODES.OFF && <WizardImagePromptsRow />}
+        <div className="fic-w-hint">图会插在剧情里，同时收进这个存档的图片页。</div>
       </section>
 
       {renderSheet()}

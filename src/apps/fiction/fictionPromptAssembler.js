@@ -13,6 +13,7 @@
 import { buildInitialSnapshot, normalizeStatDefs } from './fictionParser';
 import { clampThinkingMaxTokens } from './fictionThinkingPresets';
 import { buildPerspectiveLines } from './fictionPerspective';
+import { buildAutoImageLine } from './fictionImagePromptDefaults';
 // 当前路径最多带多少段原文（上限，防止总结一直没做、原文窗口无限变大）。
 export const FULL_TEXT_SEGMENTS = 50;
 
@@ -192,7 +193,7 @@ const buildStatsBlock = (stats, snapshot) => {
 
 // ---------------- 输出格式 ----------------
 
-const buildFormatRules = ({ save, stats, isFreeAction }) => {
+const buildFormatRules = ({ save, stats, isFreeAction, imagePrompt = '' }) => {
   const mode = save.mode === 'novel' ? 'novel' : 'choice';
   const defs = normalizeStatDefs(stats);
   const wordMin = Number(save.wordMin) || 2000;
@@ -237,7 +238,7 @@ const buildFormatRules = ({ save, stats, isFreeAction }) => {
   }
 
   if (save.imageMode === 'auto') {
-    lines.push('最后另起一行，用 [IMAGE]这一幕的画面描述（一两句话，描写场景和人物，不要出现文字）[/IMAGE] 给出一张插图的描述。');
+    lines.push(buildAutoImageLine(imagePrompt));
   }
 
   return lines.join('\n');
@@ -431,6 +432,7 @@ export const buildFictionRequest = ({
   stylePrompt = '',
   worldBookText = '',
   thinking = null,
+  imagePrompt = '',
 }) => {
   const stats = save.stats || [];
   const snapshot = statsSnapshot || buildInitialSnapshot(stats);
@@ -444,7 +446,7 @@ export const buildFictionRequest = ({
     .map((entry) => ({ title: str(entry?.title), content: str(entry?.content) }))
     .filter((entry) => entry.content);
   const thinkingBlock = useThinking ? buildThinkingBlock(thinkingEntries) : '';
-  const baseFormatRules = buildFormatRules({ save, stats, isFreeAction });
+  const baseFormatRules = buildFormatRules({ save, stats, isFreeAction, imagePrompt });
   const formatRules = useThinking ? withThinkingFormat(baseFormatRules) : baseFormatRules;
 
   const intro = [

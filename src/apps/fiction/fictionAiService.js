@@ -20,6 +20,7 @@
 // 快照 + AI 在 [DELTA] 里给的增减量；都截断到 [min, max]。快照用数值 id 做 key。
 
 import db from '../../db';
+import { loadResolvedImagePrompts } from './fictionImagePrompts';
 import {
   ROOT_PARENT_ID,
   getSave,
@@ -310,6 +311,17 @@ const runGeneration = async ({ save, parentNode, action, signal, label }) => {
     };
   }
 
+  // 自动配图：把「配图要求」里按当前生图后端选好的那一份带上。读不到就用默认文本。
+  let imagePrompt = '';
+
+  if (save.imageMode === 'auto') {
+    try {
+      imagePrompt = (await loadResolvedImagePrompts()).auto;
+    } catch (imagePromptError) {
+      console.warn('[Fiction] 读取配图要求失败，这一轮用默认文本：', imagePromptError);
+    }
+  }
+
   const request = buildFictionRequest({
     save,
     pathNodes,
@@ -317,6 +329,7 @@ const runGeneration = async ({ save, parentNode, action, signal, label }) => {
     statsSnapshot: promptSnapshot,
     stylePrompt: buildStylePrompt(save),
      worldBookText: renderWorldBookBlock(worldBook.picked),
+    imagePrompt,
     thinking,
   });
 

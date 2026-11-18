@@ -1,0 +1,38 @@
+/* src/apps/fiction/fictionImagePrompts.css
+ *
+ * 「配图要求」抽屉（ImagePromptsSheet）补的几处样式。
+ * 抽屉外壳、药丸、标签、文本框、按钮沿用 fiction.css / fictionWizard*.css 里现成的类，
+ * 这里只调间距和文本框高度。颜色全部用主题变量，只有实心底加细边，没有阴影。
+ */
+
+.fic-root .fic-ip-variants {
+  margin-top: 14px;
+}
+
+.fic-root .fic-ip-block {
+  margin-top: 24px;
+}
+
+.fic-root .fic-ip-hint {
+  margin-top: 4px;
+}
+
+.fic-root .fic-ip-textarea {
+  /* 字号沿用 16px（iOS 上小于 16px 聚焦会自动放大页面） */
+  min-height: 170px;
+  line-height: 1.85;
+  resize: vertical;
+}
+
+.fic-root .fic-ip-reset {
+  margin-top: 4px;
+}
+
+.fic-root .fic-ip-reset.is-idle {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.fic-root .fic-ip-foot {
+  margin: 18px 0 6px;
+}
