@@ -1,0 +1,59 @@
+/* src/apps/fiction/fictionImageWarning.css
+ *
+ * 图片页顶部的「图片太多了」提示条：浅色实心底的圆角条，没有虚线和阴影。
+ * 200 张以上（.is-strong）用酒红色点缀加重语气。
+ */
+
+.fic-root .fic-iw {
+  display: flex;
+  gap: 10px;
+  margin: 0 24px 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--fic-soft);
+}
+
+.fic-root .fic-iw-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--fic-muted);
+}
+
+.fic-root .fic-iw.is-strong {
+  background: color-mix(in srgb, var(--fic-wine) 10%, var(--fic-soft));
+}
+
+.fic-root .fic-iw.is-strong .fic-iw-icon,
+.fic-root .fic-iw.is-strong .fic-iw-title {
+  color: var(--fic-wine-text);
+}
+
+.fic-root .fic-iw-body {
+  min-width: 0;
+}
+
+.fic-root .fic-iw-title {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--fic-ink);
+}
+
+.fic-root .fic-iw-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--fic-sub);
+}
+
+.fic-root .fic-iw-btn {
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--fic-sheet);
+  border: 1px solid var(--fic-line);
+  font-size: 12.5px;
+  color: var(--fic-ink);
+}

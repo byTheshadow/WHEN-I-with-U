@@ -22,6 +22,7 @@
 //   thumbnail         缩略图 data URL，没有时为空字符串
 //   width / height    原图尺寸，未知时为 0
 //   afterParagraph    插在第几段正文之后；null 表示放在这一段末尾（显示位置留给界面那一轮定）
+//   replacesImageId   重新生成出来的图记下旧图的 id（不建索引）；用户处理完旧图后清成 null
 //   createdAt / updatedAt
 //
 // 节点的 imageIds 数组记录这一段有哪些图（按生成顺序）。
@@ -337,6 +338,7 @@ export const createImage = async ({
   description,
   source = FICTION_IMAGE_SOURCE.AUTO,
   afterParagraph = null,
+  replacesImageId = null,
 }) => {
   const text = String(description || '').trim().slice(0, DESCRIPTION_MAX);
 
@@ -366,6 +368,7 @@ export const createImage = async ({
       width: 0,
       height: 0,
       afterParagraph,
+      replacesImageId,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -410,7 +413,8 @@ export const regenerateImage = async (imageId, { description } = {}) => {
     nodeId: row.nodeId,
     description: description === undefined ? row.description : description,
     source: row.source,
-    afterParagraph: row.afterParagraph ?? null,
+     afterParagraph: row.afterParagraph ?? null,
+    replacesImageId: row.id,
   });
 };
 

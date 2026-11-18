@@ -1,0 +1,135 @@
+/* src/apps/fiction/fictionImageRegen.css
+ *
+ * 重新生成：正文里新图上方的「要删除旧图吗」提示条（.fic-rn），
+ * 和大图里「改描述重新生成」的面板（.fic-rg）。都是圆角实心底，没有虚线、没有阴影。
+ */
+
+/* ---------- 新图上方的提示条 ---------- */
+
+.fic-root .fic-rn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 11px 14px;
+  border-radius: 16px;
+  background: var(--fic-soft);
+}
+
+.fic-root .fic-rn-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--fic-sub);
+}
+
+.fic-root .fic-rn-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.fic-root .fic-rn-btn {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--fic-sheet);
+  border: 1px solid var(--fic-line);
+  font-size: 12.5px;
+  color: var(--fic-ink);
+}
+
+.fic-root .fic-rn-btn.is-danger {
+  color: var(--fic-wine-text);
+}
+
+.fic-root .fic-rn-btn:disabled {
+  opacity: 0.5;
+}
+
+/* ---------- 大图里的重新生成面板（黑底） ---------- */
+
+/* 大图里的按钮一行放不下时换行 */
+.fic-root .fic-iv .fic-iv-actions {
+  flex-wrap: wrap;
+}
+
+.fic-root .fic-iv .fic-iv-btn.is-wide {
+  flex: 1 1 100%;
+}
+
+.fic-root .fic-rg {
+  display: flex;
+  flex-direction: column;
+}
+
+.fic-root .fic-rg-label {
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fic-root .fic-rg-text {
+  display: block;
+  width: 100%;
+  min-height: 108px;
+  max-height: 32vh;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: var(--fic-serif);
+  font-size: 14px;
+  line-height: 1.8;
+  resize: none;
+  outline: none;
+}
+
+.fic-root .fic-rg-text::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.fic-root .fic-rg-text:disabled {
+  opacity: 0.6;
+}
+
+.fic-root .fic-rg-hint {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fic-root .fic-rg-error {
+  margin: 8px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #ffb4bc;
+}
+
+.fic-root .fic-rg-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.fic-root .fic-rg-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 14px;
+  color: #fff;
+}
+
+.fic-root .fic-rg-btn.is-go {
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.fic-root .fic-rg-btn:disabled {
+  opacity: 0.5;
+}

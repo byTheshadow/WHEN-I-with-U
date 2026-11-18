@@ -6,10 +6,11 @@
 // 渲染在游玩页根节点里（和回看、编辑抽屉同一层），盖住底部抽屉。
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, Trash2, X } from 'lucide-react';
+import { Download, RefreshCw, Trash2, X } from 'lucide-react';
 
 import { saveBlobToDevice } from '../imagestudio/imageGenMedia';
 import { getImageBlob } from './fictionImageService';
+import FictionImageRegenPanel from './FictionImageRegenPanel';
 import './fictionImages.css';
 
 const NOTE_MS = 3000;
@@ -24,7 +25,8 @@ const extensionOf = (blob) => {
 };
 
 const FictionImageViewer = ({ image, onClose, onDelete }) => {
-  const [confirming, setConfirming] = useState(false);
+   const [confirming, setConfirming] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
   const timerRef = useRef(null);
@@ -118,7 +120,7 @@ const FictionImageViewer = ({ image, onClose, onDelete }) => {
       </button>
 
       <div className="fic-iv-panel">
-        {image.description ? (
+              {image.description && !regenOpen ? (
           <div className="fic-iv-desc">
             <span className="fic-iv-label">画面描述</span>
             <p>{image.description}</p>
@@ -127,7 +129,9 @@ const FictionImageViewer = ({ image, onClose, onDelete }) => {
 
         {note ? <p className="fic-iv-note" role="status">{note}</p> : null}
 
-        {confirming ? (
+           {regenOpen ? (
+          <FictionImageRegenPanel image={image} onBack={() => setRegenOpen(false)} onDone={onClose} />
+        ) : confirming ? (
           <>
             <p className="fic-iv-warn">删除这张图？删除后无法恢复，剧情文字不受影响。</p>
             <div className="fic-iv-actions">
@@ -151,6 +155,15 @@ const FictionImageViewer = ({ image, onClose, onDelete }) => {
           </>
         ) : (
           <div className="fic-iv-actions">
+                  <button
+              type="button"
+              className="fic-btn-reset fic-iv-btn is-wide"
+              disabled={busy}
+              onClick={() => setRegenOpen(true)}
+            >
+              <RefreshCw size={16} strokeWidth={1.8} aria-hidden="true" />
+              改描述重新生成
+            </button>
             {hasFile && (
               <button
                 type="button"

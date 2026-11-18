@@ -1,0 +1,15 @@
+/* src/apps/fiction/fictionImageLazy.css
+ *
+ * 原图还没读出来时的占位：缩略图（和原图同比例，略微放大铺满）或同比例的浅色空块。
+ */
+
+.fic-root .fic-img-open img.fic-lazy-thumb {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.fic-root .fic-lazy-wait {
+  width: 100%;
+  background: var(--fic-soft);
+}

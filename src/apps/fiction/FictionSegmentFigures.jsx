@@ -12,9 +12,11 @@ import React from 'react';
 import { RotateCcw, Trash2 } from 'lucide-react';
 
 import { FICTION_IMAGE_STATUS } from './fictionImageService';
+import FictionReplaceNotice from './FictionReplaceNotice';
+import FictionLazyImage from './FictionLazyImage';
 import './fictionImages.css';
 
-const Figure = ({ image, onOpen, onRetry, onDelete }) => {
+const Figure = ({ image, replaced, onOpen, onNeedUrl, onRetry, onDelete }) => {
   if (image.status === FICTION_IMAGE_STATUS.PENDING) {
     return (
       <figure className="fic-img is-pending" aria-busy="true" aria-live="polite">
@@ -41,7 +43,7 @@ const Figure = ({ image, onOpen, onRetry, onDelete }) => {
     );
   }
 
-  if (!image.url) {
+  if (image.urlState === 'missing') {
     return (
       <figure className="fic-img is-error">
         <p className="fic-img-err">这张图的原图已经不在了（图片不会随备份恢复回来）。</p>
@@ -56,26 +58,35 @@ const Figure = ({ image, onOpen, onRetry, onDelete }) => {
   }
 
   return (
-    <figure className="fic-img is-ready">
+      <figure className="fic-img is-ready">
+      {replaced ? <FictionReplaceNotice image={image} /> : null}
       <button
         type="button"
         className="fic-btn-reset fic-img-open"
         aria-label="查看大图"
         onClick={() => onOpen(image)}
       >
-        <img src={image.url} alt="" loading="lazy" decoding="async" />
+             <FictionLazyImage image={image} onNeedUrl={onNeedUrl} />
       </button>
     </figure>
   );
 };
 
-const FictionSegmentFigures = ({ images, onOpen, onRetry, onDelete }) => {
+const FictionSegmentFigures = ({ images, onOpen, onNeedUrl, onRetry, onDelete }) => {
   if (!Array.isArray(images) || images.length === 0) return null;
 
   return (
     <div className="fic-img-list">
       {images.map((image) => (
-        <Figure key={image.id} image={image} onOpen={onOpen} onRetry={onRetry} onDelete={onDelete} />
+          <Figure
+          key={image.id}
+          image={image}
+          replaced={image.replacesImageId != null && images.some((other) => other.id === image.replacesImageId)}
+                  onOpen={onOpen}
+          onNeedUrl={onNeedUrl}
+          onRetry={onRetry}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );

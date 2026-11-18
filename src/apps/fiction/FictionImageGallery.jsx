@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
 
 import FictionImageViewer from './FictionImageViewer';
+import FictionImageWarning from './FictionImageWarning';
 import {
   FICTION_IMAGE_CHANGED_EVENT,
   FICTION_IMAGE_STATUS,
@@ -316,7 +317,9 @@ const FictionImageGallery = ({ save, onClose }) => {
         )}
       </div>
 
-      {note ? <p className="fic-ig-note" role="status">{note}</p> : null}
+         {note ? <p className="fic-ig-note" role="status">{note}</p> : null}
+
+      <FictionImageWarning saveId={saveId} selecting={selecting} onSelect={toggleSelecting} />
 
       <div className="fic-ig-scroll">
         {!loaded && <p className="fic-ig-empty">读取中……</p>}

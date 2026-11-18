@@ -68,7 +68,7 @@ import FictionSegmentFigures from './FictionSegmentFigures';
 import FictionImageComposer from './FictionImageComposer';
 import FictionImageViewer from './FictionImageViewer';
 import FictionImageGallery from './FictionImageGallery';
-import useFictionNodeImages from './useFictionNodeImages';
+import useFictionLazyImages from './useFictionLazyImages';
 import { deleteImage, retryImage } from './fictionImageService';
 import './fictionPlay.css';
 import './fictionEdit.css';
@@ -198,7 +198,7 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   // ---------- 派生数据 ----------
 
   const current = path.length > 0 ? path[path.length - 1] : null;
-  const { imagesByNode, imagesById } = useFictionNodeImages(saveId, path);
+   const { imagesByNode, imagesById, ensureUrl } = useFictionLazyImages(saveId, path);
 const [viewerId, setViewerId] = useState(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const stats = useMemo(() => normalizeStatDefs(save?.stats), [save]);
@@ -510,7 +510,11 @@ const [viewerId, setViewerId] = useState(null);
         <FictionSegmentBody text={node.text} highlightQuotes={readingPrefs.highlightQuotes} />
         <FictionSegmentFigures
           images={imagesByNode.get(node.id)}
-          onOpen={(image) => setViewerId(image.id)}
+                    onNeedUrl={ensureUrl}
+          onOpen={async (image) => {
+            await ensureUrl(image.id);
+            setViewerId(image.id);
+          }}
           onRetry={(image) => retryImage(image.id)}
           onDelete={(image) => deleteImage(image.id)}
         />
