@@ -13,6 +13,7 @@
 //
 import db from '../../../db';
 import { getOfficialCoupleCharacterId, findRelation } from './snapshotRelationService';
+import { buildAffinityHint, rollMentionUser } from './snapshotAffinityService';
 
 // 严格零 Emoji 过滤器
 export const removeEmoji = (text) =>
@@ -257,8 +258,16 @@ export const generateNpcPost = async (npc, chatId = null, charName = '', userNam
     ? `你的说话风格/性格棱角: ${npc.personaSummary}`
     : '';
 
+  // 友谊向好感：按档位给一段态度提示，熟人档以上还会掷一次"要不要 @用户"。
+  const affinityHint = await buildAffinityHint(npc.id);
+  const shouldMention = await rollMentionUser(npc.id);
+  const mentionName = userName || 'User';
+  const withMention = (text) =>
+    shouldMention && !String(text).includes(`@${mentionName}`) ? `${text} @${mentionName}` : text;
+
   const systemPrompt = `你是一个常驻生活在小镇/街区里的 NPC 角色 [${npc.name}]，你的职业/身份是 [${npc.roleTag || '街区邻里'}]。
 ${personaText}
+${affinityHint}
 你正在社交生活圈发布一条属于你职业与日常特质的真实拍立得动态。
 
 【绝对不能混淆的身份边界】
@@ -278,7 +287,8 @@ ${memoryContext ? `${memoryContext}\n（以上片段仅供你感知当下季节/
    - "imagePrompt": 照片画面的细节描摹，80字以内；
    - "content": 随感正文，不超过100字；
    - "location": 与你身份相符的地点（如：木槿花房、烘焙吧台、转角书店）。
-5. 绝对禁止使用任何 Emoji。`;
+5. 绝对禁止使用任何 Emoji。${shouldMention ? `
+6. 这条动态里请自然地 @${mentionName} 一次（直接写成 @${mentionName}），比如想起TA、顺口邀TA、或跟TA打个招呼，语气要符合上面的熟络程度，不要刻意。` : ''}`;
 
   const userPrompt = topicHint
     ? `请围绕主题：“${topicHint}” 记录你的生活切片。`
@@ -295,7 +305,7 @@ ${memoryContext ? `${memoryContext}\n（以上片段仅供你感知当下季节/
       const parsed = JSON.parse(jsonMatch[0]);
       return {
         imagePrompt: removeEmoji(parsed.imagePrompt || ''),
-        content: removeEmoji(parsed.content || ''),
+        content: withMention(removeEmoji(parsed.content || '')),
         location: removeEmoji(parsed.location || `${npc.name}的日常角落`)
       };
     } catch {}
@@ -303,7 +313,7 @@ ${memoryContext ? `${memoryContext}\n（以上片段仅供你感知当下季节/
 
   return {
     imagePrompt: `[街区随拍: ${npc.name} 忙碌的工作台]`,
-    content: result.slice(0, 100),
+    content: withMention(result.slice(0, 100)),
     location: `${npc.name}的小店`
   };
 };
@@ -330,6 +340,12 @@ export const generateSnapshotComment = async (snapshot, commenter, chatId = null
 
   const { text: relationInfo } = await buildRelationshipNarrative(chatId, entity, authorEntity);
 
+  // 只有"NPC 评论用户自己的动态"时，对用户的熟络程度才相关
+  const affinityHint =
+    commenter.type === 'npc' && snapshot.authorType === 'user'
+      ? await buildAffinityHint(commenter.id)
+      : '';
+
   const systemPrompt = `你正在以 [${commenter.name}] 的身份，为一条拍立得生活动态留言。
 
 【动态作者】: ${snapshot.authorName || '某位朋友'}
@@ -342,6 +358,8 @@ ${commenterDesc}
 
 【与作者的社交关系】:
 ${relationInfo}
+
+${affinityHint}
 
 【规则】
 1. 语言简练，20-50字以内，像真实生活圈里的留言。
@@ -377,6 +395,12 @@ export const generateSnapshotReply = async (snapshot, responder, replyTargetComm
 
   const { text: relationInfo } = await buildRelationshipNarrative(chatId, entity, authorEntity);
 
+  // 有 userReplyText 说明是用户本人在跟 NPC 说话，此时熟络程度才相关
+  const affinityHint =
+    responder.type === 'npc' && userReplyText
+      ? await buildAffinityHint(responder.id)
+      : '';
+
   const systemPrompt = `你正在拍立得动态下方，以 [${responder.name}] 的身份回复来自 [${replyTargetComment.senderName}] 的评论。
 
 【动态原帖背景】:
@@ -393,6 +417,8 @@ ${responderDesc}
 
 【你与动态作者的关系】:
 ${relationInfo}
+
+${affinityHint}
 
 【规则】
 1. 像日常交谈一样自然接话，20-60字以内。

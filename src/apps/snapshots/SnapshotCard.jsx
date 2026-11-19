@@ -14,6 +14,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import db from '../../db';
 import { generateSnapshotComment, generateSnapshotReply } from './services/snapshotAiService';
 import { getNpcsByChatId, ensureNpcPersona } from './services/snapshotNpcService';
+import { addNpcAffinity } from './services/snapshotAffinityService';
 import { compressImageFile } from './services/snapshotMediaService';
 
 export const SnapshotCard = ({
@@ -87,6 +88,11 @@ export const SnapshotCard = ({
       if (nextState) {
         setIsLikePopping(true);
         setTimeout(() => setIsLikePopping(false), 220);
+
+        // 给 NPC 的动态点赞：涨一点友谊好感（取消点赞不扣）
+        if (localSnapshot.authorType === 'npc' && localSnapshot.npcId) {
+          void addNpcAffinity(localSnapshot.npcId, 'like');
+        }
       }
     } catch (err) {
       console.error('点赞失败:', err);
@@ -152,6 +158,11 @@ export const SnapshotCard = ({
             };
           }
         }
+      }
+
+      // 用户评论/回复的对象是 NPC：涨一点友谊好感
+      if (target?.type === 'npc' && target.id !== null && target.id !== undefined) {
+        void addNpcAffinity(target.id, 'comment');
       }
 
       if (target && (target.type === 'character' || target.type === 'npc')) {
