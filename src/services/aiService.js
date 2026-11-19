@@ -3484,7 +3484,6 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           .catch((error) => console.warn('[FriendRequestAi] 加载失败：', error));
       }
       if (wantsGreetingCard && messageIds.length > 0) {
-      if (wantsGreetingCard && messageIds.length > 0) {
         const greetingTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
         void import('../apps/greeting/greetingSession')
           .then(({ runGreetingSession }) => runGreetingSession({
