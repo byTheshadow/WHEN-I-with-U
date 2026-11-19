@@ -10,6 +10,7 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Check, Plus } from 'lucide-react';
 
+import AppearanceField from './AppearanceField';
 import FictionSheetPortal from './FictionSheetPortal';
 
 import {
@@ -25,6 +26,8 @@ import {
 } from './fictionWizardService';
 
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+
+const joinSetting = (...parts) => parts.map((part) => String(part ?? '').trim()).filter(Boolean).join('\n');
 
 const str = (value) => String(value ?? '').trim();
 
@@ -67,7 +70,7 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
 
   const imported = Array.isArray(form.importedCharacters) ? form.importedCharacters : [];
   const npcs = Array.isArray(form.npcs) ? form.npcs : [];
-  const persona = { name: '', avatar: '', identity: '', extra: '', ...(form.persona || {}) };
+  const persona = { name: '', avatar: '', identity: '', appearance: '', extra: '', ...(form.persona || {}) };
   const main = form.mainCharacter;
 
   const mainImported = main?.source === 'imported'
@@ -201,6 +204,7 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
       name: seed?.name || '',
       bio: seed?.bio || '',
       extraNotes: seed?.extraNotes || '',
+      appearance: seed?.appearance || '',
     });
     setSheet({ type: 'customMain' });
   };
@@ -217,6 +221,7 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
         name: str(draft.name),
         bio: str(draft.bio),
         extraNotes: str(draft.extraNotes),
+        appearance: str(draft.appearance),
       },
     });
     setSheet(null);
@@ -235,7 +240,7 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
   // ---------- NPC ----------
 
   const openNpc = (npc) => {
-    setDraft({ id: npc?.id || null, name: npc?.name || '', desc: npc?.desc || '' });
+    setDraft({ id: npc?.id || null, name: npc?.name || '', desc: npc?.desc || '', appearance: npc?.appearance || '' });
     setSheet({ type: 'npc' });
   };
 
@@ -247,7 +252,12 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
       return;
     }
 
-    const next = { id: draft.id || makeId('npc'), name, desc: str(draft.desc) };
+    const next = {
+      id: draft.id || makeId('npc'),
+      name,
+      desc: str(draft.desc),
+      appearance: str(draft.appearance),
+    };
 
     onChange({
       npcs: draft.id
@@ -436,6 +446,15 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
             onChange={(event) => updateImported(item.localId, { bio: event.target.value })}
           />
 
+          <AppearanceField
+            id="fic-imp-appearance"
+            value={item.appearance || ''}
+            name={item.name}
+            setting={joinSetting(item.bio, item.extraNotes)}
+            background={form.background}
+            onChange={(text) => updateImported(item.localId, { appearance: text })}
+          />
+
           <label className="fic-w-sub-label" htmlFor="fic-imp-extra">补充设定</label>
           <textarea
             id="fic-imp-extra"
@@ -504,6 +523,15 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
             onChange={(event) => setDraft({ ...draft, bio: event.target.value })}
           />
 
+          <AppearanceField
+            id="fic-main-appearance"
+            value={draft.appearance || ''}
+            name={draft.name}
+            setting={joinSetting(draft.bio, draft.extraNotes)}
+            background={form.background}
+            onChange={(text) => setDraft({ ...draft, appearance: text })}
+          />
+
           <label className="fic-w-sub-label" htmlFor="fic-main-extra">补充设定</label>
           <textarea
             id="fic-main-extra"
@@ -559,6 +587,17 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
             maxLength={200}
             placeholder="身份、性格、和主角的关系，一两句就够。"
             onChange={(event) => setDraft({ ...draft, desc: event.target.value })}
+          />
+
+          <AppearanceField
+            id="fic-npc-appearance"
+            value={draft.appearance || ''}
+            name={draft.name}
+            setting={draft.desc}
+            background={form.background}
+            rows={2}
+            placeholder="发色发型、体型、常穿的衣服……"
+            onChange={(text) => setDraft({ ...draft, appearance: text })}
           />
         </SheetShell>
       );
@@ -617,6 +656,16 @@ const WizardStepCast = ({ form, onChange, onToast }) => {
           maxLength={TEXT_FIELD_MAX}
           placeholder="身份经历：你是谁、从哪来、做过什么。"
           onChange={(event) => patchPersona({ identity: event.target.value })}
+        />
+        <AppearanceField
+          id="fic-persona-appearance"
+          variant="persona"
+          rows={2}
+          value={persona.appearance}
+          name={persona.name}
+          setting={joinSetting(persona.identity, persona.extra)}
+          background={form.background}
+          onChange={(text) => patchPersona({ appearance: text })}
         />
         <textarea
           className="fic-w-textarea"

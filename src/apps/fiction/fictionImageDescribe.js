@@ -12,6 +12,7 @@
 
 import { callFictionApi } from './fictionAiService';
 import { loadResolvedImagePrompts } from './fictionImagePrompts';
+import { APPEARANCE_MAX } from './fictionAppearance';
 import { resolveCast } from './fictionPromptAssembler';
 
 export const DESCRIBE_MAX_TOKENS = 800;
@@ -28,11 +29,12 @@ const clipText = (text, max) => {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 };
 
-const renderCharacter = (name, detail) => {
+const renderCharacter = (name, detail, appearance = '') => {
   const lines = [`【${str(name) || '（未命名）'}】`];
   const text = clipText(detail, CHARACTER_MAX_CHARS);
 
-  if (text) lines.push(text);
+   if (text) lines.push(text);
+  if (str(appearance)) lines.push(`外貌特征：${clipText(appearance, APPEARANCE_MAX)}`);
 
   return lines.join('\n');
 };
@@ -43,17 +45,21 @@ export const buildCharacterBlock = (save) => {
   const lines = [];
 
   const pushCharacter = (character) => {
-    lines.push(renderCharacter(character.name, [character.bio, character.extraNotes].filter(Boolean).join('\n')));
+    lines.push(renderCharacter(
+      character.name,
+      [character.bio, character.extraNotes].filter(Boolean).join('\n'),
+      character.appearance,
+    ));
   };
 
   if (cast.main) pushCharacter(cast.main);
   cast.others.forEach(pushCharacter);
-  cast.npcs.forEach((npc) => lines.push(renderCharacter(npc.name, npc.desc)));
+  cast.npcs.forEach((npc) => lines.push(renderCharacter(npc.name, npc.desc, npc.appearance)));
 
   const persona = save?.persona;
 
   if (persona && (str(persona.name) || str(persona.identity))) {
-    lines.push(renderCharacter(`${str(persona.name) || '玩家'}（玩家扮演的角色）`, persona.identity));
+    lines.push(renderCharacter(`${str(persona.name) || '玩家'}（玩家扮演的角色）`, persona.identity, persona.appearance));
   }
 
   return lines.join('\n\n');

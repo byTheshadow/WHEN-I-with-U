@@ -5,6 +5,9 @@
 //   imagesByNode  Map<节点id, 图[]>，每段里按生成顺序排
 //   imagesById    Map<图id, 图>
 //   ensureUrl(图id)  读这张图的原图并生成 object URL，返回地址；读不到返回空字符串
+//   releaseUrl(图id) 释放这张图已读出的 object URL（滚得很远时由 FictionLazyImage 调用），
+//                    这张图回到「idle」，用缩略图占位，滚回来时会重新读
+//   pinUrl / unpinUrl(图id)  大图打开期间钉住这张图，钉住的图不会被释放
 //
 // 和旧版的区别：
 //   1. 只查当前剧情路径上那些段落的图记录，不再把整个存档的图记录都读出来。
@@ -17,7 +20,7 @@
 //             ''（图还在生成或失败，没有原图）
 //
 // 图的状态一变（生成中、完成、失败、删除），fictionImageService 会在 window 上发事件，
-// 这里收到就重新读记录；已经读出的 object URL 按图 id 缓存，图被删或离开页面时释放。
+// 这里收到就重新读记录；已经读出的 object URL 按图 id 缓存，图被删、滚得很远或离开页面时释放。
 // 进入游玩页时先把上次被打断、还停在「生成中」的图改成失败（recoverInterruptedImages）。
 
 import {
@@ -39,6 +42,9 @@ export const IMAGE_URL_STATE = {
   NONE: '',
 };
 
+// 释放时先让页面换成缩略图，隔一会儿再 revoke，免得图片元素还在用的时候地址就失效。
+const REVOKE_DELAY_MS = 1000;
+
 const EMPTY = { imagesByNode: new Map(), imagesById: new Map() };
 
 const useFictionLazyImages = (saveId, path) => {
@@ -48,6 +54,7 @@ const useFictionLazyImages = (saveId, path) => {
   const missingRef = useRef(new Set());
   const loadingRef = useRef(new Map());
   const wantedRef = useRef(new Set());
+  const pinnedRef = useRef(new Set());
   const tokenRef = useRef(0);
   const aliveRef = useRef(true);
   const nodeIdsRef = useRef([]);
@@ -106,6 +113,27 @@ const useFictionLazyImages = (saveId, path) => {
 
     setRows(next);
   }, [saveId]);
+
+  // 滚得很远的图：释放已读出的原图地址，图回到「idle」，用缩略图占位。
+  const releaseUrl = useCallback((imageId) => {
+    if (pinnedRef.current.has(imageId)) return;
+
+    const url = urlsRef.current.get(imageId);
+
+    if (!url) return;
+
+    urlsRef.current.delete(imageId);
+    setVersion((value) => value + 1);
+    setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+  }, []);
+
+  const pinUrl = useCallback((imageId) => {
+    pinnedRef.current.add(imageId);
+  }, []);
+
+  const unpinUrl = useCallback((imageId) => {
+    pinnedRef.current.delete(imageId);
+  }, []);
 
   const ensureUrl = useCallback(async (imageId) => {
     const existing = urlsRef.current.get(imageId);
@@ -225,7 +253,9 @@ const useFictionLazyImages = (saveId, path) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, version]);
 
-  return { ...state, ensureUrl };
+  return {
+    ...state, ensureUrl, releaseUrl, pinUrl, unpinUrl,
+  };
 };
 
 export default useFictionLazyImages;

@@ -1,0 +1,40 @@
+/* src/apps/fiction/fictionAppearance.css
+ *
+ * 「外貌特征」输入框（AppearanceField）的样式。
+ * 文本框、小标题、灰色说明沿用 fictionWizard*.css 里现成的类，这里只调间距，
+ * 并把「让 AI 写」做成实心主色按钮（和底色反色），颜色全部用主题变量。
+ */
+
+.fic-root .fic-ap-note {
+  margin-top: 4px;
+}
+
+.fic-root .fic-ap.is-persona .fic-ap-note {
+  margin-top: 14px;
+}
+
+.fic-root .fic-ap-textarea {
+  margin-top: 8px;
+}
+
+.fic-root .fic-ap.is-persona .fic-ap-textarea {
+  margin-top: 6px;
+}
+
+.fic-root .fic-ap-btn {
+  margin-top: 8px;
+  border-color: var(--fic-btn-bg);
+  background: var(--fic-btn-bg);
+  color: var(--fic-btn-fg);
+  font-weight: 600;
+}
+
+.fic-root .fic-ap-btn.is-armed {
+  border-color: var(--fic-wine);
+  background: var(--fic-wine);
+  color: #fff;
+}
+
+.fic-root .fic-ap-error {
+  color: var(--fic-wine-text);
+}

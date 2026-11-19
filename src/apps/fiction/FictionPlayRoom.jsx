@@ -198,8 +198,19 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   // ---------- 派生数据 ----------
 
   const current = path.length > 0 ? path[path.length - 1] : null;
-   const { imagesByNode, imagesById, ensureUrl } = useFictionLazyImages(saveId, path);
+   const {
+    imagesByNode, imagesById, ensureUrl, releaseUrl, pinUrl, unpinUrl,
+  } = useFictionLazyImages(saveId, path);
 const [viewerId, setViewerId] = useState(null);
+
+  // 大图打开期间钉住这张图的原图，滚得很远的释放逻辑不会动它。
+  useEffect(() => {
+    if (viewerId === null) return undefined;
+
+    pinUrl(viewerId);
+
+    return () => unpinUrl(viewerId);
+  }, [viewerId, pinUrl, unpinUrl]);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const stats = useMemo(() => normalizeStatDefs(save?.stats), [save]);
   const snapshot = current?.statsSnapshot || {};
@@ -511,6 +522,7 @@ const [viewerId, setViewerId] = useState(null);
         <FictionSegmentFigures
           images={imagesByNode.get(node.id)}
                     onNeedUrl={ensureUrl}
+          onRelease={releaseUrl}
           onOpen={async (image) => {
             await ensureUrl(image.id);
             setViewerId(image.id);

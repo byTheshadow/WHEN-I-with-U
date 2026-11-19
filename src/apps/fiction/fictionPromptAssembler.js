@@ -92,6 +92,7 @@ const pickCharacter = (source) => ({
   name: str(source?.name),
   bio: clip(source?.bio),
   extraNotes: clip(source?.extraNotes),
+  appearance: clip(source?.appearance),
 });
 
 /**
@@ -123,7 +124,7 @@ export const resolveCast = (save) => {
     others: imported.filter((item) => item.localId !== mainImportedId).map(pickCharacter),
     npcs: (Array.isArray(save?.npcs) ? save.npcs : [])
       .filter((npc) => str(npc?.name))
-      .map((npc) => ({ name: str(npc.name), desc: clip(npc.desc, 500) })),
+      .map((npc) => ({ name: str(npc.name), desc: clip(npc.desc, 500), appearance: clip(npc.appearance) }))
   };
 };
 
@@ -131,14 +132,22 @@ const renderCharacter = (character) => {
   const lines = [`【${character.name || '（未命名）'}】`];
 
   if (character.bio) lines.push(character.bio);
-  if (character.extraNotes) lines.push(`补充：${character.extraNotes}`);
+   if (character.extraNotes) lines.push(`补充：${character.extraNotes}`);
+  if (character.appearance) lines.push(`外貌特征（配图用）：${character.appearance}`);
 
   return lines.join('\n');
 };
 
 const buildCastBlock = (save) => {
-  const cast = resolveCast(save);
+    const cast = resolveCast(save);
   const blocks = [];
+
+  // 外貌特征只在自动配图时交给写正文的 AI（它要顺带写画面描述）；其他模式不带，省字数。
+  if (save?.imageMode !== 'auto') {
+    [cast.main, ...cast.others, ...cast.npcs].forEach((item) => {
+      if (item) item.appearance = '';
+    });
+  }
 
   if (cast.main) {
     blocks.push(`## 重点角色（故事的重点，戏份可以更多）\n${renderCharacter(cast.main)}`);
@@ -149,7 +158,7 @@ const buildCastBlock = (save) => {
   }
 
   if (cast.npcs.length > 0) {
-    blocks.push(`## 一定要出场的 NPC\n${cast.npcs.map((npc) => `- ${npc.name}${npc.desc ? `：${npc.desc}` : ''}`).join('\n')}`);
+    blocks.push(`## 一定要出场的 NPC\n${cast.npcs.map((npc) => `- ${npc.name}${npc.desc ? `：${npc.desc}` : ''}${npc.appearance ? `（外貌：${npc.appearance}）` : ''}`).join('\n')}`);
   }
 
   blocks.push('除上面列出的人物外，可以按剧情需要自行引入新角色。');
@@ -166,7 +175,10 @@ const buildPersonaBlock = (save) => {
 
   if (str(persona.name)) lines.push(`姓名：${str(persona.name)}`);
   if (str(persona.identity)) lines.push(`身份与经历：${clip(persona.identity)}`);
-  if (str(persona.extra)) lines.push(`补充：${clip(persona.extra)}`);
+   if (str(persona.extra)) lines.push(`补充：${clip(persona.extra)}`);
+  if (save?.imageMode === 'auto' && str(persona.appearance)) {
+    lines.push(`外貌特征（配图用）：${clip(persona.appearance)}`);
+  }
 
   return lines.length > 0 ? `## 玩家扮演的角色（「我的设定」）\n${lines.join('\n')}` : '';
 };

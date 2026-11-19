@@ -12,6 +12,7 @@
 import db from '../../db';
 import { THINKING_MAX_TOKENS, clampThinkingMaxTokens } from './fictionThinkingPresets';
 import { normalizePersonaAddress } from './fictionPerspective';
+import { APPEARANCE_MAX } from './fictionAppearance';
 import {
   FICTION_IMAGE_MODES,
   FICTION_MODES,
@@ -155,7 +156,7 @@ const CHAT_ONLY_KEYS = new Set([
   'isAutoMessageActive',
 ]);
 
-const EDITABLE_KEYS = ['name', 'bio', 'extraNotes'];
+const EDITABLE_KEYS = ['name', 'bio', 'extraNotes', 'appearance'];
 
 const isHeavyValue = (value) => (
   typeof value === 'function'
@@ -193,7 +194,9 @@ export const importCharacterCopy = (character) => {
     bio,
     extraNotes,
     // 原始人设：用来数「已微调几处」，也用来「恢复原人设」
-    original: { name, bio, extraNotes },
+    // 外貌特征只属于这份存档，不读聊天角色上原有的（生图室里的）外貌
+    appearance: '',
+    original: { name, bio, extraNotes, appearance: '' },
   };
 };
 
@@ -210,7 +213,8 @@ export const resetImportedCopy = (copy) => {
     ...copy,
     name: original.name ?? '',
     bio: original.bio ?? '',
-    extraNotes: original.extraNotes ?? '',
+       extraNotes: original.extraNotes ?? '',
+    appearance: original.appearance ?? '',
   };
 };
 
@@ -239,7 +243,7 @@ export const buildDefaultWizardForm = () => ({
   background: '',
   outline: '',
   style: { presetId: '', custom: '' },
-  persona: { name: '', avatar: '', identity: '', extra: '' },
+ persona: { name: '', avatar: '', identity: '', appearance: '', extra: '' },
   mainCharacter: null,
   importedCharacters: [],
   npcs: [],
@@ -265,7 +269,8 @@ const normalizeNpcs = (list) => (
     .filter((item) => item && str(item.name))
     .slice(0, MAX_NPCS)
     .map((item) => ({
-      id: item.id || makeId('npc'),
+          id: item.id || makeId('npc'),
+      appearance: str(item.appearance).slice(0, APPEARANCE_MAX),
       name: str(item.name),
       desc: str(item.desc),
     }))
@@ -330,7 +335,8 @@ const normalizeMain = (main, imported) => {
       source: 'custom',
       name,
       bio: str(main.bio),
-      extraNotes: str(main.extraNotes),
+       extraNotes: str(main.extraNotes),
+      appearance: str(main.appearance).slice(0, APPEARANCE_MAX),
     };
   }
 
@@ -344,12 +350,14 @@ const pickFormFields = (form, finish) => {
     name: str(persona.name),
     avatar: typeof persona.avatar === 'string' ? persona.avatar : '',
     identity: str(persona.identity),
+         appearance: str(persona.appearance).slice(0, APPEARANCE_MAX),
       extra: str(persona.extra),
     address: normalizePersonaAddress(persona.address),
   };
   const personaEmpty = !personaClean.name
     && !personaClean.avatar
     && !personaClean.identity
+    && !personaClean.appearance
     && !personaClean.extra
     && personaClean.address === 'you';
 

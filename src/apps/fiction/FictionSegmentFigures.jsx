@@ -16,7 +16,9 @@ import FictionReplaceNotice from './FictionReplaceNotice';
 import FictionLazyImage from './FictionLazyImage';
 import './fictionImages.css';
 
-const Figure = ({ image, replaced, onOpen, onNeedUrl, onRetry, onDelete }) => {
+const Figure = ({
+  image, replaced, onOpen, onNeedUrl, onRelease, onRetry, onDelete,
+}) => {
   if (image.status === FICTION_IMAGE_STATUS.PENDING) {
     return (
       <figure className="fic-img is-pending" aria-busy="true" aria-live="polite">
@@ -66,13 +68,15 @@ const Figure = ({ image, replaced, onOpen, onNeedUrl, onRetry, onDelete }) => {
         aria-label="查看大图"
         onClick={() => onOpen(image)}
       >
-             <FictionLazyImage image={image} onNeedUrl={onNeedUrl} />
+             <FictionLazyImage image={image} onNeedUrl={onNeedUrl} onRelease={onRelease} />
       </button>
     </figure>
   );
 };
 
-const FictionSegmentFigures = ({ images, onOpen, onNeedUrl, onRetry, onDelete }) => {
+const FictionSegmentFigures = ({
+  images, onOpen, onNeedUrl, onRelease, onRetry, onDelete,
+}) => {
   if (!Array.isArray(images) || images.length === 0) return null;
 
   return (
@@ -84,6 +88,7 @@ const FictionSegmentFigures = ({ images, onOpen, onNeedUrl, onRetry, onDelete })
           replaced={image.replacesImageId != null && images.some((other) => other.id === image.replacesImageId)}
                   onOpen={onOpen}
           onNeedUrl={onNeedUrl}
+          onRelease={onRelease}
           onRetry={onRetry}
           onDelete={onDelete}
         />
