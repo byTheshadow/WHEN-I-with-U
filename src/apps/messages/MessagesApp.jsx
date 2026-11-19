@@ -62,6 +62,16 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [broadcastSelectedIds, setBroadcastSelectedIds] = useState(() => new Set());
   const [showBroadcastComposer, setShowBroadcastComposer] = useState(false);
 
+  // 朋友"自己来"：每次打开消息页按概率掷一次，掷中就在后台生成一封申请，写好后刷新红点。
+  useEffect(() => {
+    void import('./friends/friendWanderService')
+      .then(({ maybeWanderFriendRequest }) => maybeWanderFriendRequest())
+      .then((created) => {
+        if (created) loadData();
+      })
+      .catch((error) => console.warn('[FriendWander] 加载失败：', error));
+  }, []);
+
   useEffect(() => {
     loadData();
   }, []);

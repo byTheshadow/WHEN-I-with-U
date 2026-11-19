@@ -55,7 +55,7 @@ const FALLBACK_ROSTER = [
   },
 ];
 
-const pickFallback = (usedNames) => {
+export const pickFallback = (usedNames) => {
   const free = FALLBACK_ROSTER.filter(
     (item) => !usedNames.has(item.alias) && !usedNames.has(item.hidden.realName),
   );
@@ -118,7 +118,7 @@ const extractText = (content) => {
   return '';
 };
 
-const parseDraft = (text) => {
+export const parseDraft = (text) => {
   const raw = String(text || '');
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
