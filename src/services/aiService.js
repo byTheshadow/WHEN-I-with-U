@@ -1065,6 +1065,18 @@ const attemptAiCompletionOnce = async ({ apiConfig, systemPrompt, messages, tool
   if (Array.isArray(tools) && tools.length > 0) {
     requestBody.tools = tools;
     requestBody.tool_choice = 'auto';
+
+    // DeepSeek 的思考模式默认开启，且带 tools 时要求把历史里每条 assistant
+    // 消息的 reasoning_content 原样回传，否则返回 400。本项目的历史上下文
+    // 和工具循环都不保存 reasoning_content，所以带工具的请求对 DeepSeek
+    // 显式关闭思考。判断同时看模型名和 baseUrl，兼容中转地址。
+    const isDeepSeek =
+      /deepseek/i.test(String(apiConfig.model || '')) ||
+      /deepseek/i.test(String(apiConfig.baseUrl || ''));
+
+    if (isDeepSeek) {
+      requestBody.thinking = { type: 'disabled' };
+    }
   }
 
   try {
