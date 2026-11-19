@@ -232,6 +232,8 @@ export const describeMessageForExport = (message) => {
     case 'poke':
       return raw ? `[${raw}]` : '[戳了戳]';
     case 'interaction':
+         case 'friend_result_notice':
+    case 'friend_intro_notice':
     case 'challenge_complete':
     case 'text_game_result':
       return raw ? `[${raw}]` : `[${type}]`;

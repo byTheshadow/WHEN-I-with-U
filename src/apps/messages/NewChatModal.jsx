@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { X, Sparkles, ShieldCheck, Briefcase } from 'lucide-react';
+import { X, Sparkles, ShieldCheck, Briefcase, UserPlus, ChevronRight } from 'lucide-react';
 import db from '../../db';
 import { getOrCreateWorkAssistantCharacter } from './work/workAssistantService';
 
-export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
+export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter, hasPendingFriends = false, onOpenFriends }) => {
   const [characters, setCharacters] = useState([]);
   const [selectedCharId, setSelectedCharId] = useState('');
   const [mode, setMode] = useState('real'); // 'real' | 'rp' | 'work'
@@ -137,6 +137,43 @@ export const NewChatModal = ({ onClose, onCreated, onCreateNewCharacter }) => {
             <X className="w-4 h-4" />
           </button>
         </div>
+
+               {typeof onOpenFriends === 'function' && (
+          <button
+            type="button"
+            onClick={onOpenFriends}
+            aria-label={hasPendingFriends ? '新的朋友，有新的申请' : '新的朋友'}
+            className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left active:scale-[0.99] transition-transform"
+            style={{
+              background: 'var(--control-soft-bg)',
+              border: '1px solid var(--divider)',
+              color: 'var(--text-main)',
+            }}
+          >
+            <span
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'var(--accent-color)', color: 'var(--accent-foreground)' }}
+            >
+              <UserPlus className="w-[18px] h-[18px]" />
+            </span>
+
+            <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+              <span className="text-[13px] font-bold">新的朋友</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-sub)' }}>
+                {hasPendingFriends ? '有人想认识你' : '暂时没有新的申请'}
+              </span>
+            </span>
+
+            {hasPendingFriends && (
+              <span
+                aria-hidden="true"
+                className="shrink-0"
+                style={{ width: 10, height: 10, borderRadius: '50%', background: '#e5484d' }}
+              />
+            )}
+            <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--text-sub)' }} />
+          </button>
+        )}
 
         {mode !== 'work' && characters.length === 0 ? (
           <div className="py-6 text-center space-y-3">

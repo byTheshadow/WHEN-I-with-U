@@ -60,6 +60,7 @@ import {
 import { runScreenEffectSession } from '../apps/messages/screenEffects/screenEffectSession';
 import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
 import { buildGreetingPromptNote, applyGreetingDirective } from '../apps/greeting/greetingDirective';
+import { buildFriendIntroPromptNote, applyFriendIntroDirective } from '../apps/messages/friends/friendIntroDirective';
 import { buildBookPromptNote, applyBookDirective } from '../apps/greeting/popupBookDirective';
 import { buildToyPromptNote, applyToyDirective } from '../apps/messages/toys/toyDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
@@ -795,6 +796,18 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
 
   if (msg.type === 'secret_code_proposal') {
     return formatSecretCodeProposalForPrompt(msg);
+  }
+
+    if (msg.type === 'friend_result_notice') {
+    const r = msg.metadata || {};
+    return r.result === 'accepted'
+      ? `[用户通过了你介绍的朋友「${r.alias || ''}」的好友申请（对方真名${r.realName || r.alias || ''}${r.relation ? `，${r.relation}` : ''}）]`
+      : '[用户没有通过你介绍的那位朋友的好友申请]';
+  }
+
+
+  if (msg.type === 'friend_intro_notice') {
+    return '[你刚向用户介绍了一位朋友，对方已发来好友申请，等用户决定要不要通过]';
   }
 
   if (msg.type === 'challenge_complete') {
@@ -2764,6 +2777,10 @@ const greetingNote = options.ignoreAway
   ? ''
   : await buildGreetingPromptNote({ characterId: character.id });
 
+const friendIntroNote = options.ignoreAway
+  ? ''
+  : await buildFriendIntroPromptNote({ characterId: character.id });
+
 const bookNote = options.ignoreAway
   ? ''
   : await buildBookPromptNote({ characterId: character.id });
@@ -2845,6 +2862,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   privateAreaNote ? `\n\n${privateAreaNote}` : ''
 }${
   greetingNote ? `\n\n${greetingNote}` : ''
+}${
+  friendIntroNote ? `\n\n${friendIntroNote}` : ''
 }${
   bookNote ? `\n\n${bookNote}` : ''
 }${
@@ -3032,7 +3051,12 @@ const {
   content: contentAfterGreeting,
   wantsCard: wantsGreetingCard,
   occasion: greetingOccasion,
-} = applyGreetingDirective({ content: contentAfterBubbleStyle });
+} = applyGreetingDirective({ content: applyFriendIntroDirective({ content: contentAfterBubbleStyle }).content });
+
+// 取出角色的 [FRIEND_INTRO] 标签（上面已经从正文去掉），回复写入之后再单独生成这位朋友的申请。
+const { wantsIntro: wantsFriendIntro, reason: friendIntroReason } = applyFriendIntroDirective({
+  content: contentAfterBubbleStyle,
+});
 
 // 取出角色的 [PRIVATE_WANT] 标签（一律从正文去掉），回复写入之后再单独整理专属小本子。
 const { content: contentAfterPrivateArea, wantsPrivateArea } = applyPrivateAreaDirective({
@@ -3451,6 +3475,15 @@ for (const [messageIndex, msgData] of safeParsedMessages.entries()) {
           .then(({ runPrivateAreaSession }) => runPrivateAreaSession({ chatId, character, source: 'tag' }))
           .catch((error) => console.warn('[PrivateAreaSession] 加载失败：', error));
       }
+            if (wantsFriendIntro && messageIds.length > 0) {
+        const friendIntroTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
+        void import('../apps/messages/friends/friendRequestAiService')
+          .then(({ runFriendIntroSession }) => runFriendIntroSession({
+            chatId, character, triggerReply: friendIntroTrigger, reason: friendIntroReason,
+          }))
+          .catch((error) => console.warn('[FriendRequestAi] 加载失败：', error));
+      }
+      if (wantsGreetingCard && messageIds.length > 0) {
       if (wantsGreetingCard && messageIds.length > 0) {
         const greetingTrigger = safeParsedMessages.find((m) => m.type === 'text')?.content || '';
         void import('../apps/greeting/greetingSession')

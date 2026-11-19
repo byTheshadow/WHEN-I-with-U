@@ -18,6 +18,9 @@ import ChatPokeNotice from '../interactions/ChatPokeNotice';
 import MoodUpdateNotice from '../mood/MoodUpdateNotice';
 import ChatDiyUpdateNotice from '../diy/ChatDiyUpdateNotice';
 import ChallengeCompletionNotice from '../../challenges/ChallengeCompletionNotice';
+import FriendIntroNotice from '../friends/FriendIntroNotice';
+import FriendResultNotice from '../friends/FriendResultNotice';
+
 import HarpMelodyNotice from '../../harp/HarpMelodyNotice';
 import PixelDollGiftNotice from '../../pixelDoll/PixelDollGiftNotice';
 import GreetingGiftNotice from '../../greeting/GreetingGiftNotice';
@@ -312,6 +315,14 @@ const MessageRow = ({
 
   // 异地任务挑战——用户完成"TA发起的任务"后留的痕迹：同样是一条居中
   // 系统提示行，不可点击跳转，具体进度去打卡板面板里看。
+  if (msg.type === 'friend_result_notice') {
+    return <FriendResultNotice message={msg} />;
+  }
+
+  if (msg.type === 'friend_intro_notice') {
+    return <FriendIntroNotice message={msg} />;
+  }
+
   if (msg.type === 'challenge_complete') {
     return <ChallengeCompletionNotice message={msg} />;
   }

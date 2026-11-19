@@ -26,6 +26,8 @@ import ChatRoom from './ChatRoom';
 import CharacterLibrary from './CharacterLibrary';
 import CharacterEditor from './CharacterEditor';
 import NewChatModal from './NewChatModal';
+import FriendRequestsModal from './friends/FriendRequestsModal';
+import { countPendingFriendRequests, getGlobalFriendState } from './friends/friendRequestService';
 import CheckInSettings from './check-in/CheckInSettings';
 import CompanionshipPage from './companionship/CompanionshipPage';
 import BroadcastComposer from './components/BroadcastComposer';
@@ -47,7 +49,10 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
   const [activeChatId, setActiveChatId] = useState(null);
   const [editingChar, setEditingChar] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
+    const [showNewChatModal, setShowNewChatModal] = useState(false);
+  // 好友申请：是否打开申请页；"自己来的"申请存在全局（db.settings），红点要把它也算上
+  const [showFriendRequests, setShowFriendRequests] = useState(false);
+  const [globalFriendState, setGlobalFriendState] = useState(null);
   const [deletingChatTarget, setDeletingChatTarget] = useState(null);
   const [showCheckInSettings, setShowCheckInSettings] = useState(false);
 
@@ -82,6 +87,7 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 
       setChats(safeChatList);
       setCharacters(Array.isArray(charList) ? charList : []);
+      setGlobalFriendState(await getGlobalFriendState());
 
       try {
         const nextBadgeMap = await getEquippedBadgesForChats(safeChatList.map((item) => item.id));
@@ -125,6 +131,9 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
       );
     }
   };
+
+    // "+"按钮的红点：只看有没有待处理的好友申请，不显示数字
+  const hasPendingFriends = countPendingFriendRequests(characters, globalFriendState) > 0;
 
   const filteredChats = chats.filter((c) =>
     (c.title || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -393,14 +402,31 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
             <button
               type="button"
               onClick={() => setShowNewChatModal(true)}
-              className="p-2.5 rounded-2xl active:scale-95 transition-transform shadow-sm"
+             className="relative p-2.5 rounded-2xl active:scale-95 transition-transform shadow-sm"
               style={{
                 background: 'var(--accent-color)',
                 color: 'var(--accent-foreground)',
               }}
-              title="开启新对话"
+                          title="开启新对话"
+              aria-label={hasPendingFriends ? '开启新对话，有新的好友申请' : '开启新对话'}
             >
-              <Plus className="w-4 h-4" />
+                        <Plus className="w-4 h-4" />
+              {hasPendingFriends && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -4,
+                    width: 9,
+                    height: 9,
+                    borderRadius: '50%',
+                    background: '#e5484d',
+                    border: '2px solid var(--bg-main, #f4f1ec)',
+                    boxSizing: 'content-box',
+                  }}
+                />
+              )}
             </button>
                    </div>
 
@@ -622,8 +648,20 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
         />
       )}
 
+      {showFriendRequests && (
+        <FriendRequestsModal
+          onClose={() => setShowFriendRequests(false)}
+          onChanged={loadData}
+        />
+      )}
+
       {showNewChatModal && (
-        <NewChatModal
+             <NewChatModal
+          hasPendingFriends={hasPendingFriends}
+          onOpenFriends={() => {
+            setShowNewChatModal(false);
+            setShowFriendRequests(true);
+          }}
           onClose={() => setShowNewChatModal(false)}
           onCreated={(newChat) => {
             setShowNewChatModal(false);

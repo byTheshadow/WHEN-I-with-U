@@ -1,0 +1,490 @@
+/* src/apps/messages/friends/friend-requests.css
+ *
+ * 【新建文件说明】好友申请页的样式，照"好友申请 · 视觉参考"做的。
+ * 所有类名都带 fr- 前缀，颜色优先取 App 现有的主题变量，没有变量时退回参考图里的暖灰配色。
+ * 页面是真正的全屏浮层（自己的 fixed inset-0 根节点），所以用 fixed 是安全的。
+ * 没有整条顶栏：只有左上角圆形返回钮 / 右上角圆形设置钮悬浮在内容上。
+ */
+
+.fr-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-main, #f4f1ec);
+  color: var(--text-main, #23201c);
+  font-family: 'PingFang SC', 'Noto Sans SC', 'Hiragino Sans GB', system-ui, sans-serif;
+  --fr-ink: var(--text-main, #23201c);
+  --fr-sub: var(--text-sub, #6b655d);
+  --fr-card: var(--card-bg, #fffdfa);
+  --fr-line: var(--divider, #e4ddd2);
+  --fr-accent: var(--accent-color, #23201c);
+  --fr-accent-fg: var(--accent-foreground, #fffdfa);
+  --fr-dot: #e5484d;
+}
+
+.fr-scroll {
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 20px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 悬浮圆形按钮（返回 / 设置） */
+.fr-top {
+  display: flex;
+  justify-content: space-between;
+}
+
+.fr-round {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--fr-line);
+  background: var(--fr-card);
+  color: var(--fr-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fr-round:active {
+  transform: scale(0.95);
+}
+
+/* 页面大标题 */
+.fr-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 4px 0;
+}
+
+.fr-title h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.fr-title p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fr-sub);
+}
+
+.fr-sec {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fr-sub);
+  padding: 0 4px;
+}
+
+.fr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 申请卡片 */
+.fr-card {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--fr-card);
+  border: 1px solid var(--fr-line);
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fr-card:active {
+  transform: scale(0.99);
+}
+
+.fr-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fr-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fr-card-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.fr-card-time {
+  font-size: 11px;
+  color: var(--fr-sub);
+}
+
+.fr-card-line {
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.85;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.fr-card-from {
+  font-size: 11px;
+  color: var(--fr-sub);
+}
+
+.fr-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--fr-accent);
+  color: var(--fr-accent-fg);
+}
+
+/* 首字占位头像 */
+.fr-av {
+  flex: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #23201c;
+}
+
+.fr-av--44 { width: 44px; height: 44px; font-size: 17px; }
+.fr-av--38 { width: 38px; height: 38px; font-size: 15px; }
+.fr-av--34 { width: 34px; height: 34px; font-size: 14px; }
+.fr-av--88 { width: 88px; height: 88px; font-size: 34px; }
+
+/* 已处理历史 */
+.fr-fold {
+  font: inherit;
+  color: var(--fr-sub);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+}
+
+.fr-hist {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--fr-card);
+  border: 1px solid var(--fr-line);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fr-hist--btn { cursor: pointer; }
+
+.fr-hist--missed {
+  background: transparent;
+  border: 1px dashed var(--fr-line);
+  opacity: 0.75;
+}
+
+.fr-hist-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fr-hist-state {
+  font-size: 11px;
+  color: var(--fr-sub);
+}
+
+.fr-hist-state--ok {
+  color: var(--fr-ink);
+  font-weight: 700;
+}
+
+.fr-empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--fr-sub);
+  line-height: 1.8;
+  padding: 48px 0 24px;
+}
+
+/* 详情页 / 名片页 */
+.fr-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.fr-hero-name {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.fr-hero-sub {
+  font-size: 12px;
+  color: var(--fr-sub);
+}
+
+/* 直角信息块（这一页刻意不用圆角） */
+.fr-block {
+  border: 1px solid var(--fr-ink);
+  border-radius: 0;
+  background: var(--fr-card);
+  display: flex;
+  flex-direction: column;
+}
+
+.fr-row {
+  display: flex;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--fr-line);
+}
+
+.fr-row:last-child {
+  border-bottom: 0;
+}
+
+.fr-label {
+  width: 56px;
+  flex: none;
+  font-size: 11px;
+  color: var(--fr-sub);
+  padding-top: 2px;
+}
+
+.fr-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.fr-value--strong {
+  font-weight: 600;
+}
+
+.fr-row--locked {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 6px,
+    var(--fr-line) 6px,
+    var(--fr-line) 12px
+  );
+}
+
+.fr-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.fr-note {
+  font-size: 11px;
+  color: var(--fr-sub);
+  line-height: 1.7;
+  padding: 0 4px;
+}
+
+.fr-spacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+.fr-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.fr-btn {
+  flex: 1;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--fr-ink);
+  background: transparent;
+  color: var(--fr-ink);
+  cursor: pointer;
+}
+
+.fr-btn--solid {
+  background: var(--fr-accent);
+  border-color: var(--fr-accent);
+  color: var(--fr-accent-fg);
+}
+
+.fr-btn:disabled {
+  cursor: not-allowed;
+  background: var(--fr-line);
+  border-color: var(--fr-line);
+  color: var(--fr-sub);
+}
+
+.fr-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.fr-center-note {
+  text-align: center;
+  font-size: 11px;
+  color: var(--fr-sub);
+}
+
+/* 设置区 */
+.fr-set-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--fr-card);
+  border: 1px solid var(--fr-line);
+}
+
+.fr-set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--fr-card);
+  border: 1px solid var(--fr-line);
+}
+
+.fr-set-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fr-set-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.fr-set-desc {
+  font-size: 11px;
+  color: var(--fr-sub);
+  line-height: 1.6;
+}
+
+.fr-set-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fr-switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: #cfc7ba;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.fr-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fffdfa;
+  transition: transform 0.18s ease;
+}
+
+.fr-switch[aria-checked='true'] {
+  background: var(--fr-accent);
+}
+
+.fr-switch[aria-checked='true']::after {
+  transform: translateX(18px);
+}
+
+.fr-switch--lg {
+  width: 48px;
+  height: 28px;
+}
+
+.fr-switch--lg::after {
+  width: 22px;
+  height: 22px;
+}
+
+.fr-switch--lg[aria-checked='true']::after {
+  transform: translateX(20px);
+}
+
+/* 临时测试入口（切片 B 做完 AI 生成后删掉） */
+.fr-dev {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px dashed var(--fr-line);
+  border-radius: 14px;
+}
+
+.fr-dev-title {
+  font-size: 11px;
+  color: var(--fr-sub);
+}
+
+.fr-dev button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--fr-ink);
+  background: transparent;
+  border: 1px solid var(--fr-line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
