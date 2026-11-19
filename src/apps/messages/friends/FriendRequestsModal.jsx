@@ -26,6 +26,7 @@ import {
 } from './friendRequestService';
 
 import { resolveFriendRequest } from './friendDecisionService';
+import FriendChatRoom from './FriendChatRoom';
 import './friend-requests.css';
 
 // ====== 展示用小工具 ======
@@ -92,6 +93,7 @@ export const FriendRequestsModal = ({ onClose, onChanged }) => {
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState({ globalEnabled: false, characters: [] });
   const [devMsg, setDevMsg] = useState('');
+const [chatFriend, setChatFriend] = useState(null); // { id, ownerId, name }：正在聊天的朋友
 
   const reload = useCallback(async () => {
     setItems(await loadFriendRequestItems());
@@ -330,8 +332,20 @@ export const FriendRequestsModal = ({ onClose, onChanged }) => {
 
           <div className="fr-spacer" />
 
-          <button type="button" className="fr-btn" disabled>开始聊天</button>
-          <div className="fr-center-note">即将开放</div>
+          <button
+            type="button"
+            className="fr-btn fr-btn--solid"
+            onClick={() =>
+              setChatFriend({
+                id: selected.id,
+                ownerId: fromChar ? selected.ownerId : null,
+                name: realName,
+              })
+            }
+          >
+            开始聊天
+          </button>
+          <div className="fr-center-note">和朋友的对话只保存在这台设备上</div>
         </>
       );
     }
@@ -464,6 +478,10 @@ export const FriendRequestsModal = ({ onClose, onChanged }) => {
         {view === 'detail' && renderDetail()}
         {view === 'settings' && renderSettings()}
       </div>
+
+        {chatFriend && (
+        <FriendChatRoom friend={chatFriend} onBack={() => setChatFriend(null)} />
+      )}
 
       <ConfirmModal
         isOpen={confirmDecline}

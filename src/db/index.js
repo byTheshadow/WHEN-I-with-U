@@ -5181,4 +5181,11 @@ db.version(112).stores({
   characterTasks: '++id, chatId, characterId, status, createdAt, [chatId+status]',
 });
 
+// 好友申请 · 切片 D（src/apps/messages/friends/）：和已通过的朋友的聊天记录。
+// 朋友不是真角色，聊天记录不放 messages 表，所以也不会进记忆系统。
+// friendId 就是好友名片 id（字符串）；[friendId+timestamp] 给"按时间取最近 N 条"用。
+db.version(113).stores({
+  friendMessages: '++id, friendId, timestamp, [friendId+timestamp]',
+});
+
 export default db;

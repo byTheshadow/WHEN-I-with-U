@@ -61,6 +61,7 @@ import { runScreenEffectSession } from '../apps/messages/screenEffects/screenEff
 import { runBubbleStyleSession } from '../apps/messages/bubbleStyleSession';
 import { buildGreetingPromptNote, applyGreetingDirective } from '../apps/greeting/greetingDirective';
 import { buildFriendIntroPromptNote, applyFriendIntroDirective } from '../apps/messages/friends/friendIntroDirective';
+import { buildFriendRumorPromptNote } from '../apps/messages/friends/friendRumorNote';
 import { buildBookPromptNote, applyBookDirective } from '../apps/greeting/popupBookDirective';
 import { buildToyPromptNote, applyToyDirective } from '../apps/messages/toys/toyDirective';
 import { buildBackgroundSwitchPromptNote, applyBackgroundSwitchDirective } from '../apps/messages/backgroundSwitchDirective';
@@ -2781,6 +2782,11 @@ const friendIntroNote = options.ignoreAway
   ? ''
   : await buildFriendIntroPromptNote({ characterId: character.id });
 
+// 好友申请·风声：介绍出去的朋友那边有明显的情绪时，带一句模糊的“听说”，用一次就清。
+const friendRumorNote = options.ignoreAway
+  ? ''
+  : await buildFriendRumorPromptNote({ characterId: character.id });
+
 const bookNote = options.ignoreAway
   ? ''
   : await buildBookPromptNote({ characterId: character.id });
@@ -2864,6 +2870,8 @@ const userReturnContext = `${buildUserReturnContext(recentMsgs)}${
   greetingNote ? `\n\n${greetingNote}` : ''
 }${
   friendIntroNote ? `\n\n${friendIntroNote}` : ''
+}${
+  friendRumorNote ? `\n\n${friendRumorNote}` : ''
 }${
   bookNote ? `\n\n${bookNote}` : ''
 }${
