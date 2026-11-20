@@ -49,6 +49,7 @@ const buildCard = (item, now) => ({
   avatarId: item.avatarId ?? null,
   introducedBy: item.ownerType === 'character' ? Number(item.ownerId) : null,
   introReason: item.introReason || '',
+  source: item.source || '',
   acceptedAt: now,
   memorySummary: '',
 });
@@ -99,6 +100,7 @@ const insertResultNotice = async ({ chat, characterId, metadata, now }) => {
 const writeIntroducerMemory = async ({ chat, character, card }) => {
   const parts = [
     `用户通过了我介绍的朋友「${card.alias}」的好友申请。`,
+    card.source === 'checkin' ? '这次是我很久没联系用户时，我的朋友来问候的。' : '',
     card.realName && card.realName !== card.alias ? `TA 的真名是${card.realName}。` : '',
     card.relation ? `TA 和我的关系：${card.relation}。` : '',
     card.personality ? `性格：${card.personality}。` : '',

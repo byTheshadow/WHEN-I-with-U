@@ -26,6 +26,7 @@ import {
 } from './friendRequestService';
 
 import { resolveFriendRequest } from './friendDecisionService';
+import { maybeCheckinFriendRequest } from './friendCheckinService';
 import FriendChatRoom from './FriendChatRoom';
 import './friend-requests.css';
 
@@ -203,6 +204,17 @@ const [chatFriend, setChatFriend] = useState(null); // { id, ownerId, name }：�
     } catch (err) {
       console.error('[FriendRequestsModal] 写入测试申请失败:', err);
       setDevMsg('写入失败，看看控制台');
+    }
+  };
+
+  // 临时测试入口：强制触发一次"久未联系"（跳过概率和天数，名额、开关仍要满足）
+  const handleDevCheckin = async () => {
+    setDevMsg('生成中…');
+    const created = await maybeCheckinFriendRequest({ force: true });
+    setDevMsg(created ? '已写入一封「久未联系」申请' : '没触发：开关没开、名额满了，或没有聊过的角色');
+    if (created) {
+      await reload();
+      notifyChanged();
     }
   };
 
@@ -451,6 +463,9 @@ const [chatFriend, setChatFriend] = useState(null); // { id, ownerId, name }：�
         </button>
         <button type="button" onClick={() => handleDevCreate('global')}>
           写入一封「自己来的」测试申请
+        </button>
+        <button type="button" onClick={handleDevCheckin}>
+          强制触发一次「久未联系」
         </button>
         {devMsg && <span className="fr-dev-title">{devMsg}</span>}
       </div>

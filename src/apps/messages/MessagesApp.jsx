@@ -64,12 +64,18 @@ export const MessagesApp = ({ onBackHub, onChatRoomStateChange }) => {
 
   // 朋友"自己来"：每次打开消息页按概率掷一次，掷中就在后台生成一封申请，写好后刷新红点。
   useEffect(() => {
-    void import('./friends/friendWanderService')
-      .then(({ maybeWanderFriendRequest }) => maybeWanderFriendRequest())
-      .then((created) => {
+    void import('./friends/friendCheckinService')
+      .then(({ maybeCheckinFriendRequest }) => maybeCheckinFriendRequest())
+      .then(async (checkedIn) => {
+        if (checkedIn) {
+          loadData();
+          return;
+        }
+        const { maybeWanderFriendRequest } = await import('./friends/friendWanderService');
+        const created = await maybeWanderFriendRequest();
         if (created) loadData();
       })
-      .catch((error) => console.warn('[FriendWander] 加载失败：', error));
+      .catch((error) => console.warn('[FriendCheckin/Wander] 加载失败：', error));
   }, []);
 
   useEffect(() => {

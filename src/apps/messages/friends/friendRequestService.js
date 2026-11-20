@@ -151,6 +151,7 @@ const buildRequest = (draft, now) => ({
   alias: String(draft?.alias || '').trim() || '陌生人',
   openingLine: String(draft?.openingLine || '').trim(),
   introReason: String(draft?.introReason || '').trim(),
+  source: String(draft?.source || '').trim(),
   hidden: {
     realName: String(draft?.hidden?.realName || '').trim(),
     relation: String(draft?.hidden?.relation || '').trim(),
