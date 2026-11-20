@@ -45,8 +45,8 @@ const HarpCanvas = forwardRef(function HarpCanvas({ onPluck, disabled = false },
   useImperativeHandle(
     ref,
     () => ({
-      pluck: (index, frac, by, timbre, pitch) =>
-        apiRef.current.pluck?.(index, frac, by, timbre, pitch),
+      pluck: (index, frac, by, timbre, pitch, tune) =>
+        apiRef.current.pluck?.(index, frac, by, timbre, pitch, tune),
       strum: (index, frac) => apiRef.current.strum?.(index, frac),
     }),
     []
@@ -436,7 +436,7 @@ const HarpCanvas = forwardRef(function HarpCanvas({ onPluck, disabled = false },
     // ---------- 拨弦 ----------
        // timbre：可选，重听旧旋律时指定它当时的音色；不传就用当前音色
     // pitch：可选，发声用的音符编号（10-13 是 4、7，没有对应的弦）；不传就是 index 本身
-    const pluck = (index, frac, by, timbre, pitch) => {
+    const pluck = (index, frac, by, timbre, pitch, tune) => {
       const s = strs[index];
       if (!s) return;
       const now = performance.now();
@@ -445,7 +445,7 @@ const HarpCanvas = forwardRef(function HarpCanvas({ onPluck, disabled = false },
       s.t0 = now;
       s.p = fraction;
       s.by = isTa ? 'ta' : 'user';
-      playHarpNote(typeof pitch === 'number' ? pitch : index, timbre);
+      playHarpNote(typeof pitch === 'number' ? pitch : index, timbre, tune);
 
       const y = s.top + (s.bottom - s.top) * fraction;
       const color = isTa ? pal.taGlow : pal.tints[index];

@@ -1,5 +1,5 @@
 import { getPitch } from './harpNotes';
-import { DEFAULT_TIMBRE, normalizeTimbreId } from './harpTimbres';
+import { DEFAULT_TIMBRE, normalizeTimbreId, normalizeTune } from './harpTimbres';
 import { renderPluckSamples } from './harpPluckSynth';
 
 // ============================================================
@@ -67,6 +67,13 @@ const TIMBRE_VOICES = {
     level: 0.55,
   },
 };
+
+// 音色微调（见 harpTimbres.js 的 tune）：三项各三档，下标就是档位。
+// 亮度：高次泛音的音量倍数，外加走哪条干声；余音：整体时长倍数；回声：送进回声的量的倍数。
+const TUNE_BRIGHT_PARTIALS = [0.45, 1, 1.7];
+const TUNE_SUSTAIN = [0.6, 1, 1.6];
+const TUNE_ECHO = [0.4, 1, 1.8];
+const NO_TUNE = { bright: 1, sustain: 1, echo: 1 };
 
 let audioCtx = null;
 let bus = null;
@@ -142,13 +149,15 @@ export const ensureHarpAudio = () => {
 };
 
 // 拨弦的波形：第一次要这根弦时算出来，之后复用。
-const getPluckBuffer = (index, voice) => {
-  const cached = pluckBuffers[index];
+// 余音微调会改波形长度，所以缓存按"音符 + 余音档位"分开存。
+const getPluckBuffer = (index, voice, sustainLevel = 1) => {
+  const cacheKey = `${index}:${sustainLevel}`;
+  const cached = pluckBuffers[cacheKey];
   if (cached) return cached;
 
   const note = getPitch(index);
   // 余音和阻尼按"画面上点亮的那根弦"算，4、7 两个没有弦的音借用相邻的弦
-  const ring = voice.ring(note.light);
+  const ring = voice.ring(note.light) * TUNE_SUSTAIN[sustainLevel];
   const samples = renderPluckSamples({
     sampleRate: audioCtx.sampleRate,
     freq: note.freq,
@@ -160,45 +169,57 @@ const getPluckBuffer = (index, voice) => {
 
   const buffer = audioCtx.createBuffer(1, samples.length, audioCtx.sampleRate);
   buffer.copyToChannel(samples, 0);
-  pluckBuffers[index] = buffer;
+  pluckBuffers[cacheKey] = buffer;
   return buffer;
 };
 
-export const playHarpNote = (index, timbre) => {
+// tune 可选：{ bright, sustain, echo }，每项 0/1/2；不传或全是 1 就是原来的音色。
+export const playHarpNote = (index, timbre, tune) => {
   // index 0-9 是十根弦，10-13 是 4、7 两个音（角色作曲用，见 harpNotes.js）
   const note = getPitch(index);
   if (!audioCtx || !bus || !note) return;
 
   const timbreId = timbre ? normalizeTimbreId(timbre) || DEFAULT_TIMBRE : currentTimbre;
-  const voice = TIMBRE_VOICES[timbreId] || TIMBRE_VOICES[DEFAULT_TIMBRE];
+    const voice = TIMBRE_VOICES[timbreId] || TIMBRE_VOICES[DEFAULT_TIMBRE];
+  const adjust = normalizeTune(tune) || NO_TUNE;
 
   try {
     const now = audioCtx.currentTime;
 
+    // 亮度：柔 -> 走 3600Hz 低通的干声，亮 -> 走 8000Hz 的，中 -> 音色自己的默认
+    const dryBus = adjust.bright === 0
+      ? bus.dry
+      : adjust.bright === 2
+        ? bus.bright
+        : voice.dry === 'bright' ? bus.bright : bus.dry;
+
     const out = audioCtx.createGain();
     out.gain.value = voice.level;
-    out.connect(voice.dry === 'bright' ? bus.bright : bus.dry);
+    out.connect(dryBus);
 
     const sendA = audioCtx.createGain();
-    sendA.gain.value = voice.echoA;
+    sendA.gain.value = voice.echoA * TUNE_ECHO[adjust.echo];
     out.connect(sendA);
     sendA.connect(bus.echoA);
 
     const sendB = audioCtx.createGain();
-    sendB.gain.value = voice.echoB;
+    sendB.gain.value = voice.echoB * TUNE_ECHO[adjust.echo];
     out.connect(sendB);
     sendB.connect(bus.echoB);
 
     if (voice.kind === 'buffer') {
       const source = audioCtx.createBufferSource();
-      source.buffer = getPluckBuffer(index, voice);
+      source.buffer = getPluckBuffer(index, voice, adjust.sustain);
       source.connect(out);
       source.start(now);
       return;
     }
 
-    const length = voice.length(note.light);
-    voice.partials.forEach(([multiple, volume, share]) => {
+     const length = voice.length(note.light) * TUNE_SUSTAIN[adjust.sustain];
+    voice.partials.forEach(([multiple, baseVolume, share]) => {
+      // 高次泛音（倍频大于 1）的音量随亮度档位变化，基音不变
+      const volume = multiple > 1 ? baseVolume * TUNE_BRIGHT_PARTIALS[adjust.bright] : baseVolume;
+      
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';

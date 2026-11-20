@@ -6,8 +6,8 @@ import {
   clampScoreGap,
   isValidNoteIndex,
 } from './harpNotes';
-import { normalizeTimbreId } from './harpTimbres';
 
+import { normalizeTimbreId, normalizeTune } from './harpTimbres';
 // ============================================================
 // 星光小竖琴 —— 数据层。
 //
@@ -65,6 +65,7 @@ export const saveHarpMelody = async ({
   delays,
   createdBy = 'user',
   timbre,
+  tune,
 }) => {
   if (chatId === undefined || chatId === null) return null;
 
@@ -84,7 +85,10 @@ export const saveHarpMelody = async ({
   };
   // 只在认得出音色时才写字段，没写的就是经典竖琴
   const timbreId = normalizeTimbreId(timbre);
-  if (timbreId) record.timbre = timbreId;
+   if (timbreId) record.timbre = timbreId;
+  // 音色微调同理：三项都是中档就不写字段
+  const tuneValue = normalizeTune(tune);
+  if (tuneValue) record.tune = tuneValue;
 
   const id = await db.harpMelodies.add(record);
   return { ...record, id };

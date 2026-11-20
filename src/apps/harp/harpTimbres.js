@@ -57,3 +57,67 @@ export const getTimbreLabel = (id) => {
   const hit = HARP_TIMBRES.find((timbre) => timbre.id === normalizeTimbreId(id));
   return hit ? hit.label : HARP_TIMBRES[0].label;
 };
+
+
+// ============================================================
+// 音色微调（tune）：在预设音色之上，角色可以再调三项，每项三档（0 / 1 / 2，1 是不调）。
+//   bright  亮度：0 柔，1 中，2 亮
+//   sustain 余音：0 短，1 中，2 长
+//   echo    回声：0 少，1 中，2 多
+// 存储约定：旋律消息的 metadata.tune、收藏记录的 tune 存的是 { bright, sustain, echo }；
+// 三项都是 1（没调）时不写这个字段，所以旧数据不需要任何迁移。
+// 发声参数在 harpAudio.js，这里只放"怎么认、怎么描述"。
+// ============================================================
+
+const TUNE_KEYS = ['bright', 'sustain', 'echo'];
+
+const TUNE_LEVEL_WORDS = {
+  bright: ['柔和', '适中', '明亮'],
+  sustain: ['短', '适中', '长'],
+  echo: ['少', '适中', '多'],
+};
+
+const clampLevel = (value) => {
+  const level = Math.round(Number(value));
+  return Number.isFinite(level) ? Math.max(0, Math.min(2, level)) : 1;
+};
+
+// 把任何形状的值整理成 { bright, sustain, echo }；三项都是 1（没调）或不是对象返回 null
+export const normalizeTune = (raw) => {
+  if (!raw || typeof raw !== 'object') return null;
+  const tune = {
+    bright: clampLevel(raw.bright ?? 1),
+    sustain: clampLevel(raw.sustain ?? 1),
+    echo: clampLevel(raw.echo ?? 1),
+  };
+  return TUNE_KEYS.every((key) => tune[key] === 1) ? null : tune;
+};
+
+// 从角色写的中文词里认出微调，例如 "明亮,长余音,多回声"。认不出的词忽略；
+// 一个词都没认出来返回 null。
+export const parseTuneWords = (text) => {
+  const raw = {};
+  String(text || '')
+    .split(/[\s,，、/;；]+/)
+    .filter(Boolean)
+    .forEach((word) => {
+      if (word.includes('亮')) raw.bright = 2;
+      else if (word.includes('柔') || word.includes('暗')) raw.bright = 0;
+      else if (word.includes('长')) raw.sustain = 2;
+      else if (word.includes('短')) raw.sustain = 0;
+      else if (word.includes('多')) raw.echo = 2;
+      else if (word.includes('少') || word.includes('干')) raw.echo = 0;
+    });
+  return normalizeTune(raw);
+};
+
+// 描述成一句话，例如 "偏明亮、余音长、回声多"；没调返回空字符串
+export const describeTune = (tune) => {
+  const normalized = normalizeTune(tune);
+  if (!normalized) return '';
+  const pieces = [];
+  if (normalized.bright !== 1) pieces.push(normalized.bright === 2 ? '偏明亮' : '偏柔和');
+  if (normalized.sustain !== 1) pieces.push(`余音${TUNE_LEVEL_WORDS.sustain[normalized.sustain]}`);
+  if (normalized.echo !== 1) pieces.push(`回声${TUNE_LEVEL_WORDS.echo[normalized.echo]}`);
+  return pieces.join('、');
+};

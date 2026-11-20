@@ -4,7 +4,7 @@ import {
   MIN_PHRASE_NOTES,
   clampScoreGap,
 } from './harpNotes';
-import { normalizeTimbreId } from './harpTimbres';
+import { normalizeTimbreId, parseTuneWords } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— 角色主动弹给用户听的标签解析（纯函数）。
@@ -106,12 +106,27 @@ export const parseHarpTagPayload = (rawPayload) => {
 
   let beatMs = DEFAULT_BEAT_MS;
   let timbre = null;
+  let tune = null;
   parts.slice(2).forEach((rawPart) => {
     const word = String(rawPart || '').trim();
     if (!word) return;
     const tempo = parseTempoWord(word);
-    if (tempo) beatMs = tempo;
-    else if (!timbre) timbre = normalizeTimbreId(word);
+    if (tempo) {
+      beatMs = tempo;
+      return;
+    }
+    // 音色段：竖琴(明亮,长余音,多回声)，括号里是微调，括号前是音色名；
+    // 只写括号、只写音色名、只写微调词（不带括号）都认
+    const match = word.match(/^([^(（]*)(?:[(（]([^)）]*)[)）]?)?$/);
+    const baseName = match ? match[1].trim() : word;
+    const tuneText = match && match[2] !== undefined ? match[2] : '';
+    const timbreId = baseName ? normalizeTimbreId(baseName) : null;
+    if (timbreId) {
+      if (!timbre) timbre = timbreId;
+      if (tuneText && !tune) tune = parseTuneWords(tuneText);
+    } else if (!tune) {
+      tune = parseTuneWords(tuneText || baseName);
+    }
   });
 
   const notes = [];
@@ -154,6 +169,8 @@ export const parseHarpTagPayload = (rawPayload) => {
     delays,
     // 认不出音色（或没写）就是 null，调用方不写这个字段，重听时就是经典竖琴
     timbre,
-    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays, timbre })}`,
+    // 没调（三项都是中档）就是 null，调用方不写这个字段
+    tune,
+    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays, timbre, tune })}`,
   };
 };

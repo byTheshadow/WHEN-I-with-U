@@ -2,7 +2,7 @@ import db from '../../db';
 import { triggerAiResponse } from '../../services/aiService';
 import { describeMelody } from './harpDescribe';
 import { MIN_PHRASE_NOTES, isValidNoteIndex } from './harpNotes';
-import { normalizeTimbreId } from './harpTimbres';
+import { normalizeTimbreId, normalizeTune } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— "弹给TA听"写回聊天。
@@ -39,6 +39,8 @@ export const sendMelodyToCharacter = async ({ chatId, melody }) => {
   const name = String(melody?.name || '').trim().slice(0, 14) || '无名旋律';
   const delays = Array.isArray(melody?.delays) ? melody.delays.slice(0, notes.length) : [];
   const timbreId = normalizeTimbreId(melody?.timbre);
+  // 收藏里角色写过的旋律可能带音色微调，发给 TA 时一起带上
+  const tune = normalizeTune(melody?.tune);
   const timestamp = nowIso();
 
   const record = {
@@ -46,8 +48,15 @@ export const sendMelodyToCharacter = async ({ chatId, melody }) => {
     characterId: chat.characterId,
     sender: 'user',
     type: 'harp_melody',
-    content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays, timbre: timbreId })}`,
-    metadata: { name, notes, delays, source: 'harp', ...(timbreId ? { timbre: timbreId } : {}) },
+        content: `弹了一段旋律「${name}」：${describeMelody({ notes, delays, timbre: timbreId, tune })}`,
+    metadata: {
+      name,
+      notes,
+      delays,
+      source: 'harp',
+      ...(timbreId ? { timbre: timbreId } : {}),
+      ...(tune ? { tune } : {}),
+    },
     isRead: true,
     timestamp,
   };

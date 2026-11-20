@@ -219,7 +219,8 @@ const HarpPage = ({ chatId, character, onBack }) => {
               0.5 + (Math.random() - 0.5) * 0.3,
               'user',
               normalizeTimbreId(melody.timbre) || DEFAULT_TIMBRE,
-              note
+                           note,
+              melody.tune
             );
           }
         }, elapsed)

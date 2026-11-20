@@ -1,5 +1,5 @@
 import { formatMelodyText, getPitch } from './harpNotes';
-import { DEFAULT_TIMBRE, getTimbreLabel, normalizeTimbreId } from './harpTimbres';
+import { DEFAULT_TIMBRE, describeTune, getTimbreLabel, normalizeTimbreId } from './harpTimbres';
 
 // ============================================================
 // 星光小竖琴 —— 旋律的文字描述（纯函数，不碰数据库、不碰 aiService）。
@@ -32,10 +32,12 @@ const hasChord = (delays) =>
   (delays || []).some((value, k) => k > 0 && value === 0);
 
 // timbre 可选：不是经典竖琴时，在描述最后补一句"音色是八音盒"
-export const describeMelody = ({ notes, delays, timbre }) => {
+export const describeMelody = ({ notes, delays, timbre, tune }) => {
   const count = (notes || []).length;
   const timbreId = normalizeTimbreId(timbre);
-  const timbreText = timbreId && timbreId !== DEFAULT_TIMBRE ? `，音色是${getTimbreLabel(timbreId)}` : '';
+  const tuneText = describeTune(tune);
+  const timbreBase = timbreId && timbreId !== DEFAULT_TIMBRE ? `音色是${getTimbreLabel(timbreId)}` : '';
+  const timbreText = [timbreBase, tuneText].filter(Boolean).map((piece) => `，${piece}`).join('');
   const chordText = hasChord(delays) ? '，里面有和弦' : '';
   return `${count} 个音，${describeTempo(delays)}，${describeRange(notes)}${chordText}${timbreText}`;
 };
@@ -47,7 +49,7 @@ export const describeMelodyForPrompt = (msg) => {
   const notes = Array.isArray(meta.notes) ? meta.notes : [];
   const delays = Array.isArray(meta.delays) ? meta.delays : [];
   const name = meta.name || '无名旋律';
-  const summary = describeMelody({ notes, delays, timbre: meta.timbre });
+  const summary = describeMelody({ notes, delays, timbre: meta.timbre, tune: meta.tune });
   const score = formatMelodyText(notes, delays);
   const scoreNote = '简谱（带 ↑ 的是高八度，用 + 连起来的是同时弹响的和弦）';
 

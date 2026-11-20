@@ -5,7 +5,7 @@ import { ensureHarpAudio, playHarpNote } from './harpAudio';
 import db from '../../db';
 import { getNoteLabel, groupMelody } from './harpNotes';
 import { saveHarpMelody } from './harpService';
-import { DEFAULT_TIMBRE, normalizeTimbreId } from './harpTimbres';
+import { DEFAULT_TIMBRE, describeTune, normalizeTimbreId, normalizeTune } from './harpTimbres';
 
 // 星光小竖琴 —— 聊天记录里的旋律卡片。
 // 用户弹给角色听（sender:'user'）和角色弹给用户听（sender:'character'）
@@ -18,6 +18,8 @@ const HarpMelodyNotice = ({ message }) => {
   const isUser = message?.sender !== 'character';
   // 重听用这条消息发出时记下的音色；没有记录的旧消息就是经典竖琴
   const timbre = normalizeTimbreId(meta.timbre) || DEFAULT_TIMBRE;
+  // 角色写的音色微调；没有这个字段（或三项都是中档）就是 null
+  const tune = normalizeTune(meta.tune);
   const timersRef = useRef([]);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [playing, setPlaying] = useState(false);
@@ -43,7 +45,7 @@ const HarpMelodyNotice = ({ message }) => {
       elapsed += k === 0 ? 0 : Number.isFinite(delays[k]) ? delays[k] : 400;
       timers.push(
         setTimeout(() => {
-          playHarpNote(note, timbre);
+                   playHarpNote(note, timbre, tune);
           setActiveIndex(k);
         }, elapsed)
       );
@@ -68,8 +70,9 @@ const HarpMelodyNotice = ({ message }) => {
         name: meta.name,
         notes,
         delays,
-        createdBy: 'character',
+             createdBy: 'character',
         timbre,
+        tune,
       });
       if (saved && message?.id) {
         await db.messages.update(message.id, { metadata: { ...meta, collected: true } });
@@ -128,6 +131,11 @@ const HarpMelodyNotice = ({ message }) => {
             </span>
           ))}
         </div>
+              {tune && (
+          <div className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            {describeTune(tune)}
+          </div>
+        )}
         <div
           className="mt-2 flex items-center gap-1 text-[11px]"
           style={{ color: 'var(--text-muted)' }}
