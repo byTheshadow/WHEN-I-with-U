@@ -60,6 +60,7 @@ import FictionReadingPanel from './FictionReadingPanel';
 import FictionSegmentBody from './FictionSegmentBody';
 import FictionThinkingFold from './FictionThinkingFold';
 import useFictionReadingPrefs from './useFictionReadingPrefs';
+import FictionReadingFx from './FictionReadingFx';
 import FictionStoryline from './FictionStoryline';
 import FictionReveal from './FictionReveal';
 import FictionSummaryOverview from './FictionSummaryOverview';
@@ -774,7 +775,8 @@ const [viewerId, setViewerId] = useState(null);
   // ---------- 页面 ----------
 
   return (
-    <div className={`fic-col fic-p-col ${dockCollapsed ? 'is-dock-collapsed' : ''}`}>
+       <div className={`fic-col fic-p-col ${dockCollapsed ? 'is-dock-collapsed' : ''}`}>
+      <FictionReadingFx themeId={readingPrefs.themeId} motion={readingPrefs.motion} />
       <button
         type="button"
         className="fic-btn-reset fic-round-btn fic-back"

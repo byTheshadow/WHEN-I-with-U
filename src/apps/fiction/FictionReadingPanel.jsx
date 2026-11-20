@@ -101,7 +101,7 @@ const FictionReadingPanel = ({ prefs, onChange, onClose }) => {
 
         <div className="fic-read-row">
           <div className="fic-read-label"><span>阅读主题</span></div>
-          <div className="fic-read-swatches" role="group" aria-label="阅读主题">
+          <div className="fic-read-swatches is-scroll" role="group" aria-label="阅读主题">
             {READING_THEMES.map((theme) => (
               <button
                 key={theme.id}
@@ -115,6 +115,18 @@ const FictionReadingPanel = ({ prefs, onChange, onClose }) => {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="fic-read-row is-inline">
+          <div className="fic-read-label"><span>动态效果（雨夜、星空）</span></div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={prefs.motion}
+            aria-label="动态效果"
+            className={`fic-btn-reset fic-read-switch ${prefs.motion ? 'is-on' : ''}`}
+            onClick={() => onChange({ motion: !prefs.motion })}
+          />
         </div>
 
         <div className="fic-read-row is-inline">

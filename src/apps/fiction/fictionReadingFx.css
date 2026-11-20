@@ -1,0 +1,92 @@
+/* src/apps/fiction/fictionReadingFx.css
+ *
+ * 阅读主题的动态氛围层（细雨、星点）。由 FictionReadingFx.jsx 引入。
+ * 另外放了「阅读主题色块一行横向滚动」的样式，因为色块变多了。
+ *
+ * 动态层是 .fic-col 里的第一个子元素，z-index: -1 把它压在正文下面、弥散背景上面：
+ * 阅读主题开着时 .fic-col 自己有 z-index: 1（见 fictionReading.css），
+ * 所以 -1 只是在 .fic-col 内部垫底，不会掉到弥散背景后面去。
+ * 只用 transform 和 opacity，不触发布局，手机上不卡。
+ */
+
+.fic-root[data-fic-read="on"] .fic-fx {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size; /* 让 cqh 等于这一层的高度，雨丝落到底 */
+}
+
+.fic-root .fic-fx-item {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+/* ---------- 细雨 ---------- */
+
+.fic-root .fic-fx[data-kind="rain"] .fic-fx-item {
+  top: 0;
+  left: var(--x);
+  width: 1px;
+  height: var(--len);
+  background: linear-gradient(to bottom, transparent, rgba(188, 214, 236, var(--o)));
+  opacity: 0;
+  animation: fic-fx-fall var(--d) linear var(--delay) infinite;
+}
+
+@keyframes fic-fx-fall {
+  0% { opacity: 0; transform: translate3d(0, -40px, 0) rotate(10deg); }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(-20cqh, 108cqh, 0) rotate(10deg); }
+}
+
+/* ---------- 星点 ---------- */
+
+.fic-root .fic-fx[data-kind="stars"] .fic-fx-item {
+  left: var(--x);
+  top: var(--y);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #fff6dc;
+  box-shadow: 0 0 6px 1px rgba(255, 240, 200, 0.55);
+  opacity: 0.15;
+  animation: fic-fx-twinkle var(--d) ease-in-out var(--delay) infinite;
+}
+
+@keyframes fic-fx-twinkle {
+  0%, 100% { opacity: 0.12; transform: scale(0.7); }
+  50% { opacity: 0.95; transform: scale(1.2); }
+}
+
+/* 系统开了「减少动态效果」：直接不显示。
+ * fiction.css 里有一条全局规则会把所有动画缩成 0.01 秒，对循环动画不合适，
+ * 所以这里是整层隐藏，不是放慢。 */
+@media (prefers-reduced-motion: reduce) {
+  .fic-root[data-fic-read="on"] .fic-fx {
+    display: none;
+  }
+}
+
+/* ---------- 阅读设置：主题色块一行横向滚动 ---------- */
+/* 上下左右各留 4px，色块选中时的描边不会被滚动容器切掉 */
+
+.fic-root .fic-read-swatches.is-scroll {
+  display: flex;
+  gap: 8px;
+  margin: 6px -20px 0 -4px;
+  padding: 4px 20px 4px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fic-root .fic-read-swatches.is-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.fic-root .fic-read-swatches.is-scroll .fic-read-swatch {
+  flex: none;
+  width: 62px;
+}

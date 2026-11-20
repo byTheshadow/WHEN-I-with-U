@@ -25,6 +25,7 @@ export const DEFAULT_READING_PREFS = {
   lineHeight: 1.95,
   themeId: 'follow',
   highlightQuotes: true,
+  motion: true,
 };
 
 const buildThemeVars = ({
@@ -125,8 +126,43 @@ export const READING_THEMES = [
       quote: '#7a4a2d',
     }),
   },
+  {
+    id: 'rain',
+    label: '雨夜',
+    fx: 'rain',
+    paper: '#0f151c',
+    blobs: ['rgba(56, 92, 132, 0.5)', 'rgba(36, 68, 98, 0.42)', 'rgba(70, 62, 112, 0.34)'],
+    vars: buildThemeVars({
+      paper: '#0f151c',
+      sheet: 'rgba(20, 28, 37, 0.7)',
+      sheetSolid: '#18212b',
+      ink: '#dfe6ea',
+      sub: '#a9b4bb',
+      muted: '#75828b',
+      line: '#222c36',
+      border: '#2c3844',
+      quote: '#9fcbdc',
+    }),
+  },
+  {
+    id: 'stars',
+    label: '星空',
+    fx: 'stars',
+    paper: '#0b0e1f',
+    blobs: ['rgba(72, 60, 156, 0.48)', 'rgba(38, 62, 146, 0.42)', 'rgba(112, 58, 142, 0.3)'],
+    vars: buildThemeVars({
+      paper: '#0b0e1f',
+      sheet: 'rgba(20, 24, 52, 0.7)',
+      sheetSolid: '#171b3a',
+      ink: '#e6e4f2',
+      sub: '#b1afc6',
+      muted: '#7c7a95',
+      line: '#22264a',
+      border: '#2e3358',
+      quote: '#f0d38a',
+    }),
+  },
 ];
-
 export const getReadingTheme = (themeId) => (
   READING_THEMES.find((theme) => theme.id === themeId) || READING_THEMES[0]
 );
@@ -150,6 +186,9 @@ export const normalizeReadingPrefs = (raw) => {
     highlightQuotes: source.highlightQuotes === undefined
       ? DEFAULT_READING_PREFS.highlightQuotes
       : Boolean(source.highlightQuotes),
+    motion: source.motion === undefined
+      ? DEFAULT_READING_PREFS.motion
+      : Boolean(source.motion),
   };
 };
 
