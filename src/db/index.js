@@ -5188,4 +5188,10 @@ db.version(113).stores({
   friendMessages: '++id, friendId, timestamp, [friendId+timestamp]',
 });
 
+// 互动文游的上传背景图（src/apps/fiction/fictionBackground.js）：
+// 每个存档最多一行，主键就是存档 id。只放 Blob，和 fictionImageFiles 一样排除在备份之外。
+db.version(114).stores({
+  fictionBackgrounds: 'saveId',
+});
+
 export default db;

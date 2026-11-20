@@ -17,6 +17,7 @@
 
 import db from '../../db';
 import { ROOT_PARENT_ID, hasChildren, listChildren } from './fictionService';
+import { copyBackground } from './fictionBackground';
 
 const now = () => Date.now();
 
@@ -40,6 +41,7 @@ export const deleteLeafVersion = (saveId, nodeId) => (
     db.fictionNodes,
     db.fictionImages,
     db.fictionImageFiles,
+    db.fictionBackgrounds,
     async () => {
       const node = await db.fictionNodes.get(nodeId);
 
@@ -103,7 +105,7 @@ export const DUPLICATE_MODES = {
 
 // 返回新存档的 id。
 export const duplicateSave = (saveId, { mode = DUPLICATE_MODES.FULL } = {}) => (
-  db.transaction('rw', db.fictionSaves, db.fictionNodes, async () => {
+  db.transaction('rw', db.fictionSaves, db.fictionNodes, db.fictionBackgrounds, async () => {
     const source = await db.fictionSaves.get(saveId);
 
     if (!source) throw new Error('存档不存在。');
@@ -123,7 +125,8 @@ export const duplicateSave = (saveId, { mode = DUPLICATE_MODES.FULL } = {}) => (
       updatedAt: timestamp,
     };
 
-    const newSaveId = await db.fictionSaves.add(nextSave);
+   const newSaveId = await db.fictionSaves.add(nextSave);
+    await copyBackground(saveId, newSaveId);
 
     if (!copyAll) return newSaveId;
 

@@ -11,6 +11,7 @@ import {
   LINE_HEIGHT_OPTIONS,
   READING_THEMES,
 } from './fictionReadingThemes';
+import FictionBackgroundSection from './FictionBackgroundSection';
 
 const swatchBackground = (theme) => (
   `radial-gradient(60% 60% at 18% 22%, ${theme.blobs[0]} 0%, transparent 72%), `
@@ -25,7 +26,7 @@ const nearestLineHeight = (value) => (
   ), LINE_HEIGHT_OPTIONS[0])
 );
 
-const FictionReadingPanel = ({ prefs, onChange, onClose }) => {
+const FictionReadingPanel = ({ prefs, onChange, onClose, bgControls }) => {
   const activeLineHeight = nearestLineHeight(prefs.lineHeight).id;
 
   const stepSize = (direction) => {
@@ -140,6 +141,8 @@ const FictionReadingPanel = ({ prefs, onChange, onClose }) => {
             onClick={() => onChange({ highlightQuotes: !prefs.highlightQuotes })}
           />
         </div>
+
+        <FictionBackgroundSection controls={bgControls} />
 
         <div className="fic-sheet-actions">
           <button type="button" className="fic-btn-reset fic-sheet-btn fic-read-done" onClick={onClose}>

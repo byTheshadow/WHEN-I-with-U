@@ -61,6 +61,8 @@ import FictionSegmentBody from './FictionSegmentBody';
 import FictionThinkingFold from './FictionThinkingFold';
 import useFictionReadingPrefs from './useFictionReadingPrefs';
 import FictionReadingFx from './FictionReadingFx';
+import FictionReadingBg from './FictionReadingBg';
+import useFictionBackground from './useFictionBackground';
 import FictionStoryline from './FictionStoryline';
 import FictionReveal from './FictionReveal';
 import FictionSummaryOverview from './FictionSummaryOverview';
@@ -130,6 +132,7 @@ const FictionPlayRoom = ({ saveId, onExit, onEditSettings }) => {
   const [editing, setEditing] = useState(null);
   // 阅读设置（全局一份）、选项抽屉是否收成胶囊、阅读设置抽屉是否打开
   const { prefs: readingPrefs, update: updateReading } = useFictionReadingPrefs();
+  const fictionBg = useFictionBackground(saveId);
   const [sheetCollapsed, setSheetCollapsed] = useState(false);
   const [readingOpen, setReadingOpen] = useState(false);
 
@@ -776,6 +779,7 @@ const [viewerId, setViewerId] = useState(null);
 
   return (
        <div className={`fic-col fic-p-col ${dockCollapsed ? 'is-dock-collapsed' : ''}`}>
+      <FictionReadingBg background={fictionBg.background} />
       <FictionReadingFx themeId={readingPrefs.themeId} motion={readingPrefs.motion} />
       <button
         type="button"
@@ -939,6 +943,7 @@ const [viewerId, setViewerId] = useState(null);
         <FictionReadingPanel
           prefs={readingPrefs}
           onChange={updateReading}
+          bgControls={fictionBg}
           onClose={() => setReadingOpen(false)}
         />
       )}

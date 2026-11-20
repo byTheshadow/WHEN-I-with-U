@@ -106,6 +106,7 @@ export const deleteSave = async (saveId) => {
       await db.fictionImages.where('saveId').equals(saveId).delete();
       await db.fictionNodes.where('saveId').equals(saveId).delete();
       await db.fictionSaves.delete(saveId);
+      await db.fictionBackgrounds.delete(saveId);
     },
   );
 };

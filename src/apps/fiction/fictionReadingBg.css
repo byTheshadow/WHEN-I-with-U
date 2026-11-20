@@ -1,0 +1,75 @@
+/* src/apps/fiction/fictionReadingBg.css
+ *
+ * 游玩页的上传背景层，以及阅读设置抽屉里「背景图」一块的按钮样式。
+ * 由 FictionReadingBg.jsx 引入。
+ *
+ * 背景层是 .fic-col 里的第一个子元素，z-index: -1 垫在 .fic-col 里面：
+ * 阅读主题开着时 .fic-col 自己有 z-index: 1（见 fictionReading.css），
+ * 所以它在弥散背景上面、正文和动态层下面（动态层在 DOM 里排在它后面）。
+ * 没开阅读主题时整层不显示，避免它盖到正文上。
+ */
+
+.fic-root .fic-bg {
+  display: none;
+}
+
+.fic-root[data-fic-read="on"] .fic-bg {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fic-root .fic-bg-img {
+  position: absolute;
+  inset: -24px; /* 模糊会让边缘发虚，多铺一圈盖住（模糊最大 20px） */
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--fic-bg-blur, 0px));
+  transform: translateZ(0);
+}
+
+/* 压暗盖的是阅读主题的纸色：深色主题变暗，浅色主题变淡，文字颜色始终读得清 */
+.fic-root .fic-bg-dim {
+  position: absolute;
+  inset: 0;
+  background: var(--fic-paper);
+  opacity: var(--fic-bg-dim, 0.35);
+}
+
+/* ---------- 阅读设置抽屉：背景图一块 ---------- */
+
+.fic-root .fic-read-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fic-root .fic-read-btn-row .fic-read-seg {
+  flex: 1;
+}
+
+.fic-root .fic-bg-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fic-root .fic-bg-pick input {
+  display: none;
+}
+
+.fic-root .fic-bg-pick.is-busy {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.fic-root .fic-bg-error {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fic-wine-text);
+}
