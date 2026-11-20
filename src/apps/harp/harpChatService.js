@@ -1,7 +1,7 @@
 import db from '../../db';
 import { triggerAiResponse } from '../../services/aiService';
 import { describeMelody } from './harpDescribe';
-import { HARP_NOTES, MIN_PHRASE_NOTES } from './harpNotes';
+import { MIN_PHRASE_NOTES, isValidNoteIndex } from './harpNotes';
 import { normalizeTimbreId } from './harpTimbres';
 
 // ============================================================
@@ -29,7 +29,7 @@ export const sendMelodyToCharacter = async ({ chatId, melody }) => {
   if (chatId === undefined || chatId === null) return null;
 
   const notes = Array.isArray(melody?.notes)
-    ? melody.notes.filter((index) => Number.isInteger(index) && index >= 0 && index < HARP_NOTES.length)
+    ? melody.notes.filter(isValidNoteIndex)
     : [];
   if (notes.length < MIN_PHRASE_NOTES) return null;
 

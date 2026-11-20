@@ -19,8 +19,10 @@ import { ensureHarpAudio, playHarpNote } from './harpAudio';
 //   onPluck(index, frac)  用户自己拨弦时回调（页面据此记录弹奏）
 //   disabled              为 true 时忽略用户的触摸（重听旋律期间）
 //   ref.strum(index, frac)  走"用户拨弦"的完整路径（发声+动画+onPluck），键盘用
-//   ref.pluck(index, frac, by)  只发声+动画，不触发 onPluck，by 为 'user' 或
-//                               'ta'（'ta' 用另一种光晕，给之后角色弹奏用）
+//   ref.pluck(index, frac, by, timbre, pitch)  只发声+动画，不触发 onPluck，by 为
+//                               'user' 或 'ta'（'ta' 用另一种光晕，给之后角色弹奏用）；
+//                               pitch 可选，是发声的音符编号（4、7 没有对应的弦，
+//                               画面点亮 index 这根弦，声音按 pitch 发）
 // ============================================================
 
 const NECK_POINTS = 240;
@@ -43,7 +45,8 @@ const HarpCanvas = forwardRef(function HarpCanvas({ onPluck, disabled = false },
   useImperativeHandle(
     ref,
     () => ({
-      pluck: (index, frac, by, timbre) => apiRef.current.pluck?.(index, frac, by, timbre),
+      pluck: (index, frac, by, timbre, pitch) =>
+        apiRef.current.pluck?.(index, frac, by, timbre, pitch),
       strum: (index, frac) => apiRef.current.strum?.(index, frac),
     }),
     []
@@ -432,7 +435,8 @@ const HarpCanvas = forwardRef(function HarpCanvas({ onPluck, disabled = false },
 
     // ---------- 拨弦 ----------
        // timbre：可选，重听旧旋律时指定它当时的音色；不传就用当前音色
-    const pluck = (index, frac, by, timbre) => {
+    // pitch：可选，发声用的音符编号（10-13 是 4、7，没有对应的弦）；不传就是 index 本身
+    const pluck = (index, frac, by, timbre, pitch) => {
       const s = strs[index];
       if (!s) return;
       const now = performance.now();
@@ -441,7 +445,7 @@ const HarpCanvas = forwardRef(function HarpCanvas({ onPluck, disabled = false },
       s.t0 = now;
       s.p = fraction;
       s.by = isTa ? 'ta' : 'user';
-          playHarpNote(index, timbre);
+      playHarpNote(typeof pitch === 'number' ? pitch : index, timbre);
 
       const y = s.top + (s.bottom - s.top) * fraction;
       const color = isTa ? pal.taGlow : pal.tints[index];

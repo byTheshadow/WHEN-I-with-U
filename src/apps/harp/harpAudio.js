@@ -1,4 +1,4 @@
-import { HARP_NOTES } from './harpNotes';
+import { getPitch } from './harpNotes';
 import { DEFAULT_TIMBRE, normalizeTimbreId } from './harpTimbres';
 import { renderPluckSamples } from './harpPluckSynth';
 
@@ -146,13 +146,14 @@ const getPluckBuffer = (index, voice) => {
   const cached = pluckBuffers[index];
   if (cached) return cached;
 
-  const note = HARP_NOTES[index];
-  const ring = voice.ring(index);
+  const note = getPitch(index);
+  // 余音和阻尼按"画面上点亮的那根弦"算，4、7 两个没有弦的音借用相邻的弦
+  const ring = voice.ring(note.light);
   const samples = renderPluckSamples({
     sampleRate: audioCtx.sampleRate,
     freq: note.freq,
     seconds: ring + 0.1,
-    damping: voice.damping(index),
+    damping: voice.damping(note.light),
     ringSeconds: ring,
     seed: 101 + index * 17,
   });
@@ -164,7 +165,8 @@ const getPluckBuffer = (index, voice) => {
 };
 
 export const playHarpNote = (index, timbre) => {
-  const note = HARP_NOTES[index];
+  // index 0-9 是十根弦，10-13 是 4、7 两个音（角色作曲用，见 harpNotes.js）
+  const note = getPitch(index);
   if (!audioCtx || !bus || !note) return;
 
   const timbreId = timbre ? normalizeTimbreId(timbre) || DEFAULT_TIMBRE : currentTimbre;
@@ -195,7 +197,7 @@ export const playHarpNote = (index, timbre) => {
       return;
     }
 
-    const length = voice.length(index);
+    const length = voice.length(note.light);
     voice.partials.forEach(([multiple, volume, share]) => {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();

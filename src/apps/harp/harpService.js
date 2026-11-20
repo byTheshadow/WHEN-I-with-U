@@ -3,7 +3,7 @@ import db from '../../db';
 import {
   MAX_MELODY_NOTES,
   MIN_PHRASE_NOTES,
-  clampNoteGap,
+  clampScoreGap,
   isValidNoteIndex,
 } from './harpNotes';
 import { normalizeTimbreId } from './harpTimbres';
@@ -15,7 +15,7 @@ import { normalizeTimbreId } from './harpTimbres';
 // 每个聊天有自己的一份收藏旋律。一张表：
 //   harpMelodies：一首收藏的旋律一行。
 //     { chatId, name, createdBy: 'user' | 'character',
-//       notes: number[]   音符编号（0-9，见 harpNotes.js），
+//       notes: number[]   音符编号（0-9 是十根弦，10-13 是角色作曲用的 4、7，见 harpNotes.js），
 //       delays: number[]  每个音距离上一个音的毫秒数，第一个是 0,
 //       timbre?: string   音色 id（见 harpTimbres.js），没有这个字段就是经典竖琴,
 //       createdAt }
@@ -41,7 +41,8 @@ const normalizeMelody = (notes, delays) => {
   for (let k = 0; k < sourceNotes.length && cleanNotes.length < MAX_MELODY_NOTES; k += 1) {
     if (!isValidNoteIndex(sourceNotes[k])) continue;
     cleanNotes.push(sourceNotes[k]);
-    cleanDelays.push(cleanNotes.length === 1 ? 0 : clampNoteGap(sourceDelays[k]));
+    // 间隔为 0 是和弦里同时响的音，要原样保留（clampScoreGap 对 0 返回 0）
+    cleanDelays.push(cleanNotes.length === 1 ? 0 : clampScoreGap(sourceDelays[k]));
   }
 
   return { notes: cleanNotes, delays: cleanDelays };

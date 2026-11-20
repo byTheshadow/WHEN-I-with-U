@@ -3,7 +3,7 @@ import { Music2, Play } from 'lucide-react';
 
 import { ensureHarpAudio, playHarpNote } from './harpAudio';
 import db from '../../db';
-import { formatMelodyText } from './harpNotes';
+import { getNoteLabel, groupMelody } from './harpNotes';
 import { saveHarpMelody } from './harpService';
 import { DEFAULT_TIMBRE, normalizeTimbreId } from './harpTimbres';
 
@@ -39,7 +39,8 @@ const HarpMelodyNotice = ({ message }) => {
     let elapsed = 150;
     const timers = [];
     notes.forEach((note, k) => {
-      elapsed += k === 0 ? 0 : delays[k] || 400;
+      // 间隔为 0 是和弦里同时响的音，所以不能用 "|| 400" 兜底
+      elapsed += k === 0 ? 0 : Number.isFinite(delays[k]) ? delays[k] : 400;
       timers.push(
         setTimeout(() => {
           playHarpNote(note, timbre);
@@ -80,9 +81,10 @@ const HarpMelodyNotice = ({ message }) => {
     }
   };
 
-  const tokens = formatMelodyText(notes).split(' ');
-  // 高音符号 "↑" 和后面的数字在 formatMelodyText 里是粘在一起的，按音符一一对应
-  const score = tokens.length === notes.length ? tokens : [formatMelodyText(notes)];
+  // 同时响的音（和弦）合成一格，例如 "5+↑1"；高亮时整格一起亮
+  const groups = groupMelody(notes, delays);
+  const score = groups.map((group) => group.map((k) => getNoteLabel(notes[k])).join('+'));
+  const activeGroup = groups.findIndex((group) => group.includes(activeIndex));
 
   return (
     <div className={`my-2 flex ${isUser ? 'justify-end' : 'justify-start'} px-3`}>
@@ -117,8 +119,8 @@ const HarpMelodyNotice = ({ message }) => {
             <span
               key={k}
               style={{
-                color: k === activeIndex ? 'var(--accent-color)' : 'var(--text-sub)',
-                fontWeight: k === activeIndex ? 700 : 400,
+                color: k === activeGroup ? 'var(--accent-color)' : 'var(--text-sub)',
+                fontWeight: k === activeGroup ? 700 : 400,
                 transition: 'color 0.15s',
               }}
             >

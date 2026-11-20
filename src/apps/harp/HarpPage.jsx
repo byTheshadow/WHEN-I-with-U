@@ -13,6 +13,7 @@ import {
   PHRASE_CLOSE_MS,
   buildMelodyFromPhrase,
   formatMelodyText,
+  getPitch,
 } from './harpNotes';
 import { sendMelodyToCharacter } from './harpChatService';
 import { deleteHarpMelody, getHarpMelodies, saveHarpMelody } from './harpService';
@@ -203,16 +204,22 @@ const HarpPage = ({ chatId, character, onBack }) => {
     let elapsed = 300;
     const timers = [];
     melody.notes.forEach((note, k) => {
-      elapsed += k === 0 ? 0 : melody.delays?.[k] || 400;
+      // 间隔为 0 是和弦里同时响的音，所以不能用 "|| 400" 兜底
+      const gap = melody.delays?.[k];
+      elapsed += k === 0 ? 0 : Number.isFinite(gap) ? gap : 400;
       timers.push(
         setTimeout(() => {
           if (harpRef.current) {
             // 重听用这段旋律自己的音色；没记过音色的旧旋律就是经典竖琴
+            // 4、7 两个音没有对应的弦：声音按它自己的音高发，画面点亮最近的一根弦
+            const pitch = getPitch(note);
+            if (!pitch) return;
             harpRef.current.pluck(
-              note,
+              pitch.light,
               0.5 + (Math.random() - 0.5) * 0.3,
               'user',
-              normalizeTimbreId(melody.timbre) || DEFAULT_TIMBRE
+              normalizeTimbreId(melody.timbre) || DEFAULT_TIMBRE,
+              note
             );
           }
         }, elapsed)
@@ -447,7 +454,7 @@ const HarpPage = ({ chatId, character, onBack }) => {
                           : ''}
                       </span>
                     </div>
-                    <div className="hp-melody-text">{formatMelodyText(melody.notes)}</div>
+                    <div className="hp-melody-text">{formatMelodyText(melody.notes, melody.delays)}</div>
                     <div className="hp-melody-actions">
                       <button
                         type="button"
