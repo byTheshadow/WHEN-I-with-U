@@ -18,6 +18,12 @@ import {
   NOVEMBER_NODE_TYPES,
   NOVEMBER_SCENE_HEIGHT,
 } from './NovemberScene';
+import {
+  DecemberScene,
+  DecemberNodeIcon,
+  DECEMBER_NODE_TYPES,
+  DECEMBER_SCENE_HEIGHT,
+} from './DecemberScene';
 
 /* ─────────────────────────────────────────────
    常量
@@ -28,6 +34,17 @@ const CONDITION_TYPES = ['pumpkin', 'tomb', 'crystal'];  // 对应 NodeIcon 的 
 
 /* 各赛季场景的终点文案（按 seasonDef.sceneKind 取，缺省按万圣节） */
 const SCENE_COPY = {
+  december: {
+    vaultShort: '圣诞树 · 北极星 · 钟楼',
+    vaultTitle: '圣诞树、北极星与零点钟楼',
+    vaultDesc: '前三个展台全部点亮，后面三座展台就会一起解冻，整套图标一次性全部解锁，随时切换佩戴。',
+    vaultOn: '展台已解冻',
+    vaultOff: '尚未解冻',
+    chipOn: '已解冻',
+    chipOff: '未解冻',
+    hintLocked: '前三个展台（初雪、礼物、铃声）都点亮，后面的圣诞树、北极星和钟楼才会解冻。点击展台可以查看详情。',
+    hintUnlocked: '整套图标已经解锁，三座展台都已解冻。',
+  },
   halloween: {
     vaultShort: '终点宝箱',
     vaultTitle: '终点宝箱',
@@ -130,10 +147,11 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
 
   /* ── 节点元数据 ── */
   const isNovember = seasonDef.sceneKind === 'november';
-  const copy = isNovember ? SCENE_COPY.november : SCENE_COPY.halloween;
-  const nodeTypes = isNovember ? NOVEMBER_NODE_TYPES : CONDITION_TYPES;
-  const vaultKey = isNovember ? 'gnomon' : 'vault';
-  const NodeIconComp = isNovember ? NovemberNodeIcon : NodeIcon;
+  const isDecember = seasonDef.sceneKind === 'december';
+  const copy = isDecember ? SCENE_COPY.december : isNovember ? SCENE_COPY.november : SCENE_COPY.halloween;
+  const nodeTypes = isDecember ? DECEMBER_NODE_TYPES : isNovember ? NOVEMBER_NODE_TYPES : CONDITION_TYPES;
+  const vaultKey = isDecember ? 'clock' : isNovember ? 'gnomon' : 'vault';
+  const NodeIconComp = isDecember ? DecemberNodeIcon : isNovember ? NovemberNodeIcon : NodeIcon;
 
   // 四个节点的文案；前三个来自 seasonDef.conditions，第四个固定
   const nodeData = [
@@ -145,8 +163,8 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
         ? (aiCondition?.description || aiCondition?.title || '正在等待 TA 想一个要求…')
         : c.description,
       note: c.kind === 'ai' ? '这个要求是 TA 在本月第一次打开时自己想的。' : null,
-      progress: c.type === 'messages_total'
-        ? { max: c.threshold, now: conditionResults[`__progress_${c.id}`] ?? null }
+      progress: c.type === 'messages_total' || c.type === 'active_days_in_month'
+        ? { max: c.threshold, now: conditionResults[`__progress_${c.id}`] ?? null, unit: c.type === 'active_days_in_month' ? '天' : '条' }
         : null,
       lit: condMet[i],
     })),
@@ -167,9 +185,9 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
     <section className="badge-season badge-season--current">
       {/* ── 卡头 ── */}
       <div
-        className={`bdl-scene-wrap${isNovember ? ' bdl-scene-wrap--november' : ''}`}
+        className={`bdl-scene-wrap${isNovember ? ' bdl-scene-wrap--november' : ''}${isDecember ? ' bdl-scene-wrap--december' : ''}`}
         ref={outerRef}
-        style={{ height: isNovember ? NOVEMBER_SCENE_HEIGHT : TRACK_H * scale }}
+        style={{ height: isDecember ? DECEMBER_SCENE_HEIGHT : isNovember ? NOVEMBER_SCENE_HEIGHT : TRACK_H * scale }}
       >
         {/* HUD 标题（叠在场景左上角） */}
         <div className="bdl-hud-title" aria-hidden="true">
@@ -196,7 +214,15 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
         </button>
 
         {/* 场景：十一月用自己的整幅场景，其余赛季沿用万圣节浮岛 */}
-        {isNovember ? (
+        {isDecember ? (
+          <DecemberScene
+            lit={lit}
+            selectedIdx={selectedNodeIdx}
+            fxEnabled={effects}
+            onNodeClick={setSelectedNodeIdx}
+            labels={seasonDef.badges.map((b) => b.title)}
+          />
+        ) : isNovember ? (
           <NovemberScene
             lit={lit}
             selectedIdx={selectedNodeIdx}
@@ -281,7 +307,7 @@ export const BadgeDancingLineBoard = ({ board, activeSeasonKey, equipError, onEq
                   />
                 </div>
                 <small>
-                  {selNode.progress.now} / {selNode.progress.max} 条
+                  {selNode.progress.now} / {selNode.progress.max} {selNode.progress.unit}
                   （{Math.round(selNode.progress.now / selNode.progress.max * 100)}%）
                 </small>
               </div>

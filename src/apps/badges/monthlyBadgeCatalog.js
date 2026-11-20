@@ -211,6 +211,54 @@ export const MONTHLY_BADGE_SEASONS = {
 };
 
 /** "2026-10" 这种 年-月 格式，作为一次赛季解锁记录的唯一键。 */
+
+// 十二月图标还没放上真实图片时用的占位图（虚线圆圈）。
+const DECEMBER_PLACEHOLDER_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="#e4f1f6" stroke="#3b7f9c" stroke-width="2" stroke-dasharray="4 4"/></svg>'
+)}`;
+
+// 十二月：雪夜、圣诞到跨年。6 枚图标的 imageUrl 先用占位图，等图标生成好之后
+// 把每个 imageUrl 换成真实链接即可，其余字段不用动。
+MONTHLY_BADGE_SEASONS[12] = {
+  month: 12,
+  seasonId: 'snow-to-newyear',
+  seasonTitle: '十二月限定',
+  seasonSubtitle: '十二月限定聊天成就图标',
+  sceneEyebrow: 'WINTER / DEC',
+  sceneKind: 'december',
+  badges: [
+    { id: 'december-first-snow', title: '初雪', description: '一片精致的雪花结晶', imageUrl: DECEMBER_PLACEHOLDER_IMAGE },
+    { id: 'december-stocking-gift', title: '袜中礼物', description: '红金丝带的礼物盒，旁边挂着圣诞袜', imageUrl: DECEMBER_PLACEHOLDER_IMAGE },
+    { id: 'december-bells-ring', title: '铃声响起', description: '冬青叶、红果和金铃', imageUrl: DECEMBER_PLACEHOLDER_IMAGE },
+    { id: 'december-lit-tree', title: '点亮圣诞树', description: '挂满灯串的小圣诞树，树下有礼物', imageUrl: DECEMBER_PLACEHOLDER_IMAGE },
+    { id: 'december-north-star', title: '北极星', description: '夜空里最亮的一颗星，雪橇的剪影掠过', imageUrl: DECEMBER_PLACEHOLDER_IMAGE },
+    { id: 'december-midnight-bell', title: '零点钟声', description: '雪夜钟楼，窗外一束跨年烟花', imageUrl: DECEMBER_PLACEHOLDER_IMAGE },
+  ],
+  conditions: [
+    {
+      id: 'messages-1225',
+      kind: 'fixed',
+      type: 'messages_total',
+      threshold: 1225,
+      title: '单聊满 1225 条',
+      description: '和 TA 在这个聊天窗口里，消息总数累计达到 1225 条',
+    },
+    {
+      id: 'active-days-12',
+      kind: 'fixed',
+      type: 'active_days_in_month',
+      threshold: 12,
+      title: '十二月里聊满 12 天',
+      description: '本月在这个聊天窗口里，你有 12 个不同的日子找过 TA（发文字或表情包都算）',
+    },
+    {
+      id: 'ai-custom',
+      kind: 'ai',
+      title: 'TA 自己定的小考验',
+      description: 'TA 这个月想到的一个小要求，三个条件要一起全部达成才能解锁',
+    },
+  ],
+};
 export const getSeasonKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 

@@ -19,7 +19,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Medal, RefreshCw } from 'lucide-react';
 
 import db from '../../db';
-import { getActiveSeason } from './monthlyBadgeCatalog';
+import { getActiveSeason, getSeasonDefByKey } from './monthlyBadgeCatalog';
 import {
   checkAndUnlockSeason,
   equipBadge,
@@ -182,6 +182,13 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
           <p className="badge-eyebrow">A CHANGING SET OF ICONS, EARNED TOGETHER</p>
           <h1>限定图标</h1>
           <p className="badge-subtitle">达成这个月的全部条件，解锁整套图标，随时切换佩戴。</p>
+          <button
+            type="button"
+            onClick={() => setPreviewDec((v) => !v)}
+            style={{ marginTop: 10, padding: '6px 12px', borderRadius: 999, border: '1px solid currentColor', background: 'transparent', color: 'inherit', fontSize: 12, cursor: 'pointer' }}
+          >
+            {previewDec ? '退出十二月预览（临时）' : '预览十二月场景（临时）'}
+          </button>
         </section>
 
         <nav className="badge-tabs" role="tablist">
@@ -234,7 +241,23 @@ export const BadgeExchangeApp = ({ onBackHub }) => {
           </label>
         </section>
 
-        {!numericChatId ? (
+        {previewDec && activeTab === 'current' && previewBoard ? (
+          <>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 12px' }}>
+              {['条件 1', '条件 2', '条件 3'].map((label, i) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setPreviewMet((prev) => prev.map((v, j) => (j === i ? !v : v)))}
+                  style={{ padding: '6px 12px', borderRadius: 999, border: '1px solid currentColor', background: 'transparent', color: 'inherit', fontSize: 12, cursor: 'pointer' }}
+                >
+                  {label}：{previewMet[i] ? '已达成' : '未达成'}
+                </button>
+              ))}
+            </div>
+            <BadgeDancingLineBoard board={previewBoard} activeSeasonKey="2026-12" equipError="" onEquip={() => {}} />
+          </>
+        ) : !numericChatId ? (
           <section className="badge-empty">还没有可以兑换的聊天窗口。</section>
         ) : isLoading ? (
           <section className="badge-empty">正在读取兑换记录…</section>

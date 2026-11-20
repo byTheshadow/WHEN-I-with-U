@@ -121,6 +121,19 @@ const hasLateNightInSeason = async (chatId, seasonKey) => {
   });
 };
 
+/** 本赛季月份内，用户发过文字或表情包的不同日期有多少天。 */
+const getActiveDaysInSeason = async (chatId, seasonKey) => {
+  const rows = await db.messages.where('chatId').equals(chatId).toArray();
+  const days = new Set();
+  rows.forEach((row) => {
+    if (row?.sender !== 'user') return;
+    if (row?.type !== 'text' && row?.type !== 'sticker') return;
+    if (!isInSeasonMonth(row.timestamp, seasonKey)) return;
+    days.add(getDateKey(row.timestamp));
+  });
+  return days.size;
+};
+
 const evaluateAiCondition = async ({ chatId, seasonKey, aiCondition }) => {
   if (!aiCondition?.templateId) return false;
 
@@ -161,6 +174,11 @@ export const evaluateSeasonConditions = async ({ chatId, seasonKey, seasonDef, u
     } else if (condition.type === 'trick_triggered') {
       // eslint-disable-next-line no-await-in-loop
       results[condition.id] = await hasTrickInSeason(chatId, seasonKey);
+    } else if (condition.type === 'active_days_in_month') {
+      // eslint-disable-next-line no-await-in-loop
+      const days = await getActiveDaysInSeason(chatId, seasonKey);
+      results[condition.id] = days >= condition.threshold;
+      results[`__progress_${condition.id}`] = days;
     } else if (condition.type === 'thanks_card_triggered') {
       // eslint-disable-next-line no-await-in-loop
       results[condition.id] = await hasThanksInSeason(chatId, seasonKey);
