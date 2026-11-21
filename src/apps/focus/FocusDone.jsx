@@ -7,10 +7,11 @@ import React from 'react';
 import GrowthIcon from './GrowthIcon';
 import { growthStageFromProgress } from './focusGrowthIcons';
 import { formatCountdown } from './FocusRunning';
+import FocusAfter, { useRestLines } from './FocusAfter';
 
 export const REST_MINUTES = 5;
 
-export const FocusDone = ({ session, growthStyle, notifiedNames, onRest, onAgain, onBack }) => {
+export const FocusDone = ({ session, growthStyle, notifiedNames, chatOptions, onRest, onAgain, onBack }) => {
   const abandoned = session.status === 'abandoned';
   const planned = Math.max(1, session.durationMinutes || 1);
   const actual = Math.max(0, session.actualMinutes || 0);
@@ -44,6 +45,8 @@ export const FocusDone = ({ session, growthStyle, notifiedNames, onRest, onAgain
           : '这一轮没有通知任何人，所以聊天里没有留下记录。'}
       </p>
 
+      <FocusAfter session={session} chatOptions={chatOptions} />
+
       {!abandoned && session.restEnabled && (
         <button type="button" className="focus-main-btn" onClick={onRest}>
           休息 {REST_MINUTES} 分钟
@@ -63,7 +66,8 @@ export const FocusDone = ({ session, growthStyle, notifiedNames, onRest, onAgain
   );
 };
 
-export const FocusRest = ({ restEndsAt, now, onAgain, onBack }) => {
+export const FocusRest = ({ restEndsAt, now, session, chatOptions, onAgain, onBack }) => {
+  const restLines = useRestLines(session, chatOptions);
   const left = restEndsAt - now;
   const over = left <= 0;
 
@@ -75,7 +79,7 @@ export const FocusRest = ({ restEndsAt, now, onAgain, onBack }) => {
       </div>
       <div className="focus-time">{formatCountdown(left)}</div>
       <p className="focus-hint focus-hint--center">
-        {over ? '休息好了。' : '站起来动一动，喝口水，看看远处。'}
+        {over ? restLines.over || '休息好了。' : restLines.rest || '站起来动一动，喝口水，看看远处。'}
       </p>
       <button type="button" className="focus-main-btn" onClick={onAgain}>再来一轮</button>
       <div className="focus-foot focus-foot--single">

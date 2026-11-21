@@ -23,6 +23,7 @@ import FriendResultNotice from '../friends/FriendResultNotice';
 
 import HarpMelodyNotice from '../../harp/HarpMelodyNotice';
 import FocusRecordNotice from '../../focus/FocusRecordNotice';
+import FocusNoteNotice from '../../focus/FocusNoteNotice';
 import PixelDollGiftNotice from '../../pixelDoll/PixelDollGiftNotice';
 import GreetingGiftNotice from '../../greeting/GreetingGiftNotice';
 import ChatToyMessage from '../toys/ChatToyMessage';
@@ -336,6 +337,10 @@ const MessageRow = ({
 
   if (msg.type === 'harp_melody') {
     return <HarpMelodyNotice message={msg} />;
+  }
+
+   if (msg.type === 'focus_note') {
+    return <FocusNoteNotice message={msg} />;
   }
 
   if (msg.type === 'focus_record') {

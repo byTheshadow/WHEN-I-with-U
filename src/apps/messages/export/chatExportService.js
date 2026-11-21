@@ -237,6 +237,7 @@ export const describeMessageForExport = (message) => {
     case 'challenge_complete':
     case 'text_game_result':
     case 'focus_record':
+    case 'focus_note':
       return raw ? `[${raw}]` : `[${type}]`;
     default:
       return raw ? `[${type}] ${raw}` : `[${type}]`;

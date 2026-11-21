@@ -24,6 +24,7 @@ import {
   startFocusSession,
 } from './focusSessionService';
 import { recordUnwrittenFocusSessions, writeFocusRecordToChats } from './focusRecordMessage';
+import { writeEndNotes, writeStartNotes, writeUnwrittenEndNotes } from './focusNoteService';
 import {
   getFocusGrowthStyle,
   getFocusLastPrefs,
@@ -89,6 +90,7 @@ const FocusApp = ({ onBackHub }) => {
       try {
         const settled = await settleExpiredFocusSessions();
         await recordUnwrittenFocusSessions();
+        writeUnwrittenEndNotes();
 
         const [style, savedPlaces, prefs, options, running] = await Promise.all([
           getFocusGrowthStyle(),
@@ -171,6 +173,7 @@ const FocusApp = ({ onBackHub }) => {
 
         if (row && row.status !== FOCUS_STATUS.RUNNING) {
           await writeFocusRecordToChats(row);
+          writeEndNotes(row);
           setSession(row);
           setView('done');
         }
@@ -207,6 +210,8 @@ const FocusApp = ({ onBackHub }) => {
         restEnabled,
       });
       const row = await db.focusSessions.get(sessionId);
+
+      writeStartNotes(row);
 
       await saveFocusLastPrefs({
         durationMinutes,
@@ -337,13 +342,21 @@ const FocusApp = ({ onBackHub }) => {
             growthStyle={growthStyle}
             notifiedNames={notifiedNames(session)}
             onRest={startRest}
+            chatOptions={chatOptions}
             onAgain={goSetup}
             onBack={onBackHub}
           />
         )}
 
         {view === 'rest' && (
-          <FocusRest restEndsAt={restEndsAt} now={now} onAgain={goSetup} onBack={onBackHub} />
+                <FocusRest
+            restEndsAt={restEndsAt}
+            now={now}
+            session={session}
+            chatOptions={chatOptions}
+            onAgain={goSetup}
+            onBack={onBackHub}
+          />
         )}
       </div>
     </div>
