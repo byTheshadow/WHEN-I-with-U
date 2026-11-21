@@ -5194,4 +5194,10 @@ db.version(114).stores({
   fictionBackgrounds: 'saveId',
 });
 
+// 专注（心流）的记录：每次专注一行，日历和周报用。
+// 静音状态存在被通知聊天窗的 focusMuteUntil 等字段上，那些是不建索引的普通字段，不需要升级版本。
+db.version(115).stores({
+  focusSessions: '++id, status, startedAt, dayKey',
+});
+
 export default db;

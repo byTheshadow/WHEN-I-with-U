@@ -1,5 +1,6 @@
 import db from '../db';
 import { isInQuietHours } from './aiService';
+import { isFocusMuted } from '../apps/focus/focusMuteState';
 import { buildRhythmChatContext } from './rhythmContextService';
 import { hasAnyLiveCall } from './callService';
 import { maybeSendUserAutoReply } from '../apps/messages/userCard/userAutoReplyService';
@@ -159,6 +160,13 @@ export async function triggerRhythmActiveReminder(
     // 寄语现在是每个聊天窗独立的开关，跟角色的其他 AI 主动行为
     // （平行轨迹独白、快照等共用的 isAutoMessageActive）解耦。
     // 未设置时默认视为开启，避免老用户升级后被无声关闭。
+    // 用户正在专注（或刚结束的缓冲期）：不发寄语。
+    if (isFocusMuted(chat)) {
+      return {
+        status: 'focus_muted'
+      };
+    }
+
     if (chat?.rhythmEnabled === false) {
       return {
         status: 'rhythm_disabled_for_chat'

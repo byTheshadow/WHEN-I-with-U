@@ -1,6 +1,7 @@
 // src/services/cloudCallService.js
 import db from '../db';
 import { startIncomingCall, recordMissedCloudCall } from './callService';
+import { isChatIdFocusMuted } from '../apps/focus/focusMuteGuard';
 
 // 复用 cloudPushService.js 里 getEffectiveServerUrl() 完全一样的读取
 // 逻辑，但不从那边 import——cloudPushService.js 反过来要 import 这个
@@ -73,6 +74,12 @@ export async function syncPendingCalls() {
       const characterId = Number(invite.characterId || 1);
       const ringUntil = Number(invite.ringUntil || 0);
       const isExpired = ringUntil > 0 && ringUntil <= now;
+
+      // 用户正在专注：这条邀请不响铃、不补发、不留未接来电，直接确认掉。
+      if (await isChatIdFocusMuted(chatId)) {
+        ackedIds.push(invite.id);
+        continue;
+      }
 
       if (isExpired) {
         await recordMissedCloudCall({

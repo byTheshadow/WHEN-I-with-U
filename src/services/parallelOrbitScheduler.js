@@ -1,4 +1,5 @@
 import db from '../db';
+import { isFocusMuted } from '../apps/focus/focusMuteState';
 import {
   checkAndTriggerParallelOrbit,
   cleanupExpiredParallelOrbits
@@ -124,6 +125,8 @@ export const runParallelOrbitScheduler = async (providedChats = null) => {
     // 使用串行而不是 Promise.all：
     // 避免多个聊天窗同时请求 AI，导致 API 突发并发、限流或大量 Token 消耗。
     for (const chat of validChats) {
+      // 用户正在专注：这个聊天窗的轨迹、今日安排和碎碎念都先不生成，不补发。
+      if (isFocusMuted(chat)) continue;
       if (autoScheduleEnabled) {
         try {
           const result = await checkAndTriggerParallelOrbit(chat.id, {

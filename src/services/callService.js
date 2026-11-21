@@ -22,6 +22,7 @@ import {
 
 import { synthesizeMiniMaxSpeech } from '../features/real-voice/minimaxClient';
 import { getAwayState } from '../apps/messages/away/awayState';
+import { isChatIdFocusMuted } from '../apps/focus/focusMuteGuard';
 import {
   getActiveUserAutoReply,
   maybeSendUserAutoReply,
@@ -1122,6 +1123,8 @@ export const startOutgoingCall = async ({ chatId, characterId, mode }) => {
  * 接听方式（mode）要等用户接听时才选。
  */
 export const startIncomingCall = async ({ chatId, characterId, inviteId = null, ringUntil = null, reason = '' }) => {
+  // 用户正在专注时不响铃，也不留未接来电。
+  if (await isChatIdFocusMuted(chatId)) return null;
   if (await hasAnyLiveCall()) return null;
 
   // inviteId 来自云端后台来电邀请（cloudCallService.js），本地调度器

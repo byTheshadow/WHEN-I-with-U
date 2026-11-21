@@ -1,4 +1,5 @@
 import db from '../../../db';
+import { isFocusMuted } from '../../focus/focusMuteState';
 import {
   getRecentChatMessages,
   buildHistoryContext,
@@ -328,7 +329,8 @@ export const checkForCrossChatCheckIn = async ({
     const candidateChats = await db.chats
       .filter((chat) => (
         chat?.id !== activeChatId &&
-        enabledCharacterIds.includes(String(chat?.characterId))
+        enabledCharacterIds.includes(String(chat?.characterId)) &&
+        !isFocusMuted(chat)
       ))
       .toArray();
 

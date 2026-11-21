@@ -42,6 +42,8 @@ import {
 
 
 import { getLocationPromptContext } from '../apps/location/locationPromptContext';
+import { getFocusPromptContext } from '../apps/focus/focusPromptContext';
+import { isChatIdFocusMuted } from '../apps/focus/focusMuteGuard';
 import { applyPlaceNoteDirective } from '../apps/location/placeMemoryService';
 import { getCompanionOfferNote, applyCompanionOfferDirective } from '../apps/companion/companionOfferService';
 import { buildCompanionStatusPromptBlock } from '../apps/companion/companionStatusPrompt';
@@ -2947,7 +2949,10 @@ const almanacPromptContext =
   });
 
   const locationPromptContext =
-  await getLocationPromptContext(chatId);
+ await getLocationPromptContext(chatId);
+
+  const focusPromptContext =
+  await getFocusPromptContext(chatId);
 
 const innerWorldPasswordContext =
   await getSafeInnerWorldPasswordContext({
@@ -2958,7 +2963,7 @@ const innerWorldPasswordContext =
 
   const finalSystemPrompt = `${
   systemPrompt
-}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${userReturnContext}${
+}${memoryContext}${characterEmotionContext}${almanacPromptContext}${locationPromptContext}${focusPromptContext}${userReturnContext}${
   options.extraSystemNote ? `\n\n${options.extraSystemNote}` : ''
 }`;
 
@@ -4023,6 +4028,8 @@ export const generateCompanionReplyForDiary = async (diaryId) => {
  * 基于该聊天窗口的特定上下文、专属人设和总提示词 (systemPrompt) 组装
  */
 export const generateCompanionProactiveMessage = async (chatId, options = {}) => {
+  // 用户正在专注（或刚结束的缓冲期）：不主动发消息，也不补发。
+  if (await isChatIdFocusMuted(chatId)) return null;
   const intentHint = String(options?.intentHint || '').trim();
   if (!chatId) return null;
 

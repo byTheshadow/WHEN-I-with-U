@@ -1,6 +1,7 @@
 import db from '../db';
 import { hasAnyLiveCall, startIncomingCall } from './callService';
 import { getAwayState } from '../apps/messages/away/awayState';
+import { isFocusMuted } from '../apps/focus/focusMuteState';
 import {
   generateCallReason,
   getCallChanceForSilence,
@@ -47,7 +48,9 @@ export const runCallScheduler = async (providedChats = null) => {
         chat?.characterId != null &&
         chat?.rhythmEnabled !== false &&
         // 角色暂时不在线时不主动来电。
-        !getAwayState(chat).away
+        !getAwayState(chat).away &&
+        // 用户正在专注时不主动来电。
+        !isFocusMuted(chat)
     );
 
     for (const chat of eligibleChats) {

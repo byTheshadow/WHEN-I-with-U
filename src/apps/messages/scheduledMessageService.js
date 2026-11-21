@@ -4,6 +4,7 @@ import { runChatCompletionWithMcpTools } from '../../services/mcp/scheduledMcpTo
 import { syncScheduledTaskToCloud } from '../../services/cloudPushService';
 import { reconcileCloudDeliveredScheduledMessages } from './scheduledCloudReconcile';
 import { AWAY_RETURN_TYPE } from './away/awayState';
+import { deferScheduledMessageIfFocusMuted } from '../focus/focusScheduledDefer';
 import { executeAwayReturn } from './away/awayService';
 import { checkCompanionsForNeglect } from '../companion/companionService';
 import { runCustodyTick } from '../companion/custody/companionCustodyService';
@@ -1028,7 +1029,11 @@ const executeScheduledMessage = async (
       scheduledMessage.id
     );
 
-  if (!claimedScheduledMessage) {
+  // 用户正在专注：这一条顺延到静音结束之后再发，不丢。
+  if (
+    !claimedScheduledMessage ||
+    (await deferScheduledMessageIfFocusMuted(claimedScheduledMessage))
+  ) {
     return;
   }
 
