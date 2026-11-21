@@ -11,6 +11,7 @@ import GrowthIcon from './GrowthIcon';
 import { DURATION_PRESETS, MAX_DURATION, MIN_DURATION } from './FocusSetup';
 import { FOCUS_MUTE_BUFFER_MINUTES } from './focusMuteState';
 import { GROWTH_STYLE_IDS, GROWTH_STYLE_META } from './focusGrowthIcons';
+import FocusTodoSuggest from './FocusTodoSuggest';
 import './focusGuide.css';
 
 const STEP_COUNT = 3;
@@ -181,6 +182,8 @@ const FocusSetupGuide = ({
                 if (event.key === 'Enter') goNext();
               }}
             />
+
+            <FocusTodoSuggest task={task} onPick={onTaskChange} />
 
             <div className="fg-section">
               <div className="fg-section-head">

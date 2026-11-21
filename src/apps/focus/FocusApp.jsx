@@ -25,6 +25,7 @@ import {
 } from './focusSessionService';
 import { recordUnwrittenFocusSessions, writeFocusRecordToChats } from './focusRecordMessage';
 import { writeEndNotes, writeStartNotes, writeUnwrittenEndNotes } from './focusNoteService';
+import { linkFocusSessionTodo } from './focusTodoLink';
 import {
   getFocusGrowthStyle,
   getFocusLastPrefs,
@@ -214,6 +215,7 @@ const FocusApp = ({ onBackHub }) => {
       const row = await db.focusSessions.get(sessionId);
 
       writeStartNotes(row);
+      linkFocusSessionTodo(sessionId, task);
 
       await saveFocusLastPrefs({
         durationMinutes,

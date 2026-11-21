@@ -8,6 +8,7 @@ import GrowthIcon from './GrowthIcon';
 import { growthStageFromProgress } from './focusGrowthIcons';
 import { formatCountdown } from './FocusRunning';
 import FocusAfter, { useRestLines } from './FocusAfter';
+import FocusTodoDone from './FocusTodoDone';
 
 export const REST_MINUTES = 5;
 
@@ -44,6 +45,8 @@ export const FocusDone = ({ session, growthStyle, notifiedNames, chatOptions, on
           ? `已经在和 ${notifiedNames.join('、')} 的聊天里留下了一条记录，下次聊天时他们会知道。`
           : '这一轮没有通知任何人，所以聊天里没有留下记录。'}
       </p>
+
+      <FocusTodoDone session={session} />
 
       <FocusAfter session={session} chatOptions={chatOptions} />
 
