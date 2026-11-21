@@ -1,0 +1,337 @@
+/* src/apps/focus/focus.css
+ * 心流（专注）页面样式。颜色全部走 App 的主题变量；
+ * 真实主题里没有的三个弥散光色 --aura-1/2/3 在这里按主题补上，只作用于 .focus-app。
+ */
+
+.focus-app {
+  --aura-1: #c3ccff;
+  --aura-2: #ffd3e2;
+  --aura-3: #cdeefe;
+  position: relative;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom));
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Noto Sans SC",
+    "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  overflow-x: hidden;
+}
+:root[data-theme="cream-latte"] .focus-app { --aura-1: #ffcb98; --aura-2: #f2bccd; --aura-3: #fff0c4; }
+:root[data-theme="obsidian-dark"] .focus-app { --aura-1: #3e4fa6; --aura-2: #6b2f80; --aura-3: #1d6274; }
+:root[data-theme="cyber-velvet"] .focus-app { --aura-1: #b04ce0; --aura-2: #3a58ff; --aura-3: #ff6fb6; }
+:root[data-theme="rose-quartz"] .focus-app { --aura-1: #f4adc0; --aura-2: #c8bfff; --aura-3: #ffdcc6; }
+
+.focus-app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    radial-gradient(circle at 20% 8%, color-mix(in srgb, var(--aura-1) 55%, transparent), transparent 55%),
+    radial-gradient(circle at 85% 92%, color-mix(in srgb, var(--aura-2) 45%, transparent), transparent 55%);
+}
+
+.focus-wrap {
+  position: relative;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.focus-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.focus-bar h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.08em; }
+.focus-back,
+.focus-bar-gap { width: 36px; height: 36px; }
+.focus-back {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.focus-center { text-align: center; }
+.focus-muted { color: var(--text-muted); font-size: 12px; }
+
+/* ---------- 设置页 ---------- */
+.focus-setup { display: flex; flex-direction: column; gap: 14px; }
+.focus-block {
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--card-bg, var(--bg-main)) 82%, transparent);
+  border: 1px solid var(--divider);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.focus-label { margin-bottom: 10px; color: var(--text-sub); font-size: 12.5px; }
+.focus-label-row { display: flex; align-items: center; justify-content: space-between; }
+.focus-label-row .focus-label { margin-bottom: 10px; }
+.focus-hint { margin: 10px 0 0; color: var(--text-muted); font-size: 11.5px; line-height: 1.7; }
+.focus-hint--center { text-align: center; margin: 14px 0 22px; }
+.focus-error { margin: 0; color: var(--text-sub); font-size: 12.5px; text-align: center; }
+
+.focus-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  outline: none;
+}
+.focus-input:focus { border-color: var(--accent-color); }
+.focus-input--num { width: 96px; }
+.focus-custom { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+
+.focus-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.focus-pill {
+  padding: 8px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: var(--control-soft-bg);
+  color: var(--text-main);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.focus-pill:disabled { opacity: 0.45; cursor: default; }
+.focus-pill.is-on {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+.focus-chip-wrap { position: relative; display: inline-block; }
+.focus-chip-del {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text-main);
+  color: var(--bg-main);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.focus-link {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.focus-link:disabled { opacity: 0.4; cursor: default; }
+
+.focus-orbs { display: flex; flex-wrap: wrap; gap: 14px; }
+.focus-orb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 60px;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.focus-orb-face {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--control-soft-bg);
+  border: 2px solid transparent;
+  opacity: 0.55;
+  transition: opacity 0.2s, border-color 0.2s, transform 0.2s;
+}
+.focus-orb-face img { width: 100%; height: 100%; object-fit: cover; }
+.focus-orb.is-on .focus-orb-face { opacity: 1; border-color: var(--accent-color); transform: scale(1.06); }
+.focus-orb-name { max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.focus-toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; }
+.focus-switch {
+  position: relative;
+  width: 46px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--control-soft-hover, var(--control-soft-bg));
+  cursor: pointer;
+  transition: background 0.25s;
+}
+.focus-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-main);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s;
+}
+.focus-switch.is-on { background: var(--accent-color); }
+.focus-switch.is-on i { transform: translateX(18px); }
+
+.focus-styles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.focus-style {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 16px;
+  background: var(--control-soft-bg);
+  color: var(--text-sub);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.focus-style.is-on { border-color: var(--accent-color); color: var(--text-main); }
+
+.focus-main-btn,
+.focus-ghost-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 14px;
+  border-radius: 999px;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.focus-main-btn {
+  border: 0;
+  background: var(--accent-color);
+  color: var(--accent-foreground);
+}
+.focus-main-btn:disabled { opacity: 0.4; cursor: default; }
+.focus-ghost-btn {
+  border: 1px solid var(--divider);
+  background: transparent;
+  color: var(--text-main);
+}
+
+/* ---------- 成长图标 ---------- */
+.focus-gicon { display: block; width: 100%; height: 100%; }
+.focus-gicon svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.focus-gicon--mini { width: 46px; height: 46px; }
+.focus-gicon--stage { width: 150px; height: 150px; }
+
+/* ---------- 进行中 / 结束 ---------- */
+.focus-running,
+.focus-done { display: flex; flex-direction: column; align-items: center; padding-top: 8px; }
+
+.focus-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 280px;
+  height: 280px;
+  max-width: 100%;
+}
+.focus-stage--done { width: 220px; height: 220px; }
+.focus-stage .focus-gicon--stage { position: relative; }
+.focus-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.focus-ring-track { fill: none; stroke: var(--divider); stroke-width: 3; }
+.focus-ring-prg {
+  fill: none;
+  stroke: var(--accent-color);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+
+.focus-time {
+  margin-top: 14px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Noto Serif SC", Georgia, serif;
+  font-size: 54px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.focus-task { margin-top: 6px; font-size: 16px; font-weight: 600; text-align: center; }
+.focus-meta { margin-top: 4px; color: var(--text-muted); font-size: 12.5px; text-align: center; }
+.focus-done-title {
+  margin: 14px 0 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", "Noto Serif SC", Georgia, serif;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.focus-done .focus-main-btn,
+.focus-done .focus-ghost-btn { max-width: 320px; }
+
+.focus-foot { display: flex; justify-content: space-between; width: 100%; margin-top: 12px; padding: 0 8px; }
+.focus-foot--single { justify-content: center; }
+
+/* ---------- 底部确认抽屉 ---------- */
+.focus-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.focus-sheet {
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
+  padding: 22px 20px max(22px, env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: var(--bg-main);
+  color: var(--text-main);
+  animation: focus-sheet-in 0.28s ease-out both;
+}
+.focus-sheet h4 { margin: 0 0 8px; font-size: 16px; }
+.focus-sheet p { margin: 0 0 14px; color: var(--text-sub); font-size: 13px; line-height: 1.7; }
+@keyframes focus-sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ---------- 休息 ---------- */
+.focus-rest-orb { position: relative; width: 200px; height: 200px; margin: 20px 0 6px; }
+.focus-rest-orb-o,
+.focus-rest-orb-r { position: absolute; border-radius: 50%; }
+.focus-rest-orb-o {
+  inset: 14%;
+  background: radial-gradient(circle at 40% 36%, var(--aura-3), var(--aura-1));
+  opacity: 0.8;
+  animation: focus-breath 8s ease-in-out infinite;
+}
+.focus-rest-orb-r {
+  inset: 4%;
+  border: 1px solid var(--divider);
+  animation: focus-breath 8s ease-in-out infinite reverse;
+}
+@keyframes focus-breath {
+  0%, 100% { transform: scale(0.88); }
+  50% { transform: scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-rest-orb-o,
+  .focus-rest-orb-r,
+  .focus-sheet { animation: none; }
+  .focus-ring-prg { transition: none; }
+}
