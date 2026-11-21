@@ -22,6 +22,7 @@ import FriendIntroNotice from '../friends/FriendIntroNotice';
 import FriendResultNotice from '../friends/FriendResultNotice';
 
 import HarpMelodyNotice from '../../harp/HarpMelodyNotice';
+import FocusRecordNotice from '../../focus/FocusRecordNotice';
 import PixelDollGiftNotice from '../../pixelDoll/PixelDollGiftNotice';
 import GreetingGiftNotice from '../../greeting/GreetingGiftNotice';
 import ChatToyMessage from '../toys/ChatToyMessage';
@@ -335,6 +336,10 @@ const MessageRow = ({
 
   if (msg.type === 'harp_melody') {
     return <HarpMelodyNotice message={msg} />;
+  }
+
+  if (msg.type === 'focus_record') {
+    return <FocusRecordNotice message={msg} />;
   }
   // 像素衣橱——送礼/角色回应/角色主动送礼留在聊天记录里的痕迹，同样是
   // 居中系统提示行，不可点击，具体穿戴情况去"像素衣橱"面板里看。

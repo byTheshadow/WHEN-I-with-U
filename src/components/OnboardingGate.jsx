@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import db from '../db';
 import './OnboardingGate.css';
+import DeclarationBlock from './DeclarationBlock';
 
 const I18N = {
   zh: {
@@ -273,6 +274,8 @@ export default function OnboardingGate({ children }) {
             <p key={index}>{note}</p>
           ))}
         </div>
+
+        <DeclarationBlock lang={lang} />
 
         <p className="onboarding-request">{t.request}</p>
 

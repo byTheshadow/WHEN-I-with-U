@@ -161,6 +161,7 @@ import {
   formatPhoneScreenForPrompt,
 } from '../apps/messages/phoneScreen/phoneScreenSpec';
 import { describeMelodyForPrompt } from '../apps/harp/harpDescribe';
+import { describeFocusRecordForPrompt } from '../apps/focus/focusRecordDescribe';
 import { parseHarpTagPayload } from '../apps/harp/harpTagParser';
 import { buildHarpPromptBlock } from '../apps/harp/harpPromptBlock';
 import {
@@ -795,7 +796,11 @@ export const formatMsgContentForPrompt = (msg, options = {}) => {
   }
 
     if (msg.type === 'harp_melody') {
-    return describeMelodyForPrompt(msg);
+      return describeMelodyForPrompt(msg);
+  }
+
+  if (msg.type === 'focus_record') {
+    return describeFocusRecordForPrompt(msg);
   }
 
   if (msg.type === 'secret_code_proposal') {

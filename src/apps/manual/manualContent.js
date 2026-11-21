@@ -33,6 +33,8 @@ export const MANUAL_LANGUAGES = [
   { code: 'ko', label: '한' },
 ];
 
+import { getDeclarationManualBlocks } from '../../components/declarationContent';
+
 export const MANUAL_DEFAULT_LANG = 'zh';
 
 // 说明书页头、目录、页脚这些不属于任何一个 section 的固定文案。
@@ -197,6 +199,7 @@ export const MANUAL_SECTIONS = [
           { type: 'note', text: '审核会卡成年和女性哦。' },
           { type: 'p', text: '如果对 WHEN I with U 的使用有疑问，也可以直接私信我。' },
           { type: 'p', text: '如果喜欢这个项目，也请老师们给我吃吃 repo 叭！' },
+          ...getDeclarationManualBlocks('zh'),
           {
             type: 'note',
             text: '网站内绝大部分图片素材均为 AI 生成，仅用于营造氛围与辅助体验，不代表任何真实人物、真实作品或特定版权方。',
@@ -238,6 +241,7 @@ export const MANUAL_SECTIONS = [
           { type: 'note', text: 'The group screens for adults and women only.' },
           { type: 'p', text: 'If you have questions about using WHEN I with U, feel free to DM me directly.' },
           { type: 'p', text: 'If you like this project, a repo star would mean a lot.' },
+          ...getDeclarationManualBlocks('en'),
           {
             type: 'note',
             text: "The vast majority of images on this site are AI-generated, used purely for atmosphere and ambience — they don't represent any real person, real artwork, or specific copyright holder.",
@@ -278,7 +282,8 @@ export const MANUAL_SECTIONS = [
           },
           { type: 'note', text: '가입 심사는 성인/여성 기준으로 진행됩니다.' },
           { type: 'p', text: 'WHEN I with U 사용에 관해 궁금한 점이 있으면 직접 DM 주셔도 됩니다.' },
-          { type: 'p', text: '이 프로젝트가 마음에 드셨다면 레포(스타)도 부탁드립니다.' },
+         { type: 'p', text: '이 프로젝트가 마음에 드셨다면 레포(스타)도 부탁드립니다.' },
+          ...getDeclarationManualBlocks('ko'),
           {
             type: 'note',
             text: '사이트 내 대부분의 이미지는 AI로 생성된 것으로, 분위기 연출과 체험 보조용일 뿐 실제 인물이나 실제 작품, 특정 저작권자를 나타내지 않습니다.',

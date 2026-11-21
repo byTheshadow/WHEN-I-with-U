@@ -81,6 +81,7 @@ export const HUB_APPS = [
 
   // ---- 工具 ----
   { id: 'workflows', en: 'Workflows', zh: '定时工作流', ko: '예약 워크플로우', sub: null, icon: 'Repeat', group: 'tools', badge: 'activeWorkflowCount', status: null },
+  { id: 'focus', en: 'Focus', zh: '心流', ko: '몰입', sub: 'Quiet Focus', icon: 'Leaf', group: 'daily', badge: null, status: null },
   { id: 'hourglass', en: 'Hourglass', zh: '信号沙漏', ko: '신호 모래시계', sub: 'API Signal Log', icon: 'Hourglass', group: 'tools', badge: null, status: null },
 ];
 

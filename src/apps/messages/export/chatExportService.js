@@ -236,6 +236,7 @@ export const describeMessageForExport = (message) => {
     case 'friend_intro_notice':
     case 'challenge_complete':
     case 'text_game_result':
+    case 'focus_record':
       return raw ? `[${raw}]` : `[${type}]`;
     default:
       return raw ? `[${type}] ${raw}` : `[${type}]`;

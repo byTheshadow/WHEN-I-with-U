@@ -116,6 +116,7 @@ const EnsembleApp = lazyWithRetry(() => import('./apps/ensemble/EnsembleApp'), '
 // DesktopPetWidget/StorageWarningBadge 等）不属于"点开才用到"的子应用页面，
 // 保持原样立即加载，避免首屏出现额外的加载态闪烁。
 const HourglassApp = lazyWithRetry(() => import('./apps/hourglass/HourglassApp'), 'HourglassApp');
+const FocusApp = lazyWithRetry(() => import('./apps/focus/FocusApp'), 'FocusApp');
 const BadgeExchangeApp = lazyWithRetry(() => import('./apps/badges/BadgeExchangeApp'), 'BadgeExchangeApp');
 const MailArchiveApp = lazyWithRetry(() => import('./apps/mailArchive/MailArchiveApp'), 'MailArchiveApp');
 const ArchiveApp = lazyWithRetry(() => import('./apps/archive/ArchiveApp'), 'ArchiveApp');
@@ -245,6 +246,7 @@ const REGISTERED_APPS = [
   'archive',
   'callHistory',
   'hourglass',
+  'focus',
   'badges',
     'mailArchive',
   'newspaper',
@@ -1481,6 +1483,16 @@ const isFictionApp = currentApp === 'fiction';
           <ErrorBoundary>
             <React.Suspense fallback={<AppLoadingFallback />}>
               <AlmanacApp
+                onBackHub={() => openApp('hub')}
+              />
+            </React.Suspense>
+          </ErrorBoundary>
+        )}
+
+       {currentApp === 'focus' && (
+          <ErrorBoundary>
+            <React.Suspense fallback={<AppLoadingFallback />}>
+              <FocusApp
                 onBackHub={() => openApp('hub')}
               />
             </React.Suspense>

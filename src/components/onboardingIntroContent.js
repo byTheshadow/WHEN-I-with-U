@@ -36,7 +36,7 @@ export const ONBOARDING_INTRO_SCREENS = {
       title: '欢迎来到 WHEN I with U【熔巧机】',
       paragraphs: [
         '这里有很多个"空间"，每一个都是你和角色相处的不同方式。花几秒钟看看，怎么开始第一次对话和各个空间的设置。',
-        '熔巧机作者：玉元一，暂未授权二改，如有需要请联系作者。熔巧机是纯分享的免费项目，仅包含基础架构，api配置、人设等均需要由您（用户）自行撰写导入。有任何使用问题请联系作者或在群内提问艾特，免费分享为爱发电，请友好提问，感谢您的支持。',
+        '熔巧机作者：玉元一，不接受二次发布与改编后发布（详见入口页与说明书中的声明），如有需要请联系作者。熔巧机是纯分享的免费项目，仅包含基础架构，api配置、人设等均需要由您（用户）自行撰写导入。有任何使用问题请联系作者或在群内提问艾特，免费分享为爱发电，请友好提问，感谢您的支持。',
       ],
       bullets: null,
     },
@@ -101,7 +101,7 @@ export const ONBOARDING_INTRO_SCREENS = {
       title: 'Welcome to WHEN I with U [RongQiaoJi]',
       paragraphs: [
         'There are many "spaces" here, each a different way to spend time with your character. Take a few seconds to see how to start your first conversation and what each space offers.',
-        "RongQiaoJi's creator is Yu Yuanyi (玉元一); modification or redistribution isn't currently authorized — please contact the creator if you need that. RongQiaoJi is a free, share-only project containing only the base framework: the API configuration, character persona, and so on all need to be written and imported by you, the user. If you run into any issues, please contact the creator or ask (with an @mention) in the community group. This is shared for free, out of love, so please ask questions kindly — thank you for your support.",
+        "RongQiaoJi's creator is Yu Yuanyi (玉元一);re-releasing and releasing adapted versions are not accepted (see the declaration on the entry page and in the manual); please contact the creator if you need anything.  RongQiaoJi is a free, share-only project containing only the base framework: the API configuration, character persona, and so on all need to be written and imported by you, the user. If you run into any issues, please contact the creator or ask (with an @mention) in the community group. This is shared for free, out of love, so please ask questions kindly — thank you for your support.",
       ],
       bullets: null,
     },
@@ -166,7 +166,7 @@ export const ONBOARDING_INTRO_SCREENS = {
       title: '【롱챠오지】WHEN I with U에 오신 것을 환영합니다',
       paragraphs: [
         '이곳에는 여러 개의 "공간"이 있으며, 각각은 캐릭터와 함께하는 서로 다른 방식입니다. 잠깐 시간을 내어 첫 대화를 시작하는 방법과 각 공간의 설정을 살펴보세요.',
-        '롱챠오지의 제작자는 玉元一(위 위안이)이며, 아직 2차 수정 권한을 부여하지 않았으니 필요하신 경우 제작자에게 문의해 주세요. 롱챠오지는 순수 공유 목적의 무료 프로젝트로, 기본 구조만 포함되어 있으며 API 설정, 캐릭터 설정 등은 모두 사용자 본인이 직접 작성하여 불러와야 합니다. 사용 중 문제가 있으면 제작자에게 문의하시거나 그룹 채팅에서 멘션하여 질문해 주세요. 무료 공유는 애정으로 운영되는 프로젝트이니, 친절하게 질문해 주시면 감사하겠습니다. 응원해 주셔서 감사합니다.',
+        '롱챠오지의 제작자는 玉元一(위 위안이)이며, 2차 배포와 개작 후 배포는 받아들이지 않습니다(입장 페이지와 설명서의 공지 참고). 필요하신 경우 제작자에게 문의해 주세요. 롱챠오지는 순수 공유 목적의 무료 프로젝트로, 기본 구조만 포함되어 있으며 API 설정, 캐릭터 설정 등은 모두 사용자 본인이 직접 작성하여 불러와야 합니다. 사용 중 문제가 있으면 제작자에게 문의하시거나 그룹 채팅에서 멘션하여 질문해 주세요. 무료 공유는 애정으로 운영되는 프로젝트이니, 친절하게 질문해 주시면 감사하겠습니다. 응원해 주셔서 감사합니다.',
       ],
       bullets: null,
     },
