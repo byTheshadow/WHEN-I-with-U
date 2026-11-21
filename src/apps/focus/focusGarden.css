@@ -1,0 +1,74 @@
+/* src/apps/focus/focusGarden.css
+ * 花园日历。只用主题变量和 focus.css 里已有的类（focus-block、focus-back、focus-label、
+ * focus-muted、focus-hint），不设实色背景。
+ */
+
+.focus-garden { display: flex; flex-direction: column; gap: 14px; }
+
+.focus-garden-nav { display: flex; align-items: center; justify-content: space-between; }
+.focus-garden-title { font-size: 14px; font-weight: 600; letter-spacing: 0.08em; }
+.focus-garden-nav .focus-back:disabled { opacity: 0.3; cursor: default; }
+
+.focus-garden-card { padding: 12px 10px 10px; }
+
+.focus-garden-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.focus-garden-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+
+.focus-garden-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  min-width: 0;
+  aspect-ratio: 1 / 1.12;
+  padding: 3px 0 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  cursor: pointer;
+}
+.focus-garden-cell.is-empty { cursor: default; }
+.focus-garden-cell.is-future { opacity: 0.4; }
+.focus-garden-cell.is-today { border-color: var(--divider); background: var(--control-soft-bg); }
+.focus-garden-cell.is-selected { border-color: var(--accent-color); }
+
+.focus-garden-day { color: var(--text-muted); font-size: 10.5px; line-height: 1; }
+.focus-garden-icon { display: block; width: 78%; aspect-ratio: 1 / 1; margin-top: 2px; }
+.focus-garden-cell.is-withered .focus-garden-icon { opacity: 0.45; }
+
+.focus-garden-count {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  color: var(--text-muted);
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.focus-garden-sum { margin: 10px 0 0; }
+
+.focus-garden-detail { display: flex; flex-direction: column; gap: 10px; }
+.focus-garden-detail .focus-label { margin-bottom: 0; }
+
+.focus-garden-row { display: flex; align-items: center; gap: 12px; }
+.focus-garden-row-icon { flex: 0 0 auto; display: block; width: 42px; height: 42px; }
+.focus-garden-row.is-withered .focus-garden-row-icon { opacity: 0.45; }
+.focus-garden-row-body { min-width: 0; flex: 1; }
+.focus-garden-row-task {
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

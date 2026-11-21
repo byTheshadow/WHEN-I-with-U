@@ -11,7 +11,7 @@
 // 不用 h-[100dvh] + 内部滚动区域（嵌在 Hub 的 currentApp 容器里撑不满整页）。
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CalendarDays } from 'lucide-react';
 
 import db from '../../db';
 import {
@@ -34,6 +34,7 @@ import {
 import { DEFAULT_GROWTH_STYLE } from './focusGrowthIcons';
 import FocusSetup, { MAX_DURATION, MIN_DURATION } from './FocusSetup';
 import FocusRunning from './FocusRunning';
+import FocusGarden from './FocusGarden';
 import { FocusDone, FocusRest, REST_MINUTES } from './FocusDone';
 import './focus.css';
 
@@ -282,21 +283,40 @@ const FocusApp = ({ onBackHub }) => {
     setup: '心流',
     running: '专注中',
     done: '这一轮',
-    rest: '休息',
+        rest: '休息',
+    garden: '花园',
   };
 
   return (
     <div className="focus-app" data-view={view}>
       <div className="focus-wrap">
         <header className="focus-bar">
-          <button type="button" className="focus-back" aria-label="返回" onClick={onBackHub}>
+          <button
+            type="button"
+            className="focus-back"
+            aria-label="返回"
+            onClick={view === 'garden' ? goSetup : onBackHub}
+          >
             <ArrowLeft size={18} />
           </button>
           <h1>{titleByView[view]}</h1>
-          <span className="focus-bar-gap" />
+          {view === 'setup' ? (
+            <button
+              type="button"
+              className="focus-back"
+              aria-label="花园日历"
+              onClick={() => setView('garden')}
+            >
+              <CalendarDays size={18} />
+            </button>
+          ) : (
+            <span className="focus-bar-gap" />
+          )}
         </header>
 
         {view === 'loading' && <p className="focus-muted focus-center">正在准备…</p>}
+
+        {view === 'garden' && <FocusGarden growthStyle={growthStyle} />}
 
         {view === 'setup' && (
           <FocusSetup
