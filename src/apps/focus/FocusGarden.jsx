@@ -22,6 +22,7 @@ import {
   toMonthPrefix,
 } from './focusGardenModel';
 import './focusGarden.css';
+import './focusGardenDots.css';
 
 const loadMonthSessions = async (year, month) => {
   const prefix = toMonthPrefix(year, month);
@@ -139,7 +140,13 @@ const FocusGarden = ({ growthStyle }) => {
                     <GrowthIcon style={growthStyle} stage={visual.stage} withered={visual.withered} />
                   </span>
                 )}
-                {list.length > 1 && <span className="focus-garden-count">{list.length}</span>}
+                {list.length > 0 && (
+                  <span className="focus-garden-dots" aria-hidden="true">
+                    {Array.from({ length: Math.min(list.length, 4) }).map((_, i) => (
+                      <i key={i} />
+                    ))}
+                  </span>
+                )}
               </button>
             );
           })}

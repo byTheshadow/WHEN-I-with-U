@@ -33,6 +33,7 @@ import {
 } from './focusSettings';
 import { DEFAULT_GROWTH_STYLE } from './focusGrowthIcons';
 import FocusSetup, { MAX_DURATION, MIN_DURATION } from './FocusSetup';
+import FocusSetupGuide from './FocusSetupGuide';
 import FocusRunning from './FocusRunning';
 import FocusGarden from './FocusGarden';
 import { FocusDone, FocusRest, REST_MINUTES } from './FocusDone';
@@ -319,7 +320,7 @@ const FocusApp = ({ onBackHub }) => {
         {view === 'garden' && <FocusGarden growthStyle={growthStyle} />}
 
         {view === 'setup' && (
-          <FocusSetup
+          <FocusSetupGuide
             task={task}
             onTaskChange={setTask}
             durationMinutes={durationMinutes}

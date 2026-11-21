@@ -1,0 +1,31 @@
+/* src/apps/focus/focusGardenDots.css
+ * 花园日历的第二版排版：次数改成图标下方一行小点（一点一次，最多四点），
+ * 月份切换的箭头收小，整体限宽居中。盖在 focusGarden.css 之上。
+ */
+
+.focus-garden { max-width: 640px; margin: 0 auto; }
+
+.focus-garden-nav .focus-back {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  color: var(--text-sub);
+}
+
+.focus-garden-cell { aspect-ratio: 1 / 1.25; padding-top: 5px; }
+.focus-garden-icon { width: 70%; }
+
+.focus-garden-dots {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 3px;
+}
+.focus-garden-dots i {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.75;
+}
