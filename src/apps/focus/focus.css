@@ -8,30 +8,37 @@
   --aura-2: #ffd3e2;
   --aura-3: #cdeefe;
   position: relative;
+  isolation: isolate;
+  width: 100%;
   min-height: 100vh;
   box-sizing: border-box;
-  padding: max(16px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom));
-  background: var(--bg-main);
+  overflow-x: clip;
+  padding: max(1rem, env(safe-area-inset-top)) clamp(1rem, 4vw, 3rem) 4rem;
   color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Noto Sans SC",
     "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  overflow-x: hidden;
 }
 :root[data-theme="cream-latte"] .focus-app { --aura-1: #ffcb98; --aura-2: #f2bccd; --aura-3: #fff0c4; }
 :root[data-theme="obsidian-dark"] .focus-app { --aura-1: #3e4fa6; --aura-2: #6b2f80; --aura-3: #1d6274; }
 :root[data-theme="cyber-velvet"] .focus-app { --aura-1: #b04ce0; --aura-2: #3a58ff; --aura-3: #ff6fb6; }
 :root[data-theme="rose-quartz"] .focus-app { --aura-1: #f4adc0; --aura-2: #c8bfff; --aura-3: #ffdcc6; }
 
-.focus-app::before {
-  content: "";
-  position: absolute;
-  inset: 0;
+/* 页面背景弥散：和 memory 一样不设实色底，只放两团固定的柔光，背景由外层 App 提供 */
+.focus-app::before,
+.focus-app::after {
+  position: fixed;
+  z-index: -1;
+  display: block;
+  width: min(40rem, 75vw);
+  height: min(40rem, 75vw);
+  border-radius: 50%;
   pointer-events: none;
-  opacity: 0.5;
-  background:
-    radial-gradient(circle at 20% 8%, color-mix(in srgb, var(--aura-1) 55%, transparent), transparent 55%),
-    radial-gradient(circle at 85% 92%, color-mix(in srgb, var(--aura-2) 45%, transparent), transparent 55%);
+  content: "";
+  opacity: 0.32;
+  filter: blur(70px);
 }
+.focus-app::before { top: -14rem; right: -12rem; background: var(--aura-1); }
+.focus-app::after { bottom: -16rem; left: -12rem; background: var(--aura-2); }
 
 .focus-wrap {
   position: relative;
